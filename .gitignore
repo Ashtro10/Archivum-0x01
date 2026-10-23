@@ -1,0 +1,10 @@
+.gradle/
+build/
+toolchain/
+local.properties
+*.keystore
+*.jks
+.idea/
+*.iml
+native/build/
+native/llama.cpp-build-host/

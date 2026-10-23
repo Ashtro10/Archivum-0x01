@@ -1,0 +1,440 @@
+package ai.clu.core.config
+
+import ai.clu.core.config.SettingCategory.*
+import ai.clu.core.config.SettingScope.DEVICE
+import ai.clu.core.voice.WakeWord
+import ai.clu.core.util.CluJson
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonElement
+
+/**
+ * The complete settings registry. Each entry is wired to a consuming component; see `verifiedBy` for the test that
+ * demonstrates the behaviour change. docs/SETTINGS_REGISTER.md is generated from this list.
+ */
+object Settings {
+    private val defs = LinkedHashMap<String, SettingDef>()
+    val all: List<SettingDef> get() = defs.values.toList()
+    operator fun get(key: String): SettingDef? = defs[key]
+
+    private fun def(d: SettingDef): String { require(d.key !in defs) { "duplicate ${d.key}" }; defs[d.key] = d; return d.key }
+
+    private fun bool(key: String, title: String, cat: SettingCategory, default: Boolean, desc: String, component: String, effect: String,
+                     test: String, scope: SettingScope = SettingScope.SHARED, apply: ApplyMode = ApplyMode.IMMEDIATE,
+                     sensitive: Boolean = false, limits: String = "", deviceOnly: Boolean = false, advanced: Boolean = false) =
+        def(SettingDef(key, title, cat, SettingType.Bool, jsonOf(default), desc, component, effect, scope, apply, sensitive, test, limits, deviceOnly, advanced))
+
+    private fun int(key: String, title: String, cat: SettingCategory, default: Int, min: Int, max: Int, desc: String, component: String,
+                    effect: String, test: String, scope: SettingScope = SettingScope.SHARED, apply: ApplyMode = ApplyMode.IMMEDIATE,
+                    limits: String = "", deviceOnly: Boolean = false, advanced: Boolean = false) =
+        def(SettingDef(key, title, cat, SettingType.IntRange(min, max), jsonOf(default), desc, component, effect, scope, apply, false, test, limits, deviceOnly, advanced))
+
+    private fun float(key: String, title: String, cat: SettingCategory, default: Double, min: Double, max: Double, desc: String,
+                      component: String, effect: String, test: String, scope: SettingScope = SettingScope.SHARED,
+                      apply: ApplyMode = ApplyMode.IMMEDIATE, limits: String = "", deviceOnly: Boolean = false, advanced: Boolean = false) =
+        def(SettingDef(key, title, cat, SettingType.FloatRange(min, max), jsonOf(default), desc, component, effect, scope, apply, false, test, limits, deviceOnly, advanced))
+
+    private fun choice(key: String, title: String, cat: SettingCategory, default: String, options: List<Pair<String, String>>, desc: String,
+                       component: String, effect: String, test: String, scope: SettingScope = SettingScope.SHARED,
+                       apply: ApplyMode = ApplyMode.IMMEDIATE, sensitive: Boolean = false, limits: String = "",
+                       deviceOnly: Boolean = false, advanced: Boolean = false) =
+        def(SettingDef(key, title, cat, SettingType.Choice(options), jsonOf(default), desc, component, effect, scope, apply, sensitive, test, limits, deviceOnly, advanced))
+
+    private fun text(key: String, title: String, cat: SettingCategory, default: String, desc: String, component: String, effect: String,
+                     test: String, type: SettingType.Text = SettingType.Text(), scope: SettingScope = SettingScope.SHARED,
+                     apply: ApplyMode = ApplyMode.IMMEDIATE, sensitive: Boolean = false, limits: String = "", advanced: Boolean = false,
+                     deviceOnly: Boolean = false) =
+        def(SettingDef(key, title, cat, type, jsonOf(default), desc, component, effect, scope, apply, sensitive, test, limits, deviceOnly, advanced))
+
+    private fun list(key: String, title: String, cat: SettingCategory, default: List<String>, desc: String, component: String,
+                     effect: String, test: String, type: SettingType.TextList = SettingType.TextList(), limits: String = "") =
+        def(SettingDef(key, title, cat, type, jsonOf(default), desc, component, effect, SettingScope.SHARED, ApplyMode.IMMEDIATE, false, test, limits))
+
+    private fun time(key: String, title: String, cat: SettingCategory, default: String, desc: String, component: String, effect: String, test: String) =
+        def(SettingDef(key, title, cat, SettingType.TimeOfDay, jsonOf(default), desc, component, effect, SettingScope.SHARED, ApplyMode.IMMEDIATE, false, test))
+
+    // ---------------------------------------------------------------- General & personality
+    val CLU_NAME = text("identity.cluName", "Clu's name", GENERAL, "Clu", "The name Clu uses for itself.", "PromptBuilder, UI",
+        "System prompt identity line and screen titles use this name", "PersonaSettingsTest#cluName",
+        SettingType.Text(40, allowEmpty = false), sensitive = true)
+    val OWNER_NAME = text("identity.ownerName", "Owner's name", GENERAL, "", "Your name, as Clu should know it.", "PromptBuilder",
+        "System prompt states who the owner is", "PersonaSettingsTest#ownerName", SettingType.Text(60))
+    val OWNER_ADDRESS = text("identity.ownerAddress", "Form of address", GENERAL, "", "How Clu addresses you (e.g. \"sir\", your first name). Empty = your name.",
+        "PromptBuilder, ResponseTemplates", "Prompt instruction and spoken templates ({owner}) use it", "PersonaSettingsTest#ownerAddress", SettingType.Text(40))
+    val LANGUAGE = choice("persona.language", "Response language", GENERAL, "en",
+        listOf("en" to "English", "hi" to "Hindi", "hinglish" to "Hinglish (Hindi-English mix)"),
+        "Language Clu answers in.", "PromptBuilder", "Adds a language instruction to the system prompt", "PersonaSettingsTest#language",
+        limits = "Offline speech recognition model bundled for download is English; Hindi affects text replies only.")
+    val PRONUNCIATIONS = list("persona.pronunciations", "Pronunciation fixes", GENERAL, emptyList(),
+        "Entries like \"Ashutosh=Aa-shu-tosh\". Applied to text before speech synthesis.", "SpeechTextPreprocessor",
+        "Matching words are replaced in the text sent to the TTS engine", "PersonaSettingsTest#pronunciations",
+        SettingType.TextList(50, 120))
+    val RESPONSE_LENGTH = choice("persona.responseLength", "Response length", GENERAL, "balanced",
+        listOf("brief" to "Brief", "balanced" to "Balanced", "detailed" to "Detailed"), "Default length of answers.",
+        "PromptBuilder, GenerationParams", "Changes the length instruction and the token budget", "PersonaSettingsTest#responseLength", apply = ApplyMode.NEXT_TURN)
+    val FORMALITY = choice("persona.formality", "Formality", GENERAL, "neutral",
+        listOf("casual" to "Casual", "neutral" to "Neutral", "formal" to "Formal"), "Register of speech.", "PromptBuilder",
+        "Adds a formality instruction", "PersonaSettingsTest#formality", apply = ApplyMode.NEXT_TURN)
+    val HUMOR = choice("persona.humor", "Humour", GENERAL, "dry",
+        listOf("none" to "None", "dry" to "Dry, occasional", "frequent" to "Frequent"), "How much humour Clu uses.", "PromptBuilder",
+        "Adds a humour instruction", "PersonaSettingsTest#humor", apply = ApplyMode.NEXT_TURN)
+    val SARCASM = choice("persona.sarcasm", "Sarcasm", GENERAL, "light",
+        listOf("off" to "Off", "light" to "Light", "sharp" to "Sharp"), "Sarcasm level.", "PromptBuilder, RefusalTemplates",
+        "Adds a sarcasm instruction; selects refusal line style", "PersonaSettingsTest#sarcasm", apply = ApplyMode.NEXT_TURN)
+    val DIRECTNESS = choice("persona.directness", "Directness", GENERAL, "direct",
+        listOf("diplomatic" to "Diplomatic", "direct" to "Direct", "blunt" to "Blunt"), "How directly Clu delivers judgements.",
+        "PromptBuilder", "Adds a directness instruction", "PersonaSettingsTest#directness", apply = ApplyMode.NEXT_TURN)
+    val GREET_ON_START = bool("persona.greetOnSessionStart", "Greet when activated", GENERAL, true,
+        "Speak a greeting when a voice session starts.", "VoiceSession, ResponseTemplates", "A greeting line is spoken/shown on activation",
+        "PersonaSettingsTest#greetOnStart")
+    val GREETINGS = list("persona.greetings", "Greeting lines", GENERAL,
+        listOf("{greeting}, {owner}.", "I'm listening, {owner}.", "Yes, {owner}?"),
+        "Templates. {owner} = form of address, {greeting} = good morning/afternoon/evening.", "ResponseTemplates",
+        "One line is chosen for activation greetings", "PersonaSettingsTest#greetings", SettingType.TextList(20, 160, minItems = 1))
+    val CUSTOM_INSTRUCTIONS = text("persona.customInstructions", "Custom instructions", GENERAL, "",
+        "Free-form behavioural instructions added to Clu's system prompt.", "PromptBuilder", "Included verbatim in the system prompt",
+        "PersonaSettingsTest#customInstructions", SettingType.Text(2000, multiline = true), apply = ApplyMode.NEXT_TURN)
+    val QUIET_ENABLED = bool("quiet.enabled", "Quiet hours", GENERAL, true, "Suppress proactive messages and (optionally) speech during quiet hours.",
+        "QuietHours, ProactivePlanner, SpeechOutput", "Proactive messages are not issued inside the window", "PersonaSettingsTest#quietHours")
+    val QUIET_START = time("quiet.start", "Quiet hours start", GENERAL, "22:30", "Start of quiet hours.", "QuietHours",
+        "Defines the quiet window", "PersonaSettingsTest#quietHours")
+    val QUIET_END = time("quiet.end", "Quiet hours end", GENERAL, "07:00", "End of quiet hours.", "QuietHours",
+        "Defines the quiet window", "PersonaSettingsTest#quietHours")
+    val QUIET_MUTE_SPEECH = bool("quiet.muteSpeech", "Mute speech in quiet hours", GENERAL, false,
+        "Reply in text only (no spoken audio) during quiet hours.", "SpeechOutput", "TTS is skipped inside the quiet window", "PersonaSettingsTest#quietMuteSpeech")
+
+    // ---------------------------------------------------------------- Voice
+    val TTS_ENGINE = choice("voice.ttsEngine", "Speech engine", VOICE, "sherpa",
+        listOf("sherpa" to "Clu voice (offline neural, sherpa-onnx/Piper)", "android" to "Android system TTS"),
+        "Which engine synthesises Clu's voice.", "SpeechOutput", "Selects the TTS backend", "VoiceSettingsTest#ttsEngine",
+        apply = ApplyMode.VOICE_RESTART, limits = "Clu voice requires the voice pack (downloaded or imported once). Falls back to Android TTS if missing.",
+        deviceOnly = true)
+    val TTS_SPEAKER = int("voice.sherpaSpeaker", "Clu voice speaker id", VOICE, 0, 0, 1000, "Speaker index for multi-speaker voice models.",
+        "SherpaTts", "Passed as the speaker id to the synthesiser", "VoiceSettingsTest#speaker", deviceOnly = true,
+        limits = "Single-speaker voices ignore values other than 0.")
+    val ANDROID_VOICE = text("voice.androidVoice", "Android voice name", VOICE, "", "Voice name for the Android TTS engine. Empty = prefer an offline male voice.",
+        "AndroidTts", "Selects TextToSpeech voice", "VoiceSettingsTest#androidVoice", deviceOnly = true)
+    val SPEED = float("voice.speed", "Speaking speed", VOICE, 0.92, 0.5, 2.0, "1.0 = normal.", "SpeechOutput",
+        "Synthesis speed (sherpa) / speech rate (Android)", "VoiceSettingsTest#speed", deviceOnly = true)
+    val PITCH = float("voice.pitch", "Pitch", VOICE, 0.88, 0.5, 2.0, "1.0 = engine default. Applied at playback for the Clu voice.",
+        "AudioPlayer", "AudioTrack PlaybackParams pitch", "VoiceSettingsTest#pitch", deviceOnly = true)
+    val METALLIC = float("voice.metallic", "Metallic tone", VOICE, 0.25, 0.0, 1.0, "Amount of the metallic (ring-modulation/comb) effect.",
+        "VoiceEffect", "PCM processed by a ring-modulator + comb filter before playback", "VoiceSettingsTest#metallic")
+    val VOLUME = float("voice.volume", "Speech volume", VOICE, 1.0, 0.0, 1.0, "Relative speech volume.", "AudioPlayer",
+        "Playback gain", "VoiceSettingsTest#volume")
+    val SPEAK_RESPONSES = bool("voice.speakResponses", "Speak replies to typed messages", VOICE, false,
+        "Also speak replies when you type (voice mode always speaks).", "ChatController", "TTS invoked for text-mode replies", "VoiceSettingsTest#speakResponses")
+    val INCREMENTAL_TTS = bool("voice.incremental", "Speak while generating", VOICE, true,
+        "Start speaking at the first complete sentence instead of waiting for the full reply.", "SentenceChunker, SpeechOutput",
+        "Sentences are queued for synthesis as they complete", "VoiceSettingsTest#incremental")
+    val BARGE_IN = bool("voice.bargeIn", "Interrupt by speaking", VOICE, true,
+        "When you start speaking during playback, Clu stops talking and listens.", "TurnManager",
+        "Speech detected during SPEAKING stops playback and starts a new turn", "VoiceSettingsTest#bargeIn",
+        limits = "Requires echo cancellation to avoid self-interruption; reliability depends on the device's AEC.")
+    val ASR_ENGINE = choice("voice.asrEngine", "Speech recognition", VOICE, "sherpa",
+        listOf("sherpa" to "Offline streaming (sherpa-onnx)", "android_ondevice" to "Android on-device recognizer", "android" to "Android default recognizer (may use network)"),
+        "Engine used to transcribe speech.", "SpeechInput", "Selects the ASR backend", "VoiceSettingsTest#asrEngine",
+        apply = ApplyMode.VOICE_RESTART, deviceOnly = true,
+        limits = "Android recognizers depend on what is installed on the device; the default recognizer may send audio to its provider.")
+    val VAD_SENSITIVITY = float("voice.vadSensitivity", "Voice detection sensitivity", VOICE, 0.5, 0.0, 1.0,
+        "Higher = detects quieter speech (and more noise).", "VoiceActivityDetector", "Silero VAD threshold = 0.75 - 0.5 x sensitivity",
+        "VoiceSettingsTest#vadSensitivity", apply = ApplyMode.VOICE_RESTART)
+    val END_SILENCE = int("voice.endSilenceMs", "End-of-speech pause (ms)", VOICE, 650, 250, 2500,
+        "Silence that ends your turn.", "VoiceActivityDetector, Endpointer", "Minimum silence before the utterance is finalised",
+        "VoiceSettingsTest#endSilence", apply = ApplyMode.VOICE_RESTART)
+    val ACK_MODE = choice("voice.ackMode", "Activation acknowledgement", VOICE, "tone",
+        listOf("none" to "None", "tone" to "Short tone", "speech" to "Spoken phrase"), "Feedback when Clu starts listening.",
+        "VoiceSession", "Plays a tone / speaks a phrase on activation", "VoiceSettingsTest#ackMode")
+    val ACK_PHRASES = list("voice.ackPhrases", "Acknowledgement phrases", VOICE, listOf("Yes?", "Listening.", "Go on."),
+        "Used when acknowledgement is set to spoken phrase.", "VoiceSession", "One phrase is spoken on activation", "VoiceSettingsTest#ackMode",
+        SettingType.TextList(20, 60, minItems = 1))
+    val MIC_MODE = choice("voice.micMode", "Microphone button", VOICE, "tap",
+        listOf("hold" to "Hold to talk", "tap" to "Tap to start, auto-stop on silence", "conversation" to "Tap for continuous conversation"),
+        "Behaviour of the microphone button in chat.", "ChatController", "Changes how the mic button starts/stops capture", "VoiceSettingsTest#micMode")
+    val CONTINUE_LISTENING = bool("voice.continueAfterReply", "Keep listening after replies", VOICE, true,
+        "After Clu replies in a voice session, listen for a follow-up without requiring the wake word.", "TurnManager",
+        "Session returns to LISTENING instead of WAITING_FOR_WAKE", "VoiceSettingsTest#continueListening")
+    val FOLLOWUP_TIMEOUT = int("voice.followUpTimeoutSec", "Follow-up window (s)", VOICE, 10, 3, 120,
+        "How long to wait for a follow-up before returning to wake-word mode.", "TurnManager", "Idle timeout of an active session",
+        "VoiceSettingsTest#followUpTimeout")
+    val AUDIO_SOURCE = choice("voice.audioSource", "Microphone processing", VOICE, "voice_communication",
+        listOf("voice_communication" to "Echo-cancelled (recommended for interruption)", "voice_recognition" to "Raw recognition tuning", "mic" to "Unprocessed microphone"),
+        "Android capture source.", "AudioCapture", "AudioRecord source selection", "VoiceSettingsTest#audioSource",
+        apply = ApplyMode.VOICE_RESTART, deviceOnly = true)
+    val NOISE_SUPPRESSION = bool("voice.noiseSuppression", "Noise suppression", VOICE, true, "Attach the platform noise suppressor if available.",
+        "AudioCapture", "android.media.audiofx.NoiseSuppressor enabled on the capture session", "VoiceSettingsTest#noiseSuppression",
+        apply = ApplyMode.VOICE_RESTART, deviceOnly = true, limits = "Only if the device exposes NoiseSuppressor.")
+
+    // ---------------------------------------------------------------- Wake words & activation
+    val WAKE_ENABLED = bool("wake.enabled", "Wake word", WAKE, true, "Activate Clu by name while background listening runs.",
+        "WakeDetector", "Wake detection runs on the audio stream", "WakeSettingsTest#wakeEnabled", apply = ApplyMode.VOICE_RESTART)
+    val WAKE_WORDS = def(SettingDef("wake.words", "Wake words", WAKE,
+        SettingType.Structured(::validateWakeWords),
+        CluJson.encodeToJsonElement(ListSerializer(WakeWord.serializer()), WakeWord.defaults()),
+        "Activation phrases. The primary phrase is the only one accepted in noisy surroundings (if strict mode is on).",
+        "WakeDetector, WakePolicy", "Detector keyword set and policy; disabled phrases never activate", SettingScope.SHARED,
+        ApplyMode.VOICE_RESTART, false, "WakeSettingsTest#wakeWords"))
+    val WAKE_ENGINE = choice("wake.engine", "Wake detection method", WAKE, "asr",
+        listOf("asr" to "Speech-gated recognition (any phrase, recorded samples supported)", "kws" to "Keyword spotter (lowest power, sherpa-onnx KWS)"),
+        "How wake phrases are detected.", "WakeDetector", "Selects the detector implementation", "WakeSettingsTest#engine",
+        apply = ApplyMode.VOICE_RESTART, deviceOnly = true,
+        limits = "Keyword spotter needs the KWS model; phrases must be expressible in its English token set.")
+    val WAKE_THRESHOLD = float("wake.matchThreshold", "Wake match strictness", WAKE, 0.75, 0.4, 1.0,
+        "Similarity required between heard words and a wake phrase (higher = stricter).", "WakePhraseMatcher",
+        "Minimum fuzzy-match score for activation", "WakeSettingsTest#threshold")
+    val CLAP_ENABLED = bool("wake.clap", "Clap activation", WAKE, false, "Double clap activates Clu (quiet surroundings only).",
+        "ClapDetector, WakePolicy", "Clap patterns can activate a session", "WakeSettingsTest#clap", apply = ApplyMode.VOICE_RESTART)
+    val CLAP_SENSITIVITY = float("wake.clapSensitivity", "Clap sensitivity", WAKE, 0.5, 0.0, 1.0, "Higher = softer claps count.",
+        "ClapDetector", "Transient peak/rise thresholds", "WakeSettingsTest#clapSensitivity")
+    val CLAP_COUNT = int("wake.clapCount", "Claps required", WAKE, 2, 1, 3, "Number of claps in quick succession.", "ClapDetector",
+        "Pattern length required", "WakeSettingsTest#clapCount")
+    val NOISE_ADAPTIVE = bool("wake.noiseAdaptive", "Noise-aware activation", WAKE, true,
+        "Measure background noise and restrict activation methods when it is loud.", "NoiseEstimator, WakePolicy",
+        "Policy switches between quiet and noisy rules based on the measured noise floor", "WakeSettingsTest#noiseAdaptive")
+    val NOISY_DB = float("wake.noisyThresholdDb", "Noisy threshold (dBFS)", WAKE, -42.0, -70.0, -15.0,
+        "Noise floor above which surroundings count as noisy.", "WakePolicy", "Quiet/noisy decision boundary", "WakeSettingsTest#noisyThreshold",
+        limits = "dBFS depends on the microphone; check the live meter in diagnostics to calibrate.")
+    val STRICT_IN_NOISE = bool("wake.strictInNoise", "Primary name only when noisy", WAKE, true,
+        "In noisy surroundings only the primary wake phrase activates Clu; clap activation is disabled.", "WakePolicy",
+        "Secondary phrases and claps ignored when noisy", "WakeSettingsTest#strictInNoise")
+    val BACKGROUND_LISTENING = bool("wake.background", "Background listening", WAKE, false,
+        "Keep listening for the wake word with a foreground service (shows a notification).", "ListeningService",
+        "Starts/stops the microphone foreground service", "WakeSettingsTest#background", deviceOnly = true,
+        limits = "Android stops listening after force-stop, permission revocation, or when the OS kills the service. Uses battery.")
+    val TERMINATION_PHRASES = list("wake.terminationPhrases", "Session end phrases", WAKE, listOf("end of the line"),
+        "Saying one of these ends the active voice session.", "TurnManager", "Matching utterance ends the session", "WakeSettingsTest#termination",
+        SettingType.TextList(10, 60, minItems = 1))
+    val TERMINATION_RESPONSES = list("wake.terminationResponses", "Session end responses", WAKE,
+        listOf("Understood, {owner}. Standing by.", "As you wish. {farewell}, {owner}.", "Very well. I'll be here."),
+        "Spoken when a session ends. {farewell} = good night / goodbye depending on time.", "ResponseTemplates",
+        "One response is spoken when the session ends", "WakeSettingsTest#termination", SettingType.TextList(20, 160, minItems = 1))
+
+    // ---------------------------------------------------------------- AI model
+    val MODEL_ACTIVE = text("model.activeId", "Active model", MODEL, "", "Identifier of the active primary model (choose in Models).",
+        "LlmService", "The selected GGUF is loaded for inference", "ModelSettingsTest#activeModel", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD)
+    val CONTEXT_LENGTH = int("model.contextLength", "Context length (tokens)", MODEL, 4096, 512, 16384,
+        "Larger = more history/memory per reply, more RAM.", "LlmService, ContextBudget", "llama.cpp n_ctx and history trimming budget",
+        "ModelSettingsTest#contextLength", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD)
+    val MAX_TOKENS = int("model.maxTokens", "Max reply tokens", MODEL, 400, 32, 4096, "Upper bound on generated tokens per reply.",
+        "GenerationParams", "Generation stops at this many tokens", "ModelSettingsTest#maxTokens", apply = ApplyMode.NEXT_TURN)
+    val TEMPERATURE = float("model.temperature", "Temperature", MODEL, 0.7, 0.0, 1.5, "0 = deterministic.", "GenerationParams",
+        "Sampler temperature (0 selects greedy)", "ModelSettingsTest#sampling", apply = ApplyMode.NEXT_TURN)
+    val TOP_K = int("model.topK", "Top-K", MODEL, 40, 0, 200, "0 disables.", "GenerationParams", "Sampler top-k", "ModelSettingsTest#sampling",
+        apply = ApplyMode.NEXT_TURN, advanced = true)
+    val TOP_P = float("model.topP", "Top-P", MODEL, 0.9, 0.05, 1.0, "1 disables.", "GenerationParams", "Sampler top-p", "ModelSettingsTest#sampling",
+        apply = ApplyMode.NEXT_TURN, advanced = true)
+    val MIN_P = float("model.minP", "Min-P", MODEL, 0.05, 0.0, 0.5, "0 disables.", "GenerationParams", "Sampler min-p", "ModelSettingsTest#sampling",
+        apply = ApplyMode.NEXT_TURN, advanced = true)
+    val REPEAT_PENALTY = float("model.repeatPenalty", "Repetition penalty", MODEL, 1.1, 1.0, 1.5, "1 disables.", "GenerationParams",
+        "Sampler repetition penalty", "ModelSettingsTest#sampling", apply = ApplyMode.NEXT_TURN, advanced = true)
+    val THREADS = int("model.threads", "CPU threads", MODEL, 0, 0, 8, "0 = automatic (performance cores).", "LlmService",
+        "llama.cpp n_threads", "ModelSettingsTest#threads", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD)
+    val BATCH = int("model.batchSize", "Prompt batch size", MODEL, 256, 32, 1024, "Tokens processed per prompt step.", "LlmService",
+        "llama.cpp n_batch", "ModelSettingsTest#batch", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD, advanced = true)
+    val USE_MMAP = bool("model.mmap", "Memory-map model file", MODEL, true, "Lower RAM pressure; pages are loaded on demand.",
+        "LlmService", "llama.cpp load mode MMAP vs fully read", "ModelSettingsTest#mmap", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD, advanced = true)
+    val ACCELERATION = choice("model.acceleration", "Acceleration", MODEL, "cpu",
+        listOf("cpu" to "CPU (ARM NEON + dot-product)", "gpu" to "GPU (OpenCL/Vulkan)"), "Compute backend.", "LlmService",
+        "Selects the backend / GPU layer offload", "ModelSettingsTest#acceleration", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD,
+        limits = "This build contains only the CPU backend; GPU is shown as unavailable.")
+    val AUTO_UNLOAD = int("model.autoUnloadMin", "Unload when idle (min)", MODEL, 20, 0, 240, "Free model RAM after this idle time. 0 = never.",
+        "LlmService", "Model is released after the idle period", "ModelSettingsTest#autoUnload", scope = DEVICE)
+    val LOAD_ON_START = bool("model.loadOnStart", "Load model at start", MODEL, true, "Load the model when the app starts for a faster first reply.",
+        "LlmService", "Model load begins at app start", "ModelSettingsTest#loadOnStart", scope = DEVICE)
+    val THERMAL = bool("model.thermalGuard", "Thermal protection", MODEL, true, "Reduce threads and reply length when the device reports thermal stress.",
+        "ThermalGovernor", "Threads/max tokens reduced at SEVERE+ thermal status", "ModelSettingsTest#thermal", scope = DEVICE)
+    val CHAT_TEMPLATE = choice("model.chatTemplate", "Chat template", MODEL, "auto",
+        listOf("auto" to "From model file", "chatml" to "ChatML (Qwen)", "llama3" to "Llama 3", "gemma" to "Gemma", "phi3" to "Phi-3"),
+        "Prompt format. Use auto unless the model's built-in template is missing.", "LlmService", "Template passed to llama_chat_apply_template",
+        "ModelSettingsTest#chatTemplate", scope = DEVICE, advanced = true)
+
+    // ---------------------------------------------------------------- Memory
+    val MEMORY_ENABLED = bool("memory.enabled", "Persistent memory", MEMORY, true,
+        "When off, nothing new is written to long-term memory (conversation history is separate).", "MemoryService",
+        "All persistent memory writes are refused", "MemorySettingsTest#enabled")
+    val MEMORY_RETRIEVAL = bool("memory.retrieval", "Use memories in replies", MEMORY, true, "Retrieve relevant memories for each reply.",
+        "MemoryRetriever, PromptBuilder", "Relevant memories are added to the prompt", "MemorySettingsTest#retrieval")
+    val MEMORY_MAX = int("memory.maxInjected", "Memories per reply", MEMORY, 4, 0, 12, "Maximum memories added to a prompt.",
+        "MemoryRetriever", "Caps retrieved memories", "MemorySettingsTest#maxInjected")
+    val MEMORY_MIN_SCORE = float("memory.minScore", "Relevance threshold", MEMORY, 1.2, 0.0, 10.0,
+        "Minimum relevance score for a memory to be used (prevents irrelevant memories).", "MemoryRetriever",
+        "Memories below the BM25 score are not injected", "MemorySettingsTest#minScore", advanced = true)
+    val TEMP_RETENTION = int("memory.temporaryDays", "Temporary context retention (days)", MEMORY, 7, 1, 90,
+        "Temporary memories expire after this many days.", "MemoryService", "expires_at for TEMPORARY memories; expired ones are purged",
+        "MemorySettingsTest#temporaryRetention")
+    val PROPOSE_INSIGHTS = bool("memory.proposeInsights", "Suggest insights", MEMORY, true,
+        "Clu may propose inferred memories; nothing is saved without your approval.", "InsightProposer", "Proposals are created for review",
+        "MemorySettingsTest#proposeInsights")
+    val REMEMBER_COMMAND = bool("memory.rememberCommand", "\"Remember that…\" saves directly", MEMORY, true,
+        "Explicit owner instructions to remember something are saved immediately as owner-supplied facts.", "CommandRouter, MemoryService",
+        "Command saves a memory instead of creating a proposal", "MemorySettingsTest#rememberCommand")
+    val DIARY_MODE = choice("diary.mode", "Conversation diary", MEMORY, "propose",
+        listOf("off" to "Off", "propose" to "Propose entries for approval", "automatic" to "Write entries automatically"),
+        "Whether meaningful conversations become diary entries.", "DiaryWriter", "Creates proposals / entries when a conversation ends",
+        "MemorySettingsTest#diaryMode")
+
+    // ---------------------------------------------------------------- Security
+    val SPEAKER_VERIFY = bool("security.speakerId", "Recognise speakers by voice", SECURITY, true,
+        "Identify the owner and registered people from their voice.", "SpeakerIdentifier", "Each voice turn is attributed to a person or 'unknown'",
+        "SecuritySettingsTest#speakerId", limits = "Probabilistic. Never used as the sole credential for sensitive actions.",
+        deviceOnly = true, scope = SettingScope.SHARED)
+    val SPEAKER_THRESHOLD = float("security.speakerThreshold", "Voice match threshold", SECURITY, 0.55, 0.2, 0.95,
+        "Cosine similarity required to recognise a voice.", "SpeakerIdentifier", "Match decision boundary", "SecuritySettingsTest#threshold")
+    val UNKNOWN_POLICY = choice("security.unknownSpeaker", "Unknown voices", SECURITY, "guest",
+        listOf("guest" to "Treat as guest (routine actions only)", "ignore" to "Ignore commands", "owner" to "Treat as owner (no voice gating)"),
+        "Permissions for unrecognised voices.", "AuthorizationPolicy", "Determines the actor for unrecognised speakers",
+        "SecuritySettingsTest#unknownPolicy", sensitive = true)
+    val REFUSAL_LINES = list("security.refusalLines", "Refusal lines", SECURITY,
+        listOf("I don't take orders from you.", "Nice try. Only my owner gets to do that.", "Denied. You're not who I answer to."),
+        "Said when someone without permission issues a command.", "AuthorizationPolicy", "One line is used for refusals",
+        "SecuritySettingsTest#refusal", SettingType.TextList(20, 160, minItems = 1))
+    val PIN_FOR_SENSITIVE = def(SettingDef("security.pinForSensitive", "Verify for sensitive actions", SECURITY, SettingType.Bool, jsonOf(true),
+        "Require PIN / device credential for security changes, deletions and other sensitive actions.", "AuthorizationPolicy",
+        "Sensitive actions demand fresh verification", SettingScope.SHARED, ApplyMode.IMMEDIATE, true, "SecuritySettingsTest#pinForSensitive"))
+    val AUTH_WINDOW = int("security.authWindowSec", "Verification valid for (s)", SECURITY, 120, 0, 900,
+        "How long a successful verification authorises further sensitive actions.", "AuthorizationPolicy", "Grace period after verification",
+        "SecuritySettingsTest#authWindow")
+
+    // ---------------------------------------------------------------- Tools
+    val APP_POLICY = choice("tools.appPolicy", "Apps Clu may open", TOOLS, "all",
+        listOf("all" to "Any launchable app", "allowlist" to "Only listed apps"), "Restricts the open-app tool.", "OpenAppTool",
+        "Apps outside the allowlist are refused", "ToolSettingsTest#appPolicy")
+    val APP_ALLOWLIST = list("tools.appAllowlist", "Allowed apps", TOOLS, emptyList(), "App names or package ids allowed when policy = allowlist.",
+        "OpenAppTool", "Allowlist entries", "ToolSettingsTest#appPolicy", SettingType.TextList(100, 120))
+    val TOOL_HISTORY_DAYS = int("tools.historyDays", "Keep tool history (days)", TOOLS, 30, 1, 365, "Execution history retention.",
+        "ToolExecutor", "Older tool runs are purged", "ToolSettingsTest#historyRetention")
+    val AGENT_MAX_STEPS = int("tools.maxSteps", "Max steps per task", TOOLS, 4, 1, 8, "Upper bound on tool calls in one request.",
+        "CluAgent", "Agent loop stops after this many tool steps", "ToolSettingsTest#maxSteps")
+
+    // ---------------------------------------------------------------- Network
+    val NET_ENABLED = bool("net.enabled", "Allow internet access", NETWORK, true,
+        "Master switch. When off, Clu never uses the network (local features keep working).", "NetworkPolicy",
+        "All network tools/downloads/external AI are refused", "NetworkSettingsTest#master")
+    val NET_WEB = bool("net.web", "Web research", NETWORK, true, "Allow web/Wikipedia lookups for current information.", "NetworkPolicy, WebSearchTool",
+        "Web search tool permitted", "NetworkSettingsTest#categories")
+    val NET_MAPS = bool("net.maps", "Maps & places", NETWORK, true, "Allow geocoding and route distance lookups (OpenStreetMap services).",
+        "NetworkPolicy, MapsTools", "Geocode/route tools permitted", "NetworkSettingsTest#categories")
+    val NET_TRAVEL = bool("net.travel", "Travel / trains", NETWORK, true, "Allow travel information lookups.", "NetworkPolicy, TrainTool",
+        "Train lookup permitted", "NetworkSettingsTest#categories")
+    val NET_DOWNLOADS = bool("net.downloads", "Model & voice downloads", NETWORK, true, "Allow downloading models/voice packs (always with your confirmation).",
+        "NetworkPolicy, Downloader", "Downloads permitted", "NetworkSettingsTest#categories")
+    val SEARCH_PROVIDER = choice("net.searchProvider", "Search provider", NETWORK, "duckduckgo",
+        listOf("duckduckgo" to "DuckDuckGo (instant answers + HTML results)", "wikipedia" to "Wikipedia only"),
+        "Source for web research.", "WebSearchTool", "Selects the provider queried", "NetworkSettingsTest#searchProvider")
+    val EXT_AI_MODE = choice("net.externalAi", "External AI", NETWORK, "off",
+        listOf("off" to "Never", "on_request" to "Only when I ask for deep analysis", "auto" to "When Clu judges it useful"),
+        "Optional OpenAI-compatible service for deeper analysis. Not required for anything.", "ExternalAiTool, CluAgent",
+        "Whether the external AI tool can be used", "NetworkSettingsTest#externalAi")
+    val EXT_AI_URL = text("net.externalAiUrl", "External AI endpoint", NETWORK, "", "Base URL of an OpenAI-compatible API (e.g. a free tier or your own server).",
+        "ExternalAiTool", "Requests go to this endpoint", "NetworkSettingsTest#externalAi",
+        SettingType.Text(300, pattern = Regex("https?://\\S+")))
+    val EXT_AI_MODEL = text("net.externalAiModel", "External AI model", NETWORK, "", "Model name sent to the endpoint.", "ExternalAiTool",
+        "Model field of the request", "NetworkSettingsTest#externalAi", SettingType.Text(100))
+    val EXT_AI_SHARE_MEMORY = bool("net.shareMemories", "Share memories with external AI", NETWORK, false,
+        "Include retrieved private memories when calling an external AI.", "ExternalAiTool", "Memories stripped from external requests when off",
+        "NetworkSettingsTest#shareMemories", sensitive = false)
+    val SHOW_SOURCES = bool("net.showSources", "Show where answers came from", NETWORK, true,
+        "Label replies as local, tablet-hosted, or external, and list tools used.", "ChatUI", "Source badge shown under replies",
+        "NetworkSettingsTest#showSources")
+    val OFFLINE_BEHAVIOR = choice("net.offlineBehavior", "When offline", NETWORK, "explain",
+        listOf("explain" to "Say live information is unavailable", "local_answer" to "Answer from local knowledge, clearly marked as possibly outdated"),
+        "What Clu does when a request needs the internet but none is available.", "CluAgent", "Offline fallback text/flow",
+        "NetworkSettingsTest#offlineBehavior")
+
+    // ---------------------------------------------------------------- Devices
+    val DEVICE_ROLE = choice("device.role", "This device's role", DEVICES, "portable",
+        listOf("home" to "Home / base (e.g. Xiaomi Pad 6)", "portable" to "Portable (e.g. iQOO Neo 9 Pro)"),
+        "Role of this execution environment.", "SyncEngine, RemoteInference", "Conflict policy 'prefer home' and remote inference target",
+        "SyncSettingsTest#role", scope = DEVICE)
+    val DEVICE_NAME = text("device.name", "Device name", DEVICES, "", "Name shown to the paired device. Empty = model name.", "SyncEngine",
+        "Advertised in discovery/pairing", "SyncSettingsTest#role", SettingType.Text(40), scope = DEVICE)
+    val SYNC_ENABLED = bool("sync.enabled", "Synchronisation", DEVICES, true, "Sync shared data with paired devices on the local network.",
+        "SyncService", "Sync sessions run when a paired peer is reachable", "SyncSettingsTest#enabled", scope = DEVICE)
+    val SYNC_SERVE = bool("sync.serve", "Accept connections", DEVICES, true, "Listen for the paired device (needed on at least one side).",
+        "SyncServer", "TCP listener is started", "SyncSettingsTest#serve", scope = DEVICE, deviceOnly = true)
+    val SYNC_DISCOVERY = choice("sync.discovery", "Discovery", DEVICES, "auto",
+        listOf("auto" to "Automatic (mDNS + hotspot gateway + last address)", "manual" to "Manual address only"),
+        "How the peer is found. Hotspots often block mDNS; automatic mode also tries the hotspot gateway.", "PeerLocator",
+        "Candidate addresses tried", "SyncSettingsTest#discovery", scope = DEVICE)
+    val SYNC_ADDRESS = text("sync.manualAddress", "Manual peer address", DEVICES, "", "host or host:port of the other device.", "PeerLocator",
+        "Address tried first", "SyncSettingsTest#discovery", SettingType.Text(80, pattern = Regex("[A-Za-z0-9.\\-:\\[\\]]+")), scope = DEVICE)
+    val SYNC_PORT = int("sync.port", "Sync port", DEVICES, 47823, 1024, 65535, "TCP port.", "SyncServer, PeerLocator", "Listening/connecting port",
+        "SyncSettingsTest#port", scope = DEVICE, advanced = true)
+    val SYNC_INTERVAL = int("sync.intervalMin", "Auto-sync interval (min)", DEVICES, 5, 0, 240, "While the app runs. 0 = manual only.",
+        "SyncService", "Periodic sync attempts", "SyncSettingsTest#interval", scope = DEVICE)
+    val SYNC_MEMORIES = bool("sync.memories", "Sync memories & diary", DEVICES, true, "", "SyncEngine", "memories table included", "SyncSettingsTest#scopes")
+    val SYNC_CONVERSATIONS = bool("sync.conversations", "Sync conversation history", DEVICES, true, "", "SyncEngine", "conversations/messages included", "SyncSettingsTest#scopes")
+    val SYNC_SETTINGS = bool("sync.settings", "Sync shared settings", DEVICES, true, "Device-specific settings never sync.", "SyncEngine", "shared settings included", "SyncSettingsTest#scopes")
+    val SYNC_CHARACTERS = bool("sync.characters", "Sync characters", DEVICES, true, "", "SyncEngine", "characters included", "SyncSettingsTest#scopes")
+    val SYNC_PREFERENCES = bool("sync.preferences", "Sync learned preferences", DEVICES, true, "", "SyncEngine", "preferences included", "SyncSettingsTest#scopes")
+    val SYNC_COMMANDS = bool("sync.commands", "Sync custom commands", DEVICES, true, "", "SyncEngine", "custom commands included", "SyncSettingsTest#scopes")
+    val SYNC_PEOPLE = bool("sync.people", "Sync people (without voiceprints)", DEVICES, true, "Voiceprints and PIN stay on each device.", "SyncEngine",
+        "people included", "SyncSettingsTest#scopes")
+    val CONFLICT_POLICY = choice("sync.conflicts", "Conflict resolution", DEVICES, "latest",
+        listOf("latest" to "Latest edit wins", "home" to "Home device wins concurrent edits", "keep_both" to "Keep both (memories duplicated as conflict copies)"),
+        "How simultaneous edits are resolved.", "SyncEngine", "Merge decision for conflicting rows", "SyncSettingsTest#conflicts")
+    val REMOTE_INFERENCE = choice("remote.inference", "Use the home device's model", DEVICES, "fallback",
+        listOf("local" to "Never (always local)", "prefer_home" to "Prefer home device when reachable", "fallback" to "Only if no local model is loaded"),
+        "Whether this device may run replies on the paired home device.", "InferenceRouter", "Selects local vs remote engine",
+        "SyncSettingsTest#remoteInference", scope = DEVICE)
+
+    // ---------------------------------------------------------------- Proactive
+    val PROACTIVE_ENABLED = bool("proactive.enabled", "Proactive conversation", PROACTIVE, true, "Clu may start conversations.",
+        "ProactivePlanner", "Planner may produce messages", "ProactiveSettingsTest#enabled")
+    val PROACTIVE_MAX = int("proactive.maxPerDay", "Max per day", PROACTIVE, 2, 0, 12, "", "ProactivePlanner", "Daily cap", "ProactiveSettingsTest#limits")
+    val PROACTIVE_GAP = int("proactive.minGapHours", "Minimum gap (hours)", PROACTIVE, 4, 1, 48, "", "ProactivePlanner", "Spacing between messages", "ProactiveSettingsTest#limits")
+    val PROACTIVE_CHECKINS = bool("proactive.checkIns", "Daily check-ins", PROACTIVE, true, "Ask about your day in the evening.",
+        "ProactivePlanner", "Evening check-in candidate", "ProactiveSettingsTest#kinds")
+    val PROACTIVE_FOLLOWUPS = bool("proactive.followUps", "Follow-ups", PROACTIVE, true, "Follow up on dated events you mentioned (e.g. an exam).",
+        "ProactivePlanner", "Follow-up candidates from dated memories", "ProactiveSettingsTest#kinds")
+    val PROACTIVE_WELLBEING = bool("proactive.wellbeing", "Gentle well-being check-ins", PROACTIVE, true,
+        "If a recent memory says you were unwell or upset, ask how you are.", "ProactivePlanner", "Well-being candidate", "ProactiveSettingsTest#kinds")
+    val PROACTIVE_GREET_OPEN = bool("proactive.greetOnOpen", "Greet when the app opens", PROACTIVE, true, "First open of the day gets a greeting.",
+        "ProactivePlanner", "Greeting candidate", "ProactiveSettingsTest#kinds")
+    val PROACTIVE_DELIVERY = choice("proactive.delivery", "Delivery", PROACTIVE, "notification",
+        listOf("notification" to "Notification", "speak" to "Speak if the app is open, otherwise notify"), "How proactive messages reach you.",
+        "ProactiveScheduler", "Notification vs speech", "ProactiveSettingsTest#delivery", deviceOnly = true)
+    val AWARE_BATTERY = bool("awareness.battery", "Battery awareness", PROACTIVE, true, "Mention low battery in proactive messages.",
+        "ProactivePlanner", "Low-battery candidate", "ProactiveSettingsTest#battery")
+
+    // ---------------------------------------------------------------- Learning
+    val LEARNING_ENABLED = bool("learning.enabled", "Adapt to my preferences", LEARNING, true,
+        "Apply learned response preferences.", "PreferenceEngine, PromptBuilder", "Preference instructions included in the prompt", "LearningSettingsTest#enabled")
+    val LEARNING_ALTERNATIVES = bool("learning.alternatives", "Occasionally offer two styles", LEARNING, true,
+        "Sometimes show two alternative replies and learn from your choice.", "PreferenceEngine", "Alternative-response prompts are offered",
+        "LearningSettingsTest#alternatives")
+    val LEARNING_ALT_EVERY = int("learning.alternativesEvery", "Alternatives at most every N replies", LEARNING, 25, 5, 200, "",
+        "PreferenceEngine", "Cooldown between alternative offers", "LearningSettingsTest#alternatives")
+    val LEARNING_QUESTIONS = bool("learning.questions", "Preference questions", LEARNING, true, "Occasionally ask a short multiple-choice question.",
+        "PreferenceEngine", "Questions are offered", "LearningSettingsTest#questions")
+    val LEARNING_Q_EVERY = int("learning.questionsEvery", "Questions at most every N replies", LEARNING, 15, 3, 200, "",
+        "PreferenceEngine", "Cooldown between questions", "LearningSettingsTest#questions")
+
+    // ---------------------------------------------------------------- Developer
+    val DEV_DIAGNOSTICS = bool("dev.diagnostics", "Developer diagnostics", DEVELOPER, false, "Show diagnostics screens and advanced settings.",
+        "UI", "Diagnostics entry and advanced settings become visible", "DevSettingsTest#diagnostics", scope = DEVICE)
+    val DEV_LOG_LEVEL = choice("dev.logLevel", "Log level", DEVELOPER, "info",
+        listOf("error" to "Errors", "warn" to "Warnings", "info" to "Info", "debug" to "Debug"), "", "DiagnosticsLog",
+        "Events below the level are not recorded", "DevSettingsTest#logLevel", scope = DEVICE)
+    val DEV_LOG_CAP = int("dev.logCapacity", "Log capacity (events)", DEVELOPER, 3000, 200, 50000, "Oldest events are dropped beyond this.",
+        "DiagnosticsLog", "Bounded log size", "DevSettingsTest#logCapacity", scope = DEVICE)
+    val DEV_SHOW_LATENCY = bool("dev.showLatency", "Show timings under replies", DEVELOPER, false, "", "ChatUI",
+        "ASR/model/TTS timings displayed", "DevSettingsTest#showLatency", scope = DEVICE)
+    val DEV_TOOL_TRACES = bool("dev.toolTraces", "Show tool traces in chat", DEVELOPER, true, "Show which tools ran and their results.", "ChatUI",
+        "Tool trace lines displayed", "DevSettingsTest#toolTraces", scope = DEVICE)
+    val ACTIVE_PERSONA = text("persona.active", "Active persona", GENERAL, "clu", "\"clu\" or a character id (switch in Characters).",
+        "PersonaManager", "Prompt identity/instructions/memory scope switch", "PersonaSettingsTest#activePersona", advanced = true)
+
+    /** Settings registered by components at runtime (e.g. per-tool enable/confirm switches). */
+    fun registerDynamic(d: SettingDef) { if (d.key !in defs) defs[d.key] = d }
+
+    private fun validateWakeWords(v: JsonElement): String? {
+        val list = runCatching { CluJson.decodeFromJsonElement(ListSerializer(WakeWord.serializer()), v) }.getOrElse { return "invalid wake word list" }
+        if (list.isEmpty()) return "at least one wake word"
+        if (list.size > 12) return "at most 12 wake words"
+        if (list.count { it.primary } != 1) return "exactly one primary wake word"
+        if (list.any { it.phrase.isBlank() || it.phrase.length > 40 }) return "phrases must be 1-40 characters"
+        if (list.map { it.phrase.lowercase().trim() }.toSet().size != list.size) return "duplicate phrases"
+        if (list.none { it.enabled }) return "at least one enabled wake word"
+        return null
+    }
+}

@@ -29,3 +29,9 @@ tasks.test {
     useJUnitPlatform()
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }
+
+tasks.test {
+    systemProperty("clu.nativeLib", rootProject.file("native/build/host/libclu_llama.so").absolutePath)
+    systemProperty("clu.testModel", rootProject.file("native/build/test/tiny.gguf").absolutePath)
+    maxHeapSize = "2g"
+}

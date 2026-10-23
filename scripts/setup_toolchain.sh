@@ -65,6 +65,32 @@ tar xjf "$CACHE/sherpa-android.tar.bz2" -C "$tmp"
 cp "$tmp/jniLibs/arm64-v8a/libonnxruntime.so" "$tmp/jniLibs/arm64-v8a/libsherpa-onnx-jni.so" "$TC/jniLibs/arm64-v8a/"
 rm -rf "$tmp"
 
+# Offline voice models bundled in the APK (sherpa-onnx releases): Silero VAD, KWS wake word, streaming ASR (int8).
+R=https://github.com/k2-fsa/sherpa-onnx/releases/download
+fetch silero_vad.onnx "$R/asr-models/silero_vad.onnx" 9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6
+fetch kws.tar.bz2 "$R/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2" f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a
+fetch asr.tar.bz2 "$R/asr-models/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2" 9c559283e8498d3fe95913c79ca1cb454bb26281ac2b102b41306c7d752765d9
+A="$TC/assets/models"
+if [[ ! -f "$A/asr/encoder.int8.onnx" ]]; then
+  echo "[unpack] bundled voice models"
+  rm -rf "$A" && mkdir -p "$A/vad" "$A/kws" "$A/asr"
+  cp "$CACHE/silero_vad.onnx" "$A/vad/silero_vad.onnx"
+  tmp="$(mktemp -d)"
+  tar xjf "$CACHE/kws.tar.bz2" -C "$tmp"; K="$tmp/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
+  cp "$K/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx" "$A/kws/encoder.int8.onnx"
+  cp "$K/decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx" "$A/kws/decoder.int8.onnx"
+  cp "$K/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx" "$A/kws/joiner.int8.onnx"
+  cp "$K/tokens.txt" "$K/bpe.model" "$A/kws/"
+  # Default keyword list required at construction; the app supplies the configured wake words per stream.
+  printf '\xe2\x96\x81C LU E @CLUE\n' > "$A/kws/keywords.txt"
+  tar xjf "$CACHE/asr.tar.bz2" -C "$tmp"; S="$tmp/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17"
+  cp "$S/encoder-epoch-99-avg-1.int8.onnx" "$A/asr/encoder.int8.onnx"
+  cp "$S/decoder-epoch-99-avg-1.int8.onnx" "$A/asr/decoder.int8.onnx"
+  cp "$S/joiner-epoch-99-avg-1.int8.onnx" "$A/asr/joiner.int8.onnx"
+  cp "$S/tokens.txt" "$A/asr/"
+  rm -rf "$tmp"
+fi
+
 if [[ "${SKIP_NDK:-0}" != "1" ]]; then
   fetch ndk-r29.tar.xz \
     https://github.com/HomuHomu833/android-ndk-custom/releases/download/r29/android-ndk-r29-x86_64-linux-gnu.tar.xz \

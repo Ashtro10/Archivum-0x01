@@ -1,0 +1,57 @@
+{
+  "tts": {
+    "voice": "en_US-ryan-medium",
+    "sample_rate": 22050,
+    "audio_seconds": 5.19,
+    "synthesis_seconds": 0.943,
+    "real_time_factor": 0.182,
+    "first_sentence_ms": 167
+  },
+  "asr": {
+    "model": "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17 (int8)",
+    "results": [
+      {
+        "reference": "Clue, what is the distance from Pune to Mumbai?",
+        "hypothesis": "U WHAT IS THE DISTANCE FROM PUNA TO MAMMAI",
+        "wer": 0.333,
+        "audio_seconds": 2.22,
+        "processing_seconds": 0.12,
+        "finalize_ms_after_audio": 34
+      },
+      {
+        "reference": "I have analysed your schedule. You are overcommitted on Friday, and I suggest moving the dentist appointment.",
+        "hypothesis": "'S SCHEDULE YOU ARE OVER COMMITTED ON FRIDAY AND I SUGGEST MOVING THE DENTIST APPOINTMENT",
+        "wer": 0.353,
+        "audio_seconds": 5.19,
+        "processing_seconds": 0.32,
+        "finalize_ms_after_audio": 47
+      }
+    ]
+  },
+  "vad": {
+    "expected_segments": 2,
+    "detected_segments": 2,
+    "segments_start_dur_s": [
+      [
+        1.03,
+        2.48
+      ],
+      [
+        4.33,
+        2.51
+      ]
+    ]
+  },
+  "kws": {
+    "keyword_tokens": "\u2581C LU E",
+    "positive": [],
+    "negative": []
+  },
+  "speaker": {
+    "model": "3dspeaker CAM++ voxceleb",
+    "same_voice": 0.972,
+    "different_voice_alan": 0.106,
+    "different_voice_joe": 0.893,
+    "default_threshold": 0.55
+  }
+}

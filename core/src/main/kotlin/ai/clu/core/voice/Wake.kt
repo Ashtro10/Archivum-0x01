@@ -14,7 +14,7 @@ data class WakeWord(
 ) {
     companion object {
         fun defaults() = listOf(
-            WakeWord("Clue", primary = true, aliases = listOf("clu", "klu", "clew", "hey clue", "hey clu")),
+            WakeWord("Clue", primary = true, aliases = listOf("clu", "klu", "clew", "klew", "hey clue", "hey clu")),
             WakeWord("Buddy"),
             WakeWord("Friend"),
         )

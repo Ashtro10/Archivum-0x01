@@ -7,7 +7,7 @@ plugins {
 
 val toolchain = rootProject.layout.projectDirectory.dir("toolchain")
 val androidJarFile = toolchain.file("android.jar")
-val minSdkVersion = 31
+val minSdkVersion = 33
 val targetSdkVersion = 35
 val cluVersionCode = (findProperty("clu.versionCode") as String).toInt()
 val cluVersionName = findProperty("clu.versionName") as String
@@ -68,6 +68,7 @@ fun registerVariant(name: String, release: Boolean) {
         jniDirs.from(toolchain.dir("jniLibs"))
         jniDirs.from(rootProject.layout.projectDirectory.dir("native/build/jniLibs"))
         assetDirs.from(layout.projectDirectory.dir("src/main/assets"))
+        assetDirs.from(toolchain.dir("assets"))
         javaResJars.from(configurations.runtimeClasspath)
         outputApk.set(apkDir.map { it.file("clu-$name-unsigned.apk") })
     }

@@ -173,11 +173,14 @@ object Settings {
         "Activation phrases. The primary phrase is the only one accepted in noisy surroundings (if strict mode is on).",
         "WakeDetector, WakePolicy", "Detector keyword set and policy; disabled phrases never activate", SettingScope.SHARED,
         ApplyMode.VOICE_RESTART, false, "WakeSettingsTest#wakeWords"))
-    val WAKE_ENGINE = choice("wake.engine", "Wake detection method", WAKE, "asr",
-        listOf("asr" to "Speech-gated recognition (any phrase, recorded samples supported)", "kws" to "Keyword spotter (lowest power, sherpa-onnx KWS)"),
+    val WAKE_ENGINE = choice("wake.engine", "Wake detection method", WAKE, "kws",
+        listOf("kws" to "Keyword spotter (recommended: lowest power, most reliable)", "asr" to "Speech-gated recognition (any phrase, recorded samples supported)"),
         "How wake phrases are detected.", "WakeDetector", "Selects the detector implementation", "WakeSettingsTest#engine",
         apply = ApplyMode.VOICE_RESTART, deviceOnly = true,
-        limits = "Keyword spotter needs the KWS model; phrases must be expressible in its English token set.")
+        limits = "Keyword spotter phrases must be expressible in its English token set. Speech-gated recognition is less reliable on short names (measured).")
+    val KWS_THRESHOLD = float("wake.kwsThreshold", "Keyword spotter threshold", WAKE, 0.1, 0.02, 0.5,
+        "Lower = more sensitive (more false activations). 0.1 detected \"Clue\" without false positives in testing.", "WakeDetector",
+        "sherpa-onnx keywords_threshold", "WakeSettingsTest#engine")
     val WAKE_THRESHOLD = float("wake.matchThreshold", "Wake match strictness", WAKE, 0.75, 0.4, 1.0,
         "Similarity required between heard words and a wake phrase (higher = stricter).", "WakePhraseMatcher",
         "Minimum fuzzy-match score for activation", "WakeSettingsTest#threshold")

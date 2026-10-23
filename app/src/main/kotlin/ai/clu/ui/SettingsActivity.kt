@@ -1,0 +1,139 @@
+package ai.clu.ui
+
+import ai.clu.core.config.*
+import ai.clu.voice.AndroidAsr
+import ai.clu.voice.VoicePacks
+import android.Manifest
+import android.app.TimePickerDialog
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.widget.*
+import kotlinx.serialization.json.*
+
+class SettingsActivity : BaseActivity() {
+    override fun onResume() {
+        super.onResume()
+        screen("Settings") {
+            p("Every setting below changes real behaviour. Each is listed with its effect and verified by an automated test (see docs/SETTINGS_REGISTER.md).")
+            SettingCategory.values().forEach { cat ->
+                val n = UiPolicy.visibleSettings(core.settings, cat).size
+                if (n > 0) button("${cat.title}  ($n)") { startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("cat", cat.name)) }
+            }
+            h1("Shortcuts")
+            button("Wake words") { startActivity(Intent(this@SettingsActivity, WakeWordsActivity::class.java)) }
+            button("Restore known-good configuration") {
+                verifyOwner("Restore configuration") { ok -> if (ok) { val p = core.settings.restoreKnownGood(verified = true); toast(if (p.isEmpty()) "Restored." else p.joinToString("\n")) } }
+            }
+            button("Save current configuration as known-good") { core.settings.snapshot("Saved by owner", knownGood = true); toast("Saved.") }
+        }
+    }
+}
+
+class SettingsCategoryActivity : BaseActivity() {
+    private lateinit var cat: SettingCategory
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        cat = SettingCategory.valueOf(intent.getStringExtra("cat")!!)
+    }
+
+    override fun onResume() { super.onResume(); build() }
+
+    private fun build() {
+        screen(cat.title) {
+            for (d in UiPolicy.visibleSettings(core.settings, cat)) card { control(d) }
+            button("Reset this section to defaults") {
+                verifyOwner("Reset ${cat.title}") { ok -> if (ok) { UiPolicy.visibleSettings(core.settings, cat).forEach { core.settings.reset(it.key, verified = true) }; build() } }
+            }
+        }
+    }
+
+    /** Honest availability notes for options that depend on this device or on optional downloads. */
+    private fun capabilityNote(d: SettingDef): String? = when (d.key) {
+        Settings.ACCELERATION -> "GPU backend not included in this build – CPU only."
+        Settings.TTS_ENGINE -> if (app.packs.installedTts() == null) "Clu voice not installed (Voice screen) – Android TTS is used until then." else null
+        Settings.ASR_ENGINE -> if (!AndroidAsr(this).onDeviceAvailable()) "No Android on-device recognizer found on this device." else null
+        Settings.SPEAKER_VERIFY -> if (!app.packs.isInstalled(VoicePacks.SPEAKER)) "Speaker model not installed (Voice screen) – voices can't be told apart yet." else null
+        Settings.BACKGROUND_LISTENING -> if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) "Microphone permission not granted." else null
+        else -> null
+    }
+
+    private fun apply(d: SettingDef, v: JsonElement) {
+        when (val r = core.settings.set(d.key, v)) {
+            SettingResult.Ok -> toast("${d.title}: ${d.apply.label}")
+            is SettingResult.Invalid -> { toast("Not saved: ${r.reason}"); build() }
+            SettingResult.RequiresVerification -> verifyOwner("Change \"${d.title}\"") { ok ->
+                if (ok) { core.settings.set(d.key, v, verified = true); toast("${d.title}: ${d.apply.label}") }
+                build()
+            }
+            SettingResult.UnknownSetting -> toast("Unknown setting")
+        }
+    }
+
+    private fun LinearLayout.control(d: SettingDef) {
+        p(d.title + if (d.sensitive) "  🔒" else "", C.TEXT, 15f)
+        if (d.description.isNotBlank()) p(d.description, C.MUTED, 12f)
+        val note = capabilityNote(d)
+        val raw = core.settings.raw(d.key)
+        when (val t = d.type) {
+            SettingType.Bool -> check(if (raw.jsonPrimitive.boolean) "On" else "Off", raw.jsonPrimitive.boolean) { apply(d, JsonPrimitive(it)) }
+            is SettingType.IntRange -> slider(t.min.toDouble(), t.max.toDouble(), raw.jsonPrimitive.double, integer = true) { apply(d, JsonPrimitive(it.toInt())) }
+            is SettingType.FloatRange -> slider(t.min, t.max, raw.jsonPrimitive.double, integer = false) { apply(d, JsonPrimitive(it)) }
+            is SettingType.Choice -> {
+                val values = t.options
+                spinner(values.map { (k, label) -> if (d.key == Settings.ACCELERATION && k == "gpu") "$label (unavailable)" else label },
+                    values.indexOfFirst { it.first == raw.jsonPrimitive.content }) { i ->
+                    val k = values[i].first
+                    if (d.key == Settings.ACCELERATION && k == "gpu") { toast("GPU acceleration isn't available in this build."); build(); return@spinner }
+                    apply(d, JsonPrimitive(k))
+                }
+            }
+            is SettingType.Text -> {
+                val e = field("", raw.jsonPrimitive.content, multiline = t.multiline)
+                smallButton("Save") { apply(d, JsonPrimitive(e.text.toString())) }
+            }
+            SettingType.TimeOfDay -> smallButton(raw.jsonPrimitive.content) {
+                val (h, m) = raw.jsonPrimitive.content.split(":").map { it.toInt() }
+                TimePickerDialog(this@SettingsCategoryActivity, { _, hh, mm -> apply(d, JsonPrimitive("%02d:%02d".format(hh, mm))) }, h, m, true).show()
+            }
+            is SettingType.TextList -> {
+                val items = raw.jsonArray.map { it.jsonPrimitive.content }
+                p(if (items.isEmpty()) "(none)" else items.joinToString("\n") { "• $it" }, C.TEXT, 13f)
+                smallButton("Edit (one per line)") {
+                    prompt(d.title, items.joinToString("\n"), multiline = true) { txt ->
+                        apply(d, JsonArray(txt.lines().map { it.trim() }.filter { it.isNotEmpty() }.map { JsonPrimitive(it) }))
+                    }
+                }
+            }
+            is SettingType.Structured -> smallButton("Edit wake words") { startActivity(Intent(this@SettingsCategoryActivity, WakeWordsActivity::class.java)) }
+        }
+        val meta = buildList {
+            add("Effect: ${d.effect}"); add(d.apply.label)
+            if (d.limitations.isNotBlank()) add("Limitation: ${d.limitations}")
+            if (d.deviceOnlyEffect) add("Audible/visible effect depends on this device")
+            note?.let { add("⚠ $it") }
+        }
+        p(meta.joinToString(" · "), if (note != null) C.WARN else C.MUTED, 11f)
+        if (!core.settings.isDefault(d.key)) smallButton("Reset to default") { apply(d, d.default) }
+    }
+
+    private fun LinearLayout.slider(min: Double, max: Double, value: Double, integer: Boolean, onSet: (Double) -> Unit) {
+        val steps = if (integer) (max - min).toInt().coerceAtMost(1000) else 100
+        val label = TextView(context).apply { setTextColor(C.TEXT) }
+        fun valueAt(p: Int) = if (integer) (min + p * (max - min) / steps).let { Math.round(it).toDouble() } else min + p * (max - min) / steps
+        fun show(v: Double) { label.text = if (integer) v.toLong().toString() else "%.2f".format(v) }
+        val bar = SeekBar(context).apply {
+            this.max = steps; progress = ((value - min) / (max - min) * steps).toInt(); show(value)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) { show(valueAt(p)) }
+                override fun onStartTrackingTouch(s: SeekBar) {}
+                override fun onStopTrackingTouch(s: SeekBar) { onSet(valueAt(s.progress)) }
+            })
+        }
+        row {
+            addView(bar, LinearLayout.LayoutParams(0, -2, 1f)); addView(label)
+            smallButton("Set") { prompt("Exact value ($min – $max)", label.text.toString(), numeric = true) { it.toDoubleOrNull()?.let(onSet) ?: toast("Not a number") } }
+        }
+    }
+}

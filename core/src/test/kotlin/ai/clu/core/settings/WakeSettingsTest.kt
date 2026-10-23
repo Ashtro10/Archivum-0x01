@@ -56,7 +56,13 @@ class WakeSettingsTest {
         assertIs<SettingResult.Invalid>(s.setWakeWords(listOf(WakeWord("Clue", primary = true, enabled = false))))
     }
 
-    @Test fun engine() { s.set(Settings.WAKE_ENGINE, "kws"); assertEquals("kws", cfg().wakeEngine) }
+    @Test fun engine() {
+        assertEquals("kws", cfg().wakeEngine)
+        s.set(Settings.WAKE_ENGINE, "asr"); assertEquals("asr", cfg().wakeEngine)
+        assertEquals(0.1f, cfg().kwsThreshold)
+        s.set(Settings.KWS_THRESHOLD, 0.2); assertEquals(0.2f, cfg().kwsThreshold)
+        assertIs<SettingResult.Invalid>(s.set(Settings.KWS_THRESHOLD, 0.9))
+    }
 
     @Test fun threshold() {
         val words = cfg().policy.words

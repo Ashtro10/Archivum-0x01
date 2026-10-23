@@ -1,0 +1,186 @@
+package ai.clu.voice
+
+import ai.clu.core.diag.DiagnosticsLog
+import android.content.Context
+import android.net.Uri
+import com.k2fsa.sherpa.onnx.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
+import java.io.File
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
+
+/** A downloadable/importable model archive from the sherpa-onnx releases. */
+data class VoicePack(
+    val id: String,
+    val title: String,
+    val url: String,
+    val sha256: String,
+    val bytes: Long,
+    /** Archive entries to keep (path suffix -> local name). Empty = single-file download kept as [singleName]. */
+    val keep: Map<String, String> = emptyMap(),
+    val keepDirPrefix: String? = null,
+    val singleName: String? = null,
+    val kind: String,
+)
+
+object VoicePacks {
+    private const val R = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
+    val TTS_RYAN = VoicePack("tts-ryan", "Clu voice – Ryan (US male, Piper medium)", "$R/tts-models/vits-piper-en_US-ryan-medium.tar.bz2",
+        "c546af78b6395b4e7c4ce1ed899438b64426a362f5d4ec5fecd090ded9ad7505", 67_213_100,
+        keep = mapOf("en_US-ryan-medium.onnx" to "model.onnx", "tokens.txt" to "tokens.txt"), keepDirPrefix = "espeak-ng-data/", kind = "tts")
+    val TTS_ALAN = VoicePack("tts-alan", "Alan (British male, Piper medium)", "$R/tts-models/vits-piper-en_GB-alan-medium.tar.bz2",
+        "a48d4017da0f77668b27bed63fe6e04dd64c6397e1fadad4f460efb0ef7c9012", 67_220_121,
+        keep = mapOf("en_GB-alan-medium.onnx" to "model.onnx", "tokens.txt" to "tokens.txt"), keepDirPrefix = "espeak-ng-data/", kind = "tts")
+    val SPEAKER = VoicePack("speaker-campplus", "Speaker recognition (3D-Speaker CAM++)", "$R/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+        "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b", 29_596_978, singleName = "model.onnx", kind = "speaker")
+    val all = listOf(TTS_RYAN, TTS_ALAN, SPEAKER)
+}
+
+/** Downloads (only on request), imports, verifies and extracts voice packs into app storage. */
+class VoicePackManager(private val context: Context, private val diag: DiagnosticsLog?) {
+    val root = File(context.filesDir, "voice").apply { mkdirs() }
+    fun dir(p: VoicePack) = File(root, p.id)
+    fun isInstalled(p: VoicePack) = File(dir(p), ".installed").exists()
+    fun installedTts(): VoicePack? = listOf(VoicePacks.TTS_RYAN, VoicePacks.TTS_ALAN).firstOrNull { isInstalled(it) }
+    fun sizeOnDisk(p: VoicePack): Long = dir(p).walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+    /** Resumable HTTP download with SHA-256 verification. [progress] receives (downloaded, total). */
+    suspend fun download(p: VoicePack, progress: (Long, Long) -> Unit): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val part = File(context.cacheDir, "${p.id}.part")
+            var url = URL(p.url)
+            var conn: HttpURLConnection
+            var redirects = 0
+            while (true) {
+                conn = url.openConnection() as HttpURLConnection
+                conn.instanceFollowRedirects = false
+                conn.connectTimeout = 15_000; conn.readTimeout = 30_000
+                if (part.exists() && part.length() > 0) conn.setRequestProperty("Range", "bytes=${part.length()}-")
+                val code = conn.responseCode
+                if (code in 300..399 && redirects < 5) { url = URL(url, conn.getHeaderField("Location")); conn.disconnect(); redirects++; continue }
+                if (code !in listOf(200, 206)) throw IllegalStateException("HTTP $code")
+                if (code == 200) part.delete()
+                break
+            }
+            conn.inputStream.use { inp ->
+                java.io.FileOutputStream(part, true).use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    var done = part.length()
+                    while (true) {
+                        val n = inp.read(buf); if (n < 0) break
+                        out.write(buf, 0, n); done += n; progress(done, p.bytes)
+                    }
+                }
+            }
+            conn.disconnect()
+            install(p, part)
+            part.delete()
+            Unit
+        }.onFailure { diag?.e("voicepack", "download ${p.id} failed", it) }
+    }
+
+    /** Imports a previously downloaded archive (same file as the download URL) picked by the user. */
+    suspend fun import(p: VoicePack, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val tmp = File(context.cacheDir, "${p.id}.import")
+            context.contentResolver.openInputStream(uri)!!.use { i -> tmp.outputStream().use { i.copyTo(it) } }
+            install(p, tmp)
+            tmp.delete()
+            Unit
+        }.onFailure { diag?.e("voicepack", "import ${p.id} failed", it) }
+    }
+
+    private fun install(p: VoicePack, file: File) {
+        val sha = MessageDigest.getInstance("SHA-256").let { md -> file.inputStream().use { s -> val b = ByteArray(1 shl 16); while (true) { val n = s.read(b); if (n < 0) break; md.update(b, 0, n) } }; md.digest() }
+            .joinToString("") { "%02x".format(it) }
+        require(sha == p.sha256) { "Checksum mismatch – the file is corrupted or not the expected archive." }
+        val d = dir(p); d.deleteRecursively(); d.mkdirs()
+        if (p.singleName != null) { file.copyTo(File(d, p.singleName), overwrite = true) }
+        else extract(file.inputStream(), p, d)
+        File(d, ".installed").writeText(p.sha256)
+        diag?.i("voicepack", "installed ${p.id} (${sizeOnDisk(p) / 1_048_576} MB)")
+    }
+
+    private fun extract(input: InputStream, p: VoicePack, d: File) {
+        TarArchiveInputStream(BZip2CompressorInputStream(input.buffered())).use { tar ->
+            while (true) {
+                val e = tar.nextEntry ?: break
+                if (e.isDirectory) continue
+                val path = e.name.substringAfter('/') // strip top-level folder
+                val target = p.keep[path]?.let { File(d, it) }
+                    ?: p.keepDirPrefix?.takeIf { path.startsWith(it) }?.let { File(d, path) }
+                    ?: continue
+                require(target.canonicalPath.startsWith(d.canonicalPath)) { "unsafe archive path" }
+                target.parentFile?.mkdirs()
+                target.outputStream().use { tar.copyTo(it) }
+            }
+        }
+    }
+
+    fun remove(p: VoicePack) { dir(p).deleteRecursively() }
+}
+
+/**
+ * Lazily created sherpa-onnx engines. Bundled models load from APK assets; voice packs from files.
+ * Heavy objects are created off the main thread and released on demand to bound memory.
+ */
+class SherpaEngines(private val context: Context, private val packs: VoicePackManager) {
+    private val assets get() = context.assets
+    private var asrInst: OnlineRecognizer? = null
+    private var kwsInst: KeywordSpotter? = null
+    private var kwsThreshold = -1f
+    private var ttsInst: OfflineTts? = null
+    private var ttsId: String? = null
+    private var spkInst: SpeakerEmbeddingExtractor? = null
+
+    @Synchronized fun vad(threshold: Float, minSilence: Float): Vad = Vad(assets, VadModelConfig(
+        sileroVadModelConfig = SileroVadModelConfig(model = "models/vad/silero_vad.onnx", threshold = threshold, minSilenceDuration = minSilence,
+            minSpeechDuration = 0.2f, windowSize = 512, maxSpeechDuration = 25f), sampleRate = 16000, numThreads = 1))
+
+    @Synchronized fun asr(): OnlineRecognizer = asrInst ?: OnlineRecognizer(assets, OnlineRecognizerConfig(
+        featConfig = FeatureConfig(16000, 80),
+        modelConfig = OnlineModelConfig(transducer = OnlineTransducerModelConfig("models/asr/encoder.int8.onnx", "models/asr/decoder.int8.onnx",
+            "models/asr/joiner.int8.onnx"), tokens = "models/asr/tokens.txt", numThreads = 2, modelType = "zipformer"),
+        enableEndpoint = false, decodingMethod = "greedy_search")).also { asrInst = it }
+
+    @Synchronized fun kws(threshold: Float): KeywordSpotter {
+        if (kwsInst != null && kwsThreshold == threshold) return kwsInst!!
+        kwsInst?.release()
+        return KeywordSpotter(assets, KeywordSpotterConfig(
+            featConfig = FeatureConfig(16000, 80),
+            modelConfig = OnlineModelConfig(transducer = OnlineTransducerModelConfig("models/kws/encoder.int8.onnx", "models/kws/decoder.int8.onnx",
+                "models/kws/joiner.int8.onnx"), tokens = "models/kws/tokens.txt", numThreads = 1, modelType = "zipformer2"),
+            keywordsFile = "models/kws/keywords.txt", keywordsThreshold = threshold, keywordsScore = 1.5f)).also { kwsInst = it; kwsThreshold = threshold }
+    }
+
+    val bpe: ai.clu.core.voice.SentencePieceBpe by lazy { assets.open("models/kws/bpe.model").use { ai.clu.core.voice.SentencePieceBpe.load(it) } }
+
+    @Synchronized fun tts(): OfflineTts? {
+        val p = packs.installedTts() ?: return null
+        if (ttsInst != null && ttsId == p.id) return ttsInst
+        ttsInst?.release()
+        val d = packs.dir(p)
+        return OfflineTts(null, OfflineTtsConfig(model = OfflineTtsModelConfig(
+            vits = OfflineTtsVitsModelConfig(model = File(d, "model.onnx").path, tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path),
+            numThreads = 2), maxNumSentences = 1)).also { ttsInst = it; ttsId = p.id }
+    }
+
+    @Synchronized fun speaker(): SpeakerEmbeddingExtractor? {
+        if (!packs.isInstalled(VoicePacks.SPEAKER)) return null
+        return spkInst ?: SpeakerEmbeddingExtractor(null, SpeakerEmbeddingExtractorConfig(model = File(packs.dir(VoicePacks.SPEAKER), "model.onnx").path,
+            numThreads = 1)).also { spkInst = it }
+    }
+
+    /** Releases recognisers/synthesisers (memory pressure or pipeline rebuild). */
+    @Synchronized fun releaseAll() {
+        asrInst?.release(); asrInst = null
+        kwsInst?.release(); kwsInst = null
+        ttsInst?.release(); ttsInst = null; ttsId = null
+        spkInst?.release(); spkInst = null
+    }
+}

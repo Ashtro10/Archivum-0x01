@@ -30,6 +30,7 @@ data class VoiceConfig(
     val wakeEnabled: Boolean,
     val wakeEngine: String,
     val wakeThreshold: Double,
+    val kwsThreshold: Float,
     val policy: WakePolicy,
     val clapSensitivity: Double,
     val clapCount: Int,
@@ -62,6 +63,7 @@ data class VoiceConfig(
             wakeEnabled = s.bool(Settings.WAKE_ENABLED),
             wakeEngine = s.string(Settings.WAKE_ENGINE),
             wakeThreshold = s.double(Settings.WAKE_THRESHOLD),
+            kwsThreshold = s.double(Settings.KWS_THRESHOLD).toFloat(),
             policy = WakePolicy(
                 words = s.wakeWords(),
                 clapEnabled = s.bool(Settings.CLAP_ENABLED),
@@ -79,7 +81,7 @@ data class VoiceConfig(
         val pipelineKeys = listOf(
             Settings.TTS_ENGINE, Settings.TTS_SPEAKER, Settings.ANDROID_VOICE, Settings.ASR_ENGINE, Settings.VAD_SENSITIVITY,
             Settings.END_SILENCE, Settings.AUDIO_SOURCE, Settings.NOISE_SUPPRESSION, Settings.WAKE_ENABLED, Settings.WAKE_ENGINE,
-            Settings.WAKE_WORDS, Settings.CLAP_ENABLED, Settings.BACKGROUND_LISTENING,
+            Settings.WAKE_WORDS, Settings.KWS_THRESHOLD, Settings.CLAP_ENABLED, Settings.BACKGROUND_LISTENING,
         )
     }
 }

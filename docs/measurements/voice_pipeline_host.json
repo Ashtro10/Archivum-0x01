@@ -2,29 +2,29 @@
   "tts": {
     "voice": "en_US-ryan-medium",
     "sample_rate": 22050,
-    "audio_seconds": 5.19,
-    "synthesis_seconds": 0.943,
-    "real_time_factor": 0.182,
-    "first_sentence_ms": 167
+    "audio_seconds": 5.48,
+    "synthesis_seconds": 0.556,
+    "real_time_factor": 0.101,
+    "first_sentence_ms": 150
   },
   "asr": {
     "model": "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17 (int8)",
     "results": [
       {
         "reference": "Clue, what is the distance from Pune to Mumbai?",
-        "hypothesis": "U WHAT IS THE DISTANCE FROM PUNA TO MAMMAI",
+        "hypothesis": "U WHAT IS THE DISTANCE FROM PUNA TO MOND",
         "wer": 0.333,
-        "audio_seconds": 2.22,
-        "processing_seconds": 0.12,
-        "finalize_ms_after_audio": 34
+        "audio_seconds": 2.28,
+        "processing_seconds": 0.172,
+        "finalize_ms_after_audio": 58
       },
       {
         "reference": "I have analysed your schedule. You are overcommitted on Friday, and I suggest moving the dentist appointment.",
-        "hypothesis": "'S SCHEDULE YOU ARE OVER COMMITTED ON FRIDAY AND I SUGGEST MOVING THE DENTIST APPOINTMENT",
+        "hypothesis": "'D YOUR SCHEDULE YOU ARE OVER COMMITTED ON FRIDAY AND I SUGGEST MOVING THE DENIST APPOINTMENT",
         "wer": 0.353,
-        "audio_seconds": 5.19,
-        "processing_seconds": 0.32,
-        "finalize_ms_after_audio": 47
+        "audio_seconds": 5.06,
+        "processing_seconds": 0.383,
+        "finalize_ms_after_audio": 35
       }
     ]
   },
@@ -43,15 +43,37 @@
     ]
   },
   "kws": {
-    "keyword_tokens": "\u2581C LU E",
-    "positive": [],
-    "negative": []
+    "threshold": 0.1,
+    "keyword_tokens": {
+      "CLUE": "\u2581C LU E",
+      "HEY CLUE": "\u2581HE Y \u2581C LU E",
+      "BUDDY": "\u2581BU D D Y",
+      "FRIEND": "\u2581FRIEND"
+    },
+    "positives": {
+      "Clue, open YouTube.": [
+        "CLUE"
+      ],
+      "Hey Clue, what time is it?": [
+        "HEY_CLUE"
+      ],
+      "Buddy, are you there?": [
+        "BUDDY"
+      ]
+    },
+    "negatives": {
+      "Please open the window for me.": [],
+      "The glue is drying on the table.": [],
+      "I have a clue about the answer, maybe.": [
+        "CLUE"
+      ]
+    }
   },
   "speaker": {
     "model": "3dspeaker CAM++ voxceleb",
-    "same_voice": 0.972,
-    "different_voice_alan": 0.106,
-    "different_voice_joe": 0.893,
+    "same_voice": 0.957,
+    "different_voice_alan": 0.258,
+    "different_voice_joe": 0.814,
     "default_threshold": 0.55
   }
 }

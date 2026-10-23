@@ -34,6 +34,8 @@ tasks.test {
     systemProperty("clu.nativeLib", rootProject.file("native/build/host/libclu_llama.so").absolutePath)
     systemProperty("clu.testModel", rootProject.file("native/build/test/tiny.gguf").absolutePath)
     maxHeapSize = "2g"
+    System.getProperty("clu.bench")?.let { systemProperty("clu.bench", it) }
+    systemProperty("clu.benchOut", rootProject.file("docs/measurements/core_host.json").absolutePath)
 }
 
 val prepareNativeTest by tasks.registering(Exec::class) {

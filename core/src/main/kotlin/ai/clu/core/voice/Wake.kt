@@ -106,4 +106,19 @@ class WakePolicy(
     }
 
     fun clapAllowed(env: Environment): Boolean = clapEnabled && !(env == Environment.NOISY && strictInNoise)
+
+    companion object {
+        /**
+         * Whether a detected wake word starts the utterance (so "I have a clue about…" doesn't activate Clu).
+         * [keywordStartSec] is the keyword's first-token timestamp and [speechOnsetSec] the time the VAD first reported
+         * speech, both on the detector stream's clock. The VAD reports speech ~0.4 s after it begins (measured with the
+         * app's 100 ms frames), so the utterance start is estimated as onset - [vadLagSec]. Measured offsets: leading
+         * wake words <= 0.16 s, mid-sentence uses >= 0.7 s (docs/measurements/voice_pipeline_host.json).
+         */
+        fun isLeading(keywordStartSec: Float?, speechOnsetSec: Float?, vadLagSec: Float = 0.4f, maxOffsetSec: Float = 0.45f): Boolean {
+            if (keywordStartSec == null || speechOnsetSec == null) return true // keyword detected before the VAD fired: it leads
+            val start = maxOf(0f, speechOnsetSec - vadLagSec)
+            return keywordStartSec - start <= maxOffsetSec
+        }
+    }
 }

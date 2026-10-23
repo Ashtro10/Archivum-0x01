@@ -31,6 +31,7 @@ data class VoiceConfig(
     val wakeEngine: String,
     val wakeThreshold: Double,
     val kwsThreshold: Float,
+    val requireLeading: Boolean,
     val policy: WakePolicy,
     val clapSensitivity: Double,
     val clapCount: Int,
@@ -64,6 +65,7 @@ data class VoiceConfig(
             wakeEngine = s.string(Settings.WAKE_ENGINE),
             wakeThreshold = s.double(Settings.WAKE_THRESHOLD),
             kwsThreshold = s.double(Settings.KWS_THRESHOLD).toFloat(),
+            requireLeading = s.bool(Settings.WAKE_LEADING),
             policy = WakePolicy(
                 words = s.wakeWords(),
                 clapEnabled = s.bool(Settings.CLAP_ENABLED),

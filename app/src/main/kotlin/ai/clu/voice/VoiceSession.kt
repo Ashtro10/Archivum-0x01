@@ -133,6 +133,8 @@ class VoiceSession(private val app: CluApp) {
         val ring = AudioRing(4)
         var kwsStream: OnlineStream? = null
         var kwsWords: List<String> = emptyList()
+        var kwsFed = 0L                  // samples fed to the current KWS stream (its timestamp clock)
+        var kwsSpeechOnset: Float? = null // stream time at which the VAD reported the current utterance
         var asrStream: OnlineStream? = null
         val utterance = ArrayList<FloatArray>()
         var speechActive = false
@@ -208,6 +210,7 @@ class VoiceSession(private val app: CluApp) {
                 // Speech start/end bookkeeping (barge-in and utterance boundaries).
                 if (isSpeech && !speechActive) {
                     speechActive = true; speechStartAt = now
+                    kwsSpeechOnset = (kwsFed + frame.size) / SAMPLE_RATE.toFloat() // same convention as the measurements
                     if (turn.state == TurnState.LISTENING && asrStream == null) asrStream = newAsrStream(0.4)
                 }
                 if (speechActive && isSpeech && turn.state == TurnState.SPEAKING && now - speechStartAt > 300) {
@@ -229,14 +232,23 @@ class VoiceSession(private val app: CluApp) {
                                     kwsStream?.release()
                                     val kws = engines.kws(cfg.kwsThreshold)
                                     kwsStream = kws.createStream(SentencePieceBpe.keywordSpec(engines.bpe, words)); kwsWords = words
+                                    kwsFed = 0; kwsSpeechOnset = if (speechActive) 0f else null
                                 }
                                 val kws = engines.kws(cfg.kwsThreshold)
                                 kwsStream!!.acceptWaveform(frame, SAMPLE_RATE)
+                                kwsFed += frame.size
                                 while (kws.isReady(kwsStream!!)) {
                                     kws.decode(kwsStream!!)
                                     val r = kws.getResult(kwsStream!!)
                                     if (r.keyword.isNotEmpty()) {
-                                        kws.reset(kwsStream!!)
+                                        val leading = WakePolicy.isLeading(r.timestamps.firstOrNull(), if (speechActive) kwsSpeechOnset else null)
+                                        // Fresh stream after each detection so timestamps restart from zero.
+                                        kwsStream!!.release(); kwsStream = kws.createStream(SentencePieceBpe.keywordSpec(engines.bpe, words))
+                                        kwsFed = 0; kwsSpeechOnset = if (speechActive) 0f else null
+                                        if (cfg.requireLeading && !leading) {
+                                            core.diag.i("voice", "ignored mid-sentence '${r.keyword}'")
+                                            break
+                                        }
                                         core.diag.i("voice", "wake word '${r.keyword}' (env=$env, noise=${"%.1f".format(noise.floorDb)} dBFS)")
                                         onActivated()
                                         asrStream = newAsrStream(0.0)

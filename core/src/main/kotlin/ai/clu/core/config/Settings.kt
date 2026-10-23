@@ -184,6 +184,10 @@ object Settings {
     val WAKE_THRESHOLD = float("wake.matchThreshold", "Wake match strictness", WAKE, 0.75, 0.4, 1.0,
         "Similarity required between heard words and a wake phrase (higher = stricter).", "WakePhraseMatcher",
         "Minimum fuzzy-match score for activation", "WakeSettingsTest#threshold")
+    val WAKE_LEADING = bool("wake.requireLeading", "Name must start the sentence", WAKE, true,
+        "Only activate when the wake word begins what you say (\"Clue, …\"), not when it appears mid-sentence.", "WakeDetector, WakePolicy",
+        "Keyword detections that start > 0.45 s into an utterance are ignored", "WakeSettingsTest#leading",
+        limits = "Keyword spotter only. Tuned on synthetic speech; verify on the device.")
     val CLAP_ENABLED = bool("wake.clap", "Clap activation", WAKE, false, "Double clap activates Clu (quiet surroundings only).",
         "ClapDetector, WakePolicy", "Clap patterns can activate a session", "WakeSettingsTest#clap", apply = ApplyMode.VOICE_RESTART)
     val CLAP_SENSITIVITY = float("wake.clapSensitivity", "Clap sensitivity", WAKE, 0.5, 0.0, 1.0, "Higher = softer claps count.",

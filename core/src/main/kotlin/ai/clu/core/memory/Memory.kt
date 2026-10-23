@@ -180,11 +180,17 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         val postings = db.query("SELECT memory_id, term, tf FROM memory_terms WHERE term IN ($placeholders)", qTerms) {
             Triple(it.str(0), it.str(1), it.lng(2))
         }
+        // Document lengths for all candidates in batched queries (avoids one query per posting).
         val lengths = HashMap<String, Double>()
+        postings.map { it.first }.distinct().chunked(500).forEach { chunk ->
+            db.query("SELECT key, value FROM memory_stats WHERE key IN (${chunk.joinToString(",") { "?" }})", chunk.map { "len:$it" }) {
+                it.str(0).removePrefix("len:") to (it.double(1) ?: avgLen)
+            }.forEach { (k, v) -> lengths[k] = v }
+        }
         val scores = HashMap<String, Double>()
         val k1 = 1.2; val b = 0.75
         for ((id, term, tf) in postings) {
-            val len = lengths.getOrPut(id) { db.queryOne("SELECT value FROM memory_stats WHERE key = ?", listOf("len:$id")) { it.double(0) } ?: avgLen }
+            val len = lengths[id] ?: avgLen
             val d = (df[term] ?: 1L).toDouble()
             val idf = ln(1 + (n - d + 0.5) / (d + 0.5))
             val s = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * len / avgLen))

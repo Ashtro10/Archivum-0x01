@@ -82,6 +82,7 @@ for line in lines:
     a = tts.generate(line, sid=0, speed=1.0)
     x = resample(np.array(a.samples, dtype=np.float32), a.sample_rate)
     s = rec.create_stream()
+    s.accept_waveform(16000, np.zeros(16000, dtype=np.float32))  # app primes streams with 1 s of silence
     t_feed = time.time()
     chunk = 1600  # 100 ms, like the app's capture buffer
     for i in range(0, len(x), chunk):
@@ -124,12 +125,13 @@ out["vad"] = {"expected_segments": 2, "detected_segments": len(segments), "segme
 kws_dir = M / "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
 import sentencepiece as spm
 sp = spm.SentencePieceProcessor(model_file=str(kws_dir / "bpe.model"))
-kw_tokens = " ".join(sp.encode("CLUE", out_type=str))
-kws_file = Path("/tmp/clu_kws.txt"); kws_file.write_text(f"{kw_tokens} @CLUE\n")
+WAKE = ["CLUE", "HEY CLUE", "BUDDY", "FRIEND"]  # app defaults (primary + secondary wake words)
+kw_tokens = {w: " ".join(sp.encode(w, out_type=str)) for w in WAKE}
+kws_file = Path("/tmp/clu_kws.txt"); kws_file.write_text("".join(f"{t} @{w.replace(' ', '_')}\n" for w, t in kw_tokens.items()))
 kws = sherpa_onnx.KeywordSpotter(
     tokens=str(kws_dir / "tokens.txt"), encoder=str(kws_dir / "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"),
     decoder=str(kws_dir / "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"), joiner=str(kws_dir / "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"),
-    keywords_file=str(kws_file), num_threads=1, keywords_threshold=0.15, keywords_score=1.5)
+    keywords_file=str(kws_file), num_threads=1, keywords_threshold=0.1, keywords_score=1.5)  # app default
 
 
 def spot(text):
@@ -147,7 +149,10 @@ def spot(text):
     return hits
 
 
-out["kws"] = {"keyword_tokens": kw_tokens, "positive": spot("Clue, open YouTube."), "negative": spot("Please open the window for me.")}
+positives = ["Clue, open YouTube.", "Hey Clue, what time is it?", "Buddy, are you there?"]
+negatives = ["Please open the window for me.", "The glue is drying on the table.", "I have a clue about the answer, maybe."]
+out["kws"] = {"threshold": 0.1, "keyword_tokens": kw_tokens,
+              "positives": {t: spot(t) for t in positives}, "negatives": {t: spot(t) for t in negatives}}
 
 # 5. Speaker embeddings ---------------------------------------------------------------------------
 ext = sherpa_onnx.SpeakerEmbeddingExtractor(sherpa_onnx.SpeakerEmbeddingExtractorConfig(

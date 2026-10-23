@@ -136,7 +136,10 @@ class SyncEngine(
     data class ApplyStats(var applied: Int = 0, var skipped: Int = 0, var conflicts: Int = 0)
 
     /** Applies rows from [peerId]. Idempotent: duplicates and older versions are ignored. */
-    fun apply(rows: List<SyncRow>, peerId: String): ApplyStats {
+    fun apply(rows: List<SyncRow>, peerId: String): ApplyStats = db.transaction { applyBatch(rows, peerId) }
+
+    /** One transaction per received batch: atomic (a dropped connection never leaves half a batch) and fast. */
+    private fun applyBatch(rows: List<SyncRow>, peerId: String): ApplyStats {
         val st = ApplyStats()
         val peer = peer(peerId)
         val policy = settings.string(Settings.CONFLICT_POLICY)

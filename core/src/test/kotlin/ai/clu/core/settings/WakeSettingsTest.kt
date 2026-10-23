@@ -64,6 +64,19 @@ class WakeSettingsTest {
         assertIs<SettingResult.Invalid>(s.set(Settings.KWS_THRESHOLD, 0.9))
     }
 
+    @Test fun leading() {
+        // Measured on the host with the app's frame sizes (keyword start, VAD onset):
+        assertTrue(WakePolicy.isLeading(1.12f, 1.4f))   // "Clue, open YouTube"
+        assertTrue(WakePolicy.isLeading(1.04f, 1.3f))   // "Hey Clue, what time is it?"
+        assertTrue(WakePolicy.isLeading(1.16f, 1.3f))   // "Buddy, are you there?"
+        assertFalse(WakePolicy.isLeading(1.6f, 1.3f))   // "I have a clue about the answer"
+        assertFalse(WakePolicy.isLeading(2.24f, 1.3f))  // "Honestly I think the clue was in the book"
+        assertFalse(WakePolicy.isLeading(1.96f, 1.3f))  // "We should ask my friend Buddy"
+        assertTrue(WakePolicy.isLeading(0.5f, null), "detected before VAD onset")
+        assertTrue(cfg().requireLeading)
+        s.set(Settings.WAKE_LEADING, false); assertFalse(cfg().requireLeading)
+    }
+
     @Test fun threshold() {
         val words = cfg().policy.words
         assertNotNull(WakePhraseMatcher.match("glue what's up", words, 0.7))

@@ -1,0 +1,10 @@
+{
+  "memory_insert_ms_per_record_2000": 5.300,
+  "memory_retrieval_ms_at_2000_records": 43.825,
+  "prompt_build_with_retrieval_ms": 27.232,
+  "setting_write_ms": 1.626,
+  "db_bytes_with_2000_memories": 7561216,
+  "sync_1000_memories_ms_localhost": 1192.781,
+  "sync_1000_memories_ok": true,
+  "environment": "amd64 JVM 21.0.12.1, 4 vCPU (build container, not a phone)"
+}

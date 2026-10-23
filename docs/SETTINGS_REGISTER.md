@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.0.0-prototype.
 
-* Settings: **178** · verifying test passed: **178** · other: **0**
+* Settings: **179** · verifying test passed: **179** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -66,6 +66,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `wake.engine` | Wake detection method | `"kws"` | `kws`, `asr` | SHARED | WakeDetector | Selects the detector implementation | Restarts the listening session | `WakeSettingsTest#engine` | passed (binding) · device effect unverified | Keyword spotter phrases must be expressible in its English token set. Speech-gated recognition is less reliable on short names (measured). |
 | `wake.kwsThreshold` | Keyword spotter threshold | `0.1` | number 0.02–0.5 | SHARED | WakeDetector | sherpa-onnx keywords_threshold | Applies immediately | `WakeSettingsTest#engine` | passed | – |
 | `wake.matchThreshold` | Wake match strictness | `0.75` | number 0.4–1.0 | SHARED | WakePhraseMatcher | Minimum fuzzy-match score for activation | Applies immediately | `WakeSettingsTest#threshold` | passed | – |
+| `wake.requireLeading` | Name must start the sentence | `true` | true / false | SHARED | WakeDetector, WakePolicy | Keyword detections that start > 0.45 s into an utterance are ignored | Applies immediately | `WakeSettingsTest#leading` | passed | Keyword spotter only. Tuned on synthetic speech; verify on the device. |
 | `wake.clap` | Clap activation | `false` | true / false | SHARED | ClapDetector, WakePolicy | Clap patterns can activate a session | Restarts the listening session | `WakeSettingsTest#clap` | passed | – |
 | `wake.clapSensitivity` | Clap sensitivity | `0.5` | number 0.0–1.0 | SHARED | ClapDetector | Transient peak/rise thresholds | Applies immediately | `WakeSettingsTest#clapSensitivity` | passed | – |
 | `wake.clapCount` | Claps required | `2` | integer 1–3 | SHARED | ClapDetector | Pattern length required | Applies immediately | `WakeSettingsTest#clapCount` | passed | – |

@@ -63,7 +63,7 @@ class SyncRobustnessTest {
         assertTrue(h.tablet.syncEngine.peers().isEmpty()); assertTrue(h.phone.syncEngine.peers().isEmpty())
     }
 
-    @Test fun pairingRequiresOpenWindow() = runBlocking {
+    @Test fun pairingRequiresOpenWindow(): Unit = runBlocking {
         assertFalse(h.phoneNode.pair("127.0.0.1", h.port).ok, "tablet must explicitly open pairing")
     }
 
@@ -117,10 +117,11 @@ class SyncRobustnessTest {
         assertTrue(h.phone.syncEngine.peers().single().ackedSeq > 0)
     }
 
-    @Test fun phoneWorksWithoutTablet() = runBlocking {
+    @Test fun phoneWorksWithoutTablet(): Unit = runBlocking {
         h.pair()
         h.tabletNode.stopServer()
-        val r = h.phoneNode.syncWith("127.0.0.1", h.port)
+        // Port 1 is never listening; re-using the tablet's freed ephemeral port could hit a TCP self-connect.
+        val r = h.phoneNode.syncWith("127.0.0.1", 1)
         assertFalse(r.ok)
         // Local operation continues: memory writes and agent replies still work.
         h.memory(h.phone, "Offline note")
@@ -222,5 +223,20 @@ class RegistryTest {
         val info = GgufReader.read(f)
         assertEquals(3, info.version); assertEquals("llama", info.architecture); assertEquals("clu-test-tiny-random", info.name)
         assertEquals(2, info.blockCount); assertEquals(2048, info.contextLength); assertTrue(info.hasChatTemplate); assertEquals("F32", info.quantization)
+    }
+}
+
+class ImprovementAdvisorTest {
+    @Test fun suggestsFromMeasuredFailuresAndPerformance() {
+        val core = newCore()
+        val rel = listOf(ai.clu.core.tools.ToolExecutor.Reliability("web.search", 5, 4, "No internet connection is available right now."),
+            ai.clu.core.tools.ToolExecutor.Reliability("calc", 10, 0, null))
+        repeat(3) { core.diag.perf("tokens_per_s", 2.5); core.diag.perf("first_audio_ms", 3200.0) }
+        val s = ai.clu.core.diag.ImprovementAdvisor.suggestions(rel, core.diag.perfSummary())
+        assertTrue(s.any { it.settingKey == "tool.web.search.enabled" })
+        assertTrue(s.none { it.title.startsWith("calc") })
+        assertTrue(s.any { it.settingKey == "model.contextLength" })
+        assertTrue(s.any { it.settingKey == "voice.incremental" })
+        assertTrue(ai.clu.core.diag.ImprovementAdvisor.suggestions(emptyList(), emptyList()).isEmpty())
     }
 }

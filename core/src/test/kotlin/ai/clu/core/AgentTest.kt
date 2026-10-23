@@ -67,7 +67,7 @@ class AgentTest {
         core.agent.respond(TurnRequest(conv.id, text, actor, viaVoice = voice)).toList()
     private fun List<AgentEvent>.reply() = filterIsInstance<AgentEvent.Done>().single().text
 
-    @Test fun modelToolLoopUsesRealResult() = runBlocking {
+    @Test fun modelToolLoopUsesRealResult(): Unit = runBlocking {
         val engine = ScriptedEngine().reply("<tool>{\"name\": \"calc\", \"args\": {\"expression\": \"17*23\"}}</tool>", "17 times 23 is 391.")
         core.useEngine(engine)
         val ev = ask("I need 17 multiplied by 23 for my invoice, quickly")
@@ -77,20 +77,20 @@ class AgentTest {
         assertEquals(listOf("calc"), ev.filterIsInstance<AgentEvent.Done>().single().meta.tools)
     }
 
-    @Test fun toolFailureIsReportedNotHidden() = runBlocking {
+    @Test fun toolFailureIsReportedNotHidden(): Unit = runBlocking {
         val engine = ScriptedEngine().reply("<tool>{\"name\": \"maps.find\", \"args\": {\"place\": \"Atlantis\"}}</tool>", "I couldn't find that place.")
         core.useEngine(engine)
         ask("where exactly is Atlantis located")
         assertTrue(engine.prompts[1].last().content.contains("FAILED"), "the model sees the failure")
     }
 
-    @Test fun toolMarkupIsNeverShownToTheUser() = runBlocking {
+    @Test fun toolMarkupIsNeverShownToTheUser(): Unit = runBlocking {
         core.useEngine(ScriptedEngine().reply("<tool>{\"name\": \"time.now\", \"args\": {}}</tool>", "It's late."))
         val text = ask("is it late already?").filterIsInstance<AgentEvent.Text>().joinToString("") { it.delta }
         assertFalse(text.contains("<tool>"))
     }
 
-    @Test fun deviceCommandsBypassTheModel() = runBlocking {
+    @Test fun deviceCommandsBypassTheModel(): Unit = runBlocking {
         val engine = ScriptedEngine()
         core.useEngine(engine)
         val ev = ask("what time is it?")
@@ -99,12 +99,12 @@ class AgentTest {
         assertEquals("tool", ev.filterIsInstance<AgentEvent.Done>().single().meta.source)
     }
 
-    @Test fun noModelGivesHonestMessage() = runBlocking {
+    @Test fun noModelGivesHonestMessage(): Unit = runBlocking {
         val reply = ask("tell me something interesting").reply()
         assertTrue(reply.contains("language model isn't loaded"))
     }
 
-    @Test fun guestCannotUseDeviceTools() = runBlocking {
+    @Test fun guestCannotUseDeviceTools(): Unit = runBlocking {
         val t = RecordingTool("app.open"); core.toolRegistry.register(t)
         val guest = core.auth.actorForSpeaker(null, true)!!
         val r = ask("open YouTube", guest, voice = true).reply()
@@ -115,7 +115,7 @@ class AgentTest {
         assertEquals(1, t.runs, "a trusted person can use tools the owner allowed")
     }
 
-    @Test fun guestDoesNotSeePrivateMemories() = runBlocking {
+    @Test fun guestDoesNotSeePrivateMemories(): Unit = runBlocking {
         core.memories.save(ai.clu.core.memory.Memory(category = ai.clu.core.memory.MemoryCategory.CORE_FACT, title = "Bank PIN hint", content = "Bank PIN hint is grandma's birthday",
             source = ai.clu.core.memory.MemorySource.OWNER_SUPPLIED))
         val engine = ScriptedEngine().reply("I can't share that.")
@@ -125,7 +125,7 @@ class AgentTest {
         assertTrue(engine.lastSystem.contains("not the owner"))
     }
 
-    @Test fun characterSwitchByVoiceChangesInstructions() = runBlocking {
+    @Test fun characterSwitchByVoiceChangesInstructions(): Unit = runBlocking {
         core.characters.save(CharacterProfile(name = "Rick Sanchez", personality = "Burps mid-sentence, nihilistic scientist."))
         val engine = ScriptedEngine().reply("Wubba lubba dub dub.")
         core.useEngine(engine)
@@ -138,7 +138,7 @@ class AgentTest {
         assertEquals("Clu", core.settings.string(Settings.CLU_NAME), "character never overwrote Clu's identity")
     }
 
-    @Test fun characterToolPermissions() = runBlocking {
+    @Test fun characterToolPermissions(): Unit = runBlocking {
         val t = RecordingTool("app.open"); core.toolRegistry.register(t)
         val c = core.characters.save(CharacterProfile(name = "Optimus", canUseDeviceTools = false))
         core.personas.switchTo(c.id)
@@ -149,7 +149,7 @@ class AgentTest {
         assertEquals(1, t.runs)
     }
 
-    @Test fun customCommandsRunConfiguredActions() = runBlocking {
+    @Test fun customCommandsRunConfiguredActions(): Unit = runBlocking {
         val t = RecordingTool("device.flashlight"); core.toolRegistry.register(t)
         core.commands.save(CustomCommand(name = "Movie mode", kind = CommandKind.ACTION, triggers = listOf("movie mode", "cinema time"),
             steps = listOf(CommandStep("device.flashlight", buildJsonObject { put("state", "off") })), responses = listOf("Enjoy the film, {owner}.")))
@@ -162,13 +162,13 @@ class AgentTest {
         assertEquals(1, t.runs)
     }
 
-    @Test fun terminationPhraseEndsSession() = runBlocking {
+    @Test fun terminationPhraseEndsSession(): Unit = runBlocking {
         val ev = ask("End of the line.", voice = true)
         assertTrue(ev.any { it is AgentEvent.Control && it.command == "end_session" })
         assertTrue(ev.reply().isNotBlank())
     }
 
-    @Test fun historyIsTrimmedToFitContext() = runBlocking {
+    @Test fun historyIsTrimmedToFitContext(): Unit = runBlocking {
         val engine = ScriptedEngine(ctx = 600)
         repeat(40) { engine.reply("Answer $it " + "x".repeat(200)) }
         core.useEngine(engine)
@@ -181,7 +181,7 @@ class AgentTest {
 
 /** End-to-end turn through CluCore with the real llama.cpp engine (tiny random model): plumbing, persistence, stats. */
 class EndToEndLlamaTest {
-    @Test fun fullTurnWithRealEngine() = runBlocking {
+    @Test fun fullTurnWithRealEngine(): Unit = runBlocking {
         val core = newCore()
         val model = File(System.getProperty("clu.testModel", "../native/build/test/tiny.gguf"))
         core.settings.set(Settings.MODEL_ACTIVE, core.models.register(model).id)

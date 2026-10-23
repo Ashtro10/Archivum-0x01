@@ -142,7 +142,7 @@ class SyncSettingsTest {
         assertTrue("tablet v3" in titles && "phone v3" in titles, "both versions kept: $titles")
     }
 
-    @Test fun remoteInference() = runBlocking {
+    @Test fun remoteInference(): Unit = runBlocking {
         h.pair()
         val model = java.io.File(System.getProperty("clu.testModel", "../native/build/test/tiny.gguf"))
         h.tablet.settings.set(Settings.MODEL_ACTIVE, h.tablet.models.register(model).id)

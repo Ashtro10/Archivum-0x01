@@ -345,6 +345,12 @@ class ToolHistoryActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         screen("Tool history") {
+            h1("Suggestions")
+            val sugg = ai.clu.core.diag.ImprovementAdvisor.suggestions(core.tools.reliability(), core.diag.perfSummary())
+            if (sugg.isEmpty()) p("No improvement suggestions from the measurements so far.")
+            sugg.forEach { sg -> card { p(sg.title, C.TEXT); p(sg.detail, C.MUTED, 12f)
+                sg.settingKey?.let { k -> ai.clu.core.config.Settings[k]?.let { d -> smallButton("Open ${d.category.title}") {
+                    startActivity(Intent(this@ToolHistoryActivity, SettingsCategoryActivity::class.java).putExtra("cat", d.category.name)) } } } } }
             h1("Reliability")
             core.tools.reliability().forEach { r -> p("${r.tool}: ${r.runs} runs, ${r.failures} failed${r.lastError?.let { " · last error: $it" } ?: ""}", if (r.failures > 0) C.WARN else C.MUTED, 12f) }
             h1("Recent runs")

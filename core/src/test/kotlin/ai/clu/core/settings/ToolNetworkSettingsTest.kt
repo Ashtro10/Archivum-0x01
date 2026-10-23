@@ -39,7 +39,7 @@ class ToolSettingsTest {
         assertTrue(AppPolicy.allowed(s, "YouTube", "com.google.android.youtube"))
     }
 
-    @Test fun historyRetention() = runBlocking {
+    @Test fun historyRetention(): Unit = runBlocking {
         val t = RecordingTool(); core.toolRegistry.register(t)
         core.tools.execute(t.name, JsonObject(emptyMap()), ctx)
         assertEquals(1, core.tools.history().size)
@@ -49,7 +49,7 @@ class ToolSettingsTest {
         assertEquals(0, core.tools.history().size)
     }
 
-    @Test fun maxSteps() = runBlocking {
+    @Test fun maxSteps(): Unit = runBlocking {
         val t = RecordingTool(); core.toolRegistry.register(t)
         val call = "<tool>{\"name\": \"test.action\", \"args\": {}}</tool>"
         s.set(Settings.AGENT_MAX_STEPS, 2)
@@ -59,7 +59,7 @@ class ToolSettingsTest {
         assertEquals(2, t.runs, "agent must stop calling tools after the configured number of steps")
     }
 
-    @Test fun perToolEnable() = runBlocking {
+    @Test fun perToolEnable(): Unit = runBlocking {
         val t = RecordingTool(); core.toolRegistry.register(t)
         assertTrue(core.tools.execute(t.name, JsonObject(emptyMap()), ctx).success)
         s.set("tool.test.action.enabled", false)
@@ -69,7 +69,7 @@ class ToolSettingsTest {
         assertTrue(core.tools.available(core.personas.active()).none { it.name == t.name })
     }
 
-    @Test fun perToolConfirm() = runBlocking {
+    @Test fun perToolConfirm(): Unit = runBlocking {
         val t = RecordingTool("test.purchase", confirmByDefault = true); core.toolRegistry.register(t)
         var asked = 0
         core.tools.confirmation = ConfirmationHandler { _, _, _ -> asked++; false }
@@ -93,7 +93,7 @@ class NetworkSettingsTest {
     private val ctx get() = ToolContext(Actor.ownerInApp(), core.personas.active(), null, core.clock.now())
     private val wikiBody = """{"query":{"search":[{"title":"Pune","snippet":"<span>Pune</span> is a city in Maharashtra"}]}}"""
 
-    @Test fun master() = runBlocking {
+    @Test fun master(): Unit = runBlocking {
         platform.fakeHttp.routes["wikipedia.org"] = ai.clu.core.tools.HttpResponse(200, wikiBody)
         s.set(Settings.SEARCH_PROVIDER, "wikipedia")
         assertTrue(core.tools.execute("web.search", buildJsonObject { put("query", "Pune") }, ctx).success)
@@ -104,7 +104,7 @@ class NetworkSettingsTest {
         assertEquals(before, platform.fakeHttp.requests.size, "no request may be sent when internet access is off")
     }
 
-    @Test fun categories() = runBlocking {
+    @Test fun categories(): Unit = runBlocking {
         s.set(Settings.NET_MAPS, false)
         assertTrue(core.tools.execute("maps.distance", buildJsonObject { put("from", "Pune"); put("to", "Mumbai") }, ctx).summary.contains("maps is turned off"))
         s.set(Settings.NET_TRAVEL, false)
@@ -115,7 +115,7 @@ class NetworkSettingsTest {
         assertTrue(platform.fakeHttp.requests.isEmpty())
     }
 
-    @Test fun searchProvider() = runBlocking {
+    @Test fun searchProvider(): Unit = runBlocking {
         platform.fakeHttp.routes["wikipedia.org"] = ai.clu.core.tools.HttpResponse(200, wikiBody)
         core.tools.execute("web.search", buildJsonObject { put("query", "Pune") }, ctx)
         assertTrue(platform.fakeHttp.requests.first().contains("duckduckgo.com"))
@@ -126,13 +126,13 @@ class NetworkSettingsTest {
         assertTrue(r.summary.contains("Pune is a city in Maharashtra"))
     }
 
-    @Test fun searchNeverFabricates() = runBlocking {
+    @Test fun searchNeverFabricates(): Unit = runBlocking {
         // All providers fail -> the tool reports failure instead of inventing results.
         val r = core.tools.execute("web.search", buildJsonObject { put("query", "anything") }, ctx)
         assertFalse(r.success); assertFalse(r.verified)
     }
 
-    @Test fun externalAi() = runBlocking {
+    @Test fun externalAi(): Unit = runBlocking {
         platform.fakeHttp.routes["example.org"] = ai.clu.core.tools.HttpResponse(200, """{"choices":[{"message":{"content":"Deep answer."}}]}""")
         assertFalse(core.tools.execute("external.ai", buildJsonObject { put("question", "q") }, ctx).success, "off by default")
         s.set(Settings.EXT_AI_MODE, "on_request"); s.set(Settings.EXT_AI_URL, "https://example.org"); s.set(Settings.EXT_AI_MODEL, "big-model")
@@ -146,7 +146,7 @@ class NetworkSettingsTest {
         assertTrue(core.diag.recent().none { it.message.contains("sk-secretvalue") })
     }
 
-    @Test fun shareMemories() = runBlocking {
+    @Test fun shareMemories(): Unit = runBlocking {
         platform.fakeHttp.routes["example.org"] = ai.clu.core.tools.HttpResponse(200, """{"choices":[{"message":{"content":"ok"}}]}""")
         s.set(Settings.EXT_AI_MODE, "auto"); s.set(Settings.EXT_AI_URL, "https://example.org")
         core.memories.save(ai.clu.core.memory.Memory(category = ai.clu.core.memory.MemoryCategory.CORE_FACT, title = "Salary", content = "My salary is 12 lakh",
@@ -171,7 +171,7 @@ class NetworkSettingsTest {
         assertNull(UiPolicy.sourceBadge(s, meta))
     }
 
-    @Test fun offlineBehavior() = runBlocking {
+    @Test fun offlineBehavior(): Unit = runBlocking {
         platform.online = false
         val conv = core.conversations.create()
         val engine = ScriptedEngine().reply("I'm offline, so this may be outdated: Pune is in Maharashtra.")

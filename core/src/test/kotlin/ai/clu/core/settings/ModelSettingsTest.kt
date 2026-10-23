@@ -22,7 +22,7 @@ class ModelSettingsTest {
         e.generate(listOf(ChatMessage("user", "Hello")), GenParams(maxTokens = 8, temperature = 0f)) {}.text
     }
 
-    @Test fun activeModel() = runBlocking {
+    @Test fun activeModel(): Unit = runBlocking {
         assertEquals(LlmStatus.NO_MODEL, core.llm.state.value.status)
         val a = registerAndSelect(modelA)
         assertEquals("GGUF v3", a.format); assertEquals("llama", a.info.architecture); assertEquals(ModelStatus.UNVERIFIED, a.status)
@@ -51,7 +51,7 @@ class ModelSettingsTest {
         assertTrue(e.message!!.contains("bad magic"))
     }
 
-    @Test fun contextLength() = runBlocking {
+    @Test fun contextLength(): Unit = runBlocking {
         registerAndSelect(modelA)
         s.set(Settings.CONTEXT_LENGTH, 1024); core.llm.reload()
         assertEquals(1024, core.llm.engine()!!.contextSize())
@@ -60,7 +60,7 @@ class ModelSettingsTest {
         assertIs<SettingResult.Invalid>(s.set(Settings.CONTEXT_LENGTH, 100))
     }
 
-    @Test fun maxTokens() = runBlocking {
+    @Test fun maxTokens(): Unit = runBlocking {
         registerAndSelect(modelA)
         assertIs<SettingResult.Invalid>(s.set(Settings.MAX_TOKENS, 6))
         s.set(Settings.MAX_TOKENS, 32)
@@ -70,7 +70,7 @@ class ModelSettingsTest {
         assertTrue(r.stats.generatedTokens in 1..32)
     }
 
-    @Test fun sampling() = runBlocking {
+    @Test fun sampling(): Unit = runBlocking {
         s.set(Settings.TEMPERATURE, 0.0); s.set(Settings.TOP_K, 5); s.set(Settings.TOP_P, 0.5); s.set(Settings.MIN_P, 0.1); s.set(Settings.REPEAT_PENALTY, 1.3)
         val p = GenerationParams.from(s, null, false)
         assertEquals(0f, p.temperature); assertEquals(5, p.topK); assertEquals(0.5f, p.topP); assertEquals(0.1f, p.minP); assertEquals(1.3f, p.repeatPenalty)
@@ -88,7 +88,7 @@ class ModelSettingsTest {
 
     @Test fun batch() { val e = registerAndSelect(modelA); s.set(Settings.BATCH, 64); assertEquals(64, core.llm.configFor(e).batchSize) }
 
-    @Test fun mmap() = runBlocking {
+    @Test fun mmap(): Unit = runBlocking {
         val e = registerAndSelect(modelA)
         s.set(Settings.USE_MMAP, false)
         assertFalse(core.llm.configFor(e).useMmap)
@@ -102,7 +102,7 @@ class ModelSettingsTest {
         assertEquals(0, core.llm.configFor(e).gpuLayers, "GPU must not be claimed when the build has no GPU backend")
     }
 
-    @Test fun autoUnload() = runBlocking {
+    @Test fun autoUnload(): Unit = runBlocking {
         registerAndSelect(modelA)
         s.set(Settings.AUTO_UNLOAD, 1)
         core.llm.loadIfNeeded()
@@ -141,7 +141,7 @@ class ModelSettingsTest {
         assertEquals(normal, GenerationParams.from(s, null, thermalSevere = true).maxTokens)
     }
 
-    @Test fun chatTemplate() = runBlocking {
+    @Test fun chatTemplate(): Unit = runBlocking {
         registerAndSelect(modelA)
         val engine = core.llm.loadIfNeeded()!!
         assertTrue(engine.format(listOf(ChatMessage("user", "hi"))).contains("<|im_start|>user"))
@@ -150,7 +150,7 @@ class ModelSettingsTest {
         assertTrue(reloaded.format(listOf(ChatMessage("user", "hi"))).contains("<|start_header_id|>user<|end_header_id|>"))
     }
 
-    @Test fun insufficientMemoryIsReportedHonestly() = runBlocking {
+    @Test fun insufficientMemoryIsReportedHonestly(): Unit = runBlocking {
         registerAndSelect(modelA)
         platform.llm.available = 10_000_000
         assertNull(core.llm.loadIfNeeded())

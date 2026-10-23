@@ -98,7 +98,7 @@ class LearningSettingsTest {
         assertTrue(GenerationParams.from(s, core.prefs, false).maxTokens > concise, "preference stops affecting the token budget")
     }
 
-    @Test fun alternatives() = runBlocking {
+    @Test fun alternatives(): Unit = runBlocking {
         s.set(Settings.LEARNING_ALT_EVERY, 5)
         repeat(4) { core.prefs.recordReply() }
         assertNull(core.prefs.nextAlternative())

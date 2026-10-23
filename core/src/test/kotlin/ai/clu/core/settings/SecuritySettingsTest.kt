@@ -41,7 +41,7 @@ class SecuritySettingsTest {
         assertEquals(PersonRole.OWNER, core.auth.actorForSpeaker(null, true)!!.role)
     }
 
-    @Test fun refusal() = runBlocking {
+    @Test fun refusal(): Unit = runBlocking {
         s.set(Settings.REFUSAL_LINES, listOf("Access denied, human."))
         val conv = core.conversations.create()
         val guest = core.auth.actorForSpeaker(null, true)!!

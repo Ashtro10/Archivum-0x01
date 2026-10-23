@@ -84,7 +84,7 @@ class MemorySettingsTest {
         assertNull(core.proposals.propose(ProposalKind.HYPOTHESIS, "Owner dislikes crowds", "pattern"))
     }
 
-    @Test fun rememberCommand() = runBlocking {
+    @Test fun rememberCommand(): Unit = runBlocking {
         val conv = core.conversations.create()
         core.agent.handle(TurnRequest(conv.id, "Remember that my passport expires in May 2027", Actor.ownerInApp())) {}
         val saved = core.memories.list().single()
@@ -96,7 +96,7 @@ class MemorySettingsTest {
         assertTrue(core.proposals.pending().any { it.text.contains("locker code") })
     }
 
-    @Test fun diaryMode() = runBlocking {
+    @Test fun diaryMode(): Unit = runBlocking {
         core.useEngine(ScriptedEngine().reply("a", "b", "c", "The owner discussed exam preparation and felt confident."))
         val conv = core.conversations.create()
         for (q in listOf("I have an exam tomorrow", "It's on physics", "I think I'm ready")) core.agent.handle(TurnRequest(conv.id, q, Actor.ownerInApp())) {}

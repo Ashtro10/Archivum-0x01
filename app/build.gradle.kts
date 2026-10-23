@@ -148,6 +148,12 @@ tasks.test {
     systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
     systemProperty("robolectric.dependency.repo.id", "central-mirror")
     systemProperty("robolectric.logging.enabled", "true")
+    // Settings Implementation Register: generated after the core tests (whose results it reports).
+    dependsOn(":core:test")
+    systemProperty("clu.registerOut", rootProject.file("docs/SETTINGS_REGISTER.md").absolutePath)
+    systemProperty("clu.testResultDirs", listOf(project(":core").layout.buildDirectory.dir("test-results/test").get().asFile,
+        layout.buildDirectory.dir("test-results/test").get().asFile).joinToString(File.pathSeparator))
+    systemProperty("clu.buildInfo", "Version " + cluVersionName + ".")
     maxHeapSize = "3g"
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

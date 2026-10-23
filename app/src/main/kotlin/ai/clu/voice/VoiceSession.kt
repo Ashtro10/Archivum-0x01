@@ -359,7 +359,10 @@ class VoiceSession(private val app: CluApp) {
                     else -> {}
                 }
             }
-            if (!out.busy && turn.state != TurnState.LISTENING) { turn.onResponseComplete(); publish() }
+            // Watchdog: if synthesis failed or produced no audio, don't leave the turn stuck in PROCESSING/SPEAKING.
+            val deadline = System.currentTimeMillis() + 120_000
+            while (out.busy && System.currentTimeMillis() < deadline) delay(100)
+            if (turn.state == TurnState.PROCESSING || turn.state == TurnState.SPEAKING) { turn.onResponseComplete(); publish() }
         }
     }
 

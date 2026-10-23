@@ -52,7 +52,7 @@ class MemoryTest {
         assertTrue(line.contains("[13 Jul 2024]"))
     }
 
-    @Test fun agentInjectsRetrievedMemoryIntoPrompt() = runBlocking {
+    @Test fun agentInjectsRetrievedMemoryIntoPrompt(): Unit = runBlocking {
         insertManual()
         val engine = ScriptedEngine().reply("You owe him 2000.")
         core.useEngine(engine)
@@ -101,7 +101,7 @@ class MemoryTest {
         assertNull(core.proposals.propose(ProposalKind.HYPOTHESIS, "Owner may be avoiding the gym", "again"), "not re-proposed")
     }
 
-    @Test fun agentProposesButNeverSavesInsights() = runBlocking {
+    @Test fun agentProposesButNeverSavesInsights(): Unit = runBlocking {
         core.useEngine(ScriptedEngine().reply("Noted."))
         val conv = core.conversations.create()
         val events = mutableListOf<ai.clu.core.agent.AgentEvent>()
@@ -153,7 +153,7 @@ class ConversationTest {
         assertTrue(core.conversations.messages(b.id).isEmpty())
     }
 
-    @Test fun repliesBelongToTheirConversationAndAutoTitle() = runBlocking {
+    @Test fun repliesBelongToTheirConversationAndAutoTitle(): Unit = runBlocking {
         core.useEngine(ScriptedEngine().reply("Reply one", "Reply two"))
         val a = core.conversations.create(); val b = core.conversations.create()
         core.agent.handle(TurnRequest(a.id, "First question about budgets", Actor.ownerInApp())) {}
@@ -163,7 +163,7 @@ class ConversationTest {
         assertEquals("First question about budgets", core.conversations.get(a.id)!!.title)
     }
 
-    @Test fun interruptedReplyKeepsStateConsistent() = runBlocking {
+    @Test fun interruptedReplyKeepsStateConsistent(): Unit = runBlocking {
         val engine = object : ai.clu.core.llm.LlmEngine by ScriptedEngine() {
             override fun generate(messages: List<ai.clu.core.llm.ChatMessage>, params: ai.clu.core.llm.GenParams, onText: (String) -> Unit): ai.clu.core.llm.GenResult {
                 onText("Partial ans"); core.agent.cancel()

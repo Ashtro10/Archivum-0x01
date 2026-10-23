@@ -6,7 +6,7 @@
 |---|---|
 | APK | `dist/clu-debug.apk` (copied from `app/build/apk/clu-debug.apk`) |
 | Size | 58,417,272 bytes |
-| SHA-256 | `ae1d2c1ad15d1a7dd0ca7bc4ae1b60137a868b05146d20b0801d2c4f27688896` |
+| SHA-256 | `2de2df3c4100a2dbb0d50b385dbf56b87aac026216022cc5c25bf26b6a7d01f2` |
 | Package / version | `ai.clu` 1.0.0-prototype (versionCode 1) |
 | minSdk / targetSdk / compileSdk | 33 / 35 / 35 |
 | ABI | arm64-v8a |

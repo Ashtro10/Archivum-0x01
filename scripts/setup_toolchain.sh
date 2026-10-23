@@ -96,6 +96,15 @@ if [[ ! -f "$A/asr/encoder.int8.onnx" ]]; then
   rm -rf "$tmp"
 fi
 
+# androidx.test monitor sources (Apache-2.0) for the Robolectric UI smoke tests (test-only).
+if [[ ! -d "$TC/androidx-test/runner/monitor/java" ]]; then
+  echo "[get]  androidx.test monitor sources"
+  rm -rf "$TC/androidx-test"
+  git clone -q --filter=blob:none --no-checkout https://github.com/android/android-test "$TC/androidx-test"
+  git -C "$TC/androidx-test" sparse-checkout set runner/monitor/java espresso/idling_resource/java
+  git -C "$TC/androidx-test" checkout -q edea994e9ad118c4ac6869c7105dcd06d66da7df
+fi
+
 if [[ "${SKIP_NDK:-0}" != "1" ]]; then
   fetch ndk-r29.tar.xz \
     https://github.com/HomuHomu833/android-ndk-custom/releases/download/r29/android-ndk-r29-x86_64-linux-gnu.tar.xz \

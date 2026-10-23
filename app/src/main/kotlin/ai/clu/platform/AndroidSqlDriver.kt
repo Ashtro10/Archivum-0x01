@@ -5,17 +5,15 @@ import ai.clu.core.db.SqlRow
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import android.database.sqlite.SQLiteProgram
 
-/** SqlDriver over android.database.sqlite; schema/migrations are run by :core (Schema.migrate). */
+/**
+ * SqlDriver over android.database.sqlite. The database is opened directly (not via SQLiteOpenHelper, whose own
+ * user_version bookkeeping would make Schema.migrate believe the schema already exists); :core owns migrations.
+ */
 class AndroidSqlDriver(context: Context, name: String = "clu.db") : SqlDriver {
-    private val helper = object : SQLiteOpenHelper(context, name, null, 1) {
-        override fun onConfigure(db: SQLiteDatabase) { db.enableWriteAheadLogging() }
-        override fun onCreate(db: SQLiteDatabase) {}
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
-    }
-    private val db: SQLiteDatabase = helper.writableDatabase
+    private val db: SQLiteDatabase = SQLiteDatabase.openDatabase(context.getDatabasePath(name).apply { parentFile?.mkdirs() },
+        SQLiteDatabase.OpenParams.Builder().addOpenFlags(SQLiteDatabase.CREATE_IF_NECESSARY or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING).build())
 
     private fun bind(p: SQLiteProgram, args: List<Any?>) {
         args.forEachIndexed { i, a ->
@@ -65,7 +63,7 @@ class AndroidSqlDriver(context: Context, name: String = "clu.db") : SqlDriver {
         get() = db.version
         set(v) { db.version = v }
 
-    override fun close() = helper.close()
+    override fun close() = db.close()
 
     private class Row(val c: Cursor) : SqlRow {
         override fun string(i: Int): String? = if (c.isNull(i)) null else c.getString(i)

@@ -48,7 +48,7 @@ class CluApp : Application() {
         super.onCreate()
         instance = this
         val t0 = System.currentTimeMillis()
-        platform = AndroidPlatform(this)
+        platform = platformFactory?.invoke(this) ?: AndroidPlatform(this)
         core = CluCore(AndroidSqlDriver(this), platform)
         if (core.settings.isDefault(Settings.DEVICE_NAME)) core.settings.set(Settings.DEVICE_NAME, platform.deviceName())
         packs = VoicePackManager(this, core.diag)
@@ -124,6 +124,8 @@ class CluApp : Application() {
 
     companion object {
         lateinit var instance: CluApp
+        /** Test hook (Robolectric has no Android Keystore); null in production. */
+        @Volatile var platformFactory: ((android.content.Context) -> AndroidPlatform)? = null
         const val CH_LISTEN = "listen"
         const val CH_CLU = "clu"
         const val CH_DOWNLOAD = "download"

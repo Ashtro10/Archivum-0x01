@@ -127,10 +127,9 @@ class AndroidLlmPlatform(private val context: Context) : LlmPlatform {
     }
 }
 
-class AndroidPlatform(private val context: Context) : CluPlatform {
+class AndroidPlatform(private val context: Context, override val keyVault: KeyVault = KeystoreVault()) : CluPlatform {
     override val llm = AndroidLlmPlatform(context)
     override val http = AndroidHttp()
-    override val keyVault: KeyVault = KeystoreVault()
     val secrets = SecretStore(context, keyVault)
 
     override fun isOnline(): Boolean {

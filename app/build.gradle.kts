@@ -31,6 +31,17 @@ dependencies {
     implementation(project(":core"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.apache.commons:commons-compress:1.27.1")
+
+    // Robolectric UI/runtime smoke tests on real Android framework code (JVM). androidx.test classes come from the
+    // :testing:robotest-shim module because Google Maven is not reachable from the build environment.
+    testCompileOnly(files(androidJarFile))
+    testRuntimeOnly(files(androidJarFile)) // like AGP's mockable android.jar; Robolectric loads real framework classes in its sandbox
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1") {
+        exclude(group = "androidx.test")
+        exclude(group = "androidx.test.espresso")
+    }
+    testImplementation(project(":testing:robotest-shim"))
 }
 
 val apkDir = layout.buildDirectory.dir("apk")
@@ -115,3 +126,28 @@ val verifyApk by tasks.registering(VerifyApkTask::class) {
     report.set(layout.buildDirectory.file("reports/verify-apk.txt"))
 }
 tasks.named("check") { dependsOn(apiCheck, verifyApk) }
+
+// Robolectric reads the resource APK and manifest from this file (the same keys AGP generates).
+val robolectricConfig by tasks.registering {
+    val out = layout.buildDirectory.dir("generated/robolectric")
+    inputs.files(linkResources)
+    outputs.dir(out)
+    doLast {
+        val f = out.get().file("com/android/tools/test_config.properties").asFile
+        f.parentFile.mkdirs()
+        f.writeText(
+            "android_merged_manifest=" + layout.projectDirectory.file("src/main/AndroidManifest.xml").asFile.absolutePath + "\n" +
+            "android_resource_apk=" + linkResources.get().outputApk.get().asFile.absolutePath + "\n" +
+            "android_custom_package=ai.clu\n"
+        )
+    }
+}
+sourceSets.test { resources.srcDir(robolectricConfig) }
+tasks.test {
+    useJUnit()
+    systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
+    systemProperty("robolectric.dependency.repo.id", "central-mirror")
+    systemProperty("robolectric.logging.enabled", "true")
+    maxHeapSize = "3g"
+    testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+}

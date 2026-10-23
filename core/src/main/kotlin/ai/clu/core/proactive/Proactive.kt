@@ -42,7 +42,7 @@ class ProactivePlanner(
     fun plan(ctx: ProactiveContext, now: Long = store.clock.now()): ProactiveMessage? {
         if (!settings.bool(Settings.PROACTIVE_ENABLED)) return null
         if (QuietHours.isQuiet(settings, now, zone())) return null
-        val dayStart = LocalDate.ofInstant(Instant.ofEpochMilli(now), zone()).atStartOfDay(zone()).toInstant().toEpochMilli()
+        val dayStart = Instant.ofEpochMilli(now).atZone(zone()).toLocalDate().atStartOfDay(zone()).toInstant().toEpochMilli()
         val today = db.queryOne("SELECT COUNT(*) FROM proactive_log WHERE ts >= ?", listOf(dayStart))
         if (today >= settings.int(Settings.PROACTIVE_MAX)) return null
         val last = db.queryOne("SELECT COALESCE(MAX(ts), 0) FROM proactive_log", emptyList())

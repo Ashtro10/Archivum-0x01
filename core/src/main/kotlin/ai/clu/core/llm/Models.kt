@@ -80,7 +80,8 @@ object GgufReader {
     private class Reader(val raf: RandomAccessFile) {
         private val b8 = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
         fun bytes(n: Int): ByteArray { val a = ByteArray(n); raf.readFully(a); return a }
-        private fun le(n: Int): ByteBuffer { b8.clear(); raf.readFully(b8.array(), 0, n); b8.limit(n); return b8 }
+        // Calls go through java.nio.Buffer: the JDK 9+ covariant ByteBuffer overloads don't exist on Android 13.
+        private fun le(n: Int): ByteBuffer { (b8 as java.nio.Buffer).clear(); raf.readFully(b8.array(), 0, n); (b8 as java.nio.Buffer).limit(n); return b8 }
         fun u32(): Long = le(4).int.toLong() and 0xffffffffL
         fun u64(): Long = le(8).long
         fun string(): String {

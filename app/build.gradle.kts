@@ -94,3 +94,24 @@ fun registerVariant(name: String, release: Boolean) {
 }
 registerVariant("debug", release = false)
 registerVariant("release", release = true)
+
+val apiCheck by tasks.registering(ApiCheckTask::class) {
+    group = "verification"
+    description = "Verifies all platform API references exist at minSdk (API 33)"
+    minSdkJar.set(toolchain.file("android-33.jar"))
+    compileSdkJar.set(androidJarFile)
+    classes.from(sourceSets.main.get().output.classesDirs)
+    classes.from(project(":core").sourceSets.main.get().output.classesDirs)
+    report.set(layout.buildDirectory.file("reports/api-check.txt"))
+}
+
+val verifyApk by tasks.registering(VerifyApkTask::class) {
+    group = "verification"
+    description = "Checks manifest components, JNI symbols and bundled assets of the debug APK"
+    apk.set(tasks.named<SignApkTask>("assembleDebug").flatMap { it.signedApk })
+    aapt2.set(toolchain.file("aapt2"))
+    classes.from(sourceSets.main.get().output.classesDirs)
+    classes.from(project(":core").sourceSets.main.get().output.classesDirs)
+    report.set(layout.buildDirectory.file("reports/verify-apk.txt"))
+}
+tasks.named("check") { dependsOn(apiCheck, verifyApk) }

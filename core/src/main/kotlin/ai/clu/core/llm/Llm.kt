@@ -63,7 +63,7 @@ class Utf8Stream {
         val out = CharBuffer.allocate(all.size + 4)
         decoder.decode(bb, out, false)
         pending = all.copyOfRange(bb.position(), all.size)
-        out.flip()
+        (out as java.nio.Buffer).flip() // Buffer.flip(): CharBuffer.flip() overload is JDK 9+, absent on Android 13
         return out.toString()
     }
 

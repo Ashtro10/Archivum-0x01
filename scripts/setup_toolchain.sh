@@ -40,6 +40,10 @@ fetch() { # name url sha256
 fetch android.jar \
   https://raw.githubusercontent.com/Sable/android-platforms/1e98db1a199e8f7f85541af26bfc27019501b132/android-35/android.jar \
   4566663c3876e022b4fa4ced8c8697c4ab1688267f090114fd92d027b32e619b
+# API 33 (= minSdk) platform jar, used only by the :app:apiCheck task (static NewApi-style verification).
+fetch android-33.jar \
+  https://raw.githubusercontent.com/Sable/android-platforms/1e98db1a199e8f7f85541af26bfc27019501b132/android-33/android.jar \
+  4fade8d5e04130bd8ccd74d5fec6c86b01ad75c3ee877ccc5d660255c4c78646
 fetch apktool.jar \
   https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar \
   dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423
@@ -54,6 +58,7 @@ fetch sherpa-android.tar.bz2 \
   2ff63469a71cb6009aa2e3ed5f4a670f8abdcbe4bb9ffd23776afc792a6b4f44
 
 cp "$CACHE/android.jar" "$TC/android.jar"
+cp "$CACHE/android-33.jar" "$TC/android-33.jar"
 cp "$CACHE/r8lib.jar" "$TC/r8lib.jar"
 cp "$CACHE/uber-apk-signer.jar" "$TC/apksig.jar"
 unzip -o -q -j "$CACHE/apktool.jar" prebuilt/linux/aapt2 -d "$TC"

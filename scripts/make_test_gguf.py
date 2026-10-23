@@ -6,7 +6,7 @@ from llama.cpp's vocab-only test file for Qwen2. The weights are random, so gene
 is meaningless. This model verifies plumbing (load, template, tokenize, decode, sample,
 KV-cache reuse, grammar, cancellation) - NOT response quality.
 
-usage: make_test_gguf.py <llama.cpp dir> <output.gguf>
+usage: make_test_gguf.py <llama.cpp dir> <output.gguf> [seed]
 """
 import sys
 from pathlib import Path
@@ -60,7 +60,7 @@ w.add_chat_template(
     "{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
 )
 
-rng = np.random.default_rng(42)
+rng = np.random.default_rng(int(sys.argv[3]) if len(sys.argv) > 3 else 42)
 def t(*shape):
     return (rng.standard_normal(shape) * 0.02).astype(np.float32)
 

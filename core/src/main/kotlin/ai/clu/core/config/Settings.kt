@@ -256,7 +256,7 @@ object Settings {
     val MEMORY_MAX = int("memory.maxInjected", "Memories per reply", MEMORY, 4, 0, 12, "Maximum memories added to a prompt.",
         "MemoryRetriever", "Caps retrieved memories", "MemorySettingsTest#maxInjected")
     val MEMORY_MIN_SCORE = float("memory.minScore", "Relevance threshold", MEMORY, 1.2, 0.0, 10.0,
-        "Minimum relevance score for a memory to be used (prevents irrelevant memories).", "MemoryRetriever",
+        "Minimum relevance (BM25) for a memory to be used; automatically scaled with the number of memories.", "MemoryRetriever",
         "Memories below the BM25 score are not injected", "MemorySettingsTest#minScore", advanced = true)
     val TEMP_RETENTION = int("memory.temporaryDays", "Temporary context retention (days)", MEMORY, 7, 1, 90,
         "Temporary memories expire after this many days.", "MemoryService", "expires_at for TEMPORARY memories; expired ones are purged",

@@ -23,7 +23,7 @@ class ResponseTemplates(private val settings: SettingsStore, private val zone: (
             .replace("{farewell}", farewell)
             .replace("{time}", t.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)))
             .replace("{name}", settings.string(Settings.CLU_NAME))
-        s = if (owner.isBlank()) s.replace(Regex(",?\\s*\\{owner}"), "") else s.replace("{owner}", owner)
+        s = if (owner.isBlank()) s.replace(Regex(",?\\s*\\{owner\\}"), "") else s.replace("{owner}", owner)
         return s.replace(Regex("\\s+([.,!?])"), "$1").replace(Regex("\\s{2,}"), " ").trim()
     }
 

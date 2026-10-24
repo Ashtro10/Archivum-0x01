@@ -6,7 +6,7 @@
 |---|---|
 | APK | `dist/clu-release.apk` (copied from `app/build/apk/clu-release.apk`) |
 | Size | 58,048,630 bytes |
-| SHA-256 | `5fa31b39dcd3e0ade49dcb71b099feaeb4cb491cb3386e0a3ce80d139666faeb` |
+| SHA-256 | `d0678a752c0636a20dfdf33c315ca2a215fde6cab638f47a6de8c9996a46d4b0` |
 | Package / version | `ai.clu` 1.0.0-prototype (versionCode 1) |
 | minSdk / targetSdk / compileSdk | 33 / 35 / 35 |
 | ABI | arm64-v8a |
@@ -23,6 +23,7 @@
 
 * JVM + Robolectric tests: **198 total: 197 passed, 0 failed, 1 skipped (opt-in benchmark); app tests run on API 33, 34 and 35** (26 suites; details in TEST_REPORT.md)
 * Settings Implementation Register: **179 / 179** settings with a passing verification test
+* `icuRegexCheck`: 72 regex literals compile with ICU (Android's engine)
 * `apiCheck`: 621 classes, all platform references exist on API 33
 * `verifyApk` (release APK): 22 manifest components, 76 JNI externals resolved, all bundled assets present
 * Host voice pipeline: `measurements/voice_pipeline_host.json`; core benchmark: `measurements/core_host.json`

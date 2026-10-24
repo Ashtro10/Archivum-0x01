@@ -116,7 +116,17 @@ val apiCheck by tasks.registering(ApiCheckTask::class) {
     report.set(layout.buildDirectory.file("reports/api-check.txt"))
 }
 
+// Android compiles regexes with ICU, which rejects patterns desktop Java accepts (e.g. an unescaped '}').
+val icuRegexCheck by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Compiles every regex literal in the sources with ICU (the engine Android uses)"
+    commandLine("python3", "-I", rootProject.file("scripts/check_icu_regex.py").absolutePath)
+    inputs.files(fileTree("src/main/kotlin"), project(":core").fileTree("src/main/kotlin"))
+    outputs.upToDateWhen { false }
+}
+
 val verifyApk by tasks.registering(VerifyApkTask::class) {
+    dependsOn(icuRegexCheck)
     group = "verification"
     description = "Checks manifest components, JNI symbols and bundled assets of the APK (-Pclu.verify=release for the release APK)"
     val variant = (findProperty("clu.verify") as String?)?.replaceFirstChar { it.uppercase() } ?: "Debug"

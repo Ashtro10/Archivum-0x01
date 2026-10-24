@@ -72,13 +72,23 @@ has been filled in from a device.
 * Wake word triggered mid-sentence ("I have a clue…") → leading-word rule based on measured timestamps.
 * ASR lost the first word → recogniser streams primed with 1 s of silence (measured fix).
 
-## Field defect: crash on first launch (Pad 6, 2026-10-24)
+## Field defect: crash on every launch (found on device, fixed)
 
-The first install on the Xiaomi Pad 6 crashed on opening. It could not be reproduced here: the app tests now run the
-real application on Android 13, 14 and 15 framework code and pass, and R8 `TraceReferences --check` confirms every
-class and method used by Clu's code exists on API 33. The remaining difference is real hardware (Android Keystore,
-ART, HyperOS). Without a PC there is no logcat, so the app now records any crash and shows it on the next launch
-with Copy/Share (`CrashReportActivity`; tested by `CrashReportTest`). The root cause will be fixed from that report.
+**Found:** 2026-10-24, first install on the iQOO Neo 9 Pro (vivo I2304, Android 16). Captured with the in-app crash
+report (`CrashReportActivity`, added for this purpose because there is no logcat without a PC).
+
+**Cause:** `java.util.regex.PatternSyntaxException` in `ResponseTemplates.render`: the pattern `,?\s*\{owner}` has
+an unescaped `}`. Desktop Java accepts that; Android compiles regexes with **ICU**, which rejects it. The greeting
+evaluated ~1 s after the main screen opens used this pattern, so the app crashed on every launch on every device.
+The same mistake was in the model tool-call parser (`<tool>\s*(\{.*?})\s*</tool>`), which would have crashed the
+first tool call of a loaded model.
+
+**Why the tests missed it:** JVM and Robolectric tests use the JDK regex engine, not ICU.
+
+**Fix:** both patterns escaped. New build check `:app:icuRegexCheck` (`scripts/check_icu_regex.py`) compiles every
+regex literal with the system ICU library and runs before `verifyApk`. It reproduced the device error exactly
+before the fix and now passes: 72 patterns, 0 rejected. Greeting evaluation on app open can no longer crash the app
+(errors are logged). The crash report screen stays in the app for future field defects.
 
 ## Not verified (no physical device or live network available)
 

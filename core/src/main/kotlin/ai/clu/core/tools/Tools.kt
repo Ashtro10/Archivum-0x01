@@ -196,7 +196,7 @@ class ToolExecutor(
 object ToolCallParser {
     data class Call(val name: String, val args: JsonObject)
 
-    private val re = Regex("<tool>\\s*(\\{.*?})\\s*</tool>", RegexOption.DOT_MATCHES_ALL)
+    private val re = Regex("<tool>\\s*(\\{.*?\\})\\s*</tool>", RegexOption.DOT_MATCHES_ALL)
 
     fun find(text: String): Call? {
         val m = re.find(text) ?: return null

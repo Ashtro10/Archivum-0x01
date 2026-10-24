@@ -17,7 +17,7 @@ Requirements: Android 13 or newer, arm64 (both devices qualify), ~400 MB free (A
    and tap the **download (↓) icon** at the top right of the file view.
 2. **Optional check:** in **Files** (or Chrome → ⋮ → Downloads), long-press `clu-release.apk` → Details. The size
    must be **58,048,630 bytes** (shown as about 55.4 MB or 58.0 MB depending on the app). A hash-checker app can
-   confirm SHA-256 `5fa31b39dcd3e0ade49dcb71b099feaeb4cb491cb3386e0a3ce80d139666faeb`.
+   confirm SHA-256 `d0678a752c0636a20dfdf33c315ca2a215fde6cab638f47a6de8c9996a46d4b0`.
 3. **Open it.** Tap the finished download in Chrome's notification or download list, or open
    **Files → Downloads → clu-release.apk**.
 4. **Allow the source (first time only).** HyperOS shows *"For your security, your tablet is not allowed to install

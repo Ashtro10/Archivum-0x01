@@ -27,7 +27,7 @@ repository.
 | Property | Value | How it was checked |
 |---|---|---|
 | File | `dist/clu-release.apk`, 58,048,630 bytes | `stat` |
-| SHA-256 | `5fa31b39dcd3e0ade49dcb71b099feaeb4cb491cb3386e0a3ce80d139666faeb` | `sha256sum` |
+| SHA-256 | `d0678a752c0636a20dfdf33c315ca2a215fde6cab638f47a6de8c9996a46d4b0` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
 | Version | `1.0.0-prototype` (versionCode 1) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
@@ -39,6 +39,7 @@ repository.
 | `allowBackup` | `false` | `aapt2 dump xmltree` |
 | Debuggable | no (release build, D8 `--release`) | `aapt2 dump badging` (no `application-debuggable`) |
 | Reference check | R8 `TraceReferences --check` against API 33: no missing class/method/field referenced from Clu's code (only unused optional paths inside Commons Compress/Lang and kotlinx `ClassValue` fallbacks) | `TraceReferences` |
+| Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
 | Static API check | 621 classes, every platform reference exists at API 33 | `:app:apiCheck` |
 | APK structure check | 22 manifest components exist, 76 JNI methods resolve to exported native symbols, all bundled models present | `:app:verifyApk -Pclu.verify=release` |

@@ -15,7 +15,7 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Automated tests (JVM / Robolectric / host engines) | 198 total: 197 passed, 0 failed, 1 opt-in benchmark skipped |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
-| On-device acceptance (Pad 6 / Neo 9 Pro) | **A2 FAILED on Pad 6: app crashes on opening (cause unknown; crash reporter added to capture it)** |
+| On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
 ## Completed
 

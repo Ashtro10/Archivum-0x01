@@ -87,7 +87,7 @@ class MainActivity : BaseActivity() {
         app.applyServicePolicy()
         scope.launch {
             delay(800)
-            ProactiveScheduler.evaluate(app, appOpenedNow = true)
+            runCatching { ProactiveScheduler.evaluate(app, appOpenedNow = true) }.onFailure { core.diag.e("proactive", "evaluation failed", it) }
         }
     }
 

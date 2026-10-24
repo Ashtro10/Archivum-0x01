@@ -44,9 +44,21 @@ class CluApp : Application() {
     @Volatile var verifiedAt = 0L
     val startedAt = System.currentTimeMillis()
 
+    /** False if startup failed; the UI then shows [CrashReportActivity] instead of touching the core. */
+    val isReady get() = ::core.isInitialized && ::sync.isInitialized && CrashReport.startupError == null
+
     override fun onCreate() {
         super.onCreate()
         instance = this
+        CrashReport.install(this)
+        CrashReport.startupError = null
+        try { start() } catch (e: Throwable) {
+            CrashReport.startupError = e
+            runCatching { CrashReport.save(this, "startup", e) }
+        }
+    }
+
+    private fun start() {
         val t0 = System.currentTimeMillis()
         platform = platformFactory?.invoke(this) ?: AndroidPlatform(this)
         core = CluCore(AndroidSqlDriver(this), platform)
@@ -114,6 +126,7 @@ class CluApp : Application() {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        if (!isReady) return
         // Release heavy engines when the system is short of memory and Clu is not actively in a conversation.
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND && !voice.isRunning) {
             sherpa.releaseAll()

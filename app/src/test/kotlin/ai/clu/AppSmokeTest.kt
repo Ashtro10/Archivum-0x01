@@ -33,7 +33,7 @@ import android.view.ViewGroup
  * Native engines (llama.cpp, sherpa-onnx) are not loaded on the JVM.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33], application = CluApp::class)
+@Config(sdk = [33, 34, 35], application = CluApp::class)
 class AppSmokeTest {
     companion object {
         @JvmStatic @BeforeClass fun hook() { CluApp.platformFactory = { AndroidPlatform(it, PlainKeyVault) } }

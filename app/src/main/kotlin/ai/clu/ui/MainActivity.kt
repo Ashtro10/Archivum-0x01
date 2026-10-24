@@ -60,9 +60,14 @@ class MainActivity : BaseActivity() {
     private var streaming: String? = null
     private var turnJob: Job? = null
     private val pendingAttachments = mutableListOf<Pair<Attachment, String?>>() // attachment + extracted text
+    private var redirected = false // startup failed or a crash report is pending: CrashReportActivity shown instead
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!app.isReady || ai.clu.CrashReport.pending(this) != null) {
+            redirected = true
+            startActivity(Intent(this, ai.clu.CrashReportActivity::class.java)); finish(); return
+        }
         buildUi()
         scope.launch { app.conversation.collectLatest { refresh() } }
         scope.launch { core.store.changes.collect { t -> if ((t == "messages" || t == "conversations") && streaming == null) refresh() } }
@@ -77,6 +82,7 @@ class MainActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (redirected) return
         title.text = core.personas.active().name
         app.applyServicePolicy()
         scope.launch {

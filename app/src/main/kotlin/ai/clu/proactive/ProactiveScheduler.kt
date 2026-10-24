@@ -55,6 +55,7 @@ object ProactiveScheduler {
 class ProactiveJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         val app = application as CluApp
+        if (!app.isReady) return false
         app.scope.launch(CoroutineExceptionHandler { _, e -> app.core.diag.e("proactive", "job failed", e); jobFinished(params, false) }) {
             ProactiveScheduler.evaluate(app, appOpenedNow = false)
             jobFinished(params, false)

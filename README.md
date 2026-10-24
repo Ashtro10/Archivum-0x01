@@ -6,7 +6,7 @@ and keeps working without an internet connection. The phone and tablet are two e
 *same* Clu: same identity, same memories, synchronised over your local network (including the phone's hotspot).
 
 > **Status:** a complete, installable prototype. Everything that could be verified in the build environment was —
-> 182 automated tests (181 passed, 1 opt-in benchmark skipped, 0 failed), static API checks, Robolectric runs of the
+> 198 automated tests (197 passed, 1 opt-in benchmark skipped, 0 failed), static API checks, Robolectric runs of the
 > real app. **No physical device was available**, so hardware behaviour (audio, real latency, battery, thermals) is
 > **unverified on device**. Current milestone: real-device validation with
 > [docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md); feature work is frozen until it passes.
@@ -16,7 +16,7 @@ and keeps working without an internet connection. The phone and tablet are two e
 * `dist/clu-release.apk` (58 MB, arm64-v8a, Android 13+, release-signed). Direct download link for a phone or tablet
   browser:
   https://github.com/Ashtro10/Archivum-0x01/raw/claude/clu-android-ai-build-5cspi2/dist/clu-release.apk
-* SHA-256 `53cc8ed4c6ecc2e56a5d52c399b3eb3ddd1de1b7aff2072d1db854db8d9f55ea`. Signature, certificate and provenance:
+* SHA-256 `5fa31b39dcd3e0ade49dcb71b099feaeb4cb491cb3386e0a3ce80d139666faeb`. Signature, certificate and provenance:
   [docs/RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md).
 * Install steps without a PC: [docs/INSTALL.md](docs/INSTALL.md).
 * First run: enter your name, choose the device role, then load a language model

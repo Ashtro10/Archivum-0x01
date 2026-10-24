@@ -26,8 +26,8 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 58,048,632 bytes | `stat` |
-| SHA-256 | `53cc8ed4c6ecc2e56a5d52c399b3eb3ddd1de1b7aff2072d1db854db8d9f55ea` | `sha256sum` |
+| File | `dist/clu-release.apk`, 58,048,630 bytes | `stat` |
+| SHA-256 | `5fa31b39dcd3e0ade49dcb71b099feaeb4cb491cb3386e0a3ce80d139666faeb` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
 | Version | `1.0.0-prototype` (versionCode 1) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
@@ -38,11 +38,12 @@ repository.
 | Signing certificate SHA-256 | `B8:D4:60:94:2F:88:EE:74:D2:59:6B:BD:D3:4E:6A:44:F4:4D:CF:47:BF:DE:0D:0C:51:06:BF:A5:53:70:BE:C6` | apksig + keytool |
 | `allowBackup` | `false` | `aapt2 dump xmltree` |
 | Debuggable | no (release build, D8 `--release`) | `aapt2 dump badging` (no `application-debuggable`) |
+| Reference check | R8 `TraceReferences --check` against API 33: no missing class/method/field referenced from Clu's code (only unused optional paths inside Commons Compress/Lang and kotlinx `ClassValue` fallbacks) | `TraceReferences` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
-| Static API check | 619 classes, every platform reference exists at API 33 | `:app:apiCheck` |
-| APK structure check | 21 manifest components exist, 76 JNI methods resolve to exported native symbols, all bundled models present | `:app:verifyApk -Pclu.verify=release` |
+| Static API check | 621 classes, every platform reference exists at API 33 | `:app:apiCheck` |
+| APK structure check | 22 manifest components exist, 76 JNI methods resolve to exported native symbols, all bundled models present | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 58,048,632 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 58,048,630 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 

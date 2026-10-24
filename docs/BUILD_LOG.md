@@ -5,8 +5,8 @@
 | Item | Value |
 |---|---|
 | APK | `dist/clu-release.apk` (copied from `app/build/apk/clu-release.apk`) |
-| Size | 58,048,632 bytes |
-| SHA-256 | `53cc8ed4c6ecc2e56a5d52c399b3eb3ddd1de1b7aff2072d1db854db8d9f55ea` |
+| Size | 58,048,630 bytes |
+| SHA-256 | `5fa31b39dcd3e0ade49dcb71b099feaeb4cb491cb3386e0a3ce80d139666faeb` |
 | Package / version | `ai.clu` 1.0.0-prototype (versionCode 1) |
 | minSdk / targetSdk / compileSdk | 33 / 35 / 35 |
 | ABI | arm64-v8a |
@@ -21,10 +21,10 @@
 ./gradlew :core:test :app:test :app:apiCheck :app:verifyApk :app:assembleRelease -Pclu.verify=release
 ```
 
-* JVM + Robolectric tests: **182 total: 181 passed, 0 failed, 1 skipped (opt-in benchmark)** (26 suites; details in TEST_REPORT.md)
+* JVM + Robolectric tests: **198 total: 197 passed, 0 failed, 1 skipped (opt-in benchmark); app tests run on API 33, 34 and 35** (26 suites; details in TEST_REPORT.md)
 * Settings Implementation Register: **179 / 179** settings with a passing verification test
-* `apiCheck`: 619 classes, all platform references exist on API 33
-* `verifyApk` (release APK): 21 manifest components, 76 JNI externals resolved, all bundled assets present
+* `apiCheck`: 621 classes, all platform references exist on API 33
+* `verifyApk` (release APK): 22 manifest components, 76 JNI externals resolved, all bundled assets present
 * Host voice pipeline: `measurements/voice_pipeline_host.json`; core benchmark: `measurements/core_host.json`
 
 ## Reproducing

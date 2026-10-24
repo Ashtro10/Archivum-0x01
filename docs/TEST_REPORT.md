@@ -1,6 +1,6 @@
 # Test report
 
-Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **182 automated tests: 181 passed, 0 failed, 1 skipped**
+Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **198 automated tests: 197 passed, 0 failed, 1 skipped**
 (the opt-in host benchmark), plus static verification of the release APK.
 Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.verify=release`.
 
@@ -9,7 +9,7 @@ Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.ver
 | | Automated (this report) | Real-device ([DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md)) |
 |---|---|---|
 | Where | Build container: x86_64 JVM, Robolectric, host builds of the native engines | Xiaomi Pad 6 and iQOO Neo 9 Pro |
-| Status | **Run: 181 passed, 0 failed** | **Not run yet: 0 of ~100 checks done** |
+| Status | **Run: 197 passed, 0 failed** | **Not run yet: 0 of ~100 checks done** |
 | Shows | Logic, data integrity, protocol and crypto, settings wiring, Android framework integration (simulated), API-33 compatibility, APK structure | Microphone, speaker, wake word, ASR/TTS quality, latency, real model speed, background survival on HyperOS/OriginOS, battery, heat, hotspot sync |
 | Does **not** show | That anything works on the actual hardware, or how fast | — |
 
@@ -27,7 +27,7 @@ has been filled in from a device.
 | Voice logic (wake policy, clap, noise, turn-taking, chunking, effects, tokenizer) | Synthetic audio + reference outputs (official sentencepiece) | Real algorithms, synthetic audio |
 | Voice models | `scripts/voice_pipeline_test.py` runs sherpa-onnx 1.13.8 (same version as the APK's JNI libs) with the bundled/downloadable models on the host | Real models, synthetic speech (Piper TTS), host CPU |
 | Android app | **Robolectric 4.14 on Android 13 framework code**: application start, chat flow, tool-routed command, all 16 screens, every settings control, memory inserter | Real framework code on JVM; no audio/native engines |
-| API compatibility | `apiCheck`: every platform class/method/field referenced by 619 app/core classes must exist in the **API 33** android.jar | Static |
+| API compatibility | `apiCheck`: every platform class/method/field referenced by 621 app/core classes must exist in the **API 33** android.jar | Static |
 | APK integrity | `verifyApk`: manifest components ↔ classes, all **76 JNI externals** ↔ symbols in the packaged `.so`, bundled assets | Static |
 
 ## Results by suite
@@ -71,6 +71,14 @@ has been filled in from a device.
 * JUnit 5 silently skipped a non-`Unit` test; all coroutine tests now declare `Unit`, and a declared-vs-executed audit runs clean.
 * Wake word triggered mid-sentence ("I have a clue…") → leading-word rule based on measured timestamps.
 * ASR lost the first word → recogniser streams primed with 1 s of silence (measured fix).
+
+## Field defect: crash on first launch (Pad 6, 2026-10-24)
+
+The first install on the Xiaomi Pad 6 crashed on opening. It could not be reproduced here: the app tests now run the
+real application on Android 13, 14 and 15 framework code and pass, and R8 `TraceReferences --check` confirms every
+class and method used by Clu's code exists on API 33. The remaining difference is real hardware (Android Keystore,
+ART, HyperOS). Without a PC there is no logcat, so the app now records any crash and shows it on the next launch
+with Copy/Share (`CrashReportActivity`; tested by `CrashReportTest`). The root cause will be fixed from that report.
 
 ## Not verified (no physical device or live network available)
 

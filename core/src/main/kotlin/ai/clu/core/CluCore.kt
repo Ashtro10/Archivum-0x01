@@ -63,7 +63,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val network = NetworkPolicy(settings, platform::isOnline)
     val toolRegistry = ToolRegistry()
     val tools = ToolExecutor(store, toolRegistry, settings, auth, network, diag)
-    val proactive = ProactivePlanner(store, settings, memories, templates)
+    val proactive = ProactivePlanner(store, settings, memories, templates, diag = diag)
     val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag)
 
     /** Remote engine provider (set by the app when a paired home device is configured). */

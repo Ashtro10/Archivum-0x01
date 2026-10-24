@@ -12,7 +12,7 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 198 total: 197 passed, 0 failed, 1 opt-in benchmark skipped |
+| Automated tests (JVM / Robolectric / host engines) | 207 total: 206 passed, 0 failed, 1 opt-in benchmark skipped |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
@@ -35,7 +35,7 @@ possible without a physical device. All milestones (A–F) are implemented.
   improvement suggestions.
 * **Continuity:** SAS-verified pairing, encrypted mutually authenticated sync with resumable change log and conflict
   policies, home-device model as remote engine, mDNS + hotspot gateway discovery, one shared entity id.
-* **Delivery:** 198 automated tests (197 passed, 1 opt-in benchmark skipped), API-33 static check, APK verification,
+* **Delivery:** 207 automated tests (206 passed, 1 opt-in benchmark skipped), API-33 static check, APK verification,
   generated settings register, documentation set, release signing, security review, device acceptance checklist.
 
 ## Current blockers

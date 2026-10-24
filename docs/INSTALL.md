@@ -16,8 +16,8 @@ Requirements: Android 13 or newer, arm64 (both devices qualify), ~400 MB free (A
    *Alternative:* open `https://github.com/Ashtro10/Archivum-0x01/blob/claude/clu-android-ai-build-5cspi2/dist/clu-release.apk`
    and tap the **download (↓) icon** at the top right of the file view.
 2. **Optional check:** in **Files** (or Chrome → ⋮ → Downloads), long-press `clu-release.apk` → Details. The size
-   must be **58,048,630 bytes** (shown as about 55.4 MB or 58.0 MB depending on the app). A hash-checker app can
-   confirm SHA-256 `d0678a752c0636a20dfdf33c315ca2a215fde6cab638f47a6de8c9996a46d4b0`.
+   must be **58,052,726 bytes** (shown as about 55.4 MB or 58.0 MB depending on the app). A hash-checker app can
+   confirm SHA-256 `e5a6b14273d3b15dec3d5981ab953f3a16cac71c75bb29fa057bf255f84680be`.
 3. **Open it.** Tap the finished download in Chrome's notification or download list, or open
    **Files → Downloads → clu-release.apk**.
 4. **Allow the source (first time only).** HyperOS shows *"For your security, your tablet is not allowed to install

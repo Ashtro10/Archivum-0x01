@@ -26,8 +26,8 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 58,048,630 bytes | `stat` |
-| SHA-256 | `d0678a752c0636a20dfdf33c315ca2a215fde6cab638f47a6de8c9996a46d4b0` | `sha256sum` |
+| File | `dist/clu-release.apk`, 58,052,726 bytes | `stat` |
+| SHA-256 | `e5a6b14273d3b15dec3d5981ab953f3a16cac71c75bb29fa057bf255f84680be` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
 | Version | `1.0.0-prototype` (versionCode 1) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
@@ -41,10 +41,10 @@ repository.
 | Reference check | R8 `TraceReferences --check` against API 33: no missing class/method/field referenced from Clu's code (only unused optional paths inside Commons Compress/Lang and kotlinx `ClassValue` fallbacks) | `TraceReferences` |
 | Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
-| Static API check | 621 classes, every platform reference exists at API 33 | `:app:apiCheck` |
+| Static API check | 622 classes, every platform reference exists at API 33 | `:app:apiCheck` |
 | APK structure check | 22 manifest components exist, 76 JNI methods resolve to exported native symbols, all bundled models present | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 58,048,630 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 58,052,726 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 

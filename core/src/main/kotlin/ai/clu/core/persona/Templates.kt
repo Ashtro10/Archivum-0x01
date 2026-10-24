@@ -8,28 +8,84 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Renders owner-editable spoken templates: {owner} {greeting} {farewell} {time} {name}. */
-class ResponseTemplates(private val settings: SettingsStore, private val zone: () -> ZoneId = { ZoneId.systemDefault() }) {
-    fun ownerAddress(): String = settings.string(Settings.OWNER_ADDRESS).ifBlank { settings.string(Settings.OWNER_NAME) }
+/**
+ * Renders owner-editable spoken templates: {owner} {greeting} {farewell} {time} {name}.
+ *
+ * Placeholders are substituted literally in a single pass: no regular expressions are built from templates or
+ * values, substituted values are never re-scanned (a name containing "{time}" stays as typed), and unknown or
+ * unbalanced braces are kept as written. With no form of address, {owner} is dropped together with the comma or
+ * space that attached it ("Yes, {owner}?" -> "Yes?", "{owner}, battery low" -> "Battery low").
+ */
+open class ResponseTemplates(private val settings: SettingsStore, private val zone: () -> ZoneId = { ZoneId.systemDefault() }) {
+    fun ownerAddress(): String = settings.string(Settings.OWNER_ADDRESS).ifBlank { settings.string(Settings.OWNER_NAME) }.trim()
 
-    fun render(template: String, nowMs: Long): String {
+    open fun render(template: String, nowMs: Long): String {
         val t = LocalTime.ofInstant(Instant.ofEpochMilli(nowMs), zone())
         val h = t.hour
-        val greeting = when (h) { in 4..11 -> "Good morning"; in 12..16 -> "Good afternoon"; else -> "Good evening" }
-        val farewell = if (h >= 21 || h < 4) "Good night" else "Goodbye"
-        val owner = ownerAddress()
-        var s = template
-            .replace("{greeting}", greeting)
-            .replace("{farewell}", farewell)
-            .replace("{time}", t.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)))
-            .replace("{name}", settings.string(Settings.CLU_NAME))
-        s = if (owner.isBlank()) s.replace(Regex(",?\\s*\\{owner\\}"), "") else s.replace("{owner}", owner)
-        return s.replace(Regex("\\s+([.,!?])"), "$1").replace(Regex("\\s{2,}"), " ").trim()
+        val values = mapOf(
+            "greeting" to when (h) { in 4..11 -> "Good morning"; in 12..16 -> "Good afternoon"; else -> "Good evening" },
+            "farewell" to if (h >= 21 || h < 4) "Good night" else "Goodbye",
+            "time" to t.format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)),
+            "name" to settings.string(Settings.CLU_NAME),
+            "owner" to ownerAddress(),
+        )
+        return substitute(template, values)
     }
 
-    fun pick(key: String, nowMs: Long, seed: Long = nowMs / 1000): String {
+    open fun pick(key: String, nowMs: Long, seed: Long = nowMs / 1000): String {
         val list = settings.list(key)
+        if (list.isEmpty()) return ""
         return render(list[Math.floorMod(seed, list.size.toLong()).toInt()], nowMs)
+    }
+
+    companion object {
+        private const val PUNCT = ".,!?"
+        private const val SENTENCE_END = ".!?"
+
+        /** Literal placeholder substitution; see the class comment for the rules. */
+        fun substitute(template: String, values: Map<String, String>): String {
+            val out = StringBuilder(template.length + 32)
+            var i = 0
+            var capitalizeNext = false
+            while (i < template.length) {
+                val c = template[i]
+                val close = if (c == '{') template.indexOf('}', i + 1) else -1
+                val value = if (close > i) values[template.substring(i + 1, close)] else null
+                if (value == null) {
+                    if (capitalizeNext && !c.isWhitespace()) { out.append(c.uppercaseChar()); capitalizeNext = false } else out.append(c)
+                    i++; continue
+                }
+                i = close + 1
+                if (value.isNotEmpty()) { out.append(value); capitalizeNext = false; continue }
+                // Empty value: also remove the separator that attached it.
+                while (out.isNotEmpty() && out.last().isWhitespace()) out.setLength(out.length - 1)
+                if (out.isEmpty() || out.last() in SENTENCE_END) {
+                    // "{owner}, how are you?" / "Done. {owner}, shall I?" -> drop the following comma, capitalise.
+                    while (i < template.length && (template[i] == ',' || template[i].isWhitespace())) i++
+                    if (out.isNotEmpty()) out.append(' ')
+                    capitalizeNext = true
+                } else if (out.last() == ',') {
+                    out.setLength(out.length - 1) // "Yes, {owner}?" -> "Yes?"
+                }
+            }
+            return tidySpacing(out.toString())
+        }
+
+        /** Removes whitespace before . , ! ? and collapses runs of whitespace to one space; trims the ends. */
+        private fun tidySpacing(s: String): String {
+            val sb = StringBuilder(s.length)
+            var i = 0
+            while (i < s.length) {
+                if (s[i].isWhitespace()) {
+                    var j = i
+                    while (j < s.length && s[j].isWhitespace()) j++
+                    if (j < s.length && s[j] in PUNCT) { i = j; continue }
+                    sb.append(if (j - i >= 2) ' ' else s[i])
+                    i = j
+                } else { sb.append(s[i]); i++ }
+            }
+            return sb.toString().trim()
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 # Test report
 
-Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **198 automated tests: 197 passed, 0 failed, 1 skipped**
+Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **207 automated tests: 206 passed, 0 failed, 1 skipped**
 (the opt-in host benchmark), plus static verification of the release APK.
 Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.verify=release`.
 
@@ -9,7 +9,7 @@ Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.ver
 | | Automated (this report) | Real-device ([DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md)) |
 |---|---|---|
 | Where | Build container: x86_64 JVM, Robolectric, host builds of the native engines | Xiaomi Pad 6 and iQOO Neo 9 Pro |
-| Status | **Run: 197 passed, 0 failed** | **Not run yet: 0 of ~100 checks done** |
+| Status | **Run: 206 passed, 0 failed** | **Not run yet: 0 of ~100 checks done** |
 | Shows | Logic, data integrity, protocol and crypto, settings wiring, Android framework integration (simulated), API-33 compatibility, APK structure | Microphone, speaker, wake word, ASR/TTS quality, latency, real model speed, background survival on HyperOS/OriginOS, battery, heat, hotspot sync |
 | Does **not** show | That anything works on the actual hardware, or how fast | — |
 
@@ -27,7 +27,7 @@ has been filled in from a device.
 | Voice logic (wake policy, clap, noise, turn-taking, chunking, effects, tokenizer) | Synthetic audio + reference outputs (official sentencepiece) | Real algorithms, synthetic audio |
 | Voice models | `scripts/voice_pipeline_test.py` runs sherpa-onnx 1.13.8 (same version as the APK's JNI libs) with the bundled/downloadable models on the host | Real models, synthetic speech (Piper TTS), host CPU |
 | Android app | **Robolectric 4.14 on Android 13 framework code**: application start, chat flow, tool-routed command, all 16 screens, every settings control, memory inserter | Real framework code on JVM; no audio/native engines |
-| API compatibility | `apiCheck`: every platform class/method/field referenced by 621 app/core classes must exist in the **API 33** android.jar | Static |
+| API compatibility | `apiCheck`: every platform class/method/field referenced by 622 app/core classes must exist in the **API 33** android.jar | Static |
 | APK integrity | `verifyApk`: manifest components ↔ classes, all **76 JNI externals** ↔ symbols in the packaged `.so`, bundled assets | Static |
 
 ## Results by suite
@@ -85,7 +85,18 @@ first tool call of a loaded model.
 
 **Why the tests missed it:** JVM and Robolectric tests use the JDK regex engine, not ICU.
 
-**Fix:** both patterns escaped. New build check `:app:icuRegexCheck` (`scripts/check_icu_regex.py`) compiles every
+**Why only on first launch:** the bad pattern was compiled only when no form of address is set, the state before
+the welcome screen is completed.
+
+**Fix (two steps):** first both patterns were escaped. Then `ResponseTemplates` was rewritten to substitute
+placeholders literally in a single pass, with **no regular expressions at all** (also fixing three latent bugs the
+regression tests exposed: a leading ", " when `{owner}` starts a template with no owner, re-expansion of placeholders
+inside substituted values, and a divide-by-zero on an empty template list). `ProactivePlanner` now evaluates each
+candidate message inside an error boundary: a failure is logged ("greeting message skipped: …") and that message is
+skipped; the others and the app continue. `ResponseTemplatesTest` (9 tests) covers {owner}, missing/empty owner,
+punctuation, multiple placeholders, Unicode names, regex-special characters and the boundary; 4 of them fail against
+the old renderer. The original pattern `,?\s*\{owner}` is rejected by ICU with status 66305 at offset 13, the same
+position as the device report. New build check `:app:icuRegexCheck` (`scripts/check_icu_regex.py`) compiles every
 regex literal with the system ICU library and runs before `verifyApk`. It reproduced the device error exactly
 before the fix and now passes: 72 patterns, 0 rejected. Greeting evaluation on app open can no longer crash the app
 (errors are logged). The crash report screen stays in the app for future field defects.

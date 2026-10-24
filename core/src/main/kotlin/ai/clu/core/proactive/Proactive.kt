@@ -35,6 +35,7 @@ class ProactivePlanner(
     private val memories: MemoryRepository,
     private val templates: ResponseTemplates,
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
+    private val diag: ai.clu.core.diag.DiagnosticsLog? = null,
 ) {
     private val db = store.db
     private val wellbeing = Regex("\\b(sick|ill|unwell|fever|cold|flu|stressed|stress|sad|upset|anxious|anxiety|headache|hurt|injur\\w*|exhausted|depressed|lonely)\\b", RegexOption.IGNORE_CASE)
@@ -49,14 +50,25 @@ class ProactivePlanner(
         if (last > 0 && now - last < settings.int(Settings.PROACTIVE_GAP) * 3_600_000L) return null
 
         val hour = Instant.ofEpochMilli(now).atZone(zone()).hour
-        val candidate = batteryCandidate(ctx)
-            ?: followUpCandidate(now)
-            ?: wellbeingCandidate(now)
-            ?: greetingCandidate(ctx, now, dayStart)
-            ?: checkInCandidate(ctx, now, hour, dayStart)
+        val candidate = guarded("battery") { batteryCandidate(ctx) }
+            ?: guarded("followup") { followUpCandidate(now) }
+            ?: guarded("wellbeing") { wellbeingCandidate(now) }
+            ?: guarded("greeting") { greetingCandidate(ctx, now, dayStart) }
+            ?: guarded("checkin") { checkInCandidate(ctx, now, hour, dayStart) }
             ?: return null
         db.execute("INSERT INTO proactive_log(id, ts, kind, text) VALUES(?,?,?,?)", listOf(newId(), now, candidate.kind + (candidate.refId?.let { ":$it" } ?: ""), candidate.text))
         return candidate
+    }
+
+    /**
+     * Error boundary per candidate: a failure (for example a malformed owner-edited template) is logged and that
+     * message is skipped; the other candidates and the caller (app start, background job) carry on.
+     */
+    private inline fun guarded(kind: String, block: () -> ProactiveMessage?): ProactiveMessage? = try {
+        block()?.takeIf { it.text.isNotBlank() }
+    } catch (e: Exception) {
+        diag?.e("proactive", "$kind message skipped", e)
+        null
     }
 
     private fun batteryCandidate(ctx: ProactiveContext): ProactiveMessage? {

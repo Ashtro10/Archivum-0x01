@@ -16,8 +16,10 @@ Uninstalling and reinstalling deletes all local data.
 
 **Where the key is kept:**
 * It is **not** in the Git repository, and must never be (`*.keystore`, `*.jks`, `*.p12` are ignored).
-* It was given to the owner directly as a file, and a copy was uploaded to the owner's private Google Drive.
-* The build container that created it is temporary and will be deleted.
+* It was handed to the owner directly as a file attachment in the build session. An automatic upload to Google Drive
+  was attempted and refused (no permission), so the owner must store it.
+* The build container that created it is temporary and will be deleted. After that, the owner's copies are the
+  only ones.
 
 **Keep at least two copies**, for example Google Drive plus a USB stick or a password manager's file attachment.
 Store the password separately from the file, ideally in a password manager. If both the file and the password are

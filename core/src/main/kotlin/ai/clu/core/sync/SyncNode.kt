@@ -42,6 +42,7 @@ class SyncNode(
     private var server: ServerSocket? = null
     @Volatile private var pairingOpenUntil = 0L
     private val running = AtomicBoolean(false)
+    private val activeConnections = java.util.concurrent.atomic.AtomicInteger(0)
 
     val publicKey: ByteArray get() = keys.public.encoded
     val isServing get() = server?.isClosed == false
@@ -57,7 +58,11 @@ class SyncNode(
         scope.launch {
             while (running.get() && !ss.isClosed) {
                 val sock = try { ss.accept() } catch (e: IOException) { break }
-                launch { handleIncoming(sock) }
+                if (activeConnections.incrementAndGet() > MAX_CONNECTIONS) {
+                    activeConnections.decrementAndGet(); runCatching { sock.close() }
+                    diag?.w("sync", "connection refused: limit of $MAX_CONNECTIONS reached"); continue
+                }
+                launch { try { handleIncoming(sock) } finally { activeConnections.decrementAndGet() } }
             }
         }
         diag?.i("sync", "listening on ${ss.localPort}")
@@ -66,7 +71,7 @@ class SyncNode(
 
     fun stopServer() { running.set(false); runCatching { server?.close() }; server = null }
 
-    fun openPairingWindow(ms: Long = 120_000) { pairingOpenUntil = store.clock.now() + ms }
+    fun openPairingWindow(ms: Long = PAIRING_WINDOW_MS) { pairingOpenUntil = store.clock.now() + ms }
     fun isPairingOpen() = store.clock.now() < pairingOpenUntil
 
     private suspend fun handleIncoming(sock: Socket) {
@@ -408,6 +413,9 @@ class SyncNode(
     fun shutdown() { stopServer(); scope.cancel() }
 
     companion object {
+        /** Concurrent incoming connections (a paired peer needs at most a sync and an inference session). */
+        const val MAX_CONNECTIONS = 4
+        const val PAIRING_WINDOW_MS = 120_000L
         fun splitHostPort(s: String, defaultPort: Int): Pair<String, Int> {
             val t = s.trim()
             if (t.startsWith("[")) { val end = t.indexOf(']'); val host = t.substring(1, end); val port = t.substring(end + 1).removePrefix(":").toIntOrNull() ?: defaultPort; return host to port }

@@ -115,7 +115,7 @@ class VoicePackManager(private val context: Context, private val diag: Diagnosti
                 val target = p.keep[path]?.let { File(d, it) }
                     ?: p.keepDirPrefix?.takeIf { path.startsWith(it) }?.let { File(d, path) }
                     ?: continue
-                require(target.canonicalPath.startsWith(d.canonicalPath)) { "unsafe archive path" }
+                require(target.canonicalPath.startsWith(d.canonicalPath + File.separator)) { "unsafe archive path" }
                 target.parentFile?.mkdirs()
                 target.outputStream().use { tar.copyTo(it) }
             }

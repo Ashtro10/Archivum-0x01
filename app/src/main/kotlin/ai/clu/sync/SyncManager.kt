@@ -56,8 +56,8 @@ class SyncManager(private val app: CluApp) {
         scope.launch { core.settings.observeAny(listOf(Settings.SYNC_ENABLED, Settings.SYNC_SERVE, Settings.SYNC_PORT, Settings.SYNC_INTERVAL)).collect { apply() } }
     }
 
-    private fun apply() {
-        val serve = ServicePolicy.shouldServeSync(core.settings)
+    @Synchronized private fun apply() {
+        val serve = ServicePolicy.shouldListenForSync(core.settings, core.syncEngine.peers().size, node.isPairingOpen())
         if (serve && !node.isServing) runCatching {
             val port = node.startServer(core.settings.int(Settings.SYNC_PORT))
             registerNsd(port)
@@ -83,10 +83,15 @@ class SyncManager(private val app: CluApp) {
         val (h, p) = SyncNode.splitHostPort(address, core.settings.int(Settings.SYNC_PORT))
         val r = node.pair(h, p)
         _state.value = _state.value.copy(lastResult = r)
+        if (r.ok) apply()
         return r
     }
 
-    fun openPairing() = node.openPairingWindow()
+    /** Opens the pairing window and listens for its duration; afterwards the server stays up only if a device was paired. */
+    fun openPairing() {
+        node.openPairingWindow()
+        scope.launch { apply(); delay(SyncNode.PAIRING_WINDOW_MS + 1_000); apply() }
+    }
 
     /** Remote engine on the paired home device, if reachable and it has a model loaded. */
     private suspend fun remoteEngine(): LlmEngine? = withContext(Dispatchers.IO) {

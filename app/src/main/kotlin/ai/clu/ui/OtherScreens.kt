@@ -271,7 +271,7 @@ class DevicesActivity : BaseActivity() {
     }
 
     private var syncStatus: android.widget.TextView? = null
-    private fun describe(s: ai.clu.sync.SyncUiState) = "Server: ${if (s.serving) "listening on port ${s.port}" else "off"}\nThis device: ${s.localAddresses.joinToString().ifEmpty { "no network" }}" +
+    private fun describe(s: ai.clu.sync.SyncUiState) = "Server: ${if (s.serving) "listening on port ${s.port}" else "off (listens once paired or while pairing is allowed)"}\nThis device: ${s.localAddresses.joinToString().ifEmpty { "no network" }}" +
         "\nDiscovered: ${s.discovered.joinToString().ifEmpty { "none (hotspots often block discovery)" }}\nGateway: ${app.sync.gatewayAddress() ?: "-"}" +
         (s.lastResult?.let { r -> "\nLast: " + if (r.ok) "OK – sent ${r.sent}, received ${r.received}, conflicts ${r.conflicts} (${r.durationMs} ms)" else "failed – ${r.error}" } ?: "") +
         if (s.syncing) "\nSyncing…" else ""

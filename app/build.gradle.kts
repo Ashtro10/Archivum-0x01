@@ -118,8 +118,9 @@ val apiCheck by tasks.registering(ApiCheckTask::class) {
 
 val verifyApk by tasks.registering(VerifyApkTask::class) {
     group = "verification"
-    description = "Checks manifest components, JNI symbols and bundled assets of the debug APK"
-    apk.set(tasks.named<SignApkTask>("assembleDebug").flatMap { it.signedApk })
+    description = "Checks manifest components, JNI symbols and bundled assets of the APK (-Pclu.verify=release for the release APK)"
+    val variant = (findProperty("clu.verify") as String?)?.replaceFirstChar { it.uppercase() } ?: "Debug"
+    apk.set(tasks.named<SignApkTask>("assemble$variant").flatMap { it.signedApk })
     aapt2.set(toolchain.file("aapt2"))
     classes.from(sourceSets.main.get().output.classesDirs)
     classes.from(project(":core").sourceSets.main.get().output.classesDirs)

@@ -2,22 +2,47 @@
 
 Requirements: Android 13 or newer, arm64 (both devices qualify), ~400 MB free (APK + voice) plus ~2.2 GB for a 3B model.
 
-## 1. Install the APK (both devices)
+## 1. Install the APK on the Xiaomi Pad 6, with no PC (same steps on the phone)
 
-1. Download `dist/clu-debug.apk` from the repository on the device (GitHub → `dist` → `clu-debug.apk` → *Download raw*),
-   or copy it over USB.
-2. Open it from Files/Downloads. When asked, allow installing apps from that source:
-   * **Xiaomi Pad 6 (HyperOS/MIUI):** Settings → Privacy protection → Special permissions → Install unknown apps →
-     your file manager/browser → Allow. HyperOS may show a security scan – choose *Continue installation*.
-   * **iQOO Neo 9 Pro (OriginOS/Funtouch):** Settings → Security/Privacy → Install unknown apps → allow the app
-     you're installing from. You may need to confirm with your vivo account password.
-3. Open **Clu**, fill in the welcome screen (your name, form of address, device role: *Home* on the tablet,
-   *Portable* on the phone), allow notifications.
+**Before you start:** at least 1 GB of free space for now (Settings → About tablet → Storage). A model needs about
+2.2 GB more later. You need Wi-Fi for the download (58 MB).
 
-Updating: install a newer APK over the old one. The APK in this repository is signed with a debug key generated
-in the build environment; an APK built elsewhere (different key) cannot update it — Android would require an
-uninstall, which deletes local data. **Before installing a differently signed build, export your memories
-(Memory → Export) and settings (Diagnostics → Export settings)**, or sync them to the other device first.
+1. **Download.** On the tablet, open **Chrome** (or the Mi Browser) and enter this address exactly:
+
+   `https://github.com/Ashtro10/Archivum-0x01/raw/claude/clu-android-ai-build-5cspi2/dist/clu-release.apk`
+
+   The download starts by itself; no GitHub account is needed. If Chrome warns *"File might be harmful"*, tap
+   **Download anyway**. This warning appears for every APK from outside Play.
+   *Alternative:* open `https://github.com/Ashtro10/Archivum-0x01/blob/claude/clu-android-ai-build-5cspi2/dist/clu-release.apk`
+   and tap the **download (↓) icon** at the top right of the file view.
+2. **Optional check:** in **Files** (or Chrome → ⋮ → Downloads), long-press `clu-release.apk` → Details. The size
+   must be **58,048,632 bytes** (shown as about 55.4 MB or 58.0 MB depending on the app). A hash-checker app can
+   confirm SHA-256 `53cc8ed4c6ecc2e56a5d52c399b3eb3ddd1de1b7aff2072d1db854db8d9f55ea`.
+3. **Open it.** Tap the finished download in Chrome's notification or download list, or open
+   **Files → Downloads → clu-release.apk**.
+4. **Allow the source (first time only).** HyperOS shows *"For your security, your tablet is not allowed to install
+   unknown apps from this source"* → **Settings** → turn on **Allow from this source** → press Back. Manual path:
+   Settings → **Apps** (or *Privacy protection*) → **Special app access / Special permissions** →
+   **Install unknown apps** → **Chrome** (or Files) → Allow.
+5. **Install.** Tap **Install**. HyperOS may run a security scan, ask you to sign in to a Xiaomi account, or wait
+   through a 5–10 s countdown. If it reports *"unknown/unsafe app"*, choose **Continue installation / Install
+   anyway**.
+   *iQOO Neo 9 Pro (OriginOS):* the same flow. It may ask for your vivo account password, or show *"Install
+   via secure installation"*; choose to continue.
+6. **Open Clu** → complete the welcome screen (name, form of address, device role: **Home** on the tablet,
+   **Portable** on the phone) → allow notifications. The microphone permission is asked when you first use voice.
+7. **If installation fails:**
+
+   | Message | Meaning | Fix |
+   |---|---|---|
+   | *App not installed as package conflicts with an existing package* | An older Clu with a different signature is installed (for example the earlier debug build). | Export memories first if you have any, then uninstall the old Clu and install again. |
+   | *App not installed* (no detail) | Incomplete download or not enough space | Delete the file, free space, download again, and check the size. |
+   | *There was a problem parsing the package* | Incomplete or corrupt download | Download again over stable Wi-Fi. |
+   | *App isn't compatible with your device* | Not arm64 or not Android 13+ | Both target devices qualify; check Settings → About. |
+
+**Updating later:** install a newer `clu-release.apk` over the existing app. Data is kept as long as the new APK is
+signed with the same release key ([SIGNING_AND_BACKUP.md](SIGNING_AND_BACKUP.md)). Export memories before updates
+anyway while the app is a prototype.
 
 ## 2. Keep Clu alive in the background (only if you use background listening / proactive messages)
 

@@ -67,6 +67,10 @@ object ServicePolicy {
 
     fun shouldServeSync(s: SettingsStore) = s.bool(Settings.SYNC_ENABLED) && s.bool(Settings.SYNC_SERVE)
 
+    /** Listen only when there is someone to talk to: a paired device, or an open pairing window (reduces exposure on shared networks). */
+    fun shouldListenForSync(s: SettingsStore, pairedPeers: Int, pairingOpen: Boolean) =
+        shouldServeSync(s) && (pairedPeers > 0 || pairingOpen)
+
     /** Interval between automatic sync attempts, or null for manual only. */
     fun syncIntervalMs(s: SettingsStore): Long? =
         if (!s.bool(Settings.SYNC_ENABLED)) null else s.int(Settings.SYNC_INTERVAL).takeIf { it > 0 }?.let { it * 60_000L }

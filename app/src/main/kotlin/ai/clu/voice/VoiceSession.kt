@@ -297,7 +297,7 @@ class VoiceSession(private val app: CluApp) {
                         val asr = engines.asr(); while (asr.isReady(s)) asr.decode(s)
                         val heard = asr.getResult(s).text; s.release()
                         WakePhraseMatcher.match(heard, cfg.policy.allowedWords(env), cfg.wakeThreshold)?.let { m ->
-                            core.diag.i("voice", "wake phrase '${m.word.phrase}' via ASR ('$heard')")
+                            core.diag.d("voice", "wake phrase '${m.word.phrase}' via ASR ('$heard')")
                             onActivated()
                             if (m.remainder.isNotBlank()) for (a in turn.onUtterance(m.remainder)) if (a is TurnAction.Process) runAgent(a.text, identifySpeaker(seg), System.currentTimeMillis(), 0.0)
                             else asrStream = newAsrStream(0.0)

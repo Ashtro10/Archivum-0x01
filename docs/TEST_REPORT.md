@@ -1,7 +1,20 @@
 # Test report
 
-Last full run: 2026-10-23 (see [BUILD_LOG.md](BUILD_LOG.md)). **181 tests, 0 failures**, plus static verification.
-Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk`.
+Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **182 automated tests: 181 passed, 0 failed, 1 skipped**
+(the opt-in host benchmark), plus static verification of the release APK.
+Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.verify=release`.
+
+## Automated tests vs real-device tests
+
+| | Automated (this report) | Real-device ([DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md)) |
+|---|---|---|
+| Where | Build container: x86_64 JVM, Robolectric, host builds of the native engines | Xiaomi Pad 6 and iQOO Neo 9 Pro |
+| Status | **Run: 181 passed, 0 failed** | **Not run yet: 0 of ~100 checks done** |
+| Shows | Logic, data integrity, protocol and crypto, settings wiring, Android framework integration (simulated), API-33 compatibility, APK structure | Microphone, speaker, wake word, ASR/TTS quality, latency, real model speed, background survival on HyperOS/OriginOS, battery, heat, hotspot sync |
+| Does **not** show | That anything works on the actual hardware, or how fast | — |
+
+No hardware behaviour or performance figure is claimed as verified until the matching row in DEVICE_ACCEPTANCE.md
+has been filled in from a device.
 
 ## How things are tested
 
@@ -14,7 +27,7 @@ Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk`.
 | Voice logic (wake policy, clap, noise, turn-taking, chunking, effects, tokenizer) | Synthetic audio + reference outputs (official sentencepiece) | Real algorithms, synthetic audio |
 | Voice models | `scripts/voice_pipeline_test.py` runs sherpa-onnx 1.13.8 (same version as the APK's JNI libs) with the bundled/downloadable models on the host | Real models, synthetic speech (Piper TTS), host CPU |
 | Android app | **Robolectric 4.14 on Android 13 framework code**: application start, chat flow, tool-routed command, all 16 screens, every settings control, memory inserter | Real framework code on JVM; no audio/native engines |
-| API compatibility | `apiCheck`: every platform class/method/field referenced by 618 app/core classes must exist in the **API 33** android.jar | Static |
+| API compatibility | `apiCheck`: every platform class/method/field referenced by 619 app/core classes must exist in the **API 33** android.jar | Static |
 | APK integrity | `verifyApk`: manifest components ↔ classes, all **76 JNI externals** ↔ symbols in the packaged `.so`, bundled assets | Static |
 
 ## Results by suite
@@ -29,7 +42,7 @@ Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk`.
 | SecuritySettingsTest | 6 | 0 | Speaker ID policy, thresholds, unknown speakers, refusals ("Clu, turn off" from a guest), verification window |
 | ToolSettingsTest | 5 | 0 | App allowlist, history retention, max steps, per-tool enable/confirm |
 | NetworkSettingsTest | 8 | 0 | Internet master switch (no request sent), categories, provider, external AI, memory-sharing guard, source badges, offline behaviour, no fabricated search results |
-| SyncSettingsTest | 9 | 0 | Pairing, one entity, scopes, device-only settings, conflicts (latest / home wins / keep both), discovery candidates, remote inference |
+| SyncSettingsTest | 10 | 0 | Pairing, one entity, scopes, device-only settings, conflicts (latest / home wins / keep both), discovery candidates, remote inference, listen-only-when-paired policy, connection cap |
 | ProactiveSettingsTest | 5 | 0 | Enable, caps, spacing, quiet hours, follow-ups, well-being, check-ins, delivery, battery |
 | LearningSettingsTest | 3 | 0 | Preferences change prompt and token budget, A/B alternatives end-to-end, questions |
 | DevSettingsTest | 5 | 0 | Diagnostics visibility, log level/capacity, secret redaction |

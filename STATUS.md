@@ -1,11 +1,21 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-23_
+_Last updated: 2026-10-24_
 
 ## Current state
 
-A complete, installable Android prototype (`dist/clu-debug.apk`) built and verified as far as possible without a
-physical device. All milestones (A–F) are implemented; device-level verification is the remaining gap.
+A complete, installable Android prototype (`dist/clu-release.apk`, release-signed) built and verified as far as
+possible without a physical device. All milestones (A–F) are implemented.
+
+**Current milestone: real-device validation. Feature freeze:** no new features until
+[docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md) passes or each failure is written up as an agreed blocker.
+
+| Evidence | State |
+|---|---|
+| Automated tests (JVM / Robolectric / host engines) | 182 total: 181 passed, 0 failed, 1 opt-in benchmark skipped |
+| Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
+| Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
+| On-device acceptance (Pad 6 / Neo 9 Pro) | **not started: hardware behaviour and performance unverified** |
 
 ## Completed
 
@@ -25,8 +35,8 @@ physical device. All milestones (A–F) are implemented; device-level verificati
   improvement suggestions.
 * **Continuity:** SAS-verified pairing, encrypted mutually authenticated sync with resumable change log and conflict
   policies, home-device model as remote engine, mDNS + hotspot gateway discovery, one shared entity id.
-* **Delivery:** 181 automated tests (0 failures), API-33 static check, APK verification, generated settings
-  register, documentation set.
+* **Delivery:** 182 automated tests (181 passed, 1 opt-in benchmark skipped), API-33 static check, APK verification,
+  generated settings register, documentation set, release signing, security review, device acceptance checklist.
 
 ## Current blockers
 
@@ -37,17 +47,18 @@ physical device. All milestones (A–F) are implemented; device-level verificati
 
 * Tuned-on-synthetic parameters (KWS threshold, leading-word offset, speaker threshold) need on-device calibration.
 * Small ASR model accuracy; English-only offline speech.
-* Debug signing key is ephemeral (back up before installing a differently signed build).
+* Signing key must be kept safe by the owner (SIGNING_AND_BACKUP.md). GGUF model files are not hash-pinned.
 
 ## Next actions
 
-1. Install on the Pad 6 and Neo 9 Pro; run Diagnostics → *Run self-tests*; benchmark Qwen2.5-3B and 1.5B.
+1. Install `dist/clu-release.apk` on the Pad 6 ([INSTALL.md](docs/INSTALL.md) §1) and work through
+   DEVICE_ACCEPTANCE.md sections A–E; then the Neo 9 Pro; then sync (M).
 2. Measure end-of-speech → first-audio latency, battery cost of background listening, thermals over 20 turns.
 3. Calibrate wake-word threshold/leading offset and speaker threshold with real voices; enrol the owner.
 4. Pair the devices over the hotspot; test sync interruption and tablet-hosted inference on real Wi-Fi.
-5. If allowed by the network policy: add AGP/AndroidX build, llama.cpp OpenCL (Adreno) backend, a multimodal
-   model (mtmd) for image understanding, and a larger streaming ASR model.
-6. UI design pass.
+5. Fix every FAIL from the checklist, rebuild with the same release key, re-test.
+6. Only after acceptance: AGP/AndroidX build, OpenCL (Adreno) backend, multimodal model, larger ASR model, UI design
+   pass.
 
 ## Build instructions
 

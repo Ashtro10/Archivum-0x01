@@ -67,6 +67,23 @@ class SyncSettingsTest {
         assertTrue(ServicePolicy.shouldServeSync(h.tablet.settings))
         h.tablet.settings.set(Settings.SYNC_SERVE, false)
         assertFalse(ServicePolicy.shouldServeSync(h.tablet.settings))
+        h.tablet.settings.set(Settings.SYNC_SERVE, true)
+        assertFalse(ServicePolicy.shouldListenForSync(h.tablet.settings, pairedPeers = 0, pairingOpen = false), "no listener before pairing")
+        assertTrue(ServicePolicy.shouldListenForSync(h.tablet.settings, pairedPeers = 0, pairingOpen = true))
+        assertTrue(ServicePolicy.shouldListenForSync(h.tablet.settings, pairedPeers = 1, pairingOpen = false))
+    }
+
+    @Test fun connectionLimit() {
+        val socks = (1..SyncNode.MAX_CONNECTIONS + 2).map { java.net.Socket("127.0.0.1", h.port).apply { soTimeout = 3000 } }
+        try {
+            // Connections beyond the limit are closed by the server immediately (read returns EOF).
+            val extra = socks.last()
+            val r = try { extra.getInputStream().read() } catch (e: java.net.SocketException) { -1 }
+            assertEquals(-1, r)
+        } finally { socks.forEach { it.close() } }
+        Thread.sleep(200)
+        // An authorised peer still gets through once the idle connections are gone.
+        h.pair(); assertTrue(h.sync().ok)
     }
 
     @Test fun discovery() {

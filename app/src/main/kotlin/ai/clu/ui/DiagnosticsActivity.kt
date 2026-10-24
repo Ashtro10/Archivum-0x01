@@ -94,7 +94,7 @@ class DiagnosticsActivity : BaseActivity() {
                 "${r.stats.generatedTokens} tokens, first token ${"%.0f".format(r.stats.firstTokenMs)} ms, ${"%.1f".format(r.stats.tokensPerSecond)} tok/s"
             }
             t("Network") { if (app.platform.isOnline()) "online" else "offline (local features still work)" }
-            t("Sync server") { if (app.sync.state.value.serving) "listening on ${app.sync.state.value.port}" else "not serving (check settings)" }
+            t("Sync server") { if (app.sync.state.value.serving) "listening on ${app.sync.state.value.port}" else "not listening (no paired device and pairing closed, or turned off in settings)" }
         }
         core.diag.i("selftest", results.joinToString(" | "))
         android.app.AlertDialog.Builder(this@DiagnosticsActivity).setTitle("Self-tests").setMessage(results.joinToString("\n\n")).setPositiveButton("OK", null).show()

@@ -4,6 +4,7 @@ toolchain/
 local.properties
 *.keystore
 *.jks
+*.p12
 .idea/
 *.iml
 native/build/

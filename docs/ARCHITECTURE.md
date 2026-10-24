@@ -71,7 +71,7 @@ text, an optional summary and provenance (`OWNER_SUPPLIED`, `OWNER_INSTRUCTION`,
 
 ## 5. Synchronisation (phone ↔ tablet)
 
-* **Transport**: TCP (port 47823). Peers are found by manual address, mDNS (`_clu-sync._tcp`), last known address
+* **Transport**: TCP (port 47823), listening only while a device is paired or the pairing window is open, max 4 concurrent connections. Peers are found by manual address, mDNS (`_clu-sync._tcp`), last known address
   and the **default gateway** (on the phone's hotspot the phone *is* the tablet's gateway, which works even when the
   hotspot blocks multicast).
 * **Pairing**: ephemeral ECDH P-256; both devices display a 6-digit code derived from the shared secret and the

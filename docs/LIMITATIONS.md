@@ -13,9 +13,11 @@
    * No real language model could be downloaded: model quality, tool-calling reliability and real speed are
      untested. The model catalog's Hugging Face URLs could not be checked from here.
    To lift: allow `dl.google.com` and `huggingface.co` in the environment's network settings.
-3. **APK signing key is ephemeral.** The debug key was generated in the build container. A build from another
-   environment has a different key and cannot update this install without uninstalling (back up first:
-   Memory → Export, Diagnostics → Export settings, or sync to the other device). Keys are deliberately not committed.
+3. **Signing key custody is the owner's job.** `dist/clu-release.apk` is signed with a permanent release key kept
+   outside the repository (given to the owner; see SIGNING_AND_BACKUP.md). If it is lost, later builds cannot
+   update the installed app without an uninstall (export memories and settings first).
+4. **Community NDK sysroot and unpinned model hashes** (see SECURITY_REVIEW.md §8): to be replaced or pinned once
+   `dl.google.com` / `huggingface.co` are reachable.
 
 ## Functional limitations
 
@@ -44,4 +46,5 @@
 * **UI** is functional and plain (framework Views), as agreed: visual design is the next phase.
 * **Self-improvement** is limited to measurement, suggestions and reversible configuration; no autonomous code
   changes or on-device training.
-* **Release build:** `assembleRelease` requires your own keystore (environment variables); only the debug APK is delivered.
+* **Sync server:** listens only while a device is paired or the pairing window is open (security hardening). The
+  first pairing therefore always starts with *Allow pairing* on the device being paired to.

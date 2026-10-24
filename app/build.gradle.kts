@@ -29,6 +29,9 @@ java {
 dependencies {
     compileOnly(files(androidJarFile))
     implementation(project(":core"))
+    // Optional self-hosted LiveKit voice path: protocol client + WebRTC Android SDK classes (native lib in toolchain/jniLibs).
+    implementation(project(":lkclient"))
+    implementation(files(toolchain.file("webrtc/webrtc-sdk.jar")))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
@@ -114,6 +117,7 @@ val apiCheck by tasks.registering(ApiCheckTask::class) {
     classes.from(sourceSets.main.get().output.classesDirs)
     classes.from(project(":core").sourceSets.main.get().output.classesDirs)
     report.set(layout.buildDirectory.file("reports/api-check.txt"))
+    classes.from(project(":lkclient").sourceSets.main.get().output.classesDirs)
 }
 
 // Android compiles regexes with ICU, which rejects patterns desktop Java accepts (e.g. an unescaped '}').
@@ -134,6 +138,8 @@ val verifyApk by tasks.registering(VerifyApkTask::class) {
     aapt2.set(toolchain.file("aapt2"))
     classes.from(sourceSets.main.get().output.classesDirs)
     classes.from(project(":core").sourceSets.main.get().output.classesDirs)
+    classes.from(project(":lkclient").sourceSets.main.get().output.classesDirs)
+    classes.from(toolchain.file("webrtc/webrtc-sdk.jar"))
     report.set(layout.buildDirectory.file("reports/verify-apk.txt"))
 }
 tasks.named("check") { dependsOn(apiCheck, verifyApk) }

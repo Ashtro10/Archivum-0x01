@@ -5,13 +5,13 @@
 | Item | Value |
 |---|---|
 | APK | `dist/clu-release.apk` (copied from `app/build/apk/clu-release.apk`) |
-| Size | 58,052,726 bytes |
-| SHA-256 | `e5a6b14273d3b15dec3d5981ab953f3a16cac71c75bb29fa057bf255f84680be` |
+| Size | 65,324,677 bytes |
+| SHA-256 | `3bd51c9792bb94748e764c4d5f5b53a8a92881a7e462f42e121b7c0d4037f32f` |
 | Package / version | `ai.clu` 1.0.0-prototype (versionCode 1) |
 | minSdk / targetSdk / compileSdk | 33 / 35 / 35 |
 | ABI | arm64-v8a |
 | Signature | Release key `CN=Clu, O=Clu, C=IN` (RSA 4096), cert SHA-256 `b8d460942f88…5370bec6`, verified by apksig; zipalign verified. Key kept outside the repo ([SIGNING_AND_BACKUP.md](SIGNING_AND_BACKUP.md)) |
-| Native | llama.cpp b11844 (06230cb) + JNI, host clang 18.1.3 + NDK r29 Bionic sysroot, `-march=armv8.2-a+dotprod+fp16`, 16 KB pages; sherpa-onnx 1.13.8 JNI + ONNX Runtime |
+| Native | llama.cpp b11844 (06230cb) + JNI, host clang 18.1.3 + NDK r29 Bionic sysroot, `-march=armv8.2-a+dotprod+fp16`, 16 KB pages; sherpa-onnx 1.13.8 JNI + ONNX Runtime; WebRTC Android SDK 150.7871.04 (LiveKit mode) |
 | Bundled models | Silero VAD, KWS zipformer gigaspeech 3.3M int8, streaming zipformer en 20M int8 |
 | Toolchain | Gradle 8.14.3, Kotlin 2.2.21, JDK 21, D8 8.11.18, aapt2 2.20 (apktool 3.0.3), apksig (uber-apk-signer 1.3.0), android.jar API 35 (+ API 33 for checks) |
 
@@ -21,11 +21,12 @@
 ./gradlew :core:test :app:test :app:apiCheck :app:verifyApk :app:assembleRelease -Pclu.verify=release
 ```
 
-* JVM + Robolectric tests: **207 total: 206 passed, 0 failed, 1 skipped (opt-in benchmark); app tests run on API 33, 34 and 35** (26 suites; details in TEST_REPORT.md)
+* JVM + Robolectric tests: **225 total: 222 passed, 0 failed, 3 skipped by default** (opt-in benchmark; LiveKit end-to-end and offline-without-network tests need their environment and were run separately: 16/16 and pass). App tests run on API 33, 34 and 35. Details in TEST_REPORT.md
+* Server side: `server/tests/test_e2e.py` 16/16 against livekit-server 1.13.10
 * Settings Implementation Register: **179 / 179** settings with a passing verification test
-* `icuRegexCheck`: 69 regex literals compile with ICU (Android's engine)
-* `apiCheck`: 622 classes, all platform references exist on API 33
-* `verifyApk` (release APK): 22 manifest components, 76 JNI externals resolved, all bundled assets present
+* `icuRegexCheck`: 74 regex literals compile with ICU (Android's engine)
+* `apiCheck`: 1,225 classes, all platform references exist on API 33
+* `verifyApk` (release APK): 22 manifest components, 300 JNI externals resolved (incl. WebRTC), all bundled assets present
 * Host voice pipeline: `measurements/voice_pipeline_host.json`; core benchmark: `measurements/core_host.json`
 
 ## Reproducing

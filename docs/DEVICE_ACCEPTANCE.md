@@ -191,6 +191,39 @@ Phone hotspot ON, tablet connected to it ([INSTALL.md](INSTALL.md) §4).
 | M10 | Wait for the automatic interval (default 5 min) with both apps open | Syncs on its own | |
 | M11 | Record the time to sync after 50 new memories | ____ s | |
 
+## N. Conversation modes: offline vs LiveKit (new in this build)
+
+**N-A. Offline mode with networking disabled (do this first, on both devices).** Model and Clu voice pack must
+already be installed.
+
+| ID | Steps | Expected | P | N |
+|---|---|---|---|---|
+| NA1 ★ | ⋮ → Voice → Conversation mode shows **Offline**. Turn on **Airplane mode** (Wi-Fi and Bluetooth off). | "Next conversation: offline" | | |
+| NA2 ★ | Force-stop Clu, reopen, tap ☰ → **+ New conversation** | Opens normally | | |
+| NA3 ★ | Say the wake word, then "How are you doing today?" | Transcribed, answered by the local model (source: local), spoken in the Clu voice | | |
+| NA4 ★ | Ask about a memory inserted earlier (D1) | Answer uses the memory | | |
+| NA5 ★ | Interrupt a long answer by speaking | Stops (as in section I) | | |
+| NA6 ★ | "End of the line" | Session ends | | |
+| NA7 | Switch mode to **LiveKit** while still in airplane mode, say the wake word | Falls back: "continuing offline" (Voice screen), conversation works offline | | |
+
+**N-B. LiveKit mode (optional; needs your own server, see server/README.md).** A computer on the same Wi-Fi or on the
+phone's hotspot runs `livekit-server` and `clu_voice_server.py serve`.
+
+| ID | Steps | Expected | Result |
+|---|---|---|---|
+| NB1 | `python clu_voice_server.py add-device phone` → Clu → Voice → **Set device key** (owner verification) → paste | "Device key saved (encrypted)" | |
+| NB2 | LiveKit settings → Token endpoint `http://<PC-IP>:8089/token` (owner verification) | Saved | |
+| NB3 | Voice → **Use LiveKit** → **Start LiveKit conversation** | Status: connecting → connected → "Voice agent ready"; record "connected in … ms": ____ | |
+| NB4 | Say "How are you doing today?" | Voice screen shows "Hearing…" while you speak, then "Heard: …"; Clu answers in the server's voice; chat history shows the turn | |
+| NB5 | Record end of speech → first audio (stopwatch or video): ____ ms (5 tries) | Host reference ≈1.3 s; phone not yet measured | |
+| NB6 | Ask about a memory (D1) | Answer uses the memory (brain on the phone) | |
+| NB7 | Talk over a long answer | Clu stops within about 1 s. Record ____ ms. Check it does **not** interrupt itself at normal speaker volume | |
+| NB8 | "End of the line" | Farewell spoken, session ends, wake word works again (offline) | |
+| NB9 | Wake word while in LiveKit mode | Tone, then the conversation continues through LiveKit | |
+| NB10 | Stop the server (Ctrl+C) during a session | Clu reports the session ended; next activation falls back to offline | |
+| NB11 | Revoke the key on the server (`revoke-device phone`), start again | "Token server rejected this device key"; falls back to offline | |
+| NB12 | 10 min LiveKit conversation: battery %, warmth, RAM (Diagnostics) | Record: ____ % / ____ / ____ MB | |
+
 ---
 
 ## Results summary (fill in)
@@ -210,6 +243,7 @@ Phone hotspot ON, tablet connected to it ([INSTALL.md](INSTALL.md) §4).
 | K Battery/thermal | | | |
 | L Stability | | | |
 | M Sync | | | |
+| N Modes (offline / LiveKit) | | | |
 
 **Acceptance rule:** v1 is accepted when sections A–E, G, H and M pass on both devices, and every FAIL in F, I, J, K
 or L either passes after tuning or is written up as a known limitation that you have agreed to. No new features

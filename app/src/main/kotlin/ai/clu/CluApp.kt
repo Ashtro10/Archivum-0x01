@@ -33,6 +33,7 @@ class CluApp : Application() {
     lateinit var sherpa: SherpaEngines
     lateinit var speech: SpeechOutput
     lateinit var voice: VoiceSession
+    lateinit var liveKit: LiveKitSession
     lateinit var sync: SyncManager
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -68,6 +69,7 @@ class CluApp : Application() {
         speech = SpeechOutput(this, sherpa, core.diag)
         registerAndroidTools()
         voice = VoiceSession(this)
+        liveKit = LiveKitSession(this)
         sync = SyncManager(this)
         createChannels()
         core.llm.start()

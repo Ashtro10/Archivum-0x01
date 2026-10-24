@@ -26,8 +26,8 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 58,052,726 bytes | `stat` |
-| SHA-256 | `e5a6b14273d3b15dec3d5981ab953f3a16cac71c75bb29fa057bf255f84680be` | `sha256sum` |
+| File | `dist/clu-release.apk`, 65,324,677 bytes | `stat` |
+| SHA-256 | `3bd51c9792bb94748e764c4d5f5b53a8a92881a7e462f42e121b7c0d4037f32f` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
 | Version | `1.0.0-prototype` (versionCode 1) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
@@ -38,13 +38,13 @@ repository.
 | Signing certificate SHA-256 | `B8:D4:60:94:2F:88:EE:74:D2:59:6B:BD:D3:4E:6A:44:F4:4D:CF:47:BF:DE:0D:0C:51:06:BF:A5:53:70:BE:C6` | apksig + keytool |
 | `allowBackup` | `false` | `aapt2 dump xmltree` |
 | Debuggable | no (release build, D8 `--release`) | `aapt2 dump badging` (no `application-debuggable`) |
-| Reference check | R8 `TraceReferences --check` against API 33: no missing class/method/field referenced from Clu's code (only unused optional paths inside Commons Compress/Lang and kotlinx `ClassValue` fallbacks) | `TraceReferences` |
+| Reference check | R8 `TraceReferences --check` against API 33: no missing class/method/field referenced from Clu's, the LiveKit client's or WebRTC's code. The only gaps are optional paths inside libraries: Commons Compress/Lang, kotlinx `ClassValue` fallbacks, OkHttp's optional TLS providers (Conscrypt/BouncyCastle/OpenJSSE), protobuf's `sun.misc.Unsafe` probe, and `org.jni_zero.JniZeroJni` (not referenced by any WebRTC Java class; residual risk only if native code calls `JniZero.setJniClassLoader`) | `TraceReferences` |
 | Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
-| Static API check | 622 classes, every platform reference exists at API 33 | `:app:apiCheck` |
-| APK structure check | 22 manifest components exist, 76 JNI methods resolve to exported native symbols, all bundled models present | `:app:verifyApk -Pclu.verify=release` |
+| Static API check | 1,225 classes (app, core, LiveKit client incl. generated protocol), every platform reference exists at API 33 | `:app:apiCheck` |
+| APK structure check | 22 manifest components exist, 300 JNI methods (Clu, sherpa-onnx, WebRTC) resolve to exported native symbols, all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu has no video) | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 58,052,726 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 65,324,677 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 
@@ -58,6 +58,7 @@ value above.
 | `libclu_llama.so` (llama.cpp + JNI, built here) | 6.3 MB | `2f208149a8b9fe51f91d88b69ec32055a16bdcaaa3f4b90e3b05ff41e7eee690` | liblog, libdl, libm, libc | 16 KB |
 | `libsherpa-onnx-jni.so` (prebuilt, sherpa-onnx 1.13.8) | 4.8 MB | `3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f` | libandroid, liblog, libonnxruntime, libm, libdl, libc | 16 KB |
 | `libonnxruntime.so` (prebuilt, from the same archive) | 22.2 MB | `33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1` | libdl, liblog, libm, libc | 16 KB |
+| `libjingle_peerconnection_so.so` (prebuilt WebRTC, io.github.webrtc-sdk:android 150.7871.04; LiveKit mode only) | 12.3 MB | `2b561520298d9fec3e216baf58a53fbddf4a46dfd247880cbc3821875ed20200` | libEGL, libdl, libm, liblog, libc | 16 KB |
 
 All dependencies are Android system libraries (or each other), so there is no hidden third-party `.so`. 16 KB
 alignment keeps the libraries loadable on 16 KB-page kernels. `libclu_llama.so` links libc++ statically.
@@ -82,6 +83,9 @@ since then, but not who originally published them. The trust anchors are the HTT
 | Android NDK r29 (community build) | `github.com/HomuHomu833/android-ndk-custom/releases/download/r29/android-ndk-r29-x86_64-linux-gnu.tar.xz` | `adf4cb3e…7cd4378` | **only** the Bionic sysroot (headers, stub libs, libc++ static) and compiler-rt builtins |
 | androidx.test monitor sources | `github.com/android/android-test` @ `edea994e9ad1…` (git) | git commit hash | test-only shim (not shipped) |
 | llama.cpp | `github.com/ggml-org/llama.cpp` tag b11844, submodule commit `06230cb` | git commit hash | compiled into `libclu_llama.so` |
+| WebRTC Android SDK 150.7871.04 (BSD) | `maven-central…/io/github/webrtc-sdk/android/150.7871.04/android-150.7871.04.aar` | `1872dda4…5c69c84c` | classes jar + arm64 `libjingle_peerconnection_so.so` (**shipped**, LiveKit mode) |
+| protoc 4.36.2 | `maven-central…/com/google/protobuf/protoc/4.36.2/protoc-4.36.2-linux-x86_64.exe` | `f6ee22d6…5198f864` | generates the LiveKit protocol classes (build only) |
+| LiveKit protocol definitions (Apache-2.0) | `github.com/livekit/protocol` tag v1.53.0, commit `5f3bf01d…` (git) | git commit hash | `livekit_rtc/models/metrics.proto` → generated classes (**shipped**) |
 
 Full hashes are in `scripts/setup_toolchain.sh`.
 
@@ -112,6 +116,9 @@ ONNX Runtime libraries are the upstream project's own prebuilt release binaries,
 | commons-compress 1.27.1 (voice-pack extraction) | `293d80f5…402519281332495f4420d370d16` |
 | commons-io 2.16.1, commons-lang3 3.16.0, commons-codec 1.17.1 (its dependencies) | `f41f7baa…`, `08709dd7…`, `f9f6cb10…` |
 | org.jetbrains annotations 23.0.0 | `7b0f1972…` |
+| OkHttp 4.12.0 (LiveKit signalling WebSocket) | `b1050081…91d5f4e0` |
+| Okio 3.6.0 (OkHttp dependency) | `67543f07…cb713da28412` |
+| protobuf-javalite 4.36.2 (LiveKit protocol runtime) | `8f4f93d0…df43137` |
 
 Gap: Gradle's dependency-verification file and the wrapper's `distributionSha256Sum` are not yet set up, so Maven and
 Gradle downloads rely on HTTPS alone. The hashes above record what was actually used for this build.

@@ -14,4 +14,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "clu"
-include(":core", ":app", ":testing:robotest-shim")
+include(":core", ":lkclient", ":app", ":testing:robotest-shim")

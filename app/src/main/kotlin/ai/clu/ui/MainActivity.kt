@@ -72,7 +72,9 @@ class MainActivity : BaseActivity() {
         scope.launch { app.conversation.collectLatest { refresh() } }
         scope.launch { core.store.changes.collect { t -> if ((t == "messages" || t == "conversations") && streaming == null) refresh() } }
         scope.launch {
-            combine(core.llm.state, app.voice.state, app.sync.state) { a, b, c -> Triple(a, b, c) }.collect { (l, v, s) -> updateStatus(l, v, s) }
+            combine(core.llm.state, app.voice.state, app.sync.state, app.liveKit.state) { a, b, c, d -> listOf(a, b, c, d) }.collect { x ->
+                updateStatus(x[0] as ai.clu.core.llm.LlmState, x[1] as ai.clu.voice.VoiceUiState, x[2] as ai.clu.sync.SyncUiState, x[3] as ai.clu.voice.LiveKitUiState)
+            }
         }
         if (core.store.meta("onboarded") == null) onboarding()
         else if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED && core.store.meta("asked_notif") == null) {
@@ -128,7 +130,7 @@ class MainActivity : BaseActivity() {
         setContentView(root)
     }
 
-    private fun updateStatus(l: ai.clu.core.llm.LlmState, v: ai.clu.voice.VoiceUiState, s: ai.clu.sync.SyncUiState) {
+    private fun updateStatus(l: ai.clu.core.llm.LlmState, v: ai.clu.voice.VoiceUiState, s: ai.clu.sync.SyncUiState, lk: ai.clu.voice.LiveKitUiState) {
         val model = when (l.status) {
             LlmStatus.NO_MODEL -> "no model"; LlmStatus.UNLOADED -> "model idle"; LlmStatus.LOADING -> "loading model…"
             LlmStatus.READY -> "model ready"; LlmStatus.GENERATING -> "thinking…"; LlmStatus.ERROR -> "model error"
@@ -140,7 +142,13 @@ class MainActivity : BaseActivity() {
             TurnState.SPEAKING -> " · speaking"
         }
         val env = if (v.running) " · ${v.environment.name.lowercase()} (${"%.0f".format(v.noiseDb)} dB)" else ""
-        status.text = "$model · $net$voice$env" + (if (v.error.isNotBlank()) " · ⚠ ${v.error}" else "")
+        val live = when (lk.status) {
+            ai.clu.voice.LiveKitUiState.Status.CONNECTING -> " · LiveKit connecting…"
+            ai.clu.voice.LiveKitUiState.Status.CONNECTED -> " · LiveKit" + (if (lk.agentState.isNotBlank()) " (${lk.agentState})" else "") +
+                (if (lk.partial.isNotBlank()) ": ${lk.partial.takeLast(40)}" else "")
+            else -> ""
+        }
+        status.text = "$model · $net$voice$env$live" + (if (v.error.isNotBlank()) " · ⚠ ${v.error}" else "")
         status.setTextColor(if (l.status == LlmStatus.ERROR || v.error.isNotBlank()) C.WARN else C.MUTED)
         micBtn.background = roundBg(if (v.turn == TurnState.LISTENING) C.ACCENT else C.SURFACE2, 60f)
         sendBtn.text = if (streaming != null || v.turn == TurnState.SPEAKING) "■" else "➤"

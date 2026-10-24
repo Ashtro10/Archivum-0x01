@@ -9,3 +9,8 @@ local.properties
 *.iml
 native/build/
 native/llama.cpp-build-host/
+__pycache__/
+server/devices.json
+server/models/
+server/.venv/
+server/livekit.yaml

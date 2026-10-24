@@ -1,6 +1,6 @@
 # Test report
 
-Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **207 automated tests: 206 passed, 0 failed, 1 skipped**
+Last full run: 2026-10-24 (see [BUILD_LOG.md](BUILD_LOG.md)). **225 automated tests: 222 passed, 0 failed, 3 skipped by default** (benchmark + two environment-gated end-to-end tests, run separately below)
 (the opt-in host benchmark), plus static verification of the release APK.
 Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.verify=release`.
 
@@ -9,7 +9,7 @@ Commands: `./gradlew :core:test :app:test :app:apiCheck :app:verifyApk -Pclu.ver
 | | Automated (this report) | Real-device ([DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md)) |
 |---|---|---|
 | Where | Build container: x86_64 JVM, Robolectric, host builds of the native engines | Xiaomi Pad 6 and iQOO Neo 9 Pro |
-| Status | **Run: 206 passed, 0 failed** | **Not run yet: 0 of ~100 checks done** |
+| Status | **Run: 222 passed, 0 failed; LiveKit E2E 16/16; offline-without-network pass** | **Not run yet: 0 of ~100 checks done** |
 | Shows | Logic, data integrity, protocol and crypto, settings wiring, Android framework integration (simulated), API-33 compatibility, APK structure | Microphone, speaker, wake word, ASR/TTS quality, latency, real model speed, background survival on HyperOS/OriginOS, battery, heat, hotspot sync |
 | Does **not** show | That anything works on the actual hardware, or how fast | — |
 
@@ -27,8 +27,8 @@ has been filled in from a device.
 | Voice logic (wake policy, clap, noise, turn-taking, chunking, effects, tokenizer) | Synthetic audio + reference outputs (official sentencepiece) | Real algorithms, synthetic audio |
 | Voice models | `scripts/voice_pipeline_test.py` runs sherpa-onnx 1.13.8 (same version as the APK's JNI libs) with the bundled/downloadable models on the host | Real models, synthetic speech (Piper TTS), host CPU |
 | Android app | **Robolectric 4.14 on Android 13 framework code**: application start, chat flow, tool-routed command, all 16 screens, every settings control, memory inserter | Real framework code on JVM; no audio/native engines |
-| API compatibility | `apiCheck`: every platform class/method/field referenced by 622 app/core classes must exist in the **API 33** android.jar | Static |
-| APK integrity | `verifyApk`: manifest components ↔ classes, all **76 JNI externals** ↔ symbols in the packaged `.so`, bundled assets | Static |
+| API compatibility | `apiCheck`: every platform class/method/field referenced by 1,225 app/core/LiveKit-client classes must exist in the **API 33** android.jar | Static |
+| APK integrity | `verifyApk`: manifest components ↔ classes, all **300 JNI externals** (incl. WebRTC) ↔ symbols in the packaged `.so`, bundled assets | Static |
 
 ## Results by suite
 
@@ -71,6 +71,18 @@ has been filled in from a device.
 * JUnit 5 silently skipped a non-`Unit` test; all coroutine tests now declare `Unit`, and a declared-vs-executed audit runs clean.
 * Wake word triggered mid-sentence ("I have a clue…") → leading-word rule based on measured timestamps.
 * ASR lost the first word → recogniser streams primed with 1 s of silence (measured fix).
+
+## LiveKit voice mode and offline-without-network (2026-10-24)
+
+| Test | Environment | Result |
+|---|---|---|
+| `LiveKitSettingsTest`, `LiveKitBridgeTest`, `SignallingTest` (16) | JVM | pass |
+| `LiveKitEndToEndTest` | Real livekit-server 1.13.10 + Clu voice agent + Kotlin client on WebRTC (webrtc-java) + Clu core incl. real llama.cpp | **16/16** |
+| `server/tests/test_e2e.py` | Real livekit-server + token server + agent + Python stand-in device | **16/16** |
+| `OfflineConversationTest` (`scripts/test_offline.sh`) | Network namespace, loopback only: ASR → local llama.cpp → TTS, LiveKit fallback | **pass** |
+
+Details, measurements and the defects these tests found: [LIVEKIT_INTEGRATION.md](LIVEKIT_INTEGRATION.md) §6–7. Not run on
+a device: Android WebRTC audio, echo cancellation and barge-in on a real speaker, hotspot NAT, battery/thermal/RAM.
 
 ## Field defect: crash on every launch (found on device, fixed)
 

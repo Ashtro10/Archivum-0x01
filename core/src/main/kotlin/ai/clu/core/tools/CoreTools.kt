@@ -295,6 +295,7 @@ class ExternalAiTool(private val http: HttpFetcher, private val settings: Settin
         val q = args.str("question") ?: return ToolResult.fail("No question given.")
         val base = settings.string(Settings.EXT_AI_URL).trimEnd('/')
         if (base.isEmpty()) return ToolResult.fail("No external AI endpoint is configured.")
+        ai.clu.core.livekit.EndpointPolicy.check(base, settings.bool(Settings.LK_LAN_CLEARTEXT))?.let { return ToolResult.fail("External AI endpoint rejected: $it.") }
         val model = settings.string(Settings.EXT_AI_MODEL).ifEmpty { "default" }
         val body = buildJsonObject {
             put("model", model)

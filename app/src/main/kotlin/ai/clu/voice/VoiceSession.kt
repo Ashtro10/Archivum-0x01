@@ -104,7 +104,22 @@ class VoiceSession(private val app: CluApp) {
         _state.value = update(_state.value).copy(running = running.get(), turn = turn.state)
     }
 
+    /** LiveKit mode could not be used and fallback is on: listen offline straight away. */
+    fun startOfflineAfterFallback() { handingOver = false; start(wakeMode = false) }
+
+    @Volatile private var handingOver = false
+
     private fun onActivated(spokenAck: Boolean = true) {
+        // LiveKit mode: acknowledge, release the microphone and let the LiveKit session take the conversation.
+        val path = app.liveKit.decide()
+        if (path.path == ai.clu.core.livekit.ConversationPath.LIVEKIT && !handingOver) {
+            handingOver = true
+            if (cfg.ackMode == "tone") out.playTone(cfg)
+            val resumeWake = wakeMode
+            scope.launch { stop(); handingOver = false; app.liveKit.start(resumeWakeAfter = resumeWake) }
+            return
+        }
+        if (core.settings.string(Settings.VOICE_MODE) == "livekit") core.diag.i("voice", "offline conversation: ${path.reason}")
         val actions = turn.onActivated()
         if (TurnAction.StopPlayback in actions) { out.stop(); core.agent.cancel() }
         if (spokenAck || turn.state == TurnState.LISTENING) {

@@ -106,6 +106,17 @@ All shipped dependencies, their versions and hashes are listed in
 
 The Bionic sysroot comes from a community NDK build (risk discussed there). There is no closed-source SDK.
 
+## 7a. Optional LiveKit voice mode (added 2026-10-24)
+
+Full analysis: [LIVEKIT_INTEGRATION.md](LIVEKIT_INTEGRATION.md) §4.
+* No LiveKit API key or secret in the app. A revocable device key is Keystore-encrypted and changes need owner verification.
+* Short-lived, room-scoped tokens are checked by the app before use; over-privileged tokens are refused.
+* TLS is required except to private-network addresses.
+* Only the agent participant can drive Clu. The agent (on the owner's machine) sees transcripts and replies.
+* The starter app's defaults (LiveKit homepage demo agent, LiveKit Cloud sandbox) are **not** used anywhere.
+* New permission: `MODIFY_AUDIO_SETTINGS` (normal), used only during a LiveKit session.
+* New network endpoints, both configured by the owner and none by default: the token endpoint and the LiveKit server it names.
+
 ## 8. Open items (not blockers for device testing)
 
 1. Pin GGUF hashes in the model catalog. This needs access to `huggingface.co`.

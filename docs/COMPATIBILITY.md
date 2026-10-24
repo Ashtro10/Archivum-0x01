@@ -59,7 +59,10 @@ in-process: VAD and end-of-turn detection, streaming ASR, incremental sentence-l
 accounting. (Practical note: LiveKit's Android SDK also depends on Google Maven/AndroidX artifacts that were
 unreachable from this build environment.) No LiveKit Cloud or other hosted media service is involved.
 
-**Possible future use:** if a laptop or tablet later hosts a LiveKit server, it could stream the phone's microphone
+**Update 2026-10-24:** the offline path above is unchanged and remains the default. An *optional*, self-hosted LiveKit mode now
+exists as a second path. See [LIVEKIT_INTEGRATION.md](LIVEKIT_INTEGRATION.md).
+
+**Possible future use (original note):** if a laptop or tablet later hosts a LiveKit server, it could stream the phone's microphone
 to the home device's larger model in real time. The engine interfaces (`LlmEngine`, `TtsBackend`, ASR) keep that
 option open without changing Clu's identity or data model.
 

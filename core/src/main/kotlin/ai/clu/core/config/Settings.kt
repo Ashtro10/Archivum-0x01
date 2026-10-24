@@ -52,6 +52,30 @@ object Settings {
     private fun time(key: String, title: String, cat: SettingCategory, default: String, desc: String, component: String, effect: String, test: String) =
         def(SettingDef(key, title, cat, SettingType.TimeOfDay, jsonOf(default), desc, component, effect, SettingScope.SHARED, ApplyMode.IMMEDIATE, false, test))
 
+    // ---------------------------------------------------------------- LiveKit voice (optional)
+    val VOICE_MODE = choice("voice.mode", "Conversation mode", LIVEKIT, "offline",
+        listOf("offline" to "Offline: microphone, speech recognition, model and voice all on this device",
+            "livekit" to "LiveKit: speech recognition and voice on your own LiveKit server; Clu's model, memory and tools stay on this device"),
+        "Where voice conversations are processed. Offline needs no network after models are installed.", "VoiceModePolicy, LiveKitSession",
+        "Voice sessions use the selected path", "LiveKitSettingsTest#mode", scope = DEVICE,
+        limits = "LiveKit mode needs your own LiveKit server, token endpoint and Clu voice agent (docs/LIVEKIT_INTEGRATION.md).")
+    val LK_TOKEN_URL = text("livekit.tokenEndpoint", "Token endpoint", LIVEKIT, "",
+        "URL of your token server. Clu asks it for a short-lived room token; no LiveKit API key or secret is stored in the app.",
+        "TokenProvisioner", "Token requests go to this URL", "LiveKitSettingsTest#tokenEndpoint",
+        SettingType.Text(300, pattern = Regex("https?://\\S+")), sensitive = true,
+        limits = "https:// required, except http:// to a private-network address when allowed below.")
+    val LK_AGENT_NAME = text("livekit.agentName", "Agent name", LIVEKIT, "clu-voice",
+        "Name of the voice agent your server dispatches to Clu's room.", "TokenProvisioner",
+        "Sent in the token request (room_config.agents)", "LiveKitSettingsTest#agentName",
+        SettingType.Text(64, allowEmpty = false, pattern = Regex("[A-Za-z0-9_.-]+")))
+    val LK_FALLBACK = bool("livekit.fallbackOffline", "Fall back to offline", LIVEKIT, true,
+        "If the LiveKit server cannot be reached, continue the conversation offline instead of failing.", "VoiceModePolicy",
+        "Unreachable server -> offline session", "LiveKitSettingsTest#fallback", scope = DEVICE)
+    val LK_LAN_CLEARTEXT = bool("livekit.allowLanCleartext", "Allow unencrypted LAN server", LIVEKIT, true,
+        "Allow http:// / ws:// only to private-network addresses (home Wi-Fi, phone hotspot). Internet servers always need TLS.",
+        "EndpointPolicy", "ws:// and http:// accepted for private addresses only", "LiveKitSettingsTest#lanCleartext", sensitive = true,
+        limits = "Audio is always encrypted by WebRTC (DTLS-SRTP); this only concerns the signalling connection and token request.")
+
     // ---------------------------------------------------------------- General & personality
     val CLU_NAME = text("identity.cluName", "Clu's name", GENERAL, "Clu", "The name Clu uses for itself.", "PromptBuilder, UI",
         "System prompt identity line and screen titles use this name", "PersonaSettingsTest#cluName",

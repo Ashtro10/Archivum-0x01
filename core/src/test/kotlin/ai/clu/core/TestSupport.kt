@@ -86,8 +86,10 @@ class FakeHttp : HttpFetcher {
         requests += url
         return routes.entries.firstOrNull { url.contains(it.key) }?.value ?: HttpResponse(404, "")
     }
+    val postHeaders = mutableListOf<Map<String, String>>()
     override suspend fun postJson(url: String, json: String, headers: Map<String, String>): HttpResponse {
         requests += "POST $url $json"
+        postHeaders += headers
         return routes.entries.firstOrNull { url.contains(it.key) }?.value ?: HttpResponse(404, "")
     }
 }

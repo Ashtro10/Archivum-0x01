@@ -1,0 +1,30 @@
+{
+  "checks": {
+    "token issued by the owner's token server for the device's own room": true,
+    "client joined the room": true,
+    "voice agent joined and is identified as an agent": true,
+    "agent receives the device's audio (ready)": true,
+    "owner's speech transcribed and delivered to Clu": true,
+    "Clu's reply streamed to the agent": true,
+    "reply audio received by the client": true,
+    "turn stored in Clu's conversation history": true,
+    "memory retrieved for a LiveKit voice turn": true,
+    "long reply started speaking": true,
+    "barge-in reached Clu (reply interrupted)": true,
+    "interrupted reply went silent at the client": true,
+    "local llama.cpp model answered the LiveKit turn": true,
+    "reply source is the on-device model": true,
+    "end of the line ends the session after the farewell": true,
+    "client disconnected cleanly": true
+  },
+  "metrics": {
+    "token_request_ms": 26,
+    "join_ms": 138,
+    "turn1_transcript": "how are you doing to day",
+    "end_of_speech_to_first_reply_audio_ms": 1352,
+    "barge_in_speech_start_to_clu_interrupt_ms": 1051,
+    "interrupt_to_silence_at_client_ms": 33,
+    "checks_passed": 16,
+    "checks_total": 16
+  }
+}

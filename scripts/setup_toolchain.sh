@@ -105,6 +105,26 @@ if [[ ! -d "$TC/androidx-test/runner/monitor/java" ]]; then
   git -C "$TC/androidx-test" checkout -q edea994e9ad118c4ac6869c7105dcd06d66da7df
 fi
 
+# ---- Optional LiveKit voice path (lkclient module) ----
+# protoc for the LiveKit signalling protobufs (javalite), the LiveKit protocol definitions (Apache-2.0) at a pinned
+# commit, and the WebRTC engine (io.github.webrtc-sdk:android, BSD) - only its classes jar and arm64 library are used.
+M=https://maven-central.storage-download.googleapis.com/maven2
+fetch protoc "$M/com/google/protobuf/protoc/4.36.2/protoc-4.36.2-linux-x86_64.exe" \
+  f6ee22d65361338459208da8bff801c9ca689741cba9187b34990dd45198f864
+cp "$CACHE/protoc" "$TC/protoc" && chmod +x "$TC/protoc"
+if [[ ! -f "$TC/livekit-protocol/protobufs/livekit_rtc.proto" ]]; then
+  echo "[get]  LiveKit protocol definitions"
+  rm -rf "$TC/livekit-protocol"
+  git clone -q --filter=blob:none --no-checkout https://github.com/livekit/protocol "$TC/livekit-protocol"
+  git -C "$TC/livekit-protocol" sparse-checkout set --no-cone /protobufs/livekit_rtc.proto /protobufs/livekit_models.proto /protobufs/livekit_metrics.proto /LICENSE
+  git -C "$TC/livekit-protocol" checkout -q 5f3bf01d03f8242c83eacf6bdb2d77142f7c8ac4   # tag v1.53.0
+fi
+fetch webrtc-sdk.aar "$M/io/github/webrtc-sdk/android/150.7871.04/android-150.7871.04.aar" \
+  1872dda4e3bf7d6ea6f7c6e11861332081c57081a1e62fc82fab72415c69c84c
+mkdir -p "$TC/webrtc"
+unzip -o -q -p "$CACHE/webrtc-sdk.aar" classes.jar > "$TC/webrtc/webrtc-sdk.jar"
+unzip -o -q -j "$CACHE/webrtc-sdk.aar" jni/arm64-v8a/libjingle_peerconnection_so.so -d "$TC/jniLibs/arm64-v8a"
+
 if [[ "${SKIP_NDK:-0}" != "1" ]]; then
   fetch ndk-r29.tar.xz \
     https://github.com/HomuHomu833/android-ndk-custom/releases/download/r29/android-ndk-r29-x86_64-linux-gnu.tar.xz \

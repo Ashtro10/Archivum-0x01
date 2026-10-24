@@ -12,10 +12,21 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 207 total: 206 passed, 0 failed, 1 opt-in benchmark skipped |
+| Automated tests (JVM / Robolectric / host engines) | 225 total: 222 passed, 0 failed, 3 skipped by default (run separately: LiveKit E2E 16/16, offline-without-network pass) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-24: optional self-hosted LiveKit voice mode
+
+Two explicit paths ([docs/LIVEKIT_INTEGRATION.md](docs/LIVEKIT_INTEGRATION.md)):
+* **Offline mode (default):** unchanged on-device pipeline. Tested on the host with networking disabled.
+* **LiveKit mode:** speech recognition and voice on your own LiveKit server (`server/`). Clu's model, memory, tools and
+  permissions stay on the device. Tested end to end on the host (16/16). Falls back to offline automatically.
+
+The Flutter starter was evaluated and **not** adopted as the app base (see the decision in that document).
+Backup of the state before this work: branch `backup/clu-pre-livekit` (f82dec8). Nothing was removed.
+On-device testing of both modes: DEVICE_ACCEPTANCE.md section N.
 
 ## Completed
 
@@ -35,7 +46,7 @@ possible without a physical device. All milestones (A–F) are implemented.
   improvement suggestions.
 * **Continuity:** SAS-verified pairing, encrypted mutually authenticated sync with resumable change log and conflict
   policies, home-device model as remote engine, mDNS + hotspot gateway discovery, one shared entity id.
-* **Delivery:** 207 automated tests (206 passed, 1 opt-in benchmark skipped), API-33 static check, APK verification,
+* **Delivery:** 225 automated tests (222 passed, 3 environment-gated/opt-in skipped by default; LiveKit E2E 16/16 and offline-without-network run separately and pass), API-33 static check, APK verification,
   generated settings register, documentation set, release signing, security review, device acceptance checklist.
 
 ## Current blockers

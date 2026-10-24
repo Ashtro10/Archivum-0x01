@@ -1,0 +1,79 @@
+{
+  "checks": {
+    "token: wrong device key rejected (401)": {
+      "ok": true,
+      "detail": ""
+    },
+    "token: other room refused (403)": {
+      "ok": true,
+      "detail": ""
+    },
+    "token: valid device key accepted": {
+      "ok": true,
+      "detail": "200"
+    },
+    "token: grants only this room, no admin/create": {
+      "ok": true,
+      "detail": "{\"roomCreate\": false, \"roomAdmin\": false, \"roomJoin\": true, \"room\": \"clu-phone\", \"canPublish\": true, \"canSubscribe\": true, \"canPublishData\": true, \"canPublishSources\": [\"microphone\"]}"
+    },
+    "token: short-lived": {
+      "ok": true,
+      "detail": "599 s"
+    },
+    "token: no API secret in response": {
+      "ok": true,
+      "detail": ""
+    },
+    "token: repeated bad keys throttled (429)": {
+      "ok": true,
+      "detail": "[429, 429, 429]"
+    },
+    "agent joined the device's room": {
+      "ok": true,
+      "detail": "0.2 s after connect"
+    },
+    "agent is marked as an agent participant": {
+      "ok": true,
+      "detail": "4"
+    },
+    "agent ready once the device's audio arrives": {
+      "ok": true,
+      "detail": ""
+    },
+    "turn 1: speech transcribed by the agent": {
+      "ok": true,
+      "detail": "'what time is it'"
+    },
+    "turn 1: reply spoken back as audio": {
+      "ok": true,
+      "detail": ""
+    },
+    "barge-in: agent sent clu.interrupt when the owner spoke": {
+      "ok": true,
+      "detail": ""
+    },
+    "barge-in: interrupted reply went silent": {
+      "ok": true,
+      "detail": "58 ms after interrupt"
+    },
+    "end of the line: farewell spoken and completion reported": {
+      "ok": true,
+      "detail": ""
+    },
+    "agent leaves when the device leaves": {
+      "ok": true,
+      "detail": "0 agent(s) still running"
+    }
+  },
+  "metrics": {
+    "end_of_speech_to_transcript_ms": 1273,
+    "end_of_speech_to_first_reply_audio_ms": 1435,
+    "transcript_to_first_reply_audio_ms": 162,
+    "barge_in_speech_start_to_interrupt_ms": 557,
+    "interrupt_to_agent_audio_silent_ms": 58
+  },
+  "summary": {
+    "passed": 16,
+    "total": 16
+  }
+}

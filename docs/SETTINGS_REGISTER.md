@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.0.0-prototype.
 
-* Settings: **179** · verifying test passed: **179** · other: **0**
+* Settings: **184** · verifying test passed: **184** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -213,6 +213,16 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `sync.people` | Sync people (without voiceprints) | `true` | true / false | SHARED | SyncEngine | people included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
 | `sync.conflicts` | Conflict resolution | `"latest"` | `latest`, `home`, `keep_both` | SHARED | SyncEngine | Merge decision for conflicting rows | Applies immediately | `SyncSettingsTest#conflicts` | passed | – |
 | `remote.inference` | Use the home device's model | `"fallback"` | `local`, `prefer_home`, `fallback` | DEVICE | InferenceRouter | Selects local vs remote engine | Applies immediately | `SyncSettingsTest#remoteInference` | passed | – |
+
+## LiveKit voice (optional, self-hosted)
+
+| Setting ID | Display name | Default | Accepted values | Scope | Responsible component | Observable effect | Applies | Test | Result | Known limitations |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `voice.mode` | Conversation mode | `"offline"` | `offline`, `livekit` | DEVICE | VoiceModePolicy, LiveKitSession | Voice sessions use the selected path | Applies immediately | `LiveKitSettingsTest#mode` | passed | LiveKit mode needs your own LiveKit server, token endpoint and Clu voice agent (docs/LIVEKIT_INTEGRATION.md). |
+| `livekit.tokenEndpoint` | Token endpoint 🔒 | `""` | text ≤ 300 chars, validated format | SHARED | TokenProvisioner | Token requests go to this URL | Applies immediately | `LiveKitSettingsTest#tokenEndpoint` | passed | https:// required, except http:// to a private-network address when allowed below. |
+| `livekit.agentName` | Agent name | `"clu-voice"` | text ≤ 64 chars, non-empty, validated format | SHARED | TokenProvisioner | Sent in the token request (room_config.agents) | Applies immediately | `LiveKitSettingsTest#agentName` | passed | – |
+| `livekit.fallbackOffline` | Fall back to offline | `true` | true / false | DEVICE | VoiceModePolicy | Unreachable server -> offline session | Applies immediately | `LiveKitSettingsTest#fallback` | passed | – |
+| `livekit.allowLanCleartext` | Allow unencrypted LAN server 🔒 | `true` | true / false | SHARED | EndpointPolicy | ws:// and http:// accepted for private addresses only | Applies immediately | `LiveKitSettingsTest#lanCleartext` | passed | Audio is always encrypted by WebRTC (DTLS-SRTP); this only concerns the signalling connection and token request. |
 
 ## Proactive behaviour
 

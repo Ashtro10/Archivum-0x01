@@ -64,6 +64,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val toolRegistry = ToolRegistry()
     val tools = ToolExecutor(store, toolRegistry, settings, auth, network, diag)
     val proactive = ProactivePlanner(store, settings, memories, templates, diag = diag)
+    /** Optional LiveKit voice path: room tokens from the owner's token endpoint (no LiveKit secrets in the app). */
+    val liveKitTokens = ai.clu.core.livekit.TokenProvisioner(settings, platform.http, { platform.secret(LIVEKIT_DEVICE_KEY) }, clock::now)
     val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag)
 
     /** Remote engine provider (set by the app when a paired home device is configured). */
@@ -105,6 +107,11 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         listOf(TimeTool(), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(memories), PersonaSwitchTool(personas),
             web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") })
             .forEach(toolRegistry::register)
+    }
+
+    companion object {
+        /** SecretStore name of the per-device key that authorises token requests at the owner's token endpoint. */
+        const val LIVEKIT_DEVICE_KEY = "livekit_device_key"
     }
 
     fun shutdown() {

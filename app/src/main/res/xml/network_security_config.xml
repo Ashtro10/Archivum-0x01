@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext (http:// / ws://) is permitted at the platform level because Android cannot express "private-network
+  addresses only" here, and a self-hosted LiveKit server on home Wi-Fi or a phone hotspot usually has no TLS.
+  Clu enforces the rule in code (ai.clu.core.livekit.EndpointPolicy): owner-configured endpoints may use cleartext
+  only to private/loopback/link-local/.local hosts and only while "Allow unencrypted LAN server" is on.
+  All built-in internet endpoints are https:// and are fixed in code.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

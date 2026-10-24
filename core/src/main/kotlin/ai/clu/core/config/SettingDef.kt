@@ -128,6 +128,7 @@ enum class SettingCategory(val title: String) {
     TOOLS("Device control & tools"),
     NETWORK("Internet & external services"),
     DEVICES("Phone & tablet"),
+    LIVEKIT("LiveKit voice (optional, self-hosted)"),
     PROACTIVE("Proactive behaviour"),
     LEARNING("Learning & adaptation"),
     DEVELOPER("Developer & diagnostics"),

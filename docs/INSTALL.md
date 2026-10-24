@@ -5,7 +5,7 @@ Requirements: Android 13 or newer, arm64 (both devices qualify), ~400 MB free (A
 ## 1. Install the APK on the Xiaomi Pad 6, with no PC (same steps on the phone)
 
 **Before you start:** at least 1 GB of free space for now (Settings → About tablet → Storage). A model needs about
-2.2 GB more later. You need Wi-Fi for the download (58 MB).
+2.2 GB more later. You need Wi-Fi for the download (65 MB).
 
 1. **Download.** On the tablet, open **Chrome** (or the Mi Browser) and enter this address exactly:
 
@@ -16,8 +16,8 @@ Requirements: Android 13 or newer, arm64 (both devices qualify), ~400 MB free (A
    *Alternative:* open `https://github.com/Ashtro10/Archivum-0x01/blob/claude/clu-android-ai-build-5cspi2/dist/clu-release.apk`
    and tap the **download (↓) icon** at the top right of the file view.
 2. **Optional check:** in **Files** (or Chrome → ⋮ → Downloads), long-press `clu-release.apk` → Details. The size
-   must be **58,052,726 bytes** (shown as about 55.4 MB or 58.0 MB depending on the app). A hash-checker app can
-   confirm SHA-256 `e5a6b14273d3b15dec3d5981ab953f3a16cac71c75bb29fa057bf255f84680be`.
+   must be **65,324,677 bytes** (shown as about 62.3 MB or 65.3 MB depending on the app). A hash-checker app can
+   confirm SHA-256 `3bd51c9792bb94748e764c4d5f5b53a8a92881a7e462f42e121b7c0d4037f32f`.
 3. **Open it.** Tap the finished download in Chrome's notification or download list, or open
    **Files → Downloads → clu-release.apk**.
 4. **Allow the source (first time only).** HyperOS shows *"For your security, your tablet is not allowed to install

@@ -1,0 +1,4 @@
+{
+  global: Java_ai_clu_*;
+  local: *;
+};

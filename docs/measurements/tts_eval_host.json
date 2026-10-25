@@ -1,0 +1,716 @@
+[
+  {
+    "voice": "piper-ryan-medium (Clu current)",
+    "sid": 0,
+    "load_s": 1.21,
+    "size_mb": 81.1,
+    "en": {
+      "short_first_audio_ms": 91,
+      "short_total_ms": 91,
+      "short_audio_s": 1.44,
+      "long_first_audio_ms": 193,
+      "long_total_ms": 486,
+      "long_audio_s": 8.0,
+      "long_callbacks": 2,
+      "rtf": 0.061,
+      "f0_hz": 160.94890510948906,
+      "sample_rate": 22050
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 0,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 925,
+      "short_total_ms": 925,
+      "short_audio_s": 2.17,
+      "long_first_audio_ms": 1497,
+      "long_total_ms": 3471,
+      "long_audio_s": 10.29,
+      "long_callbacks": 2,
+      "rtf": 0.337,
+      "f0_hz": 169.01408450704224,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 1,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 1288,
+      "short_total_ms": 1288,
+      "short_audio_s": 3.36,
+      "long_first_audio_ms": 1868,
+      "long_total_ms": 5191,
+      "long_audio_s": 16.21,
+      "long_callbacks": 2,
+      "rtf": 0.32,
+      "f0_hz": 201.68067226890756,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 2,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 607,
+      "short_total_ms": 607,
+      "short_audio_s": 2.16,
+      "long_first_audio_ms": 1103,
+      "long_total_ms": 3340,
+      "long_audio_s": 11.35,
+      "long_callbacks": 2,
+      "rtf": 0.294,
+      "f0_hz": 117.6470588235294,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 3,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 799,
+      "short_total_ms": 799,
+      "short_audio_s": 2.4,
+      "long_first_audio_ms": 1448,
+      "long_total_ms": 3255,
+      "long_audio_s": 11.4,
+      "long_callbacks": 2,
+      "rtf": 0.285,
+      "f0_hz": 200.0,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 4,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 627,
+      "short_total_ms": 627,
+      "short_audio_s": 2.08,
+      "long_first_audio_ms": 955,
+      "long_total_ms": 2517,
+      "long_audio_s": 9.24,
+      "long_callbacks": 2,
+      "rtf": 0.272,
+      "f0_hz": 156.86274509803923,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 5,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 829,
+      "short_total_ms": 830,
+      "short_audio_s": 2.33,
+      "long_first_audio_ms": 1218,
+      "long_total_ms": 3325,
+      "long_audio_s": 11.56,
+      "long_callbacks": 2,
+      "rtf": 0.288,
+      "f0_hz": 214.28571428571428,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 6,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 897,
+      "short_total_ms": 897,
+      "short_audio_s": 2.94,
+      "long_first_audio_ms": 1465,
+      "long_total_ms": 4245,
+      "long_audio_s": 13.43,
+      "long_callbacks": 2,
+      "rtf": 0.316,
+      "f0_hz": 190.47619047619048,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-nano-v0.8-int8",
+    "sid": 7,
+    "load_s": 0.91,
+    "size_mb": 45.7,
+    "en": {
+      "short_first_audio_ms": 723,
+      "short_total_ms": 723,
+      "short_audio_s": 1.98,
+      "long_first_audio_ms": 1209,
+      "long_total_ms": 3123,
+      "long_audio_s": 10.07,
+      "long_callbacks": 2,
+      "rtf": 0.31,
+      "f0_hz": 250.0,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 0,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1484,
+      "short_total_ms": 1484,
+      "short_audio_s": 2.06,
+      "long_first_audio_ms": 1945,
+      "long_total_ms": 5421,
+      "long_audio_s": 8.68,
+      "long_callbacks": 2,
+      "rtf": 0.625,
+      "f0_hz": 176.47058823529412,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 1,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1883,
+      "short_total_ms": 1883,
+      "short_audio_s": 2.72,
+      "long_first_audio_ms": 2846,
+      "long_total_ms": 7465,
+      "long_audio_s": 13.81,
+      "long_callbacks": 2,
+      "rtf": 0.541,
+      "f0_hz": 220.1834862385321,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 2,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1488,
+      "short_total_ms": 1488,
+      "short_audio_s": 2.14,
+      "long_first_audio_ms": 2167,
+      "long_total_ms": 5206,
+      "long_audio_s": 9.17,
+      "long_callbacks": 2,
+      "rtf": 0.568,
+      "f0_hz": 118.22660098522168,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 3,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1454,
+      "short_total_ms": 1455,
+      "short_audio_s": 2.25,
+      "long_first_audio_ms": 2376,
+      "long_total_ms": 5426,
+      "long_audio_s": 9.95,
+      "long_callbacks": 2,
+      "rtf": 0.545,
+      "f0_hz": 210.52631578947367,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 4,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1376,
+      "short_total_ms": 1376,
+      "short_audio_s": 2.12,
+      "long_first_audio_ms": 1912,
+      "long_total_ms": 5075,
+      "long_audio_s": 8.9,
+      "long_callbacks": 2,
+      "rtf": 0.57,
+      "f0_hz": 173.91304347826087,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 5,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1508,
+      "short_total_ms": 1508,
+      "short_audio_s": 2.18,
+      "long_first_audio_ms": 2212,
+      "long_total_ms": 5418,
+      "long_audio_s": 10.03,
+      "long_callbacks": 2,
+      "rtf": 0.54,
+      "f0_hz": 220.1834862385321,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 6,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1451,
+      "short_total_ms": 1452,
+      "short_audio_s": 2.45,
+      "long_first_audio_ms": 2309,
+      "long_total_ms": 6211,
+      "long_audio_s": 11.17,
+      "long_callbacks": 2,
+      "rtf": 0.556,
+      "f0_hz": 201.68067226890756,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "kitten-mini-v0.8",
+    "sid": 7,
+    "load_s": 0.91,
+    "size_mb": 99.6,
+    "en": {
+      "short_first_audio_ms": 1343,
+      "short_total_ms": 1343,
+      "short_audio_s": 2.13,
+      "long_first_audio_ms": 1872,
+      "long_total_ms": 4686,
+      "long_audio_s": 8.46,
+      "long_callbacks": 2,
+      "rtf": 0.554,
+      "f0_hz": 250.0,
+      "sample_rate": 24000
+    }
+  },
+  {
+    "voice": "piper-hi-rohan-medium",
+    "sid": 0,
+    "load_s": 0.83,
+    "size_mb": 80.9,
+    "hi": {
+      "short_first_audio_ms": 119,
+      "short_total_ms": 119,
+      "short_audio_s": 1.78,
+      "long_first_audio_ms": 93,
+      "long_total_ms": 297,
+      "long_audio_s": 5.28,
+      "long_callbacks": 2,
+      "rtf": 0.056,
+      "f0_hz": 141.34615384615384,
+      "sample_rate": 22050,
+      "asr_roundtrip": "आज मोसम चाफ रहेगा शाम को हलकी �"
+    }
+  },
+  {
+    "voice": "piper-hi-pratham-medium",
+    "sid": 0,
+    "load_s": 1.42,
+    "size_mb": 81.1,
+    "hi": {
+      "short_first_audio_ms": 100,
+      "short_total_ms": 100,
+      "short_audio_s": 1.81,
+      "long_first_audio_ms": 77,
+      "long_total_ms": 263,
+      "long_audio_s": 5.35,
+      "long_callbacks": 2,
+      "rtf": 0.049,
+      "f0_hz": 102.55813953488372,
+      "sample_rate": 22050,
+      "asr_roundtrip": "आज मोसम साफ रहेगा शाम को हलकी बा"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 0,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 773,
+      "short_total_ms": 773,
+      "short_audio_s": 2.31,
+      "long_first_audio_ms": 1797,
+      "long_total_ms": 1797,
+      "long_audio_s": 11.33,
+      "long_callbacks": 1,
+      "rtf": 0.159,
+      "f0_hz": 187.6595744680851,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 652,
+      "short_total_ms": 652,
+      "short_audio_s": 2.3,
+      "long_first_audio_ms": 1320,
+      "long_total_ms": 1320,
+      "long_audio_s": 6.84,
+      "long_callbacks": 1,
+      "rtf": 0.193,
+      "f0_hz": 184.13441422594144,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोसम साफ रहेगा शामको हलकी भारिश हो सकत",
+      "asr_roundtrip_no_lang_hint": "आज मोसम साफ रहेगा शाम को हलकी भारि�"
+    },
+    "mixed": {
+      "total_ms": 896,
+      "audio_s": 4.0,
+      "asr_roundtrip": "कल मीٹिंकि लाय मुई है नो�"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 1,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 521,
+      "short_total_ms": 521,
+      "short_audio_s": 2.18,
+      "long_first_audio_ms": 1704,
+      "long_total_ms": 1705,
+      "long_audio_s": 10.64,
+      "long_callbacks": 1,
+      "rtf": 0.16,
+      "f0_hz": 186.864406779661,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 575,
+      "short_total_ms": 575,
+      "short_audio_s": 2.15,
+      "long_first_audio_ms": 1172,
+      "long_total_ms": 1172,
+      "long_audio_s": 6.39,
+      "long_callbacks": 1,
+      "rtf": 0.183,
+      "f0_hz": 229.6875,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोसम साप रहेगा शाम को हलकी भारिश हो",
+      "asr_roundtrip_no_lang_hint": "आज मोँसम साफ रहेगा शाम को हलकी ब"
+    },
+    "mixed": {
+      "total_ms": 764,
+      "audio_s": 3.75,
+      "asr_roundtrip": "कल मीٹिंकी लाये मोग है अ"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 2,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 765,
+      "short_total_ms": 766,
+      "short_audio_s": 2.38,
+      "long_first_audio_ms": 1978,
+      "long_total_ms": 1978,
+      "long_audio_s": 11.67,
+      "long_callbacks": 1,
+      "rtf": 0.17,
+      "f0_hz": 169.6153846153846,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 682,
+      "short_total_ms": 682,
+      "short_audio_s": 2.37,
+      "long_first_audio_ms": 1389,
+      "long_total_ms": 1389,
+      "long_audio_s": 7.05,
+      "long_callbacks": 1,
+      "rtf": 0.197,
+      "f0_hz": 186.47017807337483,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोद्सम साफ रहेगा शाम को हलकी बारिश हो स",
+      "asr_roundtrip_no_lang_hint": "आज मोद्सम साफ रहेगा शाम को हलकी बार"
+    },
+    "mixed": {
+      "total_ms": 804,
+      "audio_s": 4.13,
+      "asr_roundtrip": "काल मीٹिंके लाये मोई है नो"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 3,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 557,
+      "short_total_ms": 557,
+      "short_audio_s": 2.1,
+      "long_first_audio_ms": 1634,
+      "long_total_ms": 1634,
+      "long_audio_s": 9.7,
+      "long_callbacks": 1,
+      "rtf": 0.168,
+      "f0_hz": 193.42105263157896,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 552,
+      "short_total_ms": 552,
+      "short_audio_s": 2.05,
+      "long_first_audio_ms": 1175,
+      "long_total_ms": 1175,
+      "long_audio_s": 5.82,
+      "long_callbacks": 1,
+      "rtf": 0.202,
+      "f0_hz": 192.5764192139738,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोद्सम साफ रहेगा शाम को हलकी ब",
+      "asr_roundtrip_no_lang_hint": "आज मोद्सम साफ रहेगा शाम को हल"
+    },
+    "mixed": {
+      "total_ms": 828,
+      "audio_s": 3.49,
+      "asr_roundtrip": "काल मीटिन की लाये मोई"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 4,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 568,
+      "short_total_ms": 568,
+      "short_audio_s": 2.23,
+      "long_first_audio_ms": 1805,
+      "long_total_ms": 1805,
+      "long_audio_s": 10.99,
+      "long_callbacks": 1,
+      "rtf": 0.164,
+      "f0_hz": 162.13235294117646,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 548,
+      "short_total_ms": 548,
+      "short_audio_s": 2.21,
+      "long_first_audio_ms": 955,
+      "long_total_ms": 955,
+      "long_audio_s": 6.6,
+      "long_callbacks": 1,
+      "rtf": 0.145,
+      "f0_hz": 165.1685393258427,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोसम साफ रहेगा शाम को हलकी भारिश हो स",
+      "asr_roundtrip_no_lang_hint": "आज मोसम साफ रहेगा शाम को हलकी भारि"
+    },
+    "mixed": {
+      "total_ms": 825,
+      "audio_s": 3.85,
+      "asr_roundtrip": "कल मीٹिं कि लाय मोई है नो�"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 5,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 717,
+      "short_total_ms": 717,
+      "short_audio_s": 2.31,
+      "long_first_audio_ms": 1783,
+      "long_total_ms": 1783,
+      "long_audio_s": 11.34,
+      "long_callbacks": 1,
+      "rtf": 0.157,
+      "f0_hz": 134.04255319148936,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 705,
+      "short_total_ms": 705,
+      "short_audio_s": 2.29,
+      "long_first_audio_ms": 1286,
+      "long_total_ms": 1286,
+      "long_audio_s": 6.84,
+      "long_callbacks": 1,
+      "rtf": 0.188,
+      "f0_hz": 136.53250773993807,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोँसम साफ रहेगा शाम को हलकी भारिश हो स",
+      "asr_roundtrip_no_lang_hint": "आज मोसम साफ रहेगा शाम को हलकी बारि�"
+    },
+    "mixed": {
+      "total_ms": 878,
+      "audio_s": 4.0,
+      "asr_roundtrip": "कल मीٹिंकिलाय मोई है नोब�"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 6,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 683,
+      "short_total_ms": 683,
+      "short_audio_s": 2.25,
+      "long_first_audio_ms": 1654,
+      "long_total_ms": 1655,
+      "long_audio_s": 11.11,
+      "long_callbacks": 1,
+      "rtf": 0.149,
+      "f0_hz": 87.84860557768924,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 744,
+      "short_total_ms": 744,
+      "short_audio_s": 2.24,
+      "long_first_audio_ms": 1265,
+      "long_total_ms": 1265,
+      "long_audio_s": 6.68,
+      "long_callbacks": 1,
+      "rtf": 0.189,
+      "f0_hz": 101.14732107630395,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोँसम साफ रहेगा शाम को हलकी भारिश हो",
+      "asr_roundtrip_no_lang_hint": "आज मोद्सम साफ रेगा शाम को हलकी बा"
+    },
+    "mixed": {
+      "total_ms": 849,
+      "audio_s": 3.9,
+      "asr_roundtrip": "खल मीटिंकी लाय मुहे न�"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 7,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 642,
+      "short_total_ms": 642,
+      "short_audio_s": 2.06,
+      "long_first_audio_ms": 1712,
+      "long_total_ms": 1712,
+      "long_audio_s": 9.29,
+      "long_callbacks": 1,
+      "rtf": 0.184,
+      "f0_hz": 98.21826280623608,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 600,
+      "short_total_ms": 600,
+      "short_audio_s": 2.01,
+      "long_first_audio_ms": 1306,
+      "long_total_ms": 1306,
+      "long_audio_s": 5.58,
+      "long_callbacks": 1,
+      "rtf": 0.234,
+      "f0_hz": 120.16348773841962,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोसम साफ रहेगा शामको हलकी बार",
+      "asr_roundtrip_no_lang_hint": "आज मोँसम साफ रहेगा शामको ह"
+    },
+    "mixed": {
+      "total_ms": 756,
+      "audio_s": 3.41,
+      "asr_roundtrip": "क्या रव रव रव रव"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 8,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 680,
+      "short_total_ms": 680,
+      "short_audio_s": 2.17,
+      "long_first_audio_ms": 1869,
+      "long_total_ms": 1870,
+      "long_audio_s": 10.61,
+      "long_callbacks": 1,
+      "rtf": 0.176,
+      "f0_hz": 123.18435754189944,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 593,
+      "short_total_ms": 593,
+      "short_audio_s": 2.13,
+      "long_first_audio_ms": 1132,
+      "long_total_ms": 1132,
+      "long_audio_s": 6.37,
+      "long_callbacks": 1,
+      "rtf": 0.178,
+      "f0_hz": 122.5,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोसम साफ रहेगा शाम को हलकी भारिश हो",
+      "asr_roundtrip_no_lang_hint": "आज मोद्सम साप रहेगा शामको हलकी �"
+    },
+    "mixed": {
+      "total_ms": 784,
+      "audio_s": 3.73,
+      "asr_roundtrip": "कल मीٹिंकी लाये मोगना ब"
+    }
+  },
+  {
+    "voice": "supertonic-3-int8",
+    "sid": 9,
+    "load_s": 0.81,
+    "size_mb": 145.3,
+    "en": {
+      "short_first_audio_ms": 663,
+      "short_total_ms": 663,
+      "short_audio_s": 2.3,
+      "long_first_audio_ms": 2071,
+      "long_total_ms": 2072,
+      "long_audio_s": 11.32,
+      "long_callbacks": 1,
+      "rtf": 0.183,
+      "f0_hz": 92.84210526315789,
+      "sample_rate": 44100
+    },
+    "hi": {
+      "short_first_audio_ms": 662,
+      "short_total_ms": 662,
+      "short_audio_s": 2.28,
+      "long_first_audio_ms": 1236,
+      "long_total_ms": 1236,
+      "long_audio_s": 6.83,
+      "long_callbacks": 1,
+      "rtf": 0.181,
+      "f0_hz": 97.67453839059709,
+      "sample_rate": 44100,
+      "asr_roundtrip": "आज मोसम साफ रहेगा शाम को हलकी भारिश हो सक",
+      "asr_roundtrip_no_lang_hint": "आज मोसम साफ रहेगा शाम को हलकी बारि�"
+    },
+    "mixed": {
+      "total_ms": 885,
+      "audio_s": 3.99,
+      "asr_roundtrip": "कल मीٹिंकि लाये मोई है नो"
+    }
+  }
+]

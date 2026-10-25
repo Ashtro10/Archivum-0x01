@@ -24,7 +24,7 @@ class LiveKitBridgeTest {
     init { core.useEngine(engine) }
 
     private fun transcript(turn: Long, text: String) = bridge.onData(VoiceProtocol.TRANSCRIPT, """{"v":1,"turn":$turn,"text":${JsonPrimitive(text)}}""")
-    private fun replies(turn: Long) = sent.filter { it.first == VoiceProtocol.REPLY && it.second["turn"]!!.jsonPrimitive.long == turn }.map { it.second }
+    private fun replies(turn: Long) = synchronized(sent) { sent.toList() }.filter { it.first == VoiceProtocol.REPLY && it.second["turn"]!!.jsonPrimitive.long == turn }.map { it.second }
     private fun awaitFinal(turn: Long, ms: Long = 5000): List<JsonObject> {
         val end = System.currentTimeMillis() + ms
         while (System.currentTimeMillis() < end) { val r = replies(turn); if (r.any { it["final"]!!.jsonPrimitive.boolean }) return r; Thread.sleep(10) }

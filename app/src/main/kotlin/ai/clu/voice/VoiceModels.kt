@@ -36,9 +36,13 @@ object VoicePacks {
     val TTS_ALAN = VoicePack("tts-alan", "Alan (British male, Piper medium)", "$R/tts-models/vits-piper-en_GB-alan-medium.tar.bz2",
         "a48d4017da0f77668b27bed63fe6e04dd64c6397e1fadad4f460efb0ef7c9012", 67_220_121,
         keep = mapOf("en_GB-alan-medium.onnx" to "model.onnx", "tokens.txt" to "tokens.txt"), keepDirPrefix = "espeak-ng-data/", kind = "tts")
+    // Hindi (Devanagari) voice, male, ~103 Hz median pitch. Training data licensed CC BY-NC-SA 4.0 (non-commercial).
+    val TTS_HI_PRATHAM = VoicePack("tts-hi-pratham", "Hindi voice – Pratham (male, Piper medium; non-commercial licence)",
+        "$R/tts-models/vits-piper-hi_IN-pratham-medium.tar.bz2", "2084d321e1d2752f2b64ed3012ba27751df01a80da46f52920098cdcb7e35648", 67_238_438,
+        keep = mapOf("hi_IN-pratham-medium.onnx" to "model.onnx", "tokens.txt" to "tokens.txt"), keepDirPrefix = "espeak-ng-data/", kind = "tts-hi")
     val SPEAKER = VoicePack("speaker-campplus", "Speaker recognition (3D-Speaker CAM++)", "$R/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
         "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b", 29_596_978, singleName = "model.onnx", kind = "speaker")
-    val all = listOf(TTS_RYAN, TTS_ALAN, SPEAKER)
+    val all = listOf(TTS_RYAN, TTS_ALAN, TTS_HI_PRATHAM, SPEAKER)
 }
 
 /** Downloads (only on request), imports, verifies and extracts voice packs into app storage. */
@@ -137,6 +141,7 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
     private var ttsInst: OfflineTts? = null
     private var ttsId: String? = null
     private var spkInst: SpeakerEmbeddingExtractor? = null
+    private var ttsHiInst: OfflineTts? = null
 
     @Synchronized fun vad(threshold: Float, minSilence: Float): Vad = Vad(assets, VadModelConfig(
         sileroVadModelConfig = SileroVadModelConfig(model = "models/vad/silero_vad.onnx", threshold = threshold, minSilenceDuration = minSilence,
@@ -164,11 +169,18 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
         val p = packs.installedTts() ?: return null
         if (ttsInst != null && ttsId == p.id) return ttsInst
         ttsInst?.release()
-        val d = packs.dir(p)
-        return OfflineTts(null, OfflineTtsConfig(model = OfflineTtsModelConfig(
-            vits = OfflineTtsVitsModelConfig(model = File(d, "model.onnx").path, tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path),
-            numThreads = 2), maxNumSentences = 1)).also { ttsInst = it; ttsId = p.id }
+        return vits(packs.dir(p)).also { ttsInst = it; ttsId = p.id }
     }
+
+    /** Hindi voice for Devanagari chunks (null when the pack is not installed). */
+    @Synchronized fun ttsHindi(): OfflineTts? {
+        if (!packs.isInstalled(VoicePacks.TTS_HI_PRATHAM)) return null
+        return ttsHiInst ?: vits(packs.dir(VoicePacks.TTS_HI_PRATHAM)).also { ttsHiInst = it }
+    }
+
+    private fun vits(d: File) = OfflineTts(null, OfflineTtsConfig(model = OfflineTtsModelConfig(
+        vits = OfflineTtsVitsModelConfig(model = File(d, "model.onnx").path, tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path),
+        numThreads = 2), maxNumSentences = 1))
 
     @Synchronized fun speaker(): SpeakerEmbeddingExtractor? {
         if (!packs.isInstalled(VoicePacks.SPEAKER)) return null
@@ -181,6 +193,7 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
         asrInst?.release(); asrInst = null
         kwsInst?.release(); kwsInst = null
         ttsInst?.release(); ttsInst = null; ttsId = null
+        ttsHiInst?.release(); ttsHiInst = null
         spkInst?.release(); spkInst = null
     }
 }

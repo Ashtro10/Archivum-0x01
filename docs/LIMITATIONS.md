@@ -48,3 +48,15 @@
   changes or on-device training.
 * **Sync server:** listens only while a device is paired or the pairing window is open (security hardening). The
   first pairing therefore always starts with *Allow pairing* on the device being paired to.
+
+## Streaming voice (this build)
+- **Not yet measured on a phone.** All latency numbers so far come from the x86 build host (see VOICE_STREAMING.md).
+- **Latency target:** with Whisper, speech end → first audio cannot meet 700 ms. The end-of-speech pause (650 ms by default) plus Whisper (host: about 0.2–0.4 s for base/English, about 0.6–1.6 s for small/Hindi) exceed it before the model even starts.
+- **No live Whisper text:** Whisper transcribes after you stop speaking. The live text comes from the built-in English recogniser.
+- **Hindi accuracy:** Whisper small on clean synthetic Hindi has CER 0.19–0.40; real speech will be worse. base does not recognise Hindi (it outputs Urdu script).
+- **Romanized Hinglish:** it is not spoken intelligibly by any offline voice tested. Hindi must be written in Devanagari to be spoken.
+- **Hindi voice licence:** the Pratham voice's training data is CC BY-NC-SA 4.0, i.e. non-commercial.
+- **Barge-in:** it needs about 180 ms of speech, clearly louder than Clu's own echo. Quality depends on the device's echo canceller. Using call audio lowers the maximum loudness on some devices.
+- **Aborting Whisper:** cancelling a Whisper transcription stops decoding at once, but an encoder pass already running finishes; its result is discarded.
+- **HayaiTTS:** it is usable only as an Android system TTS engine, which is chunk-level with an IPC and file round trip per chunk. Its GPL code is not embedded.
+

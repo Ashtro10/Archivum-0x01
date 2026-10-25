@@ -32,6 +32,8 @@ class CluApp : Application() {
     lateinit var packs: VoicePackManager
     lateinit var sherpa: SherpaEngines
     lateinit var speech: SpeechOutput
+    lateinit var callAudio: ai.clu.voice.CallAudio
+    lateinit var whisper: ai.clu.voice.WhisperStt
     lateinit var voice: VoiceSession
     lateinit var liveKit: LiveKitSession
     lateinit var sync: SyncManager
@@ -67,6 +69,8 @@ class CluApp : Application() {
         packs = VoicePackManager(this, core.diag)
         sherpa = SherpaEngines(this, packs)
         speech = SpeechOutput(this, sherpa, core.diag)
+        callAudio = ai.clu.voice.CallAudio(this, core.diag)
+        whisper = ai.clu.voice.WhisperStt(this, core.diag)
         registerAndroidTools()
         voice = VoiceSession(this)
         liveKit = LiveKitSession(this)
@@ -132,6 +136,7 @@ class CluApp : Application() {
         // Release heavy engines when the system is short of memory and Clu is not actively in a conversation.
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND && !voice.isRunning) {
             sherpa.releaseAll()
+            whisper.release()
             scope.launch { core.llm.unload() }
             core.diag.i("app", "memory pressure (level $level): released models")
         }

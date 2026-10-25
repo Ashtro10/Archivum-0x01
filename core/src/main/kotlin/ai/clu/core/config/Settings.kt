@@ -140,25 +140,40 @@ object Settings {
     val SPEED = float("voice.speed", "Speaking speed", VOICE, 0.92, 0.5, 2.0, "1.0 = normal.", "SpeechOutput",
         "Synthesis speed (sherpa) / speech rate (Android)", "VoiceSettingsTest#speed", deviceOnly = true)
     val PITCH = float("voice.pitch", "Pitch", VOICE, 0.88, 0.5, 2.0, "1.0 = engine default. Applied at playback for the Clu voice.",
-        "AudioPlayer", "AudioTrack PlaybackParams pitch", "VoiceSettingsTest#pitch", deviceOnly = true)
+        "AudioTrackSink", "AudioTrack PlaybackParams pitch", "VoiceSettingsTest#pitch", deviceOnly = true)
     val METALLIC = float("voice.metallic", "Metallic tone", VOICE, 0.25, 0.0, 1.0, "Amount of the metallic (ring-modulation/comb) effect.",
         "VoiceEffect", "PCM processed by a ring-modulator + comb filter before playback", "VoiceSettingsTest#metallic")
-    val VOLUME = float("voice.volume", "Speech volume", VOICE, 1.0, 0.0, 1.0, "Relative speech volume.", "AudioPlayer",
+    val VOLUME = float("voice.volume", "Speech volume", VOICE, 1.0, 0.0, 1.0, "Relative speech volume.", "AudioTrackSink",
         "Playback gain", "VoiceSettingsTest#volume")
     val SPEAK_RESPONSES = bool("voice.speakResponses", "Speak replies to typed messages", VOICE, false,
         "Also speak replies when you type (voice mode always speaks).", "ChatController", "TTS invoked for text-mode replies", "VoiceSettingsTest#speakResponses")
     val INCREMENTAL_TTS = bool("voice.incremental", "Speak while generating", VOICE, true,
-        "Start speaking at the first complete sentence instead of waiting for the full reply.", "SentenceChunker, SpeechOutput",
-        "Sentences are queued for synthesis as they complete", "VoiceSettingsTest#incremental")
+        "Start speaking at the first short phrase instead of waiting for the full reply.", "AdaptiveChunker, StreamingSpeech",
+        "Phrases are synthesised and played while the model is still generating", "VoiceSettingsTest#incremental")
+    val OUTPUT_ROUTE = choice("voice.outputRoute", "Speech output path", VOICE, "communication",
+        listOf("communication" to "Call audio (best echo cancellation for interrupting)", "media" to "Assistant audio (louder, weaker echo cancellation)"),
+        "Audio path used for Clu's voice during a voice conversation.", "VoiceSession, AudioTrackSink",
+        "communication: MODE_IN_COMMUNICATION + USAGE_VOICE_COMMUNICATION so the device echo canceller removes Clu's voice from the microphone; media: USAGE_ASSISTANT",
+        "VoiceSettingsTest#outputRoute", deviceOnly = true,
+        limits = "Echo cancellation quality is device dependent; with 'media' Clu may hear itself and needs louder speech to be interrupted.")
     val BARGE_IN = bool("voice.bargeIn", "Interrupt by speaking", VOICE, true,
         "When you start speaking during playback, Clu stops talking and listens.", "TurnManager",
         "Speech detected during SPEAKING stops playback and starts a new turn", "VoiceSettingsTest#bargeIn",
         limits = "Requires echo cancellation to avoid self-interruption; reliability depends on the device's AEC.")
-    val ASR_ENGINE = choice("voice.asrEngine", "Speech recognition", VOICE, "sherpa",
-        listOf("sherpa" to "Offline streaming (sherpa-onnx)", "android_ondevice" to "Android on-device recognizer", "android" to "Android default recognizer (may use network)"),
-        "Engine used to transcribe speech.", "SpeechInput", "Selects the ASR backend", "VoiceSettingsTest#asrEngine",
+    val ASR_ENGINE = choice("voice.asrEngine", "Speech recognition", VOICE, "whisper",
+        listOf("whisper" to "Whisper (offline, English + Hindi; model download)", "sherpa" to "Built-in streaming (offline, English only)",
+            "android_ondevice" to "Android on-device recognizer", "android" to "Android default recognizer (may use network)"),
+        "Engine used to transcribe speech.", "SpeechInput, WhisperStt", "Selects the ASR backend", "VoiceSettingsTest#asrEngine",
         apply = ApplyMode.VOICE_RESTART, deviceOnly = true,
-        limits = "Android recognizers depend on what is installed on the device; the default recognizer may send audio to its provider.")
+        limits = "Whisper transcribes after you stop speaking (no live partial text) and needs a downloaded model; until one is installed the built-in English recogniser is used. Android recognizers depend on what is installed on the device; the default recognizer may send audio to its provider.")
+    val WHISPER_MODEL = choice("voice.whisperModel", "Whisper model", VOICE, "whisper-small",
+        listOf("whisper-small" to "small (466 MB; needed for Hindi)", "whisper-base" to "base (142 MB; faster, English)"),
+        "Whisper model used for speech recognition.", "WhisperStt", "Selects the ggml model file", "VoiceSettingsTest#whisperModel",
+        apply = ApplyMode.VOICE_RESTART, deviceOnly = true, limits = "base does not recognise Hindi reliably (measured).")
+    val STT_LANGUAGE = choice("voice.sttLanguage", "Spoken language", VOICE, "auto",
+        listOf("auto" to "Detect (English / Hindi / mixed)", "en" to "English", "hi" to "Hindi"),
+        "Language you speak to Clu.", "WhisperStt", "Whisper language (auto = detect per utterance)", "VoiceSettingsTest#sttLanguage",
+        apply = ApplyMode.IMMEDIATE, limits = "Detection adds a little latency; fixing the language is faster and more accurate.")
     val VAD_SENSITIVITY = float("voice.vadSensitivity", "Voice detection sensitivity", VOICE, 0.5, 0.0, 1.0,
         "Higher = detects quieter speech (and more noise).", "VoiceActivityDetector", "Silero VAD threshold = 0.75 - 0.5 x sensitivity",
         "VoiceSettingsTest#vadSensitivity", apply = ApplyMode.VOICE_RESTART)

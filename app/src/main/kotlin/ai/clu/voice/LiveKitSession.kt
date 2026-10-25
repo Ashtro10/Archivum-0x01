@@ -39,24 +39,8 @@ class LiveKitSession(private val app: CluApp) {
     @Volatile private var bridge: RemoteVoiceBridge? = null
     @Volatile private var agentIdentity: String? = null
     @Volatile private var resumeWake = false
-    private val audio by lazy { app.getSystemService(android.media.AudioManager::class.java) }
-    @Volatile private var savedAudioMode: Int? = null
-
-    /** Communication mode (hardware echo cancellation) + loudspeaker unless a headset is connected; restored afterwards. */
-    private fun enterCallAudio() {
-        runCatching {
-            savedAudioMode = audio.mode
-            audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
-            val devices = audio.availableCommunicationDevices
-            val headset = devices.firstOrNull { it.type in HEADSET_TYPES }
-            (headset ?: devices.firstOrNull { it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER })?.let { audio.setCommunicationDevice(it) }
-        }.onFailure { core.diag.w("livekit", "audio routing: ${it.message}") }
-    }
-
-    private fun leaveCallAudio() {
-        runCatching { audio.clearCommunicationDevice(); savedAudioMode?.let { audio.mode = it } }
-        savedAudioMode = null
-    }
+    private fun enterCallAudio() = app.callAudio.enter()
+    private fun leaveCallAudio() = app.callAudio.leave()
     val active get() = room?.closed == false
 
     fun deviceKey(): String? = app.platform.secrets.get(CluCore.LIVEKIT_DEVICE_KEY)
@@ -157,10 +141,6 @@ class LiveKitSession(private val app: CluApp) {
         if (resumeWake && core.settings.bool(Settings.WAKE_ENABLED)) app.voice.start(wakeMode = true)
     }
 
-    companion object {
-        private val HEADSET_TYPES = setOf(android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET, android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            android.media.AudioDeviceInfo.TYPE_USB_HEADSET, android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO, android.media.AudioDeviceInfo.TYPE_BLE_HEADSET)
-    }
 
     fun stop() {
         val r = room ?: return

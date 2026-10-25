@@ -1,0 +1,32 @@
+{
+    "note": "Host x86, simulated LLM (40 ms/word), TTS (25 ms + 1.5 ms/char) and real-time sink; 30 runs, half interrupted at random points. Pipeline overhead only, not device audio latency.",
+    "stale_audio_incidents": 0,
+    "first_tts_to_first_audio_ms (sim TTS ~40 ms)": {
+        "n": 30.0,
+        "p50": 41.0,
+        "p90": 42.0,
+        "p99": 46.0,
+        "max": 46.0
+    },
+    "interrupt_to_silence_ms (sink.stop call)": {
+        "n": 15.0,
+        "p50": 0.0,
+        "p90": 1.0,
+        "p99": 1.0,
+        "max": 1.0
+    },
+    "cancel_complete_ms": {
+        "n": 15.0,
+        "p50": 2.0,
+        "p90": 3.0,
+        "p99": 4.0,
+        "max": 4.0
+    },
+    "max_chunk_gap_ms per answer": {
+        "n": 0.0,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+    }
+}

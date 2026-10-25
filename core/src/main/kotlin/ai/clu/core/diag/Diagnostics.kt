@@ -49,14 +49,21 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
         db.execute("DELETE FROM perf_samples WHERE id <= (SELECT MAX(id) FROM perf_samples) - 5000")
     }
 
-    data class PerfSummary(val metric: String, val count: Long, val avg: Double, val min: Double, val max: Double, val last: Double)
+    data class PerfSummary(val metric: String, val count: Long, val avg: Double, val min: Double, val max: Double, val last: Double,
+                           val p50: Double = 0.0, val p90: Double = 0.0, val p95: Double = 0.0)
+
+    /** Nearest-rank percentiles ([ps] in 0..100) over the retained samples of [metric]. */
+    fun percentiles(metric: String, ps: List<Int> = listOf(50, 90, 95)): Map<Int, Double> {
+        val v = db.query("SELECT value FROM perf_samples WHERE metric = ? ORDER BY value", listOf(metric)) { it.double(0) ?: 0.0 }
+        return ps.associateWith { p -> percentile(v, p) }
+    }
 
     fun perfSummary(): List<PerfSummary> = db.query(
         """SELECT metric, COUNT(*), AVG(value), MIN(value), MAX(value),
            (SELECT value FROM perf_samples p2 WHERE p2.metric = p.metric ORDER BY id DESC LIMIT 1)
            FROM perf_samples p GROUP BY metric ORDER BY metric""") {
         PerfSummary(it.str(0), it.lng(1), it.double(2) ?: 0.0, it.double(3) ?: 0.0, it.double(4) ?: 0.0, it.double(5) ?: 0.0)
-    }
+    }.map { s -> percentiles(s.metric).let { p -> s.copy(p50 = p.getValue(50), p90 = p.getValue(90), p95 = p.getValue(95)) } }
 
     companion object {
         private val secretPatterns = listOf(
@@ -64,6 +71,12 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
             Regex("(?i)bearer\\s+[A-Za-z0-9._\\-]+") to "Bearer <redacted>",
             Regex("sk-[A-Za-z0-9]{12,}") to "<redacted-key>",
         )
+        /** Nearest-rank percentile of ascending [sorted] values (0 when empty). */
+        fun percentile(sorted: List<Double>, p: Int): Double {
+            if (sorted.isEmpty()) return 0.0
+            val rank = Math.ceil(p / 100.0 * sorted.size).toInt().coerceIn(1, sorted.size)
+            return sorted[rank - 1]
+        }
         fun redact(s: String): String = secretPatterns.fold(s) { acc, (re, rep) -> re.replace(acc, rep) }
     }
 }

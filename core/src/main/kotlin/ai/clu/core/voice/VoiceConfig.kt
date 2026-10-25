@@ -17,7 +17,10 @@ data class VoiceConfig(
     val metallic: Double,
     val incremental: Boolean,
     val bargeIn: Boolean,
+    val outputRoute: String,
     val asrEngine: String,
+    val whisperModel: String,
+    val sttLanguage: String,
     val vadThreshold: Float,
     val minSilenceSec: Float,
     val ackMode: String,
@@ -51,7 +54,10 @@ data class VoiceConfig(
             metallic = s.double(Settings.METALLIC),
             incremental = s.bool(Settings.INCREMENTAL_TTS),
             bargeIn = s.bool(Settings.BARGE_IN),
+            outputRoute = s.string(Settings.OUTPUT_ROUTE),
             asrEngine = s.string(Settings.ASR_ENGINE),
+            whisperModel = s.string(Settings.WHISPER_MODEL),
+            sttLanguage = s.string(Settings.STT_LANGUAGE),
             vadThreshold = vadThresholdFor(s.double(Settings.VAD_SENSITIVITY)),
             minSilenceSec = s.int(Settings.END_SILENCE) / 1000f,
             ackMode = s.string(Settings.ACK_MODE),
@@ -83,7 +89,8 @@ data class VoiceConfig(
         val pipelineKeys = listOf(
             Settings.TTS_ENGINE, Settings.TTS_SPEAKER, Settings.ANDROID_VOICE, Settings.ASR_ENGINE, Settings.VAD_SENSITIVITY,
             Settings.END_SILENCE, Settings.AUDIO_SOURCE, Settings.NOISE_SUPPRESSION, Settings.WAKE_ENABLED, Settings.WAKE_ENGINE,
-            Settings.WAKE_WORDS, Settings.KWS_THRESHOLD, Settings.CLAP_ENABLED, Settings.BACKGROUND_LISTENING,
+            Settings.WAKE_WORDS, Settings.KWS_THRESHOLD, Settings.CLAP_ENABLED, Settings.BACKGROUND_LISTENING, Settings.WHISPER_MODEL,
+            Settings.OUTPUT_ROUTE,
         )
     }
 }

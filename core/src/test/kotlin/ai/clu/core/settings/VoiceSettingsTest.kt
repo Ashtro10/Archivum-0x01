@@ -71,7 +71,21 @@ class VoiceSettingsTest {
         assertEquals(TurnState.SPEAKING, tm2.state)
     }
 
-    @Test fun asrEngine() { s.set(Settings.ASR_ENGINE, "android_ondevice"); assertEquals("android_ondevice", cfg().asrEngine) }
+    @Test fun outputRoute() {
+        assertEquals("communication", cfg().outputRoute)
+        s.set(Settings.OUTPUT_ROUTE, "media"); assertEquals("media", cfg().outputRoute)
+        assertIs<SettingResult.Invalid>(s.set(Settings.OUTPUT_ROUTE, "bluetooth"))
+    }
+    @Test fun asrEngine() {
+        assertEquals("whisper", cfg().asrEngine)
+        s.set(Settings.ASR_ENGINE, "android_ondevice"); assertEquals("android_ondevice", cfg().asrEngine)
+    }
+    @Test fun whisperModel() { assertEquals("whisper-small", cfg().whisperModel); s.set(Settings.WHISPER_MODEL, "whisper-base"); assertEquals("whisper-base", cfg().whisperModel) }
+    @Test fun sttLanguage() {
+        assertEquals("auto", cfg().sttLanguage)
+        s.set(Settings.STT_LANGUAGE, "hi"); assertEquals("hi", cfg().sttLanguage)
+        assertIs<SettingResult.Invalid>(s.set(Settings.STT_LANGUAGE, "fr"))
+    }
 
     @Test fun vadSensitivity() {
         s.set(Settings.VAD_SENSITIVITY, 0.0); val strict = cfg().vadThreshold

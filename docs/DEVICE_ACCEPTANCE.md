@@ -122,7 +122,7 @@ wake word enabled (Settings → Wake words & activation → *Wake word* ON).
 | ID | Steps | Expected | P | N |
 |---|---|---|---|---|
 | H1 ★ | Voice → download **Clu voice – Ryan** (67 MB, after confirmation) → test | Voice installs (checksum verified) and speaks | | |
-| H2 ★ | Ask a question by voice | Reply spoken in the Ryan voice with the metallic effect; speech starts at the first sentence while the rest is still generating | | |
+| H2 ★ | Ask a question by voice | Reply spoken in the Ryan voice with the metallic effect; speech starts at the first short phrase while the rest is still generating | | |
 | H3 | Voice → pitch, speed, volume and metallic effect: change each one | Each change is audible | | |
 | H4 | Switch the engine to the Android TTS voice | Speaks with the system voice | | |
 | H5 ★ | Record **end of speech → first audio** from timings (*first_audio_ms*) over 5 turns | ____ ms median (goal ≈ 1–2 s with 3B; not yet measured) | | |
@@ -131,10 +131,33 @@ wake word enabled (Settings → Wake words & activation → *Wake word* ON).
 
 | ID | Steps | Expected | P | N |
 |---|---|---|---|---|
-| I1 ★ | While Clu is speaking a long answer, say "Clue, stop" or start talking | Speech stops within about half a second; Clu listens | | |
+| I1 ★ | While Clu is speaking a long answer, start talking (no wake word needed) | Speech stops within about a quarter of a second; Clu listens. Record *barge_in_detect_ms* and *interrupt_to_silence_ms* | | |
 | I2 | Same, using the speaker at high volume | Clu must **not** interrupt itself from its own voice. If it does, note the volume. (Echo cancellation quality varies by device.) | | |
 | I3 | Tap ■ while it speaks | Stops immediately | | |
 | I4 | Settings → **Interrupt by speaking** OFF → repeat I1 | Speaking no longer interrupts | | |
+
+## S. Streaming voice conversation (new in this build; see VOICE_STREAMING.md)
+
+Before starting:
+- Voice → download **Whisper small** (466 MB, confirmation shows the size; Wi-Fi) and **Hindi voice – Pratham** (67 MB).
+- Settings → Voice → Speech recognition = Whisper, Spoken language = Detect.
+- After each block, open Diagnostics → Performance and copy the p50/p90 values.
+
+| ID | Steps | Expected | P | N |
+|---|---|---|---|---|
+| S1 ★ | Say "Set an alarm for seven tomorrow morning" | Correct transcript. Record *whisper_ms* ___ and *speech_end_to_first_audio_ms* ___ | | |
+| S2 ★ | Say in Hindi "कल सुबह सात बजे का अलार्म लगा दो" | Transcript in Devanagari, mostly right (words wrong ___/___). Reply in Hindi spoken by the Pratham voice | | |
+| S3 | Mixed: "कल की meeting के लिए मुझे नौ बजे याद दिलाना" | Understood. Note how "meeting" is written | | |
+| S4 ★ | Ask "Explain how a solar panel works in detail" | Speech starts while the text is still appearing; no audible gaps between phrases; *audio_started_before_generation_end_ms* > 0 | | |
+| S5 ★ | Ask a long question, then interrupt by talking as soon as the first words play | Silence almost at once; Clu listens; the next reply contains nothing from the old one | | |
+| S6 | Same, interrupting in the middle of the reply | Same as S5 | | |
+| S7 | Interrupt 5 times in a row, each time asking something new quickly | Only the latest reply is heard. Never two voices, never an old sentence | | |
+| S8 | Tap ■ right after asking (while the first phrase is being synthesised) | Nothing is spoken afterwards | | |
+| S9 | Remove the Whisper model and talk | Clu still works with the built-in English recogniser and the Voice screen says why | | |
+| S10 ★ | Airplane mode, Wi-Fi and data off; repeat S1, S2 and S5 | All work offline | | |
+| S11 | Loudspeaker at high volume, long reply, stay silent | Clu does **not** interrupt itself. Repeat with Speech output path = Assistant audio and note the difference | | |
+| S12 | Connect wired or Bluetooth headphones during a conversation | Speech moves to the headphones; barge-in still works | | |
+| S13 | 15-minute conversation | Record battery % used ___ and whether the device became hot (Diagnostics → thermal) | | |
 
 ## J. Background behaviour
 

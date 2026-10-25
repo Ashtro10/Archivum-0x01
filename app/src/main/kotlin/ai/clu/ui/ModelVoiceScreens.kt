@@ -152,6 +152,11 @@ class VoiceActivity : BaseActivity() {
     private fun build(): Unit = screen("Voice") {
         val v = app.voice.state.value
         p("Offline speech recognition, wake-word and voice-activity models are built in. The Clu voice and speaker recognition are optional downloads.", C.MUTED, 12f)
+        h1("Speech recognition – Whisper (English + Hindi)")
+        val engine = core.settings.string(Settings.ASR_ENGINE)
+        p("Selected engine: ${engine}. Whisper runs fully offline after a one-time model download. It transcribes when you stop speaking; " +
+            "the built-in recogniser still shows live English text meanwhile.", C.MUTED, 12f)
+        ai.clu.core.stt.WhisperModels.all.forEach { m -> card { whisperCard(m) } }
         h1("Voice packs")
         VoicePacks.all.forEach { pack -> card { packCard(pack) } }
         h1("Test")
@@ -236,14 +241,48 @@ class VoiceActivity : BaseActivity() {
         p("Offline install: download ${pack.url.substringAfterLast('/')} on any device and import it here.", C.MUTED, 11f)
     }
 
+    private fun LinearLayout.whisperCard(m: ai.clu.core.stt.WhisperModel) {
+        val installed = app.whisper.isInstalled(m)
+        val selected = core.settings.string(Settings.WHISPER_MODEL) == m.id
+        p(m.title + if (selected) "  ✓ selected" else "", C.TEXT, 15f)
+        p((if (installed) "Installed (SHA1 verified)" else "Not installed") + " · ${fmtBytes(m.bytes)} on disk · about ${m.ramMb} MB memory while listening",
+            if (installed) C.OK else C.MUTED, 12f)
+        val prog = p("", C.MUTED, 12f)
+        row {
+            if (!installed) smallButton("Download ${fmtBytes(m.bytes)}") {
+                core.network.check(ai.clu.core.tools.NetCategory.DOWNLOADS)?.let { toast(it); return@smallButton }
+                app.whisper.storageProblem(m)?.let { toast(it); return@smallButton }
+                val free = android.os.StatFs(app.whisper.dir.path).availableBytes
+                confirm("Download ${fmtBytes(m.bytes)}?", "${m.fileName} from the official whisper.cpp model repository (huggingface.co/ggerganov/whisper.cpp).\n" +
+                    "Needs ${fmtBytes(m.bytes)} of storage (${fmtBytes(free)} free) and about ${m.ramMb} MB of memory while listening.\n" +
+                    "Verified by SHA1 before use. Use Wi-Fi.", "Download") {
+                    scope.launch {
+                        val r = app.whisper.download(m) { d, t -> launch(Dispatchers.Main) { prog.text = "${fmtBytes(d)} / ${fmtBytes(t)}" } }
+                        r.onSuccess { toast("${m.fileName} installed."); build() }.onFailure { toast("Download failed: ${it.message}") }
+                    }
+                }
+            }
+            smallButton("Import file…") { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), 8) }
+            if (installed && !selected) smallButton("Use") { core.settings.set(Settings.WHISPER_MODEL, m.id); core.settings.set(Settings.ASR_ENGINE, "whisper"); build() }
+            if (installed) smallButton("Remove") { confirm("Remove ${m.fileName}?", "") { app.whisper.remove(m); build() } }
+        }
+        app.whisper.memoryProblem(m)?.let { p("⚠ $it", C.MUTED, 11f) }
+        p("Offline install: copy ${m.fileName} (from ${m.url.substringBefore("/resolve")}) to this device and import it here.", C.MUTED, 11f)
+    }
+
     private var pendingImport: VoicePack? = null
 
     @Deprecated("framework API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         val uri = data?.data ?: return
-        val pack = pendingImport ?: return
         if (resultCode != RESULT_OK) return
+        if (requestCode == 8) {
+            toast("Importing and verifying…")
+            scope.launch { app.whisper.import(uri).onSuccess { m -> toast("${m.fileName} installed."); build() }.onFailure { toast("Import failed: ${it.message}") } }
+            return
+        }
+        val pack = pendingImport ?: return
         toast("Importing…")
         scope.launch { app.packs.import(pack, uri).onSuccess { app.sherpa.releaseAll(); toast("Installed."); build() }.onFailure { toast("Import failed: ${it.message}") } }
     }

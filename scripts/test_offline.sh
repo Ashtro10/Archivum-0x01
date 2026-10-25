@@ -4,10 +4,13 @@
 # completes with network access disabled. Gradle runs --offline --no-daemon inside the namespace, so all build
 # dependencies must already be cached (run any normal build once first).
 #
-# usage: scripts/test_offline.sh <python with sherpa-onnx==1.13.8> <models dir>
+# Also runs the streaming speech pipeline tests and, when whisper models are given, whisper.cpp transcription
+# (English/Hindi/mixed) through Clu's JNI bridge - all inside the same namespace.
+#
+# usage: scripts/test_offline.sh <python with sherpa-onnx==1.13.8> <models dir> [<whisper ggml dir> <stt fixtures dir>]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-PY="$1"; MODELS="$2"
+PY="$1"; MODELS="$2"; WHISPER="${3:-}"; FIXTURES="${4:-}"
 exec unshare -rn bash -c '
 python3 -I -c "
 import socket, fcntl, struct
@@ -18,6 +21,8 @@ t = socket.socket(); t.settimeout(3)
 assert t.connect_ex((\"1.1.1.1\", 443)) != 0, \"network is reachable - not an offline environment\"
 print(\"network namespace: loopback only, internet unreachable\")
 "
+W=(); [[ -n "$2" ]] && W=(-Dclu.whisperModels="$2" -Dclu.sttFixtures="$3")
 ./gradlew --offline --no-daemon -q :lkclient:test --tests "*OfflineConversationTest*" \
-  -Dclu.offline=true -Dclu.lk.python="$0" -Dclu.lk.models="$1"
-' "$PY" "$MODELS"
+  :core:test --tests "*StreamingSpeechTest*" --tests "*AdaptiveChunkerTest*" --tests "*WhisperIntegrationTest*" --tests "*WhisperEngineTest*" \
+  -Dclu.offline=true -Dclu.lk.python="$0" -Dclu.lk.models="$1" "${W[@]}"
+' "$PY" "$MODELS" "$WHISPER" "$FIXTURES"

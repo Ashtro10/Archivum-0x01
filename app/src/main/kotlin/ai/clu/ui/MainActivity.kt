@@ -185,10 +185,11 @@ class MainActivity : BaseActivity() {
         turnJob = scope.launch {
             val speak = UiPolicy.shouldSpeak(core.settings, viaVoice = false, nowMs = System.currentTimeMillis())
             val cfg = ai.clu.core.voice.VoiceConfig.from(core.settings)
-            val chunker = ai.clu.core.voice.SentenceChunker()
+            // Spoken reply streams through the same pipeline as voice (speaks while generating; stop button cancels both).
+            val reply = if (speak) app.speech.reply(cfg) { core.agent.cancel() } else null
             core.agent.respond(TurnRequest(app.currentConversation(), fullText, actor, attachments = atts.map { it.first })).collect { ev ->
                 when (ev) {
-                    is AgentEvent.Text -> { streaming = (streaming ?: "") + ev.delta; if (speak && cfg.incremental) chunker.push(ev.delta).forEach { app.speech.speak(it, cfg) }; refreshStreaming() }
+                    is AgentEvent.Text -> { streaming = (streaming ?: "") + ev.delta; if (cfg.incremental) reply?.text(ev.delta); refreshStreaming() }
                     AgentEvent.ResetText -> { streaming = ""; refreshStreaming() }
                     is AgentEvent.Status -> {}
                     is AgentEvent.ToolStarted -> if (UiPolicy.showToolTraces(core.settings)) { extra += Item.Trace("⚙ ${ev.tool} ${ev.args}"); refreshStreaming() }
@@ -201,11 +202,12 @@ class MainActivity : BaseActivity() {
                     is AgentEvent.Control -> if (ev.command == "stop_listening") app.stopListening()
                     is AgentEvent.Error -> extra += Item.Error(ev.text, text)
                     is AgentEvent.Done -> {
-                        if (speak) { if (cfg.incremental) chunker.flush().forEach { app.speech.speak(it, cfg) } else app.speech.speak(ev.text, cfg) }
+                        if (reply != null) { if (cfg.incremental) reply.finish() else reply.say(ev.text) }
                     }
                     is AgentEvent.UserMessageSaved -> {}
                 }
             }
+            reply?.finish()
             streaming = null
             refresh(); scrollToEnd()
         }

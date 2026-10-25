@@ -32,7 +32,7 @@ class DiagnosticsActivity : BaseActivity() {
         h1("Performance (measured on this device)")
         val perf = core.diag.perfSummary()
         if (perf.isEmpty()) p("No measurements yet – chat, use voice or run the benchmark in AI models.")
-        perf.forEach { p("${it.metric}: avg ${"%.1f".format(it.avg)} · min ${"%.1f".format(it.min)} · max ${"%.1f".format(it.max)} · last ${"%.1f".format(it.last)} (n=${it.count})", C.MUTED, 12f) }
+        perf.forEach { p("${it.metric}: p50 ${"%.0f".format(it.p50)} · p90 ${"%.0f".format(it.p90)} · p95 ${"%.0f".format(it.p95)} · min ${"%.1f".format(it.min)} · max ${"%.1f".format(it.max)} · last ${"%.1f".format(it.last)} (n=${it.count})", C.MUTED, 12f) }
         h1("Voice")
         val v = app.voice.state.value
         p("Running: ${v.running} · turn ${v.turn} · noise ${"%.1f".format(v.noiseDb)} dBFS (${v.environment}) · ${v.info}${if (v.error.isNotBlank()) " · ⚠ ${v.error}" else ""}\n" +

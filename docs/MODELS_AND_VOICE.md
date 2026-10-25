@@ -43,3 +43,13 @@ Until the Clu voice is installed, Android's own TTS is used (choose a male voice
    requests that need live information are answered with an honest "unavailable" (or from local knowledge, marked
    as possibly outdated, if you choose that under *When offline*).
 3. Phone↔tablet sync keeps working over the local hotspot without internet.
+
+## Added for streaming voice
+
+| Model | Size | Source / verification | Licence | Use |
+|---|---|---|---|---|
+| Whisper small (`ggml-small.bin`) | 466 MiB | huggingface.co/ggerganov/whisper.cpp, SHA-1 `55356645c2b361a969dfd0ef2c5a50d530afd8d5` | MIT (OpenAI weights) | Default STT: English, Hindi, mixed |
+| Whisper base (`ggml-base.bin`) | 142 MiB | same, SHA-1 `465707469ff3a37a2b9b8d8f89f2f99de7299dac` | MIT | Faster STT, English only in practice |
+| Hindi voice – Pratham (Piper hi_IN medium) | 67 MB | sherpa-onnx tts-models release, SHA-256 `2084d321…5648` | Data: CC BY-NC-SA 4.0 | Speaks Devanagari chunks |
+
+All are optional downloads that start only after a confirmation showing the size and free storage, or they can be imported from a file. Nothing is downloaded automatically. Whisper runtime: whisper.cpp 231638a0 (MIT), in `libclu_whisper.so`.

@@ -62,12 +62,6 @@ class VoiceSession(private val app: CluApp) {
         scope.launch {
             core.settings.values.collect { cfg = VoiceConfig.from(core.settings); turn.config = cfg }
         }
-        out.player.onIdle = {
-            if (turn.state == TurnState.SPEAKING && agentJob?.isActive != true) {
-                turn.onResponseComplete(); publish()
-                if (stopAfterReply && !wakeMode) { stopAfterReply = false; scope.launch { stop() } }
-            }
-        }
     }
 
     val isRunning get() = running.get()
@@ -78,6 +72,7 @@ class VoiceSession(private val app: CluApp) {
         if (running.get()) { if (!wakeMode) activate(); return }
         this.wakeMode = wakeMode
         running.set(true)
+        if (cfg.outputRoute == "communication") { app.callAudio.enter(); out.route = "communication"; callAudioHeld = true }
         turn.start(wakeMode)
         if (!wakeMode) onActivated(spokenAck = false)
         thread = Thread({ captureLoop() }, "clu-voice").apply { priority = Thread.MAX_PRIORITY - 1; start() }
@@ -90,8 +85,19 @@ class VoiceSession(private val app: CluApp) {
         thread?.join(1500); thread = null
         agentJob?.cancel(); core.agent.cancel()
         out.stop()
+        if (callAudioHeld) { callAudioHeld = false; out.route = "media"; app.callAudio.leave() }
         turn.stop()
         publish()
+    }
+
+    @Volatile private var callAudioHeld = false
+
+    /** The reply finished playing (not interrupted): end the turn, or stop after a hold-to-talk reply. */
+    private fun onReplyPlayed() {
+        if (turn.state == TurnState.SPEAKING || turn.state == TurnState.PROCESSING) {
+            turn.onResponseComplete(); publish()
+            if (stopAfterReply && !wakeMode) { stopAfterReply = false; scope.launch { stop() } }
+        }
     }
 
     /** Manual activation (mic button while waiting for wake word). */
@@ -137,13 +143,15 @@ class VoiceSession(private val app: CluApp) {
 
     private fun captureLoop() {
         val c = cfg
-        val capture = AudioCapture(c)
+        val capture = AudioCapture(c, frameMs = FRAME_MS)
         try { capture.start() } catch (e: Exception) {
             running.set(false); publish { it.copy(error = e.message ?: "microphone error") }; return
         }
         publish { it.copy(error = "", info = "Mic effects: ${capture.effectsInfo}") }
         val vad = engines.vad(c.vadThreshold, c.minSilenceSec)
-        val noise = NoiseEstimator(frameMs = 100)
+        val noise = NoiseEstimator(frameMs = FRAME_MS)
+        val bargeIn = BargeInDetector(minSpeechMs = 180, marginDb = if (cfg.outputRoute == "communication") 6.0 else 10.0)
+        var lastPartialPublish = 0L
         val clap = ClapDetector(SAMPLE_RATE, c.clapSensitivity, c.clapCount)
         val ring = AudioRing(4)
         var kwsStream: OnlineStream? = null
@@ -156,6 +164,13 @@ class VoiceSession(private val app: CluApp) {
         var speechStartAt = 0L
         var lastNoisePublish = 0L
         var asrMatchBuffer = ArrayList<FloatArray>()
+        // Whisper (when selected and installed); otherwise the built-in streaming recogniser does the final transcript.
+        val whisperModel = if (c.asrEngine == "whisper") app.whisper.model(c.whisperModel)?.takeIf { app.whisper.isInstalled(it) } else null
+        if (c.asrEngine == "whisper") {
+            if (whisperModel != null) app.whisper.warmUp(whisperModel)
+            else publish { it.copy(info = it.info + " · Whisper model not installed – using the built-in English recogniser (Voice → Whisper)") }
+        }
+        val transcripts = java.util.concurrent.ConcurrentLinkedQueue<Transcript>()
 
         fun newAsrStream(preRollSec: Double): OnlineStream {
             val asr = engines.asr()
@@ -166,18 +181,8 @@ class VoiceSession(private val app: CluApp) {
             return s
         }
 
-        fun finishUtterance(audio: FloatArray) {
-            val s = asrStream ?: return
-            val asr = engines.asr()
-            val tEnd = System.currentTimeMillis()
-            s.acceptWaveform(FloatArray((SAMPLE_RATE * 0.5).toInt()), SAMPLE_RATE)
-            s.inputFinished()
-            while (asr.isReady(s)) asr.decode(s)
-            val text = asr.getResult(s).text.trim().lowercase()
-            s.release(); asrStream = null
-            val asrMs = (System.currentTimeMillis() - tEnd).toDouble()
-            core.diag.perf("asr_finalize_ms", asrMs)
-            if (text.isBlank()) { asrStream = if (turn.state == TurnState.LISTENING) newAsrStream(0.0) else null; return }
+        fun handleTranscript(text: String, audio: FloatArray, tEnd: Long, asrMs: Double) {
+            if (text.isBlank()) { if (turn.state == TurnState.LISTENING && asrStream == null) asrStream = newAsrStream(0.0); return }
             val speakerId = identifySpeaker(audio)
             publish { it.copy(lastHeard = text, partial = "") }
             for (a in turn.onUtterance(text)) when (a) {
@@ -187,9 +192,40 @@ class VoiceSession(private val app: CluApp) {
             }
         }
 
+        fun finishUtterance(audio: FloatArray) {
+            val s = asrStream ?: return
+            val asr = engines.asr()
+            val tEnd = System.currentTimeMillis()
+            if (whisperModel != null) {
+                // Whisper transcribes the whole utterance on its own worker (capture keeps running). The streaming
+                // recogniser's text (live partials) is the fallback if Whisper fails.
+                val partialText = asr.getResult(s).text.trim().lowercase()
+                s.release(); asrStream = null
+                publish { it.copy(partial = "…") }
+                val padded = audio.copyOf(audio.size + SAMPLE_RATE * 3 / 10)
+                app.whisper.transcribe(whisperModel, padded, cfg.sttLanguage, threads = 4) { r ->
+                    val ms = (System.currentTimeMillis() - tEnd).toDouble()
+                    if (r != null) {
+                        core.diag.perf("whisper_ms", ms, "${whisperModel.id} ${r.language} ${"%.1f".format(audio.size / 16000.0)}s${if (r.retried) " retried" else ""}")
+                        core.diag.perf("whisper_encode_ms", r.encodeMs, whisperModel.id)
+                    } else core.diag.w("voice", "Whisper failed; using the streaming recogniser's text")
+                    transcripts.add(Transcript(r?.text?.lowercase() ?: partialText, audio, tEnd, ms))
+                }
+                return
+            }
+            s.acceptWaveform(FloatArray((SAMPLE_RATE * 0.5).toInt()), SAMPLE_RATE)
+            s.inputFinished()
+            while (asr.isReady(s)) asr.decode(s)
+            val text = asr.getResult(s).text.trim().lowercase()
+            s.release(); asrStream = null
+            val asrMs = (System.currentTimeMillis() - tEnd).toDouble()
+            core.diag.perf("asr_finalize_ms", asrMs)
+            handleTranscript(text, audio, tEnd, asrMs)
+        }
+
         try {
             while (running.get()) {
-                if (turn.state == TurnState.LISTENING && cfg.asrEngine != "sherpa") {
+                if (turn.state == TurnState.LISTENING && cfg.asrEngine != "sherpa" && cfg.asrEngine != "whisper") {
                     // Android recognizers own the microphone while they run.
                     capture.stop()
                     val tStart = System.currentTimeMillis()
@@ -213,6 +249,7 @@ class VoiceSession(private val app: CluApp) {
                     continue
                 }
                 val frame = capture.read() ?: break
+                while (true) { val t = transcripts.poll() ?: break; handleTranscript(t.text, t.audio, t.tEnd, t.asrMs) }
                 ring.add(frame)
                 vad.acceptWaveform(frame)
                 // While Clu's own acknowledgement/greeting plays in LISTENING state, don't treat it as the owner speaking.
@@ -227,15 +264,22 @@ class VoiceSession(private val app: CluApp) {
                     speechActive = true; speechStartAt = now
                     kwsSpeechOnset = (kwsFed + frame.size) / SAMPLE_RATE.toFloat() // same convention as the measurements
                     if (turn.state == TurnState.LISTENING && asrStream == null) asrStream = newAsrStream(0.4)
+                    if (turn.state == TurnState.LISTENING && utterance.isEmpty()) utterance += ring.last(SAMPLE_RATE * 3 / 10) // onset pre-roll
                 }
-                if (speechActive && isSpeech && turn.state == TurnState.SPEAKING && now - speechStartAt > 300) {
-                    for (a in turn.onSpeechStarted()) if (a == TurnAction.StopPlayback) {
-                        out.stop(); core.agent.cancel(); agentJob?.cancel()
-                        asrStream = newAsrStream(0.6)
-                        utterance.clear(); utterance += ring.last((SAMPLE_RATE * 0.6).toInt())
-                        publish()
+                // Barge-in: no wake word needed. The detector ignores Clu's own voice leaking into the microphone (level
+                // relative to the echo floor measured during playback) and needs ~180 ms of real speech.
+                if (turn.state == TurnState.SPEAKING && cfg.bargeIn) {
+                    if (bargeIn.onFrame(vad.isSpeechDetected(), AudioMath.dbfs(AudioMath.rms(frame)), FRAME_MS, now)) {
+                        for (a in turn.onSpeechStarted()) if (a == TurnAction.StopPlayback) {
+                            out.stop(); core.agent.cancel(); agentJob?.cancel()
+                            core.diag.perf("barge_in_detect_ms", (now - speechStartAt).toDouble())
+                            asrStream = newAsrStream(0.6)
+                            utterance.clear(); utterance += ring.last((SAMPLE_RATE * 0.6).toInt())
+                            speechActive = true
+                            publish()
+                        }
                     }
-                }
+                } else bargeIn.reset()
                 if (speechActive && isSpeech && turn.state == TurnState.LISTENING) turn.onSpeechStarted() // keeps the follow-up window open
 
                 when (turn.state) {
@@ -285,7 +329,10 @@ class VoiceSession(private val app: CluApp) {
                             s.acceptWaveform(frame, SAMPLE_RATE)
                             val asr = engines.asr()
                             while (asr.isReady(s)) asr.decode(s)
-                            if (speechActive) { utterance += frame; publish { it.copy(partial = asr.getResult(s).text.lowercase()) } }
+                            if (speechActive) {
+                                utterance += frame
+                                if (now - lastPartialPublish > 150) { lastPartialPublish = now; publish { it.copy(partial = asr.getResult(s).text.lowercase()) } }
+                            }
                         }
                         for (a in turn.tick()) if (a == TurnAction.SessionTimedOut) {
                             asrStream?.release(); asrStream = null
@@ -319,7 +366,7 @@ class VoiceSession(private val app: CluApp) {
                         }
                     }
                 }
-                if (asrMatchBuffer.size > 80) asrMatchBuffer.clear() // > 8 s without end: drop
+                if (asrMatchBuffer.size > 8000 / FRAME_MS) asrMatchBuffer.clear() // > 8 s without end: drop
             }
         } catch (e: Exception) {
             core.diag.e("voice", "voice loop failed", e)
@@ -327,6 +374,7 @@ class VoiceSession(private val app: CluApp) {
         } finally {
             capture.stop()
             kwsStream?.release(); asrStream?.release(); vad.release()
+            app.whisper.cancel()
             running.set(false)
             publish()
         }
@@ -355,41 +403,48 @@ class VoiceSession(private val app: CluApp) {
         val name = actor.personId?.let { core.people.get(it)?.name }
         publish { it.copy(speaker = name ?: if (actor.role == ai.clu.core.security.PersonRole.OWNER) "owner" else "unknown") }
         val convId = app.currentConversation()
-        val chunker = SentenceChunker()
-        var firstAudioAt = 0L
         val speak = UiPolicy.shouldSpeak(core.settings, viaVoice = true, nowMs = System.currentTimeMillis())
-        val onFirst = { if (firstAudioAt == 0L) { firstAudioAt = System.currentTimeMillis(); turn.onSpeakingStarted(); publish() } }
+        val c = cfg
+        // tEndOfSpeech is the VAD endpoint, which fires after the configured end-of-speech pause; the owner actually
+        // stopped talking about that much earlier, and the latency targets are measured from there.
+        val timings = TurnTimings(0).apply {
+            userSpeechEnd = tEndOfSpeech - (c.minSilenceSec * 1000).toLong(); transcriptFinal = tEndOfSpeech + asrMs.toLong()
+        }
+        val reply = if (speak) out.reply(c, timings) { core.agent.cancel() } else null
+        reply?.onFirstAudio = { turn.onSpeakingStarted(); publish() }
+        var stats: Map<String, Double> = emptyMap()
+        reply?.completion?.invokeOnCompletion {
+            val m = timings.metrics()
+            m.forEach { (k, v) -> core.diag.perf(k, v) }
+            if (timings.firstAudio > 0) core.diag.perf("endpoint_to_first_audio_ms", (timings.firstAudio - tEndOfSpeech).toDouble())
+            core.diag.perf("tts_errors", timings.errors.get().toDouble())
+            publish { it.copy(lastLatency = stats + m) }
+            if (!reply.cancelled) onReplyPlayed()
+        }
         agentJob = scope.launch {
+            var spokeError = false
             core.agent.respond(TurnRequest(convId, text, actor, viaVoice = true, speakerName = name, preStats = mapOf("asr_ms" to asrMs))).collect { ev ->
                 when (ev) {
-                    is AgentEvent.Text -> if (speak && cfg.incremental) chunker.push(ev.delta).forEach { out.speak(it, cfg, onFirst) }
+                    is AgentEvent.Text -> if (c.incremental) reply?.text(ev.delta)
                     is AgentEvent.ResetText -> {}
                     is AgentEvent.Done -> {
-                        if (speak) { if (cfg.incremental) chunker.flush().forEach { out.speak(it, cfg, onFirst) } else out.speak(ev.text, cfg, onFirst) }
-                        scope.launch {
-                            // Wait for first audio to compute end-of-speech -> first-audio latency.
-                            val deadline = System.currentTimeMillis() + 15_000
-                            while (firstAudioAt == 0L && System.currentTimeMillis() < deadline && speak) delay(20)
-                            if (firstAudioAt > 0) {
-                                val lat = (firstAudioAt - tEndOfSpeech).toDouble()
-                                core.diag.perf("first_audio_ms", lat)
-                                publish { it.copy(lastLatency = ev.meta.stats + mapOf("first_audio_ms" to lat)) }
-                            }
-                        }
-                        if (!speak || ev.text.isBlank()) { turn.onResponseComplete(); publish() }
+                        stats = ev.meta.stats
+                        if (reply != null) { if (!c.incremental) reply.say(ev.text) else reply.finish() }
+                        if (reply == null || ev.text.isBlank()) { turn.onResponseComplete(); publish() }
                     }
                     is AgentEvent.Control -> when (ev.command) {
                         "stop_listening" -> scope.launch { delay(1500); app.stopListening() }
                         "end_session" -> {}
                     }
-                    is AgentEvent.Error -> { out.speak("Something went wrong.", cfg); turn.onResponseComplete() }
+                    is AgentEvent.Error -> {
+                        spokeError = true
+                        if (reply != null) reply.say("Something went wrong.") else { out.speak("Something went wrong.", c); turn.onResponseComplete() }
+                    }
                     else -> {}
                 }
             }
-            // Watchdog: if synthesis failed or produced no audio, don't leave the turn stuck in PROCESSING/SPEAKING.
-            val deadline = System.currentTimeMillis() + 120_000
-            while (out.busy && System.currentTimeMillis() < deadline) delay(100)
-            if (turn.state == TurnState.PROCESSING || turn.state == TurnState.SPEAKING) { turn.onResponseComplete(); publish() }
+            reply?.finish() // producer ended without Done (error/cancel): speak what is pending and end the response
+            if (reply == null && !spokeError && (turn.state == TurnState.PROCESSING || turn.state == TurnState.SPEAKING)) { turn.onResponseComplete(); publish() }
         }
     }
 
@@ -433,5 +488,11 @@ class VoiceSession(private val app: CluApp) {
         } finally { cap.stop(); if (wasRunning) start(wm) }
     }
 
-    companion object { const val UNKNOWN = "__unknown__" }
+    private class Transcript(val text: String, val audio: FloatArray, val tEnd: Long, val asrMs: Double)
+
+    companion object {
+        const val UNKNOWN = "__unknown__"
+        /** Capture frame: short so barge-in and end of speech are noticed quickly (VAD works in 32 ms windows). */
+        const val FRAME_MS = 30
+    }
 }

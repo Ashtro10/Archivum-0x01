@@ -1,0 +1,16 @@
+Whisper ONNX proxy measurement (sherpa-onnx 1.13.8 OfflineRecognizer.from_whisper, int8, 4 threads, x86-64 build host).
+NOT whisper.cpp and NOT phone hardware: same OpenAI weights, different runtime. Official ggml models for whisper.cpp could not
+be downloaded in the build environment (huggingface.co / openaipublic blocked). Test audio: Piper TTS (English: Alan, Hindi: Pratham).
+Devanagari decoded from raw token bytes (sherpa-onnx drops tokens with partial UTF-8 sequences).
+
+whisper-base  lang=auto en  audio 2.1s  decode 334 ms   CER 0.00  'What is the weather like tomorrow morning?'
+whisper-base  lang=auto hi  audio 1.9s  decode 373 ms   CER 1.00  'کل سب ہم موسم کیس'  (Urdu script)
+whisper-base  lang=auto mix audio 3.4s  decode 522 ms   CER 0.38  'Remind me. Kalynabadi. For the meeting.'
+whisper-base  lang=hi   hi  audio 1.9s  decode 371 ms   CER 1.00  'کل سب ہم موسم کیس'
+whisper-base  lang=hi   mix audio 3.4s  decode 485 ms   CER 0.42  'Remind me. Kalyanabadi. For the meeting.'
+whisper-small lang=auto en  audio 2.1s  decode 961 ms   CER 0.00  'What is the weather like tomorrow morning?'
+whisper-small lang=auto hi  audio 1.9s  decode 1165 ms  CER 0.46  'कल सुबहम मو'  (output truncated by this runtime)
+whisper-small lang=auto mix audio 3.4s  decode 990 ms   CER 0.19  'Remind me, for the meeting.'
+whisper-small lang=hi   hi  audio 1.9s  decode 1165 ms  CER 0.46  'कल सुबहम मو'
+whisper-small lang=hi   mix audio 3.4s  decode 1838 ms  CER 0.92  'अप्रदाएँ बाजे'
+References: en 'what is the weather like tomorrow morning'; hi 'कल सुबह मौसम कैसा रहेगा'; mix 'remind me कल नौ बजे for the meeting'

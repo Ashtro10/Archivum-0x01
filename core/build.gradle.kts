@@ -35,6 +35,10 @@ tasks.test {
     systemProperty("clu.testModel", rootProject.file("native/build/test/tiny.gguf").absolutePath)
     maxHeapSize = "2g"
     System.getProperty("clu.bench")?.let { systemProperty("clu.bench", it) }
+    // whisper.cpp host measurements (opt-in: need model files; see docs/VOICE_STREAMING.md)
+    systemProperty("clu.whisperLib", rootProject.file("native/build/host/libclu_whisper.so").absolutePath)
+    listOf("clu.whisperModels", "clu.sttFixtures").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
+    systemProperty("clu.whisperOut", rootProject.file("docs/measurements/whisper_cpp_host.json").absolutePath)
     systemProperty("clu.benchOut", rootProject.file("docs/measurements/core_host.json").absolutePath)
 }
 

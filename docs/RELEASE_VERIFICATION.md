@@ -26,8 +26,8 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 65,324,677 bytes | `stat` |
-| SHA-256 | `3bd51c9792bb94748e764c4d5f5b53a8a92881a7e462f42e121b7c0d4037f32f` | `sha256sum` |
+| File | `dist/clu-release.apk`, 66,045,650 bytes | `stat` |
+| SHA-256 | `f0ad8829c414d37c4cc94a4bb6c15b978f3c7a474141ec3e7bd8d5c1b95841d4` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
 | Version | `1.0.0-prototype` (versionCode 1) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
@@ -56,6 +56,7 @@ value above.
 | Library | Size | SHA-256 | Dynamic dependencies (`readelf -d` NEEDED) | LOAD alignment |
 |---|---|---|---|---|
 | `libclu_llama.so` (llama.cpp + JNI, built here) | 6.3 MB | `2f208149a8b9fe51f91d88b69ec32055a16bdcaaa3f4b90e3b05ff41e7eee690` | liblog, libdl, libm, libc | 16 KB |
+| `libclu_whisper.so` (whisper.cpp 231638a0 + JNI, built here; only JNI symbols exported) | 1.6 MB | `70a65e42a1dfd8bd2c526c16de6a4250a58d8cae727cf0fbf68bfd16a32a7ad6` | liblog, libdl, libm, libc | 16 KB |
 | `libsherpa-onnx-jni.so` (prebuilt, sherpa-onnx 1.13.8) | 4.8 MB | `3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f` | libandroid, liblog, libonnxruntime, libm, libdl, libc | 16 KB |
 | `libonnxruntime.so` (prebuilt, from the same archive) | 22.2 MB | `33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1` | libdl, liblog, libm, libc | 16 KB |
 | `libjingle_peerconnection_so.so` (prebuilt WebRTC, io.github.webrtc-sdk:android 150.7871.04; LiveKit mode only) | 12.3 MB | `2b561520298d9fec3e216baf58a53fbddf4a46dfd247880cbc3821875ed20200` | libEGL, libdl, libm, liblog, libc | 16 KB |

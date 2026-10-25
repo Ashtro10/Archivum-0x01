@@ -181,25 +181,27 @@ object Settings {
         "When you start speaking during playback, Clu stops talking and listens.", "TurnManager",
         "Speech detected during SPEAKING stops playback and starts a new turn", "VoiceSettingsTest#bargeIn",
         limits = "Requires echo cancellation to avoid self-interruption; reliability depends on the device's AEC.")
-    val ASR_ENGINE = choice("voice.asrEngine", "Speech recognition", VOICE, "whisper",
-        listOf("whisper" to "Whisper (offline, English + Hindi; model download)", "sherpa" to "Built-in streaming (offline, English only)",
-            "android_ondevice" to "Android on-device recognizer", "android" to "Android default recognizer (may use network)"),
+    val ASR_ENGINE = choice("voice.asrEngine", "Speech recognition", VOICE, "clu",
+        listOf("clu" to "Clu offline (live English recogniser + Whisper for Hindi/mixed)", "android_ondevice" to "Android on-device recognizer",
+            "android" to "Android default recognizer (may use network)"),
         "Engine used to transcribe speech.", "SpeechInput, WhisperStt", "Selects the ASR backend", "VoiceSettingsTest#asrEngine",
         apply = ApplyMode.VOICE_RESTART, deviceOnly = true,
-        limits = "Whisper transcribes after you stop speaking (no live partial text) and needs a downloaded model; until one is installed the built-in English recogniser is used. Android recognizers depend on what is installed on the device; the default recognizer may send audio to its provider.")
+        limits = "English is recognised live while you speak. Hindi, mixed Hindi-English and automatic detection use Whisper, which transcribes after you stop speaking and needs a one-time model download (466 MB). Android recognizers depend on what is installed; the default recognizer may send audio to its provider.")
     val WHISPER_MODEL = choice("voice.whisperModel", "Whisper model", VOICE, "whisper-small",
         listOf("whisper-small" to "small (466 MB; needed for Hindi)", "whisper-base" to "base (142 MB; faster, English)"),
         "Whisper model used for speech recognition.", "WhisperStt", "Selects the ggml model file", "VoiceSettingsTest#whisperModel",
         apply = ApplyMode.VOICE_RESTART, deviceOnly = true, limits = "base does not recognise Hindi reliably (measured).")
     val STT_LANGUAGE = choice("voice.sttLanguage", "Spoken language", VOICE, "auto",
-        listOf("auto" to "Detect (English / Hindi / mixed)", "en" to "English", "hi" to "Hindi"),
-        "Language you speak to Clu.", "WhisperStt", "Whisper language (auto = detect per utterance)", "VoiceSettingsTest#sttLanguage",
-        apply = ApplyMode.IMMEDIATE, limits = "Detection adds a little latency; fixing the language is faster and more accurate.")
+        listOf("auto" to "Automatic (English, Hindi or mixed – Whisper)", "en" to "English (live, fastest)", "hi" to "Hindi (Whisper)",
+            "mixed" to "Hindi + English mixed (Whisper)"),
+        "Language you speak to Clu. English is recognised live; the others use Whisper after you stop speaking.", "WhisperStt, VoiceSession",
+        "Routes each utterance to the live English recogniser or to Whisper with this language", "VoiceSettingsTest#sttLanguage",
+        apply = ApplyMode.IMMEDIATE, limits = "Automatic, Hindi and mixed need the Whisper model; until it is installed Clu recognises English only and says so.")
     val VAD_SENSITIVITY = float("voice.vadSensitivity", "Voice detection sensitivity", VOICE, 0.5, 0.0, 1.0,
         "Higher = detects quieter speech (and more noise).", "VoiceActivityDetector", "Silero VAD threshold = 0.75 - 0.5 x sensitivity",
         "VoiceSettingsTest#vadSensitivity", apply = ApplyMode.VOICE_RESTART)
-    val END_SILENCE = int("voice.endSilenceMs", "End-of-speech pause (ms)", VOICE, 650, 250, 2500,
-        "Silence that ends your turn.", "VoiceActivityDetector, Endpointer", "Minimum silence before the utterance is finalised",
+    val END_SILENCE = int("voice.endSilenceMs", "End-of-speech pause (ms)", VOICE, 800, 300, 2500,
+        "Silence that ends your turn. Longer = more time to think mid-sentence, but Clu answers later (800 ms tolerated 0.7 s pauses in tests; 1000 ms tolerates ~1 s).", "VoiceActivityDetector, Endpointer", "Minimum silence before the utterance is finalised",
         "VoiceSettingsTest#endSilence", apply = ApplyMode.VOICE_RESTART)
     val ACK_MODE = choice("voice.ackMode", "Activation acknowledgement", VOICE, "tone",
         listOf("none" to "None", "tone" to "Short tone", "speech" to "Spoken phrase"), "Feedback when Clu starts listening.",
@@ -207,14 +209,17 @@ object Settings {
     val ACK_PHRASES = list("voice.ackPhrases", "Acknowledgement phrases", VOICE, listOf("Yes?", "Listening.", "Go on."),
         "Used when acknowledgement is set to spoken phrase.", "VoiceSession", "One phrase is spoken on activation", "VoiceSettingsTest#ackMode",
         SettingType.TextList(20, 60, minItems = 1))
-    val MIC_MODE = choice("voice.micMode", "Microphone button", VOICE, "tap",
-        listOf("hold" to "Hold to talk", "tap" to "Tap to start, auto-stop on silence", "conversation" to "Tap for continuous conversation"),
-        "Behaviour of the microphone button in chat.", "ChatController", "Changes how the mic button starts/stops capture", "VoiceSettingsTest#micMode")
+    val MIC_MODE = choice("voice.micMode", "Listening mode", VOICE, "conversation",
+        listOf("conversation" to "Conversation – keep listening for follow-ups until you tap Stop or stay silent",
+            "tap" to "One question – stop listening after Clu replies", "hold" to "Hold to talk"),
+        "What happens after you tap the microphone. Clu never listens in the background unless Background listening is on.",
+        "ChatController, VoiceSession", "Conversation: the session stays open for follow-ups (no wake word needed) until the follow-up window passes in silence; One question: ends after the reply",
+        "VoiceSettingsTest#micMode")
     val CONTINUE_LISTENING = bool("voice.continueAfterReply", "Keep listening after replies", VOICE, true,
         "After Clu replies in a voice session, listen for a follow-up without requiring the wake word.", "TurnManager",
         "Session returns to LISTENING instead of WAITING_FOR_WAKE", "VoiceSettingsTest#continueListening")
-    val FOLLOWUP_TIMEOUT = int("voice.followUpTimeoutSec", "Follow-up window (s)", VOICE, 10, 3, 120,
-        "How long to wait for a follow-up before returning to wake-word mode.", "TurnManager", "Idle timeout of an active session",
+    val FOLLOWUP_TIMEOUT = int("voice.followUpTimeoutSec", "Follow-up window (s)", VOICE, 30, 3, 300,
+        "In a conversation, how long Clu keeps listening for your next sentence before closing the microphone.", "TurnManager", "Idle timeout of an active session",
         "VoiceSettingsTest#followUpTimeout")
     val AUDIO_SOURCE = choice("voice.audioSource", "Microphone processing", VOICE, "voice_communication",
         listOf("voice_communication" to "Echo-cancelled (recommended for interruption)", "voice_recognition" to "Raw recognition tuning", "mic" to "Unprocessed microphone"),

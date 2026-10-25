@@ -74,9 +74,11 @@ rm -rf "$tmp"
 R=https://github.com/k2-fsa/sherpa-onnx/releases/download
 fetch silero_vad.onnx "$R/asr-models/silero_vad.onnx" 9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6
 fetch kws.tar.bz2 "$R/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2" f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a
-fetch asr.tar.bz2 "$R/asr-models/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2" 9c559283e8498d3fe95913c79ca1cb454bb26281ac2b102b41306c7d752765d9
+# Live English recogniser: Kroko streaming zipformer (Banafo; replaced the 20M model, which dropped utterance onsets -
+# 13% vs 58-64% WER on Clu's test set, see docs/SPEECH_RECOGNITION.md). Licence: huggingface.co/Banafo/Kroko-ASR.
+fetch asr-kroko.tar.bz2 "$R/asr-models/sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06.tar.bz2" c8676e5ff9ac2a85296e53ee0fd4d5fb1db6770e7a7647166eeafe349ade6834
 A="$TC/assets/models"
-if [[ ! -f "$A/asr/encoder.int8.onnx" ]]; then
+if [[ "$(cat "$A/asr/MODEL.txt" 2>/dev/null)" != "Kroko streaming English 2025-08-06" ]]; then
   echo "[unpack] bundled voice models"
   rm -rf "$A" && mkdir -p "$A/vad" "$A/kws" "$A/asr"
   cp "$CACHE/silero_vad.onnx" "$A/vad/silero_vad.onnx"
@@ -88,11 +90,9 @@ if [[ ! -f "$A/asr/encoder.int8.onnx" ]]; then
   cp "$K/tokens.txt" "$K/bpe.model" "$A/kws/"
   # Default keyword list required at construction; the app supplies the configured wake words per stream.
   printf '\xe2\x96\x81C LU E @CLUE\n' > "$A/kws/keywords.txt"
-  tar xjf "$CACHE/asr.tar.bz2" -C "$tmp"; S="$tmp/sherpa-onnx-streaming-zipformer-en-20M-2023-02-17"
-  cp "$S/encoder-epoch-99-avg-1.int8.onnx" "$A/asr/encoder.int8.onnx"
-  cp "$S/decoder-epoch-99-avg-1.int8.onnx" "$A/asr/decoder.int8.onnx"
-  cp "$S/joiner-epoch-99-avg-1.int8.onnx" "$A/asr/joiner.int8.onnx"
-  cp "$S/tokens.txt" "$A/asr/"
+  tar xjf "$CACHE/asr-kroko.tar.bz2" -C "$tmp"; S="$tmp/sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06"
+  cp "$S/encoder.onnx" "$S/decoder.onnx" "$S/joiner.onnx" "$S/tokens.txt" "$A/asr/"
+  echo "Kroko streaming English 2025-08-06" > "$A/asr/MODEL.txt"
   rm -rf "$tmp"
 fi
 

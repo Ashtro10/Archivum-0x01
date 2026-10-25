@@ -1,0 +1,6 @@
+zipformer en-20M (old built-in), Clu test set, host replay
+full: WER 57.6%
+app0.4: WER 63.7%
+app1.0: WER 57.6%
+masked: WER 69.8%
+Apple: app0.4 1/27, app1.0 6/27 correct

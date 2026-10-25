@@ -63,3 +63,10 @@
 - **No automatic engine fallback:** if the selected engine or voice is missing, Clu stays silent and says why, until you install it or choose another.
 - **Voices across languages:** English and Hindi use different models, so they sound like different speakers.
 
+## Recognition, turn-taking and UI (repair build)
+- **No physical-device verification yet:** recognition accuracy, latency, echo behaviour and the UI layout were measured or rendered on the build host only (pipeline replay, Robolectric screenshots with simulated Android 15 insets). Use DEVICE_ACCEPTANCE.md section U.
+- **Test audio:** the recognition test set is synthetic speech (9 voices incl. Indian-accented English) plus a few real LibriSpeech clips; a real phone microphone in a real room will score worse.
+- **Hindi:** recognised only by Whisper (466 MB download), after you stop speaking; there is no offline streaming Hindi model. Without Whisper, Clu recognises English only and says so.
+- **Pauses:** a thinking pause longer than the end-of-speech pause (800 ms by default) still ends the turn; raise it to 1000 ms if you pause often (answers come ~0.2 s later).
+- **Kroko licence:** the built-in live recogniser's licence (Banafo Kroko community model) must be checked before any commercial distribution.
+

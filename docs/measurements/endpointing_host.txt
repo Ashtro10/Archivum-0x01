@@ -1,0 +1,15 @@
+vad 1000      pause  400 ms: sentence cut in two  0/30  end-of-turn delay p50 1148 ms p90 1197 ms
+vad 1000      pause  700 ms: sentence cut in two  0/30  end-of-turn delay p50 1134 ms p90 1179 ms
+vad 1000      pause 1000 ms: sentence cut in two  2/30  end-of-turn delay p50 1135 ms p90 1183 ms
+vad 1200      pause  400 ms: sentence cut in two  0/30  end-of-turn delay p50 1334 ms p90 1386 ms
+vad 1200      pause  700 ms: sentence cut in two  0/30  end-of-turn delay p50 1322 ms p90 1377 ms
+vad 1200      pause 1000 ms: sentence cut in two  0/30  end-of-turn delay p50 1336 ms p90 1380 ms
+vad 500       pause  400 ms: sentence cut in two  0/30  end-of-turn delay p50 638 ms p90 675 ms
+vad 500       pause  700 ms: sentence cut in two 30/30  end-of-turn delay p50 623 ms p90 669 ms
+vad 500       pause 1000 ms: sentence cut in two 30/30  end-of-turn delay p50 625 ms p90 669 ms
+vad 650       pause  400 ms: sentence cut in two  0/30  end-of-turn delay p50 788 ms p90 846 ms
+vad 650       pause  700 ms: sentence cut in two 12/30  end-of-turn delay p50 781 ms p90 837 ms
+vad 650       pause 1000 ms: sentence cut in two 30/30  end-of-turn delay p50 784 ms p90 840 ms
+vad 800       pause  400 ms: sentence cut in two  0/30  end-of-turn delay p50 914 ms p90 966 ms
+vad 800       pause  700 ms: sentence cut in two  0/30  end-of-turn delay p50 911 ms p90 969 ms
+vad 800       pause 1000 ms: sentence cut in two 30/30  end-of-turn delay p50 925 ms p90 960 ms

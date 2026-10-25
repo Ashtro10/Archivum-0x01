@@ -16,20 +16,33 @@ import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.ViewGroup
 import android.widget.*
 import kotlinx.coroutines.*
 
 object C {
-    val BG = Color.parseColor("#0B0F14")
-    val SURFACE = Color.parseColor("#151B23")
-    val SURFACE2 = Color.parseColor("#1E2630")
-    val TEXT = Color.parseColor("#E6EDF3")
-    val MUTED = Color.parseColor("#8B98A5")
-    val ACCENT = Color.parseColor("#D7263D")
+    val BG = Color.parseColor("#000000")
+    val SURFACE = Color.parseColor("#121214")
+    val SURFACE2 = Color.parseColor("#1C1C20")
+    val BORDER = Color.parseColor("#2C2C32")
+    val TEXT = Color.parseColor("#F2F2F5")
+    val MUTED = Color.parseColor("#8E8E96")
+    val ACCENT = Color.parseColor("#B54BFF")      // violet
+    val ACCENT2 = Color.parseColor("#FF3D7F")     // pink
+    val ACCENT3 = Color.parseColor("#FF5A36")     // red-orange
     val OK = Color.parseColor("#3FB950")
-    val WARN = Color.parseColor("#D29922")
+    val WARN = Color.parseColor("#E3A72F")
 }
+
+/** Dark "glass" circle/pill: near-black fill with a subtle light border (header and control buttons). */
+fun glassBg(radius: Float = 200f) = GradientDrawable().apply {
+    colors = intArrayOf(Color.parseColor("#26262B"), Color.parseColor("#141417")); orientation = GradientDrawable.Orientation.TOP_BOTTOM
+    cornerRadius = radius; setStroke(2, C.BORDER)
+}
+
+/** Clu's accent gradient (violet -> pink -> red), used for the microphone and send buttons. */
+fun accentBg(radius: Float = 200f) = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(C.ACCENT, C.ACCENT2, C.ACCENT3)).apply { cornerRadius = radius }
 
 fun Context.dp(v: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
@@ -45,8 +58,26 @@ abstract class BaseActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = C.BG
-        window.navigationBarColor = C.BG
+        // Edge-to-edge on every Android version (Android 15+ enforces it for targetSdk 35): the app lays itself out
+        // around the status bar, display cutout, gesture bar and keyboard via applySystemInsets() below.
+        window.setDecorFitsSystemWindows(false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+    }
+
+    /**
+     * Pads [root] so nothing is drawn under the status bar, cutout, gesture bar or keyboard. [onIme] reports whether the
+     * keyboard is visible (the chat screen hides its bottom navigation then, so the composer sits on the keyboard).
+     */
+    fun applySystemInsets(root: View, onIme: (Boolean) -> Unit = {}) {
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsets.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            onIme(insets.isVisible(WindowInsets.Type.ime()) && ime.bottom > 0)
+            WindowInsets.CONSUMED
+        }
+        root.requestApplyInsets()
     }
 
     override fun onResume() { super.onResume(); app.inForeground = true }
@@ -60,13 +91,15 @@ abstract class BaseActivity : Activity() {
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(32)) }
         body.build()
         root.addView(ScrollView(this).apply { addView(body); isFillViewport = true }, LinearLayout.LayoutParams(-1, 0, 1f))
+        applySystemInsets(root)
         setContentView(root)
     }
 
     fun titleBar(title: String, actions: LinearLayout.() -> Unit = {}): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(8), dp(10), dp(8), dp(10)); setBackgroundColor(C.SURFACE)
-        addView(TextView(context).apply { text = "‹"; textSize = 26f; setTextColor(C.TEXT); setPadding(dp(8), 0, dp(12), 0); setOnClickListener { finish() } })
+        setPadding(dp(12), dp(8), dp(12), dp(8)); setBackgroundColor(C.BG)
+        addView(TextView(context).apply { text = "←"; textSize = 20f; setTextColor(C.TEXT); gravity = Gravity.CENTER; background = glassBg(); contentDescription = "Back"
+            setOnClickListener { finish() } }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(12) })
         addView(TextView(context).apply { text = title; textSize = 19f; setTextColor(C.TEXT); typeface = Typeface.DEFAULT_BOLD }, LinearLayout.LayoutParams(0, -2, 1f))
         actions()
     }
@@ -140,7 +173,7 @@ fun LinearLayout.h1(t: String) = addView(TextView(context).apply { text = t; tex
 fun LinearLayout.p(t: String, color: Int = C.MUTED, size: Float = 14f): TextView = TextView(context).apply { text = t; textSize = size; setTextColor(color); setPadding(0, context.dp(2), 0, context.dp(4)); setTextIsSelectable(true) }.also { addView(it) }
 
 fun LinearLayout.button(t: String, primary: Boolean = false, onClick: () -> Unit): Button = Button(context).apply {
-    text = t; isAllCaps = false; setTextColor(C.TEXT); background = roundBg(if (primary) C.ACCENT else C.SURFACE2)
+    text = t; isAllCaps = false; setTextColor(C.TEXT); background = if (primary) accentBg(80f) else roundBg(C.SURFACE2, 80f, C.BORDER)
     setOnClickListener { onClick() }
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = context.dp(6) }) }
 
@@ -149,12 +182,12 @@ fun LinearLayout.row(build: LinearLayout.() -> Unit): LinearLayout = LinearLayou
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2)) }
 
 fun LinearLayout.smallButton(t: String, onClick: () -> Unit): Button = Button(context).apply {
-    text = t; isAllCaps = false; textSize = 13f; setTextColor(C.TEXT); background = roundBg(C.SURFACE2); minWidth = 0; minimumWidth = 0
+    text = t; isAllCaps = false; textSize = 13f; setTextColor(C.TEXT); background = roundBg(C.SURFACE2, 80f, C.BORDER); minWidth = 0; minimumWidth = 0
     setPadding(context.dp(10), 0, context.dp(10), 0); setOnClickListener { onClick() }
 }.also { addView(it, LinearLayout.LayoutParams(-2, context.dp(38)).apply { marginEnd = context.dp(6); topMargin = context.dp(4) }) }
 
 fun LinearLayout.card(build: LinearLayout.() -> Unit): LinearLayout = LinearLayout(context).apply {
-    orientation = LinearLayout.VERTICAL; background = roundBg(C.SURFACE, 28f); setPadding(context.dp(14), context.dp(10), context.dp(14), context.dp(10)); build()
+    orientation = LinearLayout.VERTICAL; background = roundBg(C.SURFACE, 36f, C.BORDER); setPadding(context.dp(14), context.dp(10), context.dp(14), context.dp(10)); build()
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = context.dp(8) }) }
 
 fun LinearLayout.field(label: String, value: String, multiline: Boolean = false, hint: String = ""): EditText {

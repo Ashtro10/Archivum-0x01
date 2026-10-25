@@ -1,0 +1,32 @@
+whisper-base   full    ALL                WER  15.1%  n=629  rtf=2.497
+whisper-base   full    accent:Indian      WER  16.1%  n=276  rtf=1.225
+whisper-base   full    accent:Scottish    WER  21.2%  n=69   rtf=1.354
+whisper-base   full    accent:US          WER  13.1%  n=215  rtf=4.100
+whisper-base   full    accent:US female   WER  13.2%  n=69   rtf=3.736
+whisper-base   full    clean              WER  14.5%  n=207  rtf=2.540
+whisper-base   full    kind:command       WER   5.3%  n=135  rtf=2.024
+whisper-base   full    kind:name          WER  27.1%  n=108  rtf=2.603
+whisper-base   full    kind:number        WER  31.4%  n=108  rtf=2.288
+whisper-base   full    kind:real          WER   4.5%  n=8    rtf=0.385
+whisper-base   full    kind:sentence      WER   1.2%  n=54   rtf=2.888
+whisper-base   full    kind:word          WER  38.4%  n=216  rtf=2.826
+whisper-base   full    noise10            WER  18.1%  n=207  rtf=2.435
+whisper-base   full    quiet              WER  16.2%  n=207  rtf=2.599
+whisper-base   full    real               WER   4.5%  n=8    rtf=0.385
+whisper-small  full    ALL                WER  11.7%  n=629  rtf=2.313
+whisper-small  full    accent:Indian      WER  14.2%  n=276  rtf=2.102
+whisper-small  full    accent:Scottish    WER  17.2%  n=69   rtf=2.262
+whisper-small  full    accent:US          WER   8.3%  n=215  rtf=2.624
+whisper-small  full    accent:US female   WER   9.5%  n=69   rtf=2.238
+whisper-small  full    clean              WER  11.0%  n=207  rtf=2.403
+whisper-small  full    kind:command       WER   3.6%  n=135  rtf=2.051
+whisper-small  full    kind:name          WER  23.6%  n=108  rtf=2.290
+whisper-small  full    kind:number        WER  24.5%  n=108  rtf=1.824
+whisper-small  full    kind:real          WER   4.5%  n=8    rtf=0.616
+whisper-small  full    kind:sentence      WER   1.4%  n=54   rtf=1.329
+whisper-small  full    kind:word          WER  23.6%  n=216  rtf=3.043
+whisper-small  full    noise10            WER  14.2%  n=207  rtf=2.335
+whisper-small  full    quiet              WER  12.2%  n=207  rtf=2.267
+whisper-small  full    real               WER   4.5%  n=8    rtf=0.616
+APPLE whisper-base   full    26/27 correct; wrong: ['At all.']
+APPLE whisper-small  full    27/27 correct; wrong: []

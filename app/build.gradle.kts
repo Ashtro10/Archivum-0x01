@@ -171,6 +171,7 @@ tasks.test {
     systemProperty("clu.testResultDirs", listOf(project(":core").layout.buildDirectory.dir("test-results/test").get().asFile,
         layout.buildDirectory.dir("test-results/test").get().asFile).joinToString(File.pathSeparator))
     systemProperty("clu.buildInfo", "Version " + cluVersionName + ".")
+    System.getProperty("clu.screenshots")?.let { systemProperty("clu.screenshots", it); outputs.upToDateWhen { false } }
     maxHeapSize = "3g"
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

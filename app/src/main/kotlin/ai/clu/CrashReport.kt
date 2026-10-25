@@ -94,6 +94,11 @@ class CrashReportActivity : Activity() {
         root.addView(ScrollView(this).apply {
             addView(TextView(this@CrashReportActivity).apply { text = report; textSize = 11f; typeface = Typeface.MONOSPACE; setTextIsSelectable(true) })
         }, LinearLayout.LayoutParams(-1, 0, 1f))
+        // Keep the report clear of the status bar, cutout and gesture bar (edge-to-edge on Android 15+).
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val b = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
+            v.setPadding(pad + b.left, pad + b.top, pad + b.right, pad + b.bottom); android.view.WindowInsets.CONSUMED
+        }
         setContentView(root)
     }
 }

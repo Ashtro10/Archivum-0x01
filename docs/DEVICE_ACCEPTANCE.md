@@ -172,6 +172,27 @@ Before starting:
 | T7 ★ | With each engine in turn: Streaming test | Record first audio ___, max gap ___, interrupt→silence ___ ms | | |
 | T8 | Restart the app | Engine and voices unchanged | | |
 
+## U. Recognition, turn-taking and UI repair (this build) – run on the iQOO Neo 9 Pro
+
+None of these have been run on a physical device yet. For each item, write the result and P/N.
+- **Where results come from:** Voice screen → Listening & speech recognition → Speech recognition diagnostics. It shows the recognised text, engine/model, language, end-of-speech wait, recognition time and audio levels of every utterance, plus "Play what Clu heard".
+- **Before you start:** Settings → Voice → Spoken language = English for U1–U2 and U4–U9; Hindi or Mixed for U3. Hindi and Mixed need the Whisper small download (466 MB).
+
+| ID | Steps | Record / expected | P | N |
+|---|---|---|---|---|
+| U1 ★ | Tap the mic, say "Apple", wait for the reply. Repeat 5 times at normal volume, then 3 times quietly | Transcripts ___ (expect "apple" each time). If one is wrong, tap "Play what Clu heard" and note whether the start of the word is missing | | |
+| U2 ★ | Say a full English sentence ("Remind me to buy milk tomorrow morning") once, without touching anything | Words appear live while you speak; one reply. Transcript ___ | | |
+| U3 ★ | Spoken language = Hindi: "कल सुबह सात बजे का अलार्म लगा दो". Then Mixed: "कल की meeting के लिए मुझे नौ बजे याद दिलाना" | Transcripts ___ (Devanagari); recognition time ___ ms | | |
+| U4 ★ | Say "Set an alarm for … (pause about half a second) … seven tomorrow" | One turn, not two. Repeat with a ~1 s pause: with the default 800 ms this may split; set End-of-speech pause = 1000 ms and repeat | | |
+| U5 ★ | Ask a short question; from Diagnostics read "total after you stopped", and time until you hear the first word | End-of-speech wait ___ ms, recognition ___ ms; first audio ___ s (bench_* and speech_end_to_first_audio_ms in Diagnostics → Performance) | | |
+| U6 ★ | While Clu speaks a long answer, start talking | Clu's audio stops at once; your new sentence is answered; nothing of the old answer plays later. interrupt_to_silence_ms ___ | | |
+| U7 ★ | Have 5 turns in a row without touching the phone (Listening mode = Conversation) | No mic taps needed; the state says Listening / Thinking / Speaking each time. Silence for 30 s closes the mic | | |
+| U8 | Repeat U6 on the loudspeaker at high volume (stay silent), with wired/Bluetooth headphones, and with a TV or fan on | Loudspeaker: Clu must not interrupt itself (false interruptions ___). Headphones: speech routes there. Noise: transcripts ___ | | |
+| U9 ★ | Tap the message box | The keyboard opens directly under the composer; the mic and send stay visible; nothing is hidden behind the keyboard or the gesture bar | | |
+| U10 ★ | Tap ☰ (bottom left), then Chats, Settings and Voice & speech | All reachable with the thumb; the header is not under the status bar or camera cutout | | |
+| U11 ★ | Fresh install (or with Joe not downloaded) | The chat shows "Clu's voice isn't downloaded yet" with Download Joe (67.2 MB) and Choose voice. Nothing is spoken by a different voice | | |
+| U12 ★ | Airplane mode: repeat U1, U2, U6, and U3 if Whisper is installed | All work offline | | |
+
 ## J. Background behaviour
 
 Apply the battery settings in [INSTALL.md](INSTALL.md) §2 first (Autostart ON, Battery saver *No restrictions*).

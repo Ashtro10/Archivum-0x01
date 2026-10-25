@@ -147,15 +147,38 @@ private fun AlertDialog(a: android.app.Activity, title: String, msg: String) =
     android.app.AlertDialog.Builder(a).setTitle(title).setMessage(msg).setPositiveButton("OK", null).show()
 
 class VoiceActivity : BaseActivity() {
-    override fun onResume() { super.onResume(); build() }
+    override fun onResume() {
+        super.onResume(); build()
+        // Opened from the chat banner's "Download" action: offer that voice pack straight away.
+        intent.getStringExtra("download")?.let { id -> intent.removeExtra("download"); VoicePacks.byId(id)?.takeIf { !app.packs.isInstalled(it) }?.let { downloadPack(it, null) } }
+    }
 
     private fun build(): Unit = screen("Voice") {
         val v = app.voice.state.value
         p("Offline speech recognition, wake-word and voice-activity models are built in. The Clu voice and speaker recognition are optional downloads.", C.MUTED, 12f)
-        h1("Speech recognition – Whisper (English + Hindi)")
-        val engine = core.settings.string(Settings.ASR_ENGINE)
-        p("Selected engine: ${engine}. Whisper runs fully offline after a one-time model download. It transcribes when you stop speaking; " +
-            "the built-in recogniser still shows live English text meanwhile.", C.MUTED, 12f)
+        h1("Listening & speech recognition")
+        card {
+            val c = cfg()
+            val whisperOk = app.whisper.model(c.whisperModel)?.let { app.whisper.isInstalled(it) } == true
+            val route = ai.clu.core.voice.AsrRouting.plan(c.sttLanguage, whisperOk)
+            fun choiceLabel(key: String) = (Settings[key]!!.type as ai.clu.core.config.SettingType.Choice).options
+            p("Spoken language: ${choiceLabel("voice.sttLanguage").first { it.first == c.sttLanguage }.second}", C.TEXT, 14f)
+            p("Final transcript by the ${route.engineLabel}. Live English recogniser: ${app.sherpa.asrModelName} (built in, offline).", C.MUTED, 12f)
+            route.note?.let { p("⚠ $it", C.WARN, 12f) }
+            p("Listening mode: ${choiceLabel("voice.micMode").first { it.first == core.settings.string(Settings.MIC_MODE) }.second}", C.TEXT, 14f)
+            p("End-of-speech pause: ${core.settings.int(Settings.END_SILENCE)} ms · follow-up window ${core.settings.int(Settings.FOLLOWUP_TIMEOUT)} s", C.TEXT, 14f)
+            row {
+                smallButton("Language…") { val o = choiceLabel("voice.sttLanguage"); choose("Spoken language", o.map { it.second }) { i -> core.settings.set(Settings.STT_LANGUAGE, o[i].first); build() } }
+                smallButton("Listening…") { val o = choiceLabel("voice.micMode"); choose("Listening mode", o.map { it.second }) { i -> core.settings.set(Settings.MIC_MODE, o[i].first); build() } }
+                smallButton("Pause…") {
+                    val o = listOf(650, 800, 1000, 1300)
+                    choose("End-of-speech pause", o.map { "$it ms" + when (it) { 650 -> " (fast, may cut pauses)"; 800 -> " (default)"; 1000 -> " (relaxed)"; else -> " (slow speakers)" } }) { i ->
+                        core.settings.set(Settings.END_SILENCE, o[i]); build() }
+                }
+            }
+            smallButton("Speech recognition diagnostics") { startActivity(Intent(this@VoiceActivity, SpeechDiagnosticsActivity::class.java)) }
+        }
+        p("Whisper (offline, English + Hindi) is used for Hindi, mixed and automatic language. It transcribes when you stop speaking.", C.MUTED, 12f)
         ai.clu.core.stt.WhisperModels.all.forEach { m -> card { whisperCard(m) } }
         ttsSection()
         h1("Voice packs")
@@ -216,15 +239,7 @@ class VoiceActivity : BaseActivity() {
         p(if (installed) "Installed · ${fmtBytes(app.packs.sizeOnDisk(pack))}" else "Not installed · download ${fmtBytes(pack.bytes)}", if (installed) C.OK else C.MUTED, 12f)
         val prog = p("", C.MUTED, 12f)
         row {
-            if (!installed) smallButton("Download ${fmtBytes(pack.bytes)}") {
-                core.network.check(ai.clu.core.tools.NetCategory.DOWNLOADS)?.let { toast(it); return@smallButton }
-                confirm("Download ${fmtBytes(pack.bytes)}?", "${pack.title}\nFrom the sherpa-onnx releases on GitHub. Verified by SHA-256 before use.", "Download") {
-                    scope.launch {
-                        val r = app.packs.download(pack) { d, t -> launch(Dispatchers.Main) { prog.text = "${fmtBytes(d)} / ${fmtBytes(t)}" } }
-                        r.onSuccess { app.sherpa.releaseAll(); toast("${pack.title} installed."); build() }.onFailure { toast("Download failed: ${it.message}") }
-                    }
-                }
-            }
+            if (!installed) smallButton("Download ${fmtBytes(pack.bytes)}") { downloadPack(pack, prog) }
             smallButton("Import file…") { pendingImport = pack; startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), 7) }
             if (installed) smallButton("Remove") { confirm("Remove ${pack.title}?", "") { app.sherpa.releaseAll(); app.packs.remove(pack); build() } }
         }
@@ -246,6 +261,12 @@ class VoiceActivity : BaseActivity() {
             p("Languages spoken now: ${plan.languages.ifEmpty { listOf("none") }.joinToString()}", C.MUTED, 12f)
             if (st.lastSpoke.isNotBlank()) p("Last phrase spoken by: ${st.lastSpoke}", C.MUTED, 12f)
             (plan.problem ?: st.lastError)?.let { p("⚠ $it", C.WARN, 13f) }
+            // The selected voice is missing: the fix is one tap away (no other voice is used meanwhile).
+            if (plan.engine == ai.clu.core.voice.TtsSelection.PIPER && plan.english == null) VoicePacks.byId(c.piperVoice)?.let { pack ->
+                button("Download ${pack.title.substringBefore(" (")} – ${fmtBytes(pack.bytes)}", primary = true) { downloadPack(pack, null) }
+            }
+            if (plan.hindi == null && c.hindiVoice == "pratham" && !app.packs.isInstalled(VoicePacks.TTS_HI_PRATHAM))
+                smallButton("Download Hindi voice Pratham – ${fmtBytes(VoicePacks.TTS_HI_PRATHAM.bytes)}") { downloadPack(VoicePacks.TTS_HI_PRATHAM, null) }
             val status = p("", C.MUTED, 12f)
             row {
                 smallButton("TTS engine…") {
@@ -381,6 +402,20 @@ class VoiceActivity : BaseActivity() {
     }
 
     private var pendingImport: VoicePack? = null
+
+    /** Confirms size and source, downloads, verifies and installs [pack]; [prog] shows progress. */
+    private fun downloadPack(pack: VoicePack, prog: TextView?) {
+        core.network.check(ai.clu.core.tools.NetCategory.DOWNLOADS)?.let { toast(it); return }
+        val why = if (pack.id == core.settings.string(Settings.TTS_PIPER_VOICE)) "\nThis is the voice Clu is set to speak with." else ""
+        confirm("Download ${fmtBytes(pack.bytes)}?", "${pack.title}\nFrom the sherpa-onnx releases on GitHub. Verified by SHA-256 before use.$why", "Download") {
+            toast("Downloading ${pack.title}…")
+            scope.launch {
+                val r = app.packs.download(pack) { d, t -> launch(Dispatchers.Main) { prog?.text = "${fmtBytes(d)} / ${fmtBytes(t)}" } }
+                r.onSuccess { app.sherpa.releaseAll(); app.speech.refresh(cfg()); toast("${pack.title} installed."); build() }
+                    .onFailure { toast("Download failed: ${it.message}") }
+            }
+        }
+    }
 
     @Deprecated("framework API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

@@ -80,13 +80,14 @@ class VoiceSettingsTest {
         assertIs<SettingResult.Invalid>(s.set(Settings.OUTPUT_ROUTE, "bluetooth"))
     }
     @Test fun asrEngine() {
-        assertEquals("whisper", cfg().asrEngine)
+        assertEquals("clu", cfg().asrEngine)
         s.set(Settings.ASR_ENGINE, "android_ondevice"); assertEquals("android_ondevice", cfg().asrEngine)
     }
     @Test fun whisperModel() { assertEquals("whisper-small", cfg().whisperModel); s.set(Settings.WHISPER_MODEL, "whisper-base"); assertEquals("whisper-base", cfg().whisperModel) }
     @Test fun sttLanguage() {
         assertEquals("auto", cfg().sttLanguage)
         s.set(Settings.STT_LANGUAGE, "hi"); assertEquals("hi", cfg().sttLanguage)
+        s.set(Settings.STT_LANGUAGE, "mixed"); assertEquals("mixed", cfg().sttLanguage)
         assertIs<SettingResult.Invalid>(s.set(Settings.STT_LANGUAGE, "fr"))
     }
 
@@ -105,7 +106,8 @@ class VoiceSettingsTest {
     }
 
     @Test fun micMode() {
-        assertEquals(UiPolicy.MicBehavior.TAP_AUTO_STOP, UiPolicy.micBehavior(s))
+        assertEquals(UiPolicy.MicBehavior.CONVERSATION, UiPolicy.micBehavior(s), "default: a conversation keeps listening for follow-ups")
+        s.set(Settings.MIC_MODE, "tap"); assertEquals(UiPolicy.MicBehavior.TAP_AUTO_STOP, UiPolicy.micBehavior(s))
         s.set(Settings.MIC_MODE, "hold"); assertEquals(UiPolicy.MicBehavior.HOLD_TO_TALK, UiPolicy.micBehavior(s))
         s.set(Settings.MIC_MODE, "conversation"); assertEquals(UiPolicy.MicBehavior.CONVERSATION, UiPolicy.micBehavior(s))
     }

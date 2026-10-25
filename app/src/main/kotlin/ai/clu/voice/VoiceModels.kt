@@ -14,6 +14,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
+/** Silence appended when finalising a live-recogniser utterance (Kroko needs ~1.5 s to emit the last word). */
+const val ASR_TAIL_SEC = 1.5f
+
 /** A downloadable/importable model archive from the sherpa-onnx releases. */
 data class VoicePack(
     val id: String,
@@ -161,10 +164,18 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
         sileroVadModelConfig = SileroVadModelConfig(model = "models/vad/silero_vad.onnx", threshold = threshold, minSilenceDuration = minSilence,
             minSpeechDuration = 0.2f, windowSize = 512, maxSpeechDuration = 25f), sampleRate = 16000, numThreads = 1))
 
+    /** Human-readable name of the live English recogniser built into the APK. */
+    val asrModelName: String get() =
+        runCatching { assets.open("models/asr/MODEL.txt").bufferedReader().readText().trim() }.getOrDefault("built-in streaming model")
+
+    /**
+     * The live English recogniser (Kroko streaming zipformer, bundled). It looks ahead further than older models, so a
+     * finished utterance must be followed by [ASR_TAIL_SEC] of silence before the last word is emitted (measured).
+     */
     @Synchronized fun asr(): OnlineRecognizer = asrInst ?: OnlineRecognizer(assets, OnlineRecognizerConfig(
         featConfig = FeatureConfig(16000, 80),
-        modelConfig = OnlineModelConfig(transducer = OnlineTransducerModelConfig("models/asr/encoder.int8.onnx", "models/asr/decoder.int8.onnx",
-            "models/asr/joiner.int8.onnx"), tokens = "models/asr/tokens.txt", numThreads = 2, modelType = "zipformer"),
+        modelConfig = OnlineModelConfig(transducer = OnlineTransducerModelConfig("models/asr/encoder.onnx", "models/asr/decoder.onnx",
+            "models/asr/joiner.onnx"), tokens = "models/asr/tokens.txt", numThreads = 2, modelType = ""),
         enableEndpoint = false, decodingMethod = "greedy_search")).also { asrInst = it }
 
     @Synchronized fun kws(threshold: Float): KeywordSpotter {

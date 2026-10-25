@@ -65,7 +65,7 @@ data class VoiceConfig(
             incremental = s.bool(Settings.INCREMENTAL_TTS),
             bargeIn = s.bool(Settings.BARGE_IN),
             outputRoute = s.string(Settings.OUTPUT_ROUTE),
-            asrEngine = s.string(Settings.ASR_ENGINE),
+            asrEngine = AsrRouting.normaliseEngine(s.string(Settings.ASR_ENGINE)),
             whisperModel = s.string(Settings.WHISPER_MODEL),
             sttLanguage = s.string(Settings.STT_LANGUAGE),
             vadThreshold = vadThresholdFor(s.double(Settings.VAD_SENSITIVITY)),

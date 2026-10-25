@@ -70,6 +70,7 @@
         <activity android:name=".ui.PreferencesActivity" />
         <activity android:name=".ui.ToolHistoryActivity" />
         <activity android:name=".ui.DiagnosticsActivity" />
+        <activity android:name=".ui.SpeechDiagnosticsActivity" />
         <activity android:name=".CrashReportActivity" />
 
         <service android:name=".voice.ListeningService" android:exported="false" android:foregroundServiceType="microphone" />

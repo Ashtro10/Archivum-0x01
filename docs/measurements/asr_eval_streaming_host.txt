@@ -1,0 +1,148 @@
+done zip0621
+done kroko
+done zip0626
+kroko          app1.0  ALL                WER  13.2%  n=629  rtf=0.139
+kroko          app1.0  accent:Indian      WER  17.0%  n=276  rtf=0.137
+kroko          app1.0  accent:Scottish    WER  16.1%  n=69   rtf=0.147
+kroko          app1.0  accent:US          WER   8.9%  n=215  rtf=0.139
+kroko          app1.0  accent:US female   WER  12.5%  n=69   rtf=0.141
+kroko          app1.0  clean              WER  12.7%  n=207  rtf=0.143
+kroko          app1.0  kind:command       WER  11.6%  n=135  rtf=0.126
+kroko          app1.0  kind:name          WER  39.9%  n=108  rtf=0.143
+kroko          app1.0  kind:number        WER  10.1%  n=108  rtf=0.131
+kroko          app1.0  kind:real          WER   4.5%  n=8    rtf=0.097
+kroko          app1.0  kind:sentence      WER   3.4%  n=54   rtf=0.116
+kroko          app1.0  kind:word          WER  23.6%  n=216  rtf=0.158
+kroko          app1.0  noise10            WER  13.3%  n=207  rtf=0.145
+kroko          app1.0  quiet              WER  16.5%  n=207  rtf=0.133
+kroko          app1.0  real               WER   4.5%  n=8    rtf=0.097
+kroko          full    ALL                WER  13.0%  n=629  rtf=0.128
+kroko          full    accent:Indian      WER  17.0%  n=276  rtf=0.128
+kroko          full    accent:Scottish    WER  13.9%  n=69   rtf=0.140
+kroko          full    accent:US          WER   9.0%  n=215  rtf=0.124
+kroko          full    accent:US female   WER  11.7%  n=69   rtf=0.130
+kroko          full    clean              WER  12.5%  n=207  rtf=0.130
+kroko          full    kind:command       WER  11.7%  n=135  rtf=0.113
+kroko          full    kind:name          WER  38.7%  n=108  rtf=0.121
+kroko          full    kind:number        WER  10.1%  n=108  rtf=0.116
+kroko          full    kind:real          WER   4.5%  n=8    rtf=0.084
+kroko          full    kind:sentence      WER   3.2%  n=54   rtf=0.101
+kroko          full    kind:word          WER  22.7%  n=216  rtf=0.157
+kroko          full    noise10            WER  13.3%  n=207  rtf=0.128
+kroko          full    quiet              WER  16.0%  n=207  rtf=0.130
+kroko          full    real               WER   4.5%  n=8    rtf=0.084
+kroko          masked  ALL                WER  14.1%  n=621  rtf=0.115
+kroko          masked  accent:Indian      WER  16.6%  n=276  rtf=0.113
+kroko          masked  accent:Scottish    WER  17.9%  n=69   rtf=0.122
+kroko          masked  accent:US          WER   9.9%  n=207  rtf=0.114
+kroko          masked  accent:US female   WER  13.2%  n=69   rtf=0.117
+kroko          masked  clean              WER  12.5%  n=207  rtf=0.117
+kroko          masked  kind:command       WER   9.5%  n=135  rtf=0.119
+kroko          masked  kind:name          WER  43.0%  n=108  rtf=0.114
+kroko          masked  kind:number        WER   9.5%  n=108  rtf=0.105
+kroko          masked  kind:sentence      WER   2.6%  n=54   rtf=0.103
+kroko          masked  kind:word          WER  28.2%  n=216  rtf=0.120
+kroko          masked  noise10            WER  12.8%  n=207  rtf=0.119
+kroko          masked  quiet              WER  17.1%  n=207  rtf=0.108
+zip0621        app1.0  ALL                WER  30.5%  n=629  rtf=0.260
+zip0621        app1.0  accent:Indian      WER  34.9%  n=276  rtf=0.241
+zip0621        app1.0  accent:Scottish    WER  45.4%  n=69   rtf=0.242
+zip0621        app1.0  accent:US          WER  22.4%  n=215  rtf=0.284
+zip0621        app1.0  accent:US female   WER  30.0%  n=69   rtf=0.281
+zip0621        app1.0  clean              WER  21.0%  n=207  rtf=0.259
+zip0621        app1.0  kind:command       WER  41.0%  n=135  rtf=0.247
+zip0621        app1.0  kind:name          WER  47.9%  n=108  rtf=0.252
+zip0621        app1.0  kind:number        WER  34.4%  n=108  rtf=0.275
+zip0621        app1.0  kind:real          WER   1.5%  n=8    rtf=0.190
+zip0621        app1.0  kind:sentence      WER  10.5%  n=54   rtf=0.232
+zip0621        app1.0  kind:word          WER  54.6%  n=216  rtf=0.275
+zip0621        app1.0  noise10            WER  23.7%  n=207  rtf=0.269
+zip0621        app1.0  quiet              WER  56.2%  n=207  rtf=0.254
+zip0621        app1.0  real               WER   1.5%  n=8    rtf=0.190
+zip0621        full    ALL                WER  30.1%  n=629  rtf=0.255
+zip0621        full    accent:Indian      WER  34.5%  n=276  rtf=0.238
+zip0621        full    accent:Scottish    WER  45.4%  n=69   rtf=0.250
+zip0621        full    accent:US          WER  22.3%  n=215  rtf=0.267
+zip0621        full    accent:US female   WER  28.6%  n=69   rtf=0.292
+zip0621        full    clean              WER  21.1%  n=207  rtf=0.260
+zip0621        full    kind:command       WER  40.3%  n=135  rtf=0.231
+zip0621        full    kind:name          WER  48.1%  n=108  rtf=0.250
+zip0621        full    kind:number        WER  32.6%  n=108  rtf=0.258
+zip0621        full    kind:real          WER   1.5%  n=8    rtf=0.177
+zip0621        full    kind:sentence      WER  11.7%  n=54   rtf=0.226
+zip0621        full    kind:word          WER  52.8%  n=216  rtf=0.282
+zip0621        full    noise10            WER  22.8%  n=207  rtf=0.260
+zip0621        full    quiet              WER  55.7%  n=207  rtf=0.249
+zip0621        full    real               WER   1.5%  n=8    rtf=0.177
+zip0621        masked  ALL                WER  36.0%  n=621  rtf=0.221
+zip0621        masked  accent:Indian      WER  37.3%  n=276  rtf=0.205
+zip0621        masked  accent:Scottish    WER  45.1%  n=69   rtf=0.212
+zip0621        masked  accent:US          WER  33.1%  n=207  rtf=0.239
+zip0621        masked  accent:US female   WER  30.4%  n=69   rtf=0.239
+zip0621        masked  clean              WER  22.6%  n=207  rtf=0.230
+zip0621        masked  kind:command       WER  41.3%  n=135  rtf=0.212
+zip0621        masked  kind:name          WER  50.1%  n=108  rtf=0.214
+zip0621        masked  kind:number        WER  38.1%  n=108  rtf=0.238
+zip0621        masked  kind:sentence      WER  13.1%  n=54   rtf=0.206
+zip0621        masked  kind:word          WER  59.3%  n=216  rtf=0.225
+zip0621        masked  noise10            WER  24.4%  n=207  rtf=0.222
+zip0621        masked  quiet              WER  60.9%  n=207  rtf=0.210
+zip0626        app1.0  ALL                WER  41.6%  n=629  rtf=0.256
+zip0626        app1.0  accent:Indian      WER  47.5%  n=276  rtf=0.259
+zip0626        app1.0  accent:Scottish    WER  53.5%  n=69   rtf=0.249
+zip0626        app1.0  accent:US          WER  33.5%  n=215  rtf=0.252
+zip0626        app1.0  accent:US female   WER  37.7%  n=69   rtf=0.260
+zip0626        app1.0  clean              WER  28.3%  n=207  rtf=0.264
+zip0626        app1.0  kind:command       WER  47.7%  n=135  rtf=0.242
+zip0626        app1.0  kind:name          WER  61.8%  n=108  rtf=0.259
+zip0626        app1.0  kind:number        WER  50.8%  n=108  rtf=0.248
+zip0626        app1.0  kind:real          WER   0.0%  n=8    rtf=0.218
+zip0626        app1.0  kind:sentence      WER  26.9%  n=54   rtf=0.240
+zip0626        app1.0  kind:word          WER  60.2%  n=216  rtf=0.271
+zip0626        app1.0  noise10            WER  31.5%  n=207  rtf=0.264
+zip0626        app1.0  quiet              WER  78.3%  n=207  rtf=0.240
+zip0626        app1.0  real               WER   0.0%  n=8    rtf=0.218
+zip0626        full    ALL                WER  41.8%  n=629  rtf=0.248
+zip0626        full    accent:Indian      WER  48.5%  n=276  rtf=0.254
+zip0626        full    accent:Scottish    WER  53.1%  n=69   rtf=0.250
+zip0626        full    accent:US          WER  33.1%  n=215  rtf=0.237
+zip0626        full    accent:US female   WER  38.1%  n=69   rtf=0.250
+zip0626        full    clean              WER  28.7%  n=207  rtf=0.252
+zip0626        full    kind:command       WER  47.0%  n=135  rtf=0.227
+zip0626        full    kind:name          WER  63.5%  n=108  rtf=0.243
+zip0626        full    kind:number        WER  50.6%  n=108  rtf=0.238
+zip0626        full    kind:real          WER   0.0%  n=8    rtf=0.226
+zip0626        full    kind:sentence      WER  26.4%  n=54   rtf=0.227
+zip0626        full    kind:word          WER  64.4%  n=216  rtf=0.274
+zip0626        full    noise10            WER  30.3%  n=207  rtf=0.250
+zip0626        full    quiet              WER  79.9%  n=207  rtf=0.242
+zip0626        full    real               WER   0.0%  n=8    rtf=0.226
+zip0626        masked  ALL                WER  45.5%  n=621  rtf=0.218
+zip0626        masked  accent:Indian      WER  46.3%  n=276  rtf=0.222
+zip0626        masked  accent:Scottish    WER  49.5%  n=69   rtf=0.218
+zip0626        masked  accent:US          WER  43.3%  n=207  rtf=0.211
+zip0626        masked  accent:US female   WER  45.1%  n=69   rtf=0.219
+zip0626        masked  clean              WER  29.5%  n=207  rtf=0.227
+zip0626        masked  kind:command       WER  47.3%  n=135  rtf=0.212
+zip0626        masked  kind:name          WER  61.3%  n=108  rtf=0.217
+zip0626        masked  kind:number        WER  49.6%  n=108  rtf=0.215
+zip0626        masked  kind:sentence      WER  25.2%  n=54   rtf=0.220
+zip0626        masked  kind:word          WER  65.3%  n=216  rtf=0.222
+zip0626        masked  noise10            WER  34.3%  n=207  rtf=0.229
+zip0626        masked  quiet              WER  72.8%  n=207  rtf=0.197
+FINALISE kroko          app1.0  p50 97 ms  p90 183 ms
+FINALISE kroko          masked  p50 87 ms  p90 150 ms
+FINALISE zip0621        app1.0  p50 71 ms  p90 130 ms
+FINALISE zip0621        masked  p50 77 ms  p90 126 ms
+FINALISE zip0626        app1.0  p50 79 ms  p90 128 ms
+FINALISE zip0626        masked  p50 80 ms  p90 125 ms
+VAD ONSET DELAY p50 360 ms p90 510 ms max 810 ms (n=1833)
+APPLE kroko          app1.0  27/27 correct; wrong: []
+APPLE kroko          full    27/27 correct; wrong: []
+APPLE kroko          masked  27/27 correct; wrong: []
+APPLE zip0621        app1.0  20/27 correct; wrong: ['', 'ATHEL']
+APPLE zip0621        full    20/27 correct; wrong: ['', 'ATHEL']
+APPLE zip0621        masked  18/27 correct; wrong: ['', 'EPEL', 'EPPEL']
+APPLE zip0626        app1.0  14/27 correct; wrong: ['', 'ATHOL', 'I PULLED', 'UP ALL', 'UPHOLE']
+APPLE zip0626        full    14/27 correct; wrong: ['', 'APPLES', 'ATHOL', 'I PULLED', 'UP ALL', 'UPHOLE']
+APPLE zip0626        masked  14/27 correct; wrong: ['', 'APPLES', 'ATHEL', 'CHAPEL', 'EPO', 'UPHOLE']

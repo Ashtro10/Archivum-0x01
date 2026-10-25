@@ -25,6 +25,8 @@ data class VoiceUiState(
     val error: String = "",
     val info: String = "",
     val lastLatency: Map<String, Double> = emptyMap(),
+    /** Current microphone level (dBFS), for the voice-mode orb. */
+    val levelDb: Double = -90.0,
 )
 
 /**
@@ -49,9 +51,14 @@ class VoiceSession(private val app: CluApp) {
     /** Set by hold-to-talk release: finish the current utterance immediately. */
     @Volatile private var forceEnd = false
     @Volatile private var stopAfterReply = false
+    /** The last utterances (text, timing, levels) and the audio of the latest one; memory only. */
+    val asrLog = AsrLog()
 
     /** Hold-to-talk: user released the button. */
     fun endUtteranceNow() { forceEnd = true; stopAfterReply = true }
+
+    /** Voice-mode mic tapped while listening: "I'm done", answer now without waiting for the end-of-speech pause. */
+    fun endUtteranceSoon() { forceEnd = true }
 
     init {
         scope.launch {
@@ -71,6 +78,7 @@ class VoiceSession(private val app: CluApp) {
     fun start(wakeMode: Boolean) {
         if (running.get()) { if (!wakeMode) activate(); return }
         this.wakeMode = wakeMode
+        activatedAt = System.currentTimeMillis()
         running.set(true)
         if (cfg.outputRoute == "communication") { app.callAudio.enter(); out.route = "communication"; callAudioHeld = true }
         turn.start(wakeMode)
@@ -96,7 +104,9 @@ class VoiceSession(private val app: CluApp) {
     private fun onReplyPlayed() {
         if (turn.state == TurnState.SPEAKING || turn.state == TurnState.PROCESSING) {
             turn.onResponseComplete(); publish()
-            if (stopAfterReply && !wakeMode) { stopAfterReply = false; scope.launch { stop() } }
+            // "One question" listening mode (or hold-to-talk): the microphone closes after the reply.
+            val oneShot = core.settings.string(Settings.MIC_MODE) == "tap"
+            if ((stopAfterReply || oneShot) && !wakeMode) { stopAfterReply = false; scope.launch { stop() } }
         }
     }
 
@@ -114,6 +124,8 @@ class VoiceSession(private val app: CluApp) {
     fun startOfflineAfterFallback() { handingOver = false; start(wakeMode = false) }
 
     @Volatile private var handingOver = false
+    /** When the microphone session was opened or (re)activated: pre-roll never reaches back before this. */
+    @Volatile private var activatedAt = 0L
 
     private fun onActivated(spokenAck: Boolean = true) {
         // LiveKit mode: acknowledge, release the microphone and let the LiveKit session take the conversation.
@@ -126,6 +138,7 @@ class VoiceSession(private val app: CluApp) {
             return
         }
         if (core.settings.string(Settings.VOICE_MODE) == "livekit") core.diag.i("voice", "offline conversation: ${path.reason}")
+        activatedAt = System.currentTimeMillis()
         val actions = turn.onActivated()
         if (TurnAction.StopPlayback in actions) { out.stop(); core.agent.cancel() }
         if (spokenAck || turn.state == TurnState.LISTENING) {
@@ -148,7 +161,12 @@ class VoiceSession(private val app: CluApp) {
             running.set(false); publish { it.copy(error = e.message ?: "microphone error") }; return
         }
         publish { it.copy(error = "", info = "Mic effects: ${capture.effectsInfo}") }
+        // The VAD waits for the configured end-of-speech pause before reporting silence (default 800 ms: tolerates
+        // 0.7 s thinking pauses, measured); the Endpointer turns its decisions into turn start/end events.
         val vad = engines.vad(c.vadThreshold, c.minSilenceSec)
+        val endpointer = Endpointer()
+        var maskedUntil = 0L      // Clu's own spoken words (spoken acknowledgement) are not the owner's speech
+        val stats = UtteranceStats()
         val noise = NoiseEstimator(frameMs = FRAME_MS)
         val bargeIn = BargeInDetector(minSpeechMs = 180, marginDb = if (cfg.outputRoute == "communication") 6.0 else 10.0)
         var lastPartialPublish = 0L
@@ -163,25 +181,35 @@ class VoiceSession(private val app: CluApp) {
         var speechActive = false
         var speechStartAt = 0L
         var lastNoisePublish = 0L
+        var lastLevelPublish = 0L
         var asrMatchBuffer = ArrayList<FloatArray>()
-        // Whisper (when selected and installed); otherwise the built-in streaming recogniser does the final transcript.
-        val whisperModel = if (c.asrEngine == "whisper") app.whisper.model(c.whisperModel)?.takeIf { app.whisper.isInstalled(it) } else null
-        if (c.asrEngine == "whisper") {
-            if (whisperModel != null) app.whisper.warmUp(whisperModel)
-            else publish { it.copy(info = it.info + " · Whisper model not installed – using the built-in English recogniser (Voice → Whisper)") }
+        // Final transcripts: the live English recogniser, or Whisper for Hindi / mixed / automatic (AsrRouting).
+        val whisperModel = app.whisper.model(c.whisperModel)?.takeIf { app.whisper.isInstalled(it) }
+        AsrRouting.plan(c.sttLanguage, whisperModel != null).let { r ->
+            if (r.whisperLanguage != null && whisperModel != null) app.whisper.warmUp(whisperModel)
+            r.note?.let { n -> publish { it.copy(info = it.info + " · " + n) } }
         }
         val transcripts = java.util.concurrent.ConcurrentLinkedQueue<Transcript>()
+
+        /** Audio from before the VAD fired: up to [preRollSec], but never from before the mic opened or Clu's own words. */
+        fun preRoll(preRollSec: Double): FloatArray {
+            val sinceOpen = ((System.currentTimeMillis() - maxOf(activatedAt, maskedUntil)) * SAMPLE_RATE / 1000).coerceAtLeast(0)
+            return ring.last(minOf((SAMPLE_RATE * preRollSec).toLong(), sinceOpen).toInt())
+        }
 
         fun newAsrStream(preRollSec: Double): OnlineStream {
             val asr = engines.asr()
             val s = asr.createStream()
-            // This streaming model needs ~1 s of context before speech (measured); prime with silence + real pre-roll.
+            // Prime with silence (stable features), then the real pre-roll: the VAD fires ~0.25-0.45 s after the first
+            // sound (measured), so 1 s of pre-roll keeps the first syllable ("A-pple").
             s.acceptWaveform(FloatArray(SAMPLE_RATE), SAMPLE_RATE)
-            if (preRollSec > 0) s.acceptWaveform(ring.last((SAMPLE_RATE * preRollSec).toInt()), SAMPLE_RATE)
+            if (preRollSec > 0) preRoll(preRollSec).takeIf { it.isNotEmpty() }?.let { s.acceptWaveform(it, SAMPLE_RATE) }
             return s
         }
 
-        fun handleTranscript(text: String, audio: FloatArray, tEnd: Long, asrMs: Double) {
+        fun handleTranscript(text: String, audio: FloatArray, tEnd: Long, asrMs: Double, engine: String, language: String) {
+            asrLog.add(stats.record(engine, language, text, asrMs.toLong(), capture.effectsInfo, if (text.isBlank()) "nothing recognised" else ""), audio)
+            core.diag.perf("asr_end_to_text_ms", stats.endSilenceMs + asrMs, engine)
             if (text.isBlank()) { if (turn.state == TurnState.LISTENING && asrStream == null) asrStream = newAsrStream(0.0); return }
             val speakerId = identifySpeaker(audio)
             publish { it.copy(lastHeard = text, partial = "") }
@@ -196,36 +224,39 @@ class VoiceSession(private val app: CluApp) {
             val s = asrStream ?: return
             val asr = engines.asr()
             val tEnd = System.currentTimeMillis()
-            if (whisperModel != null) {
+            val route = AsrRouting.plan(cfg.sttLanguage, whisperModel != null)
+            val whisperLang = route.whisperLanguage
+            if (whisperModel != null && whisperLang != null) {
                 // Whisper transcribes the whole utterance on its own worker (capture keeps running). The streaming
                 // recogniser's text (live partials) is the fallback if Whisper fails.
                 val partialText = asr.getResult(s).text.trim().lowercase()
                 s.release(); asrStream = null
                 publish { it.copy(partial = "…") }
                 val padded = audio.copyOf(audio.size + SAMPLE_RATE * 3 / 10)
-                app.whisper.transcribe(whisperModel, padded, cfg.sttLanguage, threads = 4) { r ->
+                app.whisper.transcribe(whisperModel, padded, whisperLang, threads = 4) { r ->
                     val ms = (System.currentTimeMillis() - tEnd).toDouble()
                     if (r != null) {
                         core.diag.perf("whisper_ms", ms, "${whisperModel.id} ${r.language} ${"%.1f".format(audio.size / 16000.0)}s${if (r.retried) " retried" else ""}")
                         core.diag.perf("whisper_encode_ms", r.encodeMs, whisperModel.id)
                     } else core.diag.w("voice", "Whisper failed; using the streaming recogniser's text")
-                    transcripts.add(Transcript(r?.text?.lowercase() ?: partialText, audio, tEnd, ms))
+                    transcripts.add(Transcript(r?.text?.lowercase() ?: partialText, audio, tEnd, ms,
+                        if (r != null) "Whisper ${whisperModel.id}" else "live English (Whisper failed)", r?.language?.ifBlank { null } ?: whisperLang))
                 }
                 return
             }
-            s.acceptWaveform(FloatArray((SAMPLE_RATE * 0.5).toInt()), SAMPLE_RATE)
+            s.acceptWaveform(FloatArray((SAMPLE_RATE * ASR_TAIL_SEC).toInt()), SAMPLE_RATE)
             s.inputFinished()
             while (asr.isReady(s)) asr.decode(s)
             val text = asr.getResult(s).text.trim().lowercase()
             s.release(); asrStream = null
             val asrMs = (System.currentTimeMillis() - tEnd).toDouble()
             core.diag.perf("asr_finalize_ms", asrMs)
-            handleTranscript(text, audio, tEnd, asrMs)
+            handleTranscript(text, audio, tEnd, asrMs, "live English (${engines.asrModelName})", "en")
         }
 
         try {
             while (running.get()) {
-                if (turn.state == TurnState.LISTENING && cfg.asrEngine != "sherpa" && cfg.asrEngine != "whisper") {
+                if (turn.state == TurnState.LISTENING && cfg.asrEngine != "clu") {
                     // Android recognizers own the microphone while they run.
                     capture.stop()
                     val tStart = System.currentTimeMillis()
@@ -249,22 +280,29 @@ class VoiceSession(private val app: CluApp) {
                     continue
                 }
                 val frame = capture.read() ?: break
-                while (true) { val t = transcripts.poll() ?: break; handleTranscript(t.text, t.audio, t.tEnd, t.asrMs) }
+                while (true) { val t = transcripts.poll() ?: break; handleTranscript(t.text, t.audio, t.tEnd, t.asrMs, t.engine, t.language) }
                 ring.add(frame)
                 vad.acceptWaveform(frame)
-                // While Clu's own acknowledgement/greeting plays in LISTENING state, don't treat it as the owner speaking.
-                val isSpeech = vad.isSpeechDetected() && !(out.busy && turn.state == TurnState.LISTENING)
+                // Only Clu's own spoken words in LISTENING (spoken acknowledgement, greeting) are masked. The activation
+                // tone is not: masking it used to swallow the first syllable of anyone who started talking right away.
+                val masked = out.speakingWords && turn.state == TurnState.LISTENING
+                if (masked) maskedUntil = System.currentTimeMillis()
+                val isSpeech = vad.isSpeechDetected() && !masked
                 noise.addFrame(frame, isSpeech)
                 val env = cfg.policy.environment(noise.floorDb)
                 val now = System.currentTimeMillis()
                 if (now - lastNoisePublish > 500) { lastNoisePublish = now; publish { it.copy(noiseDb = noise.floorDb, environment = env) } }
+                if (now - lastLevelPublish > 90) { lastLevelPublish = now; val db = AudioMath.dbfs(AudioMath.rms(frame)); publish { it.copy(levelDb = db) } }
 
-                // Speech start/end bookkeeping (barge-in and utterance boundaries).
-                if (isSpeech && !speechActive) {
+                // Speech start/end bookkeeping (barge-in and utterance boundaries): the Endpointer tolerates pauses inside a
+                // sentence (longer after "and", "the", ...), so Clu does not answer half a sentence.
+                val ep = endpointer.onFrame(isSpeech, now)
+                if (ep is Endpointer.Event.Started && !speechActive) {
                     speechActive = true; speechStartAt = now
                     kwsSpeechOnset = (kwsFed + frame.size) / SAMPLE_RATE.toFloat() // same convention as the measurements
-                    if (turn.state == TurnState.LISTENING && asrStream == null) asrStream = newAsrStream(0.4)
-                    if (turn.state == TurnState.LISTENING && utterance.isEmpty()) utterance += ring.last(SAMPLE_RATE * 3 / 10) // onset pre-roll
+                    if (turn.state == TurnState.LISTENING && asrStream == null) asrStream = newAsrStream(PRE_ROLL_SEC)
+                    if (turn.state == TurnState.LISTENING && utterance.isEmpty()) utterance += preRoll(PRE_ROLL_SEC)
+                    stats.start(now, utterance.sumOf { it.size })
                 }
                 // Barge-in: no wake word needed. The detector ignores Clu's own voice leaking into the microphone (level
                 // relative to the echo floor measured during playback) and needs ~180 ms of real speech.
@@ -273,9 +311,12 @@ class VoiceSession(private val app: CluApp) {
                         for (a in turn.onSpeechStarted()) if (a == TurnAction.StopPlayback) {
                             out.stop(); core.agent.cancel(); agentJob?.cancel()
                             core.diag.perf("barge_in_detect_ms", (now - speechStartAt).toDouble())
-                            asrStream = newAsrStream(0.6)
-                            utterance.clear(); utterance += ring.last((SAMPLE_RATE * 0.6).toInt())
+                            activatedAt = now - 1000 // the owner's words just before the barge-in decision are wanted
+                            asrStream = newAsrStream(0.8)
+                            utterance.clear(); utterance += preRoll(0.8)
                             speechActive = true
+                            if (!endpointer.inSpeech) endpointer.onFrame(true, now)
+                            stats.start(now, utterance.sumOf { it.size })
                             publish()
                         }
                     }
@@ -331,31 +372,36 @@ class VoiceSession(private val app: CluApp) {
                             while (asr.isReady(s)) asr.decode(s)
                             if (speechActive) {
                                 utterance += frame
-                                if (now - lastPartialPublish > 150) { lastPartialPublish = now; publish { it.copy(partial = asr.getResult(s).text.lowercase()) } }
+                                stats.frame(frame)
+                                if (now - lastPartialPublish > 150) { lastPartialPublish = now; val pt = asr.getResult(s).text.lowercase(); publish { it.copy(partial = pt) } }
                             }
                         }
                         for (a in turn.tick()) if (a == TurnAction.SessionTimedOut) {
                             asrStream?.release(); asrStream = null
                             core.diag.i("voice", "follow-up window elapsed")
-                            if (!wakeMode && !cfg.wakeEnabled) running.set(false)
+                            // A session opened with the mic button closes the microphone when the follow-up window passes in
+                            // silence; only a wake-word session (Background listening) goes back to waiting for the wake word.
+                            if (!wakeMode) running.set(false)
                             publish()
                         }
                     }
                     else -> {}
                 }
 
-                // Utterance end per VAD (min silence = configured end-of-speech pause), or hold-to-talk release.
+                // Utterance end per Endpointer (end-of-speech pause, longer after an unfinished phrase), or hold-to-talk release.
                 val forced = forceEnd && turn.state == TurnState.LISTENING
-                if (forced) { forceEnd = false; if (asrStream != null) speechActive = true }
-                if (speechActive && (!isSpeech || forced)) {
+                if (forced) { forceEnd = false; if (asrStream != null) speechActive = true; endpointer.forceEnd() }
+                if (speechActive && (ep is Endpointer.Event.Ended || forced)) {
                     speechActive = false
+                    endpointer.reset()
                     while (!vad.empty()) vad.pop()
                     if (turn.state == TurnState.LISTENING && asrStream != null) {
                         val audio = utterance.flatMap { it.asIterable() }.toFloatArray(); utterance.clear()
+                        stats.end(now, if (forced) 0 else (cfg.minSilenceSec * 1000).toLong(), audio)
                         finishUtterance(audio)
                     } else if (turn.state == TurnState.WAITING_FOR_WAKE && cfg.wakeEngine == "asr" && asrMatchBuffer.isNotEmpty()) {
                         val seg = asrMatchBuffer.flatMap { it.asIterable() }.toFloatArray(); asrMatchBuffer = ArrayList()
-                        val s = newAsrStream(0.3); s.acceptWaveform(seg, SAMPLE_RATE); s.acceptWaveform(FloatArray(8000), SAMPLE_RATE); s.inputFinished()
+                        val s = newAsrStream(0.3); s.acceptWaveform(seg, SAMPLE_RATE); s.acceptWaveform(FloatArray((SAMPLE_RATE * ASR_TAIL_SEC).toInt()), SAMPLE_RATE); s.inputFinished()
                         val asr = engines.asr(); while (asr.isReady(s)) asr.decode(s)
                         val heard = asr.getResult(s).text; s.release()
                         WakePhraseMatcher.match(heard, cfg.policy.allowedWords(env), cfg.wakeThreshold)?.let { m ->
@@ -483,16 +529,19 @@ class VoiceSession(private val app: CluApp) {
             val asr = engines.asr(); val s = asr.createStream()
             s.acceptWaveform(FloatArray(SAMPLE_RATE), SAMPLE_RATE)
             repeat(seconds * 10) { cap.read()?.let { f -> s.acceptWaveform(f, SAMPLE_RATE); while (asr.isReady(s)) asr.decode(s) } }
-            s.acceptWaveform(FloatArray(8000), SAMPLE_RATE); s.inputFinished(); while (asr.isReady(s)) asr.decode(s)
+            s.acceptWaveform(FloatArray((SAMPLE_RATE * ASR_TAIL_SEC).toInt()), SAMPLE_RATE); s.inputFinished(); while (asr.isReady(s)) asr.decode(s)
             asr.getResult(s).text.trim().lowercase().also { s.release() }
         } finally { cap.stop(); if (wasRunning) start(wm) }
     }
 
-    private class Transcript(val text: String, val audio: FloatArray, val tEnd: Long, val asrMs: Double)
+    private class Transcript(val text: String, val audio: FloatArray, val tEnd: Long, val asrMs: Double, val engine: String, val language: String)
 
     companion object {
         const val UNKNOWN = "__unknown__"
         /** Capture frame: short so barge-in and end of speech are noticed quickly (VAD works in 32 ms windows). */
         const val FRAME_MS = 30
+        /** Audio kept from before the VAD fired (VAD onset delay measured at ~0.25-0.45 s; see docs/SPEECH_RECOGNITION.md). */
+        const val PRE_ROLL_SEC = 1.0
+
     }
 }

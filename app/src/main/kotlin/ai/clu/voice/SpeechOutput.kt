@@ -221,6 +221,13 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
     private class Announcement(val text: String?, val tone: Boolean, val cfg: VoiceConfig, val onFirstAudio: (() -> Unit)?)
     private val queue = ArrayDeque<Announcement>()
     private var announcing: StreamingSpeech.Response? = null
+    @Volatile private var announcingWords = false
+
+    /**
+     * True while Clu is saying words outside a reply turn (spoken acknowledgement, greeting, proactive message). The
+     * voice session ignores the microphone then; a plain tone is not words and does not mask the owner's speech.
+     */
+    val speakingWords: Boolean get() = announcingWords && announcing?.let { !it.done } == true
 
     /** Speaks a complete text (greeting, acknowledgement, proactive message) after any announcement already playing. */
     fun speak(text: String, cfg: VoiceConfig, onFirstAudio: (() -> Unit)? = null) = enqueue(Announcement(text, false, cfg, onFirstAudio))
@@ -238,6 +245,7 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
         val r = begin(a.cfg, null) {}
         r.onFirstAudio = a.onFirstAudio
         announcing = r
+        announcingWords = !a.tone
         if (a.tone) { r.sound(Tones.ack(), 22_050); r.finish() } else r.say(a.text!!)
         r.completion.invokeOnCompletion { synchronized(this) { if (announcing === r && !r.cancelled) next() } }
     }

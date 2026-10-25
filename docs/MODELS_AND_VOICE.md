@@ -66,3 +66,6 @@ All are optional downloads that start only after a confirmation showing the size
 | KittenTTS nano v0.8 int8 | 31.2 MB | `6fa5be85…3af2fd` | Apache-2.0 | ~116 Hz (expr-voice-3-m) |
 | Piper hi_IN Pratham (Hindi) | 67.2 MB | `2084d321…5648` | CC BY-NC-SA 4.0 | ~107 Hz |
 
+## Built-in live recogniser (repair build)
+Replaced `sherpa-onnx-streaming-zipformer-en-20M-2023-02-17` (dropped utterance onsets; 1/27 "Apple") with `sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06` (archive SHA-256 `c8676e5f…ade6834`, 71 MB in the APK, licence: huggingface.co/Banafo/Kroko-ASR). 13.2% vs 63.7% WER on Clu's test set; see SPEECH_RECOGNITION.md.
+

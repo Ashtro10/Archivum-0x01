@@ -157,16 +157,10 @@ class VoiceActivity : BaseActivity() {
         p("Selected engine: ${engine}. Whisper runs fully offline after a one-time model download. It transcribes when you stop speaking; " +
             "the built-in recogniser still shows live English text meanwhile.", C.MUTED, 12f)
         ai.clu.core.stt.WhisperModels.all.forEach { m -> card { whisperCard(m) } }
+        ttsSection()
         h1("Voice packs")
         VoicePacks.all.forEach { pack -> card { packCard(pack) } }
         h1("Test")
-        row {
-            smallButton("Speak test phrase") {
-                app.speech.speak("I am ${core.settings.string(Settings.CLU_NAME)}. Systems are nominal, and I am listening.", ai.clu.core.voice.VoiceConfig.from(core.settings))
-                toast("Engine: " + app.speech.backend(ai.clu.core.voice.VoiceConfig.from(core.settings)).id)
-            }
-            smallButton("Stop") { app.speech.stop() }
-        }
         row {
             smallButton(if (v.running) "Stop listening" else "Start conversation") { if (v.running) app.voice.stop() else if (app.hasMic()) app.voice.start(false) else toast("Grant microphone permission first (mic button in chat).") }
             smallButton("Test wake word") { if (app.hasMic()) { app.voice.start(true); toast("Say \"${core.settings.wakeWords().first { it.primary }.phrase}\".") } }
@@ -212,10 +206,6 @@ class VoiceActivity : BaseActivity() {
             (if (s.agentState.isNotBlank()) " · agent ${s.agentState}" else "") + (s.connectMs?.let { " · connected in $it ms" } ?: "") +
             (if (s.message.isNotBlank()) "\n${s.message}" else "") + (if (s.partial.isNotBlank()) "\nHearing: ${s.partial}" else "") +
             (if (s.lastHeard.isNotBlank()) "\nHeard: ${s.lastHeard}" else "") + (if (s.lastReply.isNotBlank()) "\nReplied: ${s.lastReply.take(160)}" else "") } }
-        h1("Android voices (for Android TTS)")
-        val voices = runCatching { app.speech.androidVoices() }.getOrDefault(emptyList())
-        if (voices.isEmpty()) p("No Android TTS voices reported yet (install/enable a TTS engine in system settings).")
-        else smallButton("Choose Android voice (${voices.size})") { choose("Voice", voices) { i -> core.settings.set(Settings.ANDROID_VOICE, voices[i]); toast("Selected ${voices[i]}") } }
         button("Voice settings") { startActivity(Intent(this@VoiceActivity, SettingsCategoryActivity::class.java).putExtra("cat", "VOICE")) }
         button("Wake words") { startActivity(Intent(this@VoiceActivity, WakeWordsActivity::class.java)) }
     }
@@ -239,6 +229,126 @@ class VoiceActivity : BaseActivity() {
             if (installed) smallButton("Remove") { confirm("Remove ${pack.title}?", "") { app.sherpa.releaseAll(); app.packs.remove(pack); build() } }
         }
         p("Offline install: download ${pack.url.substringAfterLast('/')} on any device and import it here.", C.MUTED, 11f)
+    }
+
+    private fun cfg() = ai.clu.core.voice.VoiceConfig.from(core.settings)
+
+    /** TTS engine, voices and measurements: everything shown here is what synthesis actually uses. */
+    private fun LinearLayout.ttsSection() {
+        h1("Speech output (TTS)")
+        val c = cfg()
+        val plan = app.speech.refresh(c)
+        val st = app.speech.status.value
+        card {
+            p("Engine: ${ai.clu.core.voice.TtsSelection.label(plan.engine)}", C.TEXT, 15f)
+            p("English voice: ${plan.english?.voice ?: "–"}", C.TEXT, 13f)
+            p("Hindi voice: ${plan.hindi?.voice ?: (plan.hindiNote ?: "–")}", if (plan.hindi != null) C.TEXT else C.WARN, 13f)
+            p("Languages spoken now: ${plan.languages.ifEmpty { listOf("none") }.joinToString()}", C.MUTED, 12f)
+            if (st.lastSpoke.isNotBlank()) p("Last phrase spoken by: ${st.lastSpoke}", C.MUTED, 12f)
+            (plan.problem ?: st.lastError)?.let { p("⚠ $it", C.WARN, 13f) }
+            val status = p("", C.MUTED, 12f)
+            row {
+                smallButton("TTS engine…") {
+                    val ids = listOf(ai.clu.core.voice.TtsSelection.PIPER, ai.clu.core.voice.TtsSelection.KITTEN, ai.clu.core.voice.TtsSelection.HAYAI, ai.clu.core.voice.TtsSelection.SYSTEM)
+                    val labels = ids.map { id ->
+                        val pl = ai.clu.core.voice.TtsSelection.plan(c.copy(ttsEngine = id), app.speech.facts())
+                        ai.clu.core.voice.TtsSelection.label(id) + if (pl.available) "" else "  – unavailable"
+                    }
+                    choose("TTS engine", labels) { i ->
+                        core.settings.set(Settings.TTS_ENGINE, ids[i])
+                        val pl = app.speech.refresh(cfg())
+                        if (!pl.available) toast("Selected, but unavailable: ${pl.problem}") else toast("Clu now speaks with ${ai.clu.core.voice.TtsSelection.label(ids[i])}.")
+                        build()
+                    }
+                }
+                smallButton("Voice…") { chooseVoice(plan) }
+                smallButton("Hindi voice…") {
+                    val ids = listOf("pratham", "engine", "off")
+                    val opts = (Settings["voice.hindiVoice"]!!.type as ai.clu.core.config.SettingType.Choice).options.associate { it }
+                    choose("Hindi voice", ids.map { opts[it] ?: it }) { i -> core.settings.set(Settings.TTS_HINDI_VOICE, ids[i]); build() }
+                }
+            }
+            row {
+                smallButton("Speak test") {
+                    app.speech.speak("I am ${core.settings.string(Settings.CLU_NAME)}. All systems are running normally, and I am listening.", cfg())
+                    if (plan.hindi != null) app.speech.speak("नमस्ते, मैं सुन रहा हूँ।", cfg())
+                    if (!plan.available) toast(plan.problem ?: "")
+                }
+                smallButton("Stop") { app.speech.stop() }
+                smallButton("Measure voice") {
+                    status.text = "Measuring on this device…"
+                    scope.launch(Dispatchers.Default) {
+                        val lines = listOf("en", "hi").filter { it == "en" || plan.hindi != null }.map { lang ->
+                            runCatching { app.speech.measureVoice(cfg(), lang) }.fold({ m ->
+                                "${if (lang == "hi") "Hindi" else "English"} – ${m.label}: first phrase ${m.firstPhraseMs} ms, RTF ${"%.2f".format(m.rtf)}, " +
+                                    "median pitch ${m.pitch?.let { "%.0f Hz (range %.1f semitones)".format(it.medianHz, it.spreadSemitones) } ?: "–"}"
+                            }, { "${lang}: ${it.message}" })
+                        }
+                        launch(Dispatchers.Main) { status.text = lines.joinToString("\n") + "\n(male voices: ~85-155 Hz; recorded in Diagnostics)" }
+                    }
+                }
+                smallButton("Streaming test") {
+                    status.text = "Playing a long reply and interrupting it after 4 s…"
+                    scope.launch {
+                        val m = app.speech.benchmarkStreaming(cfg())
+                        status.text = listOf("first_tts_to_first_audio_ms", "max_chunk_gap_ms", "interrupt_to_silence_ms", "cancel_complete_ms")
+                            .joinToString("\n") { k -> "$k: ${m[k]?.let { "%.0f".format(it) } ?: "–"}" } + "\n(recorded in Diagnostics as bench_*)"
+                    }
+                }
+            }
+        }
+        if (plan.engine == ai.clu.core.voice.TtsSelection.HAYAI) card {
+            val installed = ai.clu.core.voice.TtsSelection.HAYAI_PACKAGE in app.speech.facts().systemEngines
+            p(if (installed) "HayaiTTS is installed. Voices are downloaded inside HayaiTTS; then use Voice… → Find deepest voice." else
+                "HayaiTTS is not installed. It is a separate open-source app (GPL-3.0): github.com/HayaiApp/HayaiTTS/releases", if (installed) C.MUTED else C.WARN, 12f)
+            row {
+                if (!installed) smallButton("Open HayaiTTS releases") {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/HayaiApp/HayaiTTS/releases"))) }
+                } else smallButton("Manage HayaiTTS voices") {
+                    runCatching { startActivity(Intent("dev.ahmedmohamed.hayaitts.MANAGE_VOICES").setPackage(ai.clu.core.voice.TtsSelection.HAYAI_PACKAGE)) }
+                        .onFailure { runCatching { startActivity(packageManager.getLaunchIntentForPackage(ai.clu.core.voice.TtsSelection.HAYAI_PACKAGE)) } }
+                }
+            }
+        }
+    }
+
+    private fun chooseVoice(plan: ai.clu.core.voice.TtsSelection.TtsPlan) {
+        val T = ai.clu.core.voice.TtsSelection
+        when (plan.engine) {
+            T.PIPER -> {
+                val opts = (Settings["voice.piperVoice"]!!.type as ai.clu.core.config.SettingType.Choice).options
+                val installed = app.packs.installedIds()
+                choose("Piper English voice", opts.map { (id, label) -> label + if (id in installed) "" else "  (not installed – download below)" }) { i ->
+                    core.settings.set(Settings.TTS_PIPER_VOICE, opts[i].first)
+                    VoicePacks.byId(opts[i].first)?.defaultSpeaker?.let { core.settings.set(Settings.TTS_SPEAKER, it) }
+                    build()
+                }
+            }
+            T.KITTEN -> {
+                val opts = (Settings["voice.kittenSpeaker"]!!.type as ai.clu.core.config.SettingType.Choice).options
+                choose("KittenTTS voice", opts.map { it.second }) { i -> core.settings.set(Settings.TTS_KITTEN_SPEAKER, opts[i].first); build() }
+            }
+            else -> {
+                val pkg = plan.systemPackage ?: run { toast(plan.problem ?: "engine unavailable"); return }
+                val langs = listOf("en", "hi")
+                choose("Find the deepest installed voice", listOf("English voices", "Hindi voices", "Use the engine's default voices")) { i ->
+                    if (i == 2) { core.settings.set(Settings.ANDROID_VOICE, ""); core.settings.set(Settings.ANDROID_VOICE_HI, ""); build(); return@choose }
+                    val lang = langs[i]
+                    toast("Measuring the pitch of each installed ${if (lang == "hi") "Hindi" else "English"} voice…")
+                    scope.launch(Dispatchers.Default) {
+                        val r = runCatching { app.speech.rankSystemVoices(cfg(), pkg, lang) }
+                        launch(Dispatchers.Main) {
+                            r.onFailure { toast(it.message ?: "failed") }.onSuccess { ranked ->
+                                if (ranked.isEmpty()) { toast("No installed ${if (lang == "hi") "Hindi" else "English"} voices in this engine."); return@onSuccess }
+                                choose("Deepest first (median pitch)", ranked.map { (n, f0) -> "${f0?.let { "%.0f Hz".format(it) } ?: "?"}  $n" }) { k ->
+                                    core.settings.set(if (lang == "hi") Settings.ANDROID_VOICE_HI else Settings.ANDROID_VOICE, ranked[k].first); build()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun LinearLayout.whisperCard(m: ai.clu.core.stt.WhisperModel) {

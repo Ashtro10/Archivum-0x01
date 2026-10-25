@@ -68,8 +68,21 @@ class CluApp : Application() {
         if (core.settings.isDefault(Settings.DEVICE_NAME)) core.settings.set(Settings.DEVICE_NAME, platform.deviceName())
         packs = VoicePackManager(this, core.diag)
         sherpa = SherpaEngines(this, packs)
-        speech = SpeechOutput(this, sherpa, core.diag)
+        // Engine ids from earlier versions ("sherpa" = Piper, "android" = system engine) are rewritten once.
+        core.settings.string(Settings.TTS_ENGINE).let { e -> ai.clu.core.voice.TtsSelection.normalise(e).let { n -> if (n != e) core.settings.set(Settings.TTS_ENGINE, n) } }
+        speech = SpeechOutput(this, sherpa, packs, core.diag)
         callAudio = ai.clu.voice.CallAudio(this, core.diag)
+        // An unavailable or failing speech engine is shown to the owner (never replaced by another engine silently).
+        scope.launch {
+            var last: String? = null
+            speech.status.collect { st ->
+                val problem = st.lastError
+                if (problem != null && problem != last) launch(Dispatchers.Main) {
+                    android.widget.Toast.makeText(this@CluApp, "Clu cannot speak: $problem", android.widget.Toast.LENGTH_LONG).show()
+                }
+                last = problem
+            }
+        }
         whisper = ai.clu.voice.WhisperStt(this, core.diag)
         registerAndroidTools()
         voice = VoiceSession(this)

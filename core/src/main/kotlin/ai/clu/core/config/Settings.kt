@@ -127,19 +127,40 @@ object Settings {
         "Reply in text only (no spoken audio) during quiet hours.", "SpeechOutput", "TTS is skipped inside the quiet window", "PersonaSettingsTest#quietMuteSpeech")
 
     // ---------------------------------------------------------------- Voice
-    val TTS_ENGINE = choice("voice.ttsEngine", "Speech engine", VOICE, "sherpa",
-        listOf("sherpa" to "Clu voice (offline neural, sherpa-onnx/Piper)", "android" to "Android system TTS"),
-        "Which engine synthesises Clu's voice.", "SpeechOutput", "Selects the TTS backend", "VoiceSettingsTest#ttsEngine",
-        apply = ApplyMode.VOICE_RESTART, limits = "Clu voice requires the voice pack (downloaded or imported once). Falls back to Android TTS if missing.",
-        deviceOnly = true)
-    val TTS_SPEAKER = int("voice.sherpaSpeaker", "Clu voice speaker id", VOICE, 0, 0, 1000, "Speaker index for multi-speaker voice models.",
-        "SherpaTts", "Passed as the speaker id to the synthesiser", "VoiceSettingsTest#speaker", deviceOnly = true,
+    val TTS_ENGINE = choice("voice.ttsEngine", "TTS engine", VOICE, "piper",
+        listOf("piper" to "Piper – on-device (English + Hindi voices)", "kitten" to "KittenTTS nano – on-device (English only)",
+            "hayai" to "HayaiTTS – installed app (Android TTS service)", "system" to "Other Android TTS engine"),
+        "Which engine synthesises Clu's voice. The selection is used as-is: if the engine is not installed, Clu says so and stays silent instead of switching engines.",
+        "SpeechOutput, TtsSelection", "Selects the TTS backend used for every spoken phrase", "VoiceSettingsTest#ttsEngine",
+        limits = "Piper and KittenTTS need their voice files (downloaded on the Voice screen). HayaiTTS and other engines are separate apps; " +
+            "they synthesise each phrase completely before returning it (phrase-level streaming only).", deviceOnly = true)
+    val TTS_PIPER_VOICE = choice("voice.piperVoice", "Piper English voice", VOICE, ai.clu.core.voice.TtsSelection.PIPER_DEFAULT, ai.clu.core.voice.TtsSelection.PIPER_VOICES,
+        "English voice for the Piper engine (median pitch measured on representative Clu replies).", "SpeechOutput",
+        "Selects the Piper model file", "VoiceSettingsTest#piperVoice", deviceOnly = true, limits = "Each voice is a separate download.")
+    val TTS_SPEAKER = int("voice.sherpaSpeaker", "Piper speaker id", VOICE, 0, 0, 1000, "Speaker index for multi-speaker Piper voices.",
+        "SpeechOutput", "Passed as the speaker id to the Piper synthesiser", "VoiceSettingsTest#speaker", deviceOnly = true,
         limits = "Single-speaker voices ignore values other than 0.")
-    val ANDROID_VOICE = text("voice.androidVoice", "Android voice name", VOICE, "", "Voice name for the Android TTS engine. Empty = prefer an offline male voice.",
-        "AndroidTts", "Selects TextToSpeech voice", "VoiceSettingsTest#androidVoice", deviceOnly = true)
+    val TTS_KITTEN_SPEAKER = choice("voice.kittenSpeaker", "KittenTTS voice", VOICE, "2",
+        listOf("2" to "expr-voice-3-m – deepest (~116 Hz measured)", "4" to "expr-voice-4-m (~167 Hz)", "0" to "expr-voice-2-m (~190 Hz)",
+            "6" to "expr-voice-5-m (~190 Hz)"),
+        "Speaker of the KittenTTS model. Only the male-labelled speakers are offered; only expr-voice-3-m measures in the deep male range.",
+        "SpeechOutput", "Kitten speaker id", "VoiceSettingsTest#kittenSpeaker", deviceOnly = true)
+    val TTS_HINDI_VOICE = choice("voice.hindiVoice", "Hindi voice", VOICE, "pratham",
+        listOf("pratham" to "Pratham – Piper hi_IN, deep male (~107 Hz measured)", "engine" to "The selected engine's Hindi voice (HayaiTTS / Android engines)",
+            "off" to "Do not speak Hindi text"),
+        "Voice used for Devanagari (Hindi) phrases. English and Hindi are different models, so they sound like different speakers.",
+        "SpeechOutput, TtsSelection", "Routes Devanagari phrases", "VoiceSettingsTest#hindiVoice", deviceOnly = true,
+        limits = "Pratham's training data is licensed CC BY-NC-SA 4.0 (non-commercial). Romanized Hindi is spoken by the English voice and is hard to understand.")
+    val TTS_SYSTEM_ENGINE = text("voice.systemEngine", "Android TTS engine package", VOICE, "",
+        "Package of the Android TTS engine for 'Other Android TTS engine' (empty = the device default engine).", "SpeechOutput",
+        "TextToSpeech engine package", "VoiceSettingsTest#systemEngine", deviceOnly = true)
+    val ANDROID_VOICE = text("voice.androidVoice", "Android TTS English voice", VOICE, "", "Voice name in HayaiTTS / the Android engine for English. Empty = the engine's choice (Voice screen → Find deepest voice).",
+        "SpeechOutput", "Selects TextToSpeech voice", "VoiceSettingsTest#androidVoice", deviceOnly = true)
+    val ANDROID_VOICE_HI = text("voice.androidVoiceHi", "Android TTS Hindi voice", VOICE, "", "Voice name in HayaiTTS / the Android engine for Hindi (used when Hindi voice = the selected engine).",
+        "SpeechOutput", "Selects TextToSpeech voice for Devanagari phrases", "VoiceSettingsTest#androidVoiceHi", deviceOnly = true)
     val SPEED = float("voice.speed", "Speaking speed", VOICE, 0.92, 0.5, 2.0, "1.0 = normal.", "SpeechOutput",
         "Synthesis speed (sherpa) / speech rate (Android)", "VoiceSettingsTest#speed", deviceOnly = true)
-    val PITCH = float("voice.pitch", "Pitch", VOICE, 0.88, 0.5, 2.0, "1.0 = engine default. Applied at playback for the Clu voice.",
+    val PITCH = float("voice.pitch", "Pitch adjustment", VOICE, 1.0, 0.8, 1.2, "1.0 = the voice's natural pitch (recommended: choose a naturally deep voice). Small changes only; applied at playback to on-device engines, sent to the engine for Android TTS.",
         "AudioTrackSink", "AudioTrack PlaybackParams pitch", "VoiceSettingsTest#pitch", deviceOnly = true)
     val METALLIC = float("voice.metallic", "Metallic tone", VOICE, 0.25, 0.0, 1.0, "Amount of the metallic (ring-modulation/comb) effect.",
         "VoiceEffect", "PCM processed by a ring-modulator + comb filter before playback", "VoiceSettingsTest#metallic")

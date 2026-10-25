@@ -79,35 +79,15 @@ generating. Nothing waits for the complete reply, and nothing splits a finished 
   - **Media audio** (`USAGE_ASSISTANT`, louder) is available in settings, with a larger margin.
 - **Audio focus:** transient focus with ducking. If a call or another app takes the audio, Clu stops speaking.
 
-## 5. TTS engine: verified result
+## 5. TTS engine and voice
 
-**HayaiTTS** ([github.com/AhmedMohamed1a/HayaiTTS](https://github.com/AhmedMohamed1a/HayaiTTS)):
-- A GPL-3.0 Android **app** that registers as a system TTS engine. It is built on sherpa-onnx 1.13.2 and its catalogue holds 632 voices from the sherpa-onnx tts-models releases.
-- It is **not an embeddable library**, and its README says its TTS service "still buffers".
-- Clu has no licence that allows copying GPL code in.
+Superseded by **[TTS_ENGINES.md](TTS_ENGINES.md)**, which covers the engine selection (Piper, KittenTTS, HayaiTTS, other Android engines, with no silent fallback), the verified HayaiTTS integration and the measured deep-voice choice. In short:
 
-What Clu uses:
-- **Directly:** the same voice models HayaiTTS uses, run through Clu's own sherpa-onnx runtime. This gives sentence-level streaming in-process with no IPC.
-- **As a system engine:** HayaiTTS still works through "Android TTS". That path is chunk-level only, with one IPC call plus a file round trip per chunk.
+- **English:** the default is now Piper **Joe** (~90 Hz).
+- **Hindi:** Piper **Pratham** (~107 Hz).
+- **Ryan** (~156 Hz), the earlier default, is not deep.
 
-Host evaluation (x86, 4 threads, sherpa-onnx 1.13.8; `scripts/eval_tts.py`, data in `docs/measurements/tts_eval_host.json`):
-
-| Voice | First audio, short phrase | RTF | Median F0 | Verdict |
-|---|---|---|---|---|
-| Piper en_US Ryan (current Clu voice) | 91 ms | 0.061 | 161 Hz | ✓ English. Fast. Deepened at playback (pitch 0.88) with the metallic effect. |
-| Piper hi_IN **Pratham** (new optional pack) | 100 ms | 0.049 | 103 Hz | ✓ Hindi, deep male. Best Hindi intelligibility in the ASR round trip. **CC BY-NC-SA 4.0 data (non-commercial).** |
-| Piper hi_IN Rohan | 119 ms | 0.056 | 141 Hz | Hindi alternative |
-| Kitten nano/mini v0.8 | 0.6–1.9 s | 0.27–0.63 | ≥118 Hz | ✗ Too slow for the first phrase; English only. Not adopted. |
-| Supertonic-3 (deep male IDs 6/9) | 0.5–0.8 s | 0.15–0.2 | 88–101 Hz | Deepest voice, but delivers everything in one callback (no sentence streaming) and is 129 MB. Not adopted as default. |
-
-**Selected:**
-- **English:** Piper Ryan (existing pack).
-- **Hindi:** Piper Pratham (new optional download, 67 MB, SHA-256 pinned).
-- **Mixed replies:** each chunk is routed by script.
-
-Limitations:
-- Romanized Hinglish, i.e. Hindi written in Latin letters, is unintelligible in every voice tested. Replies need Devanagari for Hindi.
-- Pronunciation was judged by a Whisper round trip on synthetic audio, which is a proxy. **The owner should listen to and judge the voices on the device.**
+The official HayaiTTS repository is github.com/HayaiApp/HayaiTTS; an earlier version of this document named a wrong URL.
 
 ## 6. Whisper.cpp (selected STT)
 

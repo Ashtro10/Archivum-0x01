@@ -1,0 +1,50 @@
+{
+ "note": "Host x86-64 (4 cores), sherpa-onnx 1.13.8, 4 threads; pitch = YIN median F0 over three representative Clu replies (scripts/scan_voices.py); WER = whisper.cpp small round trip. Not phone measurements.",
+ "results": [
+  {
+   "model": "vits-piper-hi_IN-pratham-medium",
+   "kind": "piper",
+   "sid": 0,
+   "speaker": "",
+   "speakers_in_model": 1,
+   "median_f0_hz": 106.8,
+   "f0_spread_semitones": 6.2,
+   "first_audio_ms_median": 100,
+   "rtf": 0.044,
+   "sample_rate": 22050,
+   "size_mb": 81.1,
+   "wer_whisper_small": 0.197,
+   "asr": "नमस्ते, सबही सिस्तम सामाने रूप से चल रही है, तल सुबह नाव बजे आपकी मीटिंग है, मैं एक गन्त पहले याद दिला दुंगा, मैं तर्मो स्टेट से संपरक नहीं कर पाया क्यप्या जाँच लें के वहा चालो है."
+  },
+  {
+   "model": "vits-piper-hi_IN-priyamvada-medium",
+   "kind": "piper",
+   "sid": 0,
+   "speaker": "",
+   "speakers_in_model": 1,
+   "median_f0_hz": 222.2,
+   "f0_spread_semitones": 10.7,
+   "first_audio_ms_median": 151,
+   "rtf": 0.051,
+   "sample_rate": 22050,
+   "size_mb": 81.1,
+   "wer_whisper_small": 0.311,
+   "asr": "नवस्ति सभी सिस्तम सामान ले रूब से चल रहे हैं. कर सुबहाक नोबजे आपकी मीटिंग है. मैं एक गन्ता पहले याध दिलादूंगा. मैं फरमो स्तेट से समपरक नहीं कर पाया जांचले की वह चालू है."
+  },
+  {
+   "model": "vits-piper-hi_IN-rohan-medium",
+   "kind": "piper",
+   "sid": 0,
+   "speaker": "",
+   "speakers_in_model": 1,
+   "median_f0_hz": 157.9,
+   "f0_spread_semitones": 8.9,
+   "first_audio_ms_median": 155,
+   "rtf": 0.058,
+   "sample_rate": 22050,
+   "size_mb": 80.9,
+   "wer_whisper_small": 0.246,
+   "asr": "नमस्ति सभी सिस्तम सामाने रुब से चल रहे हैं कल सुबह नावबजे आपकी मीटिंग दे हैं मैं एक गन्त पहले याद दिला दुंगा मैध हर मोस्तिट से समपरक नहीं कर पाया जाच लें कि वह चालू हैं"
+  }
+ ]
+}

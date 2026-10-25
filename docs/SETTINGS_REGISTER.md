@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.0.0-prototype.
 
-* Settings: **187** · verifying test passed: **187** · other: **0**
+* Settings: **192** · verifying test passed: **192** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -36,11 +36,16 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 
 | Setting ID | Display name | Default | Accepted values | Scope | Responsible component | Observable effect | Applies | Test | Result | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `voice.ttsEngine` | Speech engine | `"sherpa"` | `sherpa`, `android` | SHARED | SpeechOutput | Selects the TTS backend | Restarts the listening session | `VoiceSettingsTest#ttsEngine` | passed (binding) · device effect unverified | Clu voice requires the voice pack (downloaded or imported once). Falls back to Android TTS if missing. |
-| `voice.sherpaSpeaker` | Clu voice speaker id | `0` | integer 0–1000 | SHARED | SherpaTts | Passed as the speaker id to the synthesiser | Applies immediately | `VoiceSettingsTest#speaker` | passed (binding) · device effect unverified | Single-speaker voices ignore values other than 0. |
-| `voice.androidVoice` | Android voice name | `""` | text ≤ 200 chars | SHARED | AndroidTts | Selects TextToSpeech voice | Applies immediately | `VoiceSettingsTest#androidVoice` | passed (binding) · device effect unverified | – |
+| `voice.ttsEngine` | TTS engine | `"piper"` | `piper`, `kitten`, `hayai`, `system` | SHARED | SpeechOutput, TtsSelection | Selects the TTS backend used for every spoken phrase | Applies immediately | `VoiceSettingsTest#ttsEngine` | passed (binding) · device effect unverified | Piper and KittenTTS need their voice files (downloaded on the Voice screen). HayaiTTS and other engines are separate apps; they synthesise each phrase completely before returning it (phrase-level streaming only). |
+| `voice.piperVoice` | Piper English voice | `"tts-joe"` | `tts-joe`, `tts-arctic-rms`, `tts-alan`, `tts-northern-male`, `tts-ryan` | SHARED | SpeechOutput | Selects the Piper model file | Applies immediately | `VoiceSettingsTest#piperVoice` | passed (binding) · device effect unverified | Each voice is a separate download. |
+| `voice.sherpaSpeaker` | Piper speaker id | `0` | integer 0–1000 | SHARED | SpeechOutput | Passed as the speaker id to the Piper synthesiser | Applies immediately | `VoiceSettingsTest#speaker` | passed (binding) · device effect unverified | Single-speaker voices ignore values other than 0. |
+| `voice.kittenSpeaker` | KittenTTS voice | `"2"` | `2`, `4`, `0`, `6` | SHARED | SpeechOutput | Kitten speaker id | Applies immediately | `VoiceSettingsTest#kittenSpeaker` | passed (binding) · device effect unverified | – |
+| `voice.hindiVoice` | Hindi voice | `"pratham"` | `pratham`, `engine`, `off` | SHARED | SpeechOutput, TtsSelection | Routes Devanagari phrases | Applies immediately | `VoiceSettingsTest#hindiVoice` | passed (binding) · device effect unverified | Pratham's training data is licensed CC BY-NC-SA 4.0 (non-commercial). Romanized Hindi is spoken by the English voice and is hard to understand. |
+| `voice.systemEngine` | Android TTS engine package | `""` | text ≤ 200 chars | SHARED | SpeechOutput | TextToSpeech engine package | Applies immediately | `VoiceSettingsTest#systemEngine` | passed (binding) · device effect unverified | – |
+| `voice.androidVoice` | Android TTS English voice | `""` | text ≤ 200 chars | SHARED | SpeechOutput | Selects TextToSpeech voice | Applies immediately | `VoiceSettingsTest#androidVoice` | passed (binding) · device effect unverified | – |
+| `voice.androidVoiceHi` | Android TTS Hindi voice | `""` | text ≤ 200 chars | SHARED | SpeechOutput | Selects TextToSpeech voice for Devanagari phrases | Applies immediately | `VoiceSettingsTest#androidVoiceHi` | passed (binding) · device effect unverified | – |
 | `voice.speed` | Speaking speed | `0.92` | number 0.5–2.0 | SHARED | SpeechOutput | Synthesis speed (sherpa) / speech rate (Android) | Applies immediately | `VoiceSettingsTest#speed` | passed (binding) · device effect unverified | – |
-| `voice.pitch` | Pitch | `0.88` | number 0.5–2.0 | SHARED | AudioTrackSink | AudioTrack PlaybackParams pitch | Applies immediately | `VoiceSettingsTest#pitch` | passed (binding) · device effect unverified | – |
+| `voice.pitch` | Pitch adjustment | `1.0` | number 0.8–1.2 | SHARED | AudioTrackSink | AudioTrack PlaybackParams pitch | Applies immediately | `VoiceSettingsTest#pitch` | passed (binding) · device effect unverified | – |
 | `voice.metallic` | Metallic tone | `0.25` | number 0.0–1.0 | SHARED | VoiceEffect | PCM processed by a ring-modulator + comb filter before playback | Applies immediately | `VoiceSettingsTest#metallic` | passed | – |
 | `voice.volume` | Speech volume | `1.0` | number 0.0–1.0 | SHARED | AudioTrackSink | Playback gain | Applies immediately | `VoiceSettingsTest#volume` | passed | – |
 | `voice.speakResponses` | Speak replies to typed messages | `false` | true / false | SHARED | ChatController | TTS invoked for text-mode replies | Applies immediately | `VoiceSettingsTest#speakResponses` | passed | – |

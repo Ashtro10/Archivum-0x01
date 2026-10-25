@@ -53,3 +53,16 @@ Until the Clu voice is installed, Android's own TTS is used (choose a male voice
 | Hindi voice – Pratham (Piper hi_IN medium) | 67 MB | sherpa-onnx tts-models release, SHA-256 `2084d321…5648` | Data: CC BY-NC-SA 4.0 | Speaks Devanagari chunks |
 
 All are optional downloads that start only after a confirmation showing the size and free storage, or they can be imported from a file. Nothing is downloaded automatically. Whisper runtime: whisper.cpp 231638a0 (MIT), in `libclu_whisper.so`.
+
+## TTS voice packs (deep-voice update)
+
+| Pack | Size | SHA-256 (archive) | Licence (data) | Median pitch (host) |
+|---|---|---|---|---|
+| Piper en_US Joe (default English) | 67.2 MB | `261b903a…22d9bd3` | CC0 | ~90 Hz |
+| Piper en_US Arctic, speaker rms | 80.3 MB | `caf83305…d4bf25c` | CMU Arctic (permissive) | ~91 Hz |
+| Piper en_GB Northern English male | 67.2 MB | `2bb2c1e7…f12c55` | CC-BY-SA 4.0 | ~100 Hz |
+| Piper en_GB Alan | 67.2 MB | `a48d4017…ef7c9012` | see model card | ~96 Hz |
+| Piper en_US Ryan (previous default) | 67.2 MB | `c546af78…ad7505` | see model card | ~156 Hz |
+| KittenTTS nano v0.8 int8 | 31.2 MB | `6fa5be85…3af2fd` | Apache-2.0 | ~116 Hz (expr-voice-3-m) |
+| Piper hi_IN Pratham (Hindi) | 67.2 MB | `2084d321…5648` | CC BY-NC-SA 4.0 | ~107 Hz |
+

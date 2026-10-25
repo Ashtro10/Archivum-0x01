@@ -36,7 +36,8 @@ class DiagnosticsActivity : BaseActivity() {
         h1("Voice")
         val v = app.voice.state.value
         p("Running: ${v.running} · turn ${v.turn} · noise ${"%.1f".format(v.noiseDb)} dBFS (${v.environment}) · ${v.info}${if (v.error.isNotBlank()) " · ⚠ ${v.error}" else ""}\n" +
-            "TTS backend last used: ${app.speech.lastBackend.ifEmpty { "-" }}", C.MUTED, 12f)
+            app.speech.status.value.let { t -> "TTS engine: ${ai.clu.core.voice.TtsSelection.label(t.plan.engine)} · last spoke: ${t.lastSpoke.ifEmpty { "-" }}" +
+                (t.plan.problem ?: t.lastError)?.let { " · ⚠ $it" }.orEmpty() }, C.MUTED, 12f)
         h1("Memory")
         p("Memories: ${core.memories.count()} · pending suggestions: ${core.proposals.pending().size} · messages: ${core.conversations.countMessages()} · " +
             "diary entries: ${core.memories.list(null, MemoryCategory.DIARY).size}", C.MUTED, 12f)
@@ -86,7 +87,7 @@ class DiagnosticsActivity : BaseActivity() {
             t("VAD model") { app.sherpa.vad(0.5f, 0.5f).also { it.release() }; "loaded" }
             t("Wake-word model") { app.sherpa.kws(core.settings.double(Settings.KWS_THRESHOLD).toFloat()); "loaded" }
             t("Speech recognition model") { val a = app.sherpa.asr(); val s = a.createStream(); s.acceptWaveform(FloatArray(16000), 16000); s.inputFinished(); while (a.isReady(s)) a.decode(s); s.release(); "loaded and decoded 1 s" }
-            t("Speech synthesis") { val cfg = ai.clu.core.voice.VoiceConfig.from(core.settings); val b = app.speech.backend(cfg); val pcm = b.synthesize("Test.", cfg) ?: error("no audio from ${b.id}"); "${b.id}: ${pcm.samples.size} samples @ ${pcm.rate} Hz" }
+            t("Speech synthesis") { val cfg = ai.clu.core.voice.VoiceConfig.from(core.settings); app.speech.refresh(cfg); val b = app.speech.backendFor(cfg, "en") ?: error("no English voice"); val pcm = b.synthesize("Test.", cfg); "${b.label}: ${pcm.samples.size} samples @ ${pcm.rate} Hz" }
             t("Speaker model") { if (app.sherpa.speaker() == null) "not installed (optional)" else "loaded" }
             t("Language model") {
                 val e = core.llm.engine() ?: error(core.llm.state.value.message)

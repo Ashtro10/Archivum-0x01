@@ -58,5 +58,8 @@
 - **Hindi voice licence:** the Pratham voice's training data is CC BY-NC-SA 4.0, i.e. non-commercial.
 - **Barge-in:** it needs about 180 ms of speech, clearly louder than Clu's own echo. Quality depends on the device's echo canceller. Using call audio lowers the maximum loudness on some devices.
 - **Aborting Whisper:** cancelling a Whisper transcription stops decoding at once, but an encoder pass already running finishes; its result is discarded.
-- **HayaiTTS:** it is usable only as an Android system TTS engine, which is chunk-level with an IPC and file round trip per chunk. Its GPL code is not embedded.
+- **HayaiTTS:** it is usable only as an Android system TTS engine, bound by package. It is phrase-level: each phrase is synthesised completely, then delivered over IPC. Its GPL code is not embedded. Binding from a third-party app has not yet been verified on a device.
+- **KittenTTS:** English only. Its first phrase is about 0.6 s on the host (Piper: about 0.08 s), so first audio is slower.
+- **No automatic engine fallback:** if the selected engine or voice is missing, Clu stays silent and says why, until you install it or choose another.
+- **Voices across languages:** English and Hindi use different models, so they sound like different speakers.
 

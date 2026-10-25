@@ -1,0 +1,40 @@
+{
+ "note": "Host x86-64, synthesis time of short first phrases (what the pipeline sends first), speed 0.92, 5 runs x 4 phrases.",
+ "results": [
+  {
+   "voice": "Piper Joe",
+   "threads": 2,
+   "first_phrase_ms_p50": 81,
+   "p90": 119,
+   "max": 129
+  },
+  {
+   "voice": "Piper Arctic rms",
+   "threads": 2,
+   "first_phrase_ms_p50": 100,
+   "p90": 148,
+   "max": 174
+  },
+  {
+   "voice": "Piper Ryan (old default)",
+   "threads": 2,
+   "first_phrase_ms_p50": 64,
+   "p90": 95,
+   "max": 113
+  },
+  {
+   "voice": "KittenTTS nano sid2",
+   "threads": 4,
+   "first_phrase_ms_p50": 591,
+   "p90": 784,
+   "max": 873
+  },
+  {
+   "voice": "Piper Pratham (Hindi)",
+   "threads": 2,
+   "first_phrase_ms_p50": 95,
+   "p90": 154,
+   "max": 173
+  }
+ ]
+}

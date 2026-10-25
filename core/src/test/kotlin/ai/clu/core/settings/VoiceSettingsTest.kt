@@ -15,16 +15,19 @@ class VoiceSettingsTest {
     private fun cfg() = VoiceConfig.from(s)
 
     @Test fun ttsEngine() {
-        assertEquals("sherpa", cfg().ttsEngine)
-        s.set(Settings.TTS_ENGINE, "android"); assertEquals("android", cfg().ttsEngine)
-        assertTrue(Settings.TTS_ENGINE in VoiceConfig.pipelineKeys)
-        assertIs<SettingResult.Invalid>(s.set(Settings.TTS_ENGINE, "espeak"))
+        assertEquals("piper", cfg().ttsEngine)
+        for (e in listOf("kitten", "hayai", "system", "piper")) { s.set(Settings.TTS_ENGINE, e); assertEquals(e, cfg().ttsEngine) }
+        assertIs<SettingResult.Invalid>(s.set(Settings.TTS_ENGINE, "sherpa"), "old ids are migrated, not offered")
     }
-
+    @Test fun piperVoice() { assertEquals("tts-joe", cfg().piperVoice); s.set(Settings.TTS_PIPER_VOICE, "tts-ryan"); assertEquals("tts-ryan", cfg().piperVoice) }
+    @Test fun kittenSpeaker() { assertEquals(2, cfg().kittenSpeaker); s.set(Settings.TTS_KITTEN_SPEAKER, "4"); assertEquals(4, cfg().kittenSpeaker) }
+    @Test fun hindiVoice() { assertEquals("pratham", cfg().hindiVoice); s.set(Settings.TTS_HINDI_VOICE, "off"); assertEquals("off", cfg().hindiVoice) }
+    @Test fun systemEngine() { s.set(Settings.TTS_SYSTEM_ENGINE, "dev.ahmedmohamed.hayaitts"); assertEquals("dev.ahmedmohamed.hayaitts", cfg().systemEngine) }
+    @Test fun androidVoiceHi() { s.set(Settings.ANDROID_VOICE_HI, "vits-piper-hi_IN-pratham-medium"); assertEquals("vits-piper-hi_IN-pratham-medium", cfg().androidVoiceHi) }
     @Test fun speaker() { s.set(Settings.TTS_SPEAKER, 3); assertEquals(3, cfg().sherpaSpeakerId); assertIs<SettingResult.Invalid>(s.set(Settings.TTS_SPEAKER, -1)) }
     @Test fun androidVoice() { s.set(Settings.ANDROID_VOICE, "en-in-x-ene-local"); assertEquals("en-in-x-ene-local", cfg().androidVoice) }
     @Test fun speed() { s.set(Settings.SPEED, 1.3); assertEquals(1.3f, cfg().speed); assertIs<SettingResult.Invalid>(s.set(Settings.SPEED, 3.0)) }
-    @Test fun pitch() { s.set(Settings.PITCH, 0.7); assertEquals(0.7f, cfg().pitch); assertIs<SettingResult.Invalid>(s.set(Settings.PITCH, 0.1)) }
+    @Test fun pitch() { s.set(Settings.PITCH, 0.9); assertEquals(0.9f, cfg().pitch); assertIs<SettingResult.Invalid>(s.set(Settings.PITCH, 0.5)) }
 
     @Test fun metallic() {
         val tone = FloatArray(1600) { (0.3 * sin(2 * PI * 220 * it / 16000)).toFloat() }

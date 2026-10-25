@@ -11,6 +11,11 @@ data class VoiceConfig(
     val ttsEngine: String,
     val sherpaSpeakerId: Int,
     val androidVoice: String,
+    val androidVoiceHi: String,
+    val piperVoice: String,
+    val kittenSpeaker: Int,
+    val hindiVoice: String,
+    val systemEngine: String,
     val speed: Float,
     val pitch: Float,
     val volume: Float,
@@ -45,9 +50,14 @@ data class VoiceConfig(
         fun vadThresholdFor(sensitivity: Double): Float = (0.75 - 0.5 * sensitivity.coerceIn(0.0, 1.0)).toFloat()
 
         fun from(s: SettingsStore) = VoiceConfig(
-            ttsEngine = s.string(Settings.TTS_ENGINE),
+            ttsEngine = TtsSelection.normalise(s.string(Settings.TTS_ENGINE)),
             sherpaSpeakerId = s.int(Settings.TTS_SPEAKER),
             androidVoice = s.string(Settings.ANDROID_VOICE),
+            androidVoiceHi = s.string(Settings.ANDROID_VOICE_HI),
+            piperVoice = s.string(Settings.TTS_PIPER_VOICE),
+            kittenSpeaker = s.string(Settings.TTS_KITTEN_SPEAKER).toIntOrNull() ?: 2,
+            hindiVoice = s.string(Settings.TTS_HINDI_VOICE),
+            systemEngine = s.string(Settings.TTS_SYSTEM_ENGINE),
             speed = s.double(Settings.SPEED).toFloat(),
             pitch = s.double(Settings.PITCH).toFloat(),
             volume = s.double(Settings.VOLUME).toFloat(),
@@ -87,7 +97,7 @@ data class VoiceConfig(
 
         /** Keys whose change requires rebuilding the voice pipeline. */
         val pipelineKeys = listOf(
-            Settings.TTS_ENGINE, Settings.TTS_SPEAKER, Settings.ANDROID_VOICE, Settings.ASR_ENGINE, Settings.VAD_SENSITIVITY,
+            Settings.ASR_ENGINE, Settings.VAD_SENSITIVITY,
             Settings.END_SILENCE, Settings.AUDIO_SOURCE, Settings.NOISE_SUPPRESSION, Settings.WAKE_ENABLED, Settings.WAKE_ENGINE,
             Settings.WAKE_WORDS, Settings.KWS_THRESHOLD, Settings.CLAP_ENABLED, Settings.BACKGROUND_LISTENING, Settings.WHISPER_MODEL,
             Settings.OUTPUT_ROUTE,

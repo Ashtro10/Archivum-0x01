@@ -52,7 +52,8 @@ class SettingsCategoryActivity : BaseActivity() {
     /** Honest availability notes for options that depend on this device or on optional downloads. */
     private fun capabilityNote(d: SettingDef): String? = when (d.key) {
         Settings.ACCELERATION -> "GPU backend not included in this build – CPU only."
-        Settings.TTS_ENGINE -> if (app.packs.installedTts() == null) "Clu voice not installed (Voice screen) – Android TTS is used until then." else null
+        Settings.TTS_ENGINE, Settings.TTS_PIPER_VOICE, Settings.TTS_HINDI_VOICE ->
+            app.speech.refresh(ai.clu.core.voice.VoiceConfig.from(core.settings)).let { pl -> pl.problem ?: if (d.key == Settings.TTS_HINDI_VOICE) pl.hindiNote else null }
         Settings.ASR_ENGINE -> if (!AndroidAsr(this).onDeviceAvailable()) "No Android on-device recognizer found on this device." else null
         Settings.SPEAKER_VERIFY -> if (!app.packs.isInstalled(VoicePacks.SPEAKER)) "Speaker model not installed (Voice screen) – voices can't be told apart yet." else null
         Settings.BACKGROUND_LISTENING -> if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) "Microphone permission not granted." else null

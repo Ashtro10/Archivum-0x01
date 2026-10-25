@@ -159,6 +159,19 @@ Before starting:
 | S12 | Connect wired or Bluetooth headphones during a conversation | Speech moves to the headphones; barge-in still works | | |
 | S13 | 15-minute conversation | Record battery % used ___ and whether the device became hot (Diagnostics → thermal) | | |
 
+## T. TTS engine selection and deep voice (see TTS_ENGINES.md)
+
+| ID | Steps | Expected | P | N |
+|---|---|---|---|---|
+| T1 ★ | Fresh install. Voice → Speech output shows Piper / Joe "not installed" with a warning; ask something by voice | Clu stays silent and says why (toast plus Voice screen). It does **not** speak with another voice | | |
+| T2 ★ | Download Joe (67 MB) and Pratham (67 MB) → Speak test | Deep male English voice, then Hindi. "Last phrase spoken by" names Joe, then Pratham | | |
+| T3 ★ | Voice → Measure voice | English median pitch ___ Hz (expect ~90), Hindi ___ Hz (expect ~107); first phrase ___ ms | | |
+| T4 | Install HayaiTTS (github.com/HayaiApp/HayaiTTS/releases), download a male English voice inside it. TTS engine… → HayaiTTS → Voice… → English voices | A list of installed voices with measured pitch, deepest first. Pick one and Speak test: that HayaiTTS voice speaks | | |
+| T5 | Same, with HayaiTTS uninstalled | Warning "HayaiTTS is not installed"; Clu silent; selection unchanged | | |
+| T6 | TTS engine… → KittenTTS (download 31 MB) → Measure voice | Speaks; record first phrase ___ ms. A Hindi phrase is spoken by Pratham (or not at all if Hindi voice = engine) | | |
+| T7 ★ | With each engine in turn: Streaming test | Record first audio ___, max gap ___, interrupt→silence ___ ms | | |
+| T8 | Restart the app | Engine and voices unchanged | | |
+
 ## J. Background behaviour
 
 Apply the battery settings in [INSTALL.md](INSTALL.md) §2 first (Autostart ON, Battery saver *No restrictions*).

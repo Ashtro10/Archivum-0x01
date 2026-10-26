@@ -23,7 +23,10 @@ class ModelsActivity : BaseActivity() {
     private val modelsDir get() = File(getExternalFilesDir(null), "models").apply { mkdirs() }
 
     override fun onResume() {
-        super.onResume(); build()
+        super.onResume()
+        // Leftovers of an import interrupted by the app being closed (never registered as models).
+        modelsDir.listFiles { f -> f.name.endsWith(".part") && System.currentTimeMillis() - f.lastModified() > 120_000 }?.forEach { it.delete() }
+        build()
         scope.launch { core.llm.state.collect { if (!isFinishing) statusView?.text = describe(it) } }
         scope.launch { while (isActive) { delay(1500); checkDownloads() } }
     }
@@ -76,8 +79,17 @@ class ModelsActivity : BaseActivity() {
         core.network.check(ai.clu.core.tools.NetCategory.DOWNLOADS)?.let { toast(it); return }
         val free = File(getExternalFilesDir(null)!!.path).usableSpace
         if (free < c.approxBytes * 1.1) { toast("Not enough storage: ${fmtBytes(free)} free, ${fmtBytes(c.approxBytes)} needed."); return }
+        val name = c.url.substringAfterLast('/')
+        // A valid local copy is never downloaded again (it survives app updates in Clu's storage).
+        val existing = File(modelsDir, name)
+        if (existing.exists()) {
+            val registered = core.models.list().firstOrNull { it.path == existing.absolutePath }
+            val valid = registered ?: runCatching { core.models.register(existing) }.getOrNull()
+            if (valid != null) { toast("${c.name} is already on this device."); build(); return }
+            toast("The earlier copy of ${c.name} is incomplete or damaged; it will be replaced.")
+            existing.delete()
+        }
         confirm("Download ${fmtBytes(c.approxBytes)}?", "${c.name}\n\nThis uses ${fmtBytes(c.approxBytes)} of data and storage. Use Wi-Fi if your data plan is limited.", "Download") {
-            val name = c.url.substringAfterLast('/')
             val req = DownloadManager.Request(Uri.parse(c.url)).setTitle(c.name).setDestinationInExternalFilesDir(this, "models", name)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             val id = getSystemService(DownloadManager::class.java).enqueue(req)
@@ -122,23 +134,32 @@ class ModelsActivity : BaseActivity() {
         if (resultCode != RESULT_OK) return
         val name = (contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "model.gguf")
         val dest = File(modelsDir, name.replace(Regex("[^A-Za-z0-9._-]"), "_"))
+        // Never overwrite a model that is registered (it may be loaded right now); the same file is not copied twice.
+        core.models.list().firstOrNull { it.path == dest.absolutePath }?.let { m ->
+            if (m.status != ModelStatus.MISSING && dest.exists()) { toast("${m.name} is already imported."); return }
+        }
+        // Copied to a temporary name and renamed only after it validates: an interrupted copy never looks like a model.
+        val part = File(modelsDir, dest.name + ".part")
         val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal)
         val dlg = android.app.AlertDialog.Builder(this).setTitle("Copying model…").setView(bar).setCancelable(false).show()
         scope.launch {
             val r = withContext(Dispatchers.IO) {
                 runCatching {
                     val total = contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
-                    contentResolver.openInputStream(uri)!!.use { i -> dest.outputStream().use { o ->
+                    contentResolver.openInputStream(uri)!!.use { i -> part.outputStream().use { o ->
                         val buf = ByteArray(1 shl 20); var done = 0L
                         while (true) { val n = i.read(buf); if (n < 0) break; o.write(buf, 0, n); done += n
                             if (total > 0) launch(Dispatchers.Main) { bar.progress = (done * 100 / total).toInt() } }
                     } }
+                    if (total > 0 && part.length() != total) throw java.io.IOException("copy incomplete (${part.length()} of $total bytes)")
+                    ai.clu.core.llm.GgufReader.read(part) // validates header and completeness before it becomes a model
+                    if (!part.renameTo(dest)) throw java.io.IOException("could not move the model into place")
                     core.models.register(dest)
                 }
             }
             dlg.dismiss()
             r.onSuccess { e -> if (core.settings.string(Settings.MODEL_ACTIVE).isEmpty()) core.settings.set(Settings.MODEL_ACTIVE, e.id); toast("Imported ${e.name}"); build() }
-                .onFailure { dest.delete(); toast(it.message ?: "Import failed") }
+                .onFailure { part.delete(); toast("Import failed: ${it.message ?: it::class.simpleName}") }
         }
     }
 }

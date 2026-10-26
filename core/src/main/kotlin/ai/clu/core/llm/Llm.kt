@@ -49,8 +49,21 @@ interface LlmEngine {
     fun contextSize(): Int
     /** Blocking generation; [onText] receives decoded text increments. Throws [LlmException] on failure. */
     fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult
+    /** Cancels whatever this engine is generating. Prefer the per-request [CancelSignal] overload of [generate]. */
     fun cancel()
+
+    /**
+     * Generation owned by one request: cancelling [signal] stops this request only. Returns a result with stop reason
+     * "cancelled" (and the text produced so far) instead of throwing. Engines that serialise requests override this so a
+     * queued request is dropped without touching the running one.
+     */
+    fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult {
+        if (signal.isCancelled) return cancelledResult(source)
+        return signal.onCancel { cancel() }.use { generate(messages, params) { if (!signal.isCancelled) onText(it) } }
+    }
 }
+
+fun cancelledResult(source: String) = GenResult("", GenStats(stopReason = "cancelled"), source)
 
 /** Incremental UTF-8 decoder that tolerates multi-byte characters split across tokens. */
 class Utf8Stream {

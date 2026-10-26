@@ -165,8 +165,9 @@ class ConversationTest {
 
     @Test fun interruptedReplyKeepsStateConsistent(): Unit = runBlocking {
         val engine = object : ai.clu.core.llm.LlmEngine by ScriptedEngine() {
-            override fun generate(messages: List<ai.clu.core.llm.ChatMessage>, params: ai.clu.core.llm.GenParams, onText: (String) -> Unit): ai.clu.core.llm.GenResult {
-                onText("Partial ans"); core.agent.cancel()
+            override fun generate(messages: List<ai.clu.core.llm.ChatMessage>, params: ai.clu.core.llm.GenParams, signal: ai.clu.core.llm.CancelSignal,
+                                  onText: (String) -> Unit): ai.clu.core.llm.GenResult {
+                onText("Partial ans"); core.agent.cancel(ai.clu.core.agent.TurnOrigin.TEXT)
                 return ai.clu.core.llm.GenResult("Partial ans", ai.clu.core.llm.GenStats(stopReason = "cancelled"), "local")
             }
         }

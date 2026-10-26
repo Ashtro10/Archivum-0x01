@@ -136,7 +136,10 @@ class ScriptedEngine(private val replies: ArrayDeque<String> = ArrayDeque(), val
         return GenResult(text, GenStats(promptTokens = 10, generatedTokens = text.length / 4, promptMs = 5.0, generateMs = 10.0, firstTokenMs = 6.0, stopReason = "eog"), source)
     }
     override fun cancel() { cancelled = true }
-    val lastSystem get() = prompts.last().first { it.role == "system" }.content
+    /** Instructions the model saw: the system prompt plus the per-message [Context] block on the newest user message. */
+    /** The newest user message as the owner wrote it (without the [Context] block). */
+    val lastUserText get() = prompts.last().last { it.role == "user" }.content.substringAfter("[/Context]\n")
+    val lastSystem get() = prompts.last().let { p -> p.first { it.role == "system" }.content + "\n" + (p.lastOrNull { it.role == "user" && it.content.startsWith("[Context]") }?.content?.substringBefore("[/Context]") ?: "") }
 }
 
 fun tempDb(): JdbcDriver = JdbcDriver(Files.createTempFile("clu", ".db").toFile().absolutePath)

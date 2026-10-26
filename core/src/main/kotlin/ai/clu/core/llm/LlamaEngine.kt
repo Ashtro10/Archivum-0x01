@@ -79,8 +79,21 @@ class LlamaEngine private constructor(
 
     override fun contextSize(): Int = LlamaBridge.nativeContextSize(session)
 
-    override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult {
+    override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult =
+        generate(messages, params, CancelSignal(), onText)
+
+    /**
+     * The signal sets the native cancel flag (stops prompt processing and token generation within one decode step) and
+     * is also checked after every token, which covers a cancel that lands between the check below and the native call
+     * resetting its flag.
+     */
+    override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult {
         check(isReady()) { "engine released" }
+        signal.onCancel { cancel() }.use { return generateLocked(messages, params, signal, onText) }
+    }
+
+    private fun generateLocked(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult {
+        if (signal.isCancelled) return cancelledResult(source)
         val prompt = format(messages)
         val utf8 = Utf8Stream()
         val stops = StopSequenceFilter(params.stop)
@@ -88,12 +101,14 @@ class LlamaEngine private constructor(
         val statsJson = LlamaBridge.nativeGenerate(session, prompt.toByteArray(), params.maxTokens, params.temperature, params.topK,
             params.topP, params.minP, params.repeatPenalty, params.seed, params.grammar) { bytes ->
             val emitted = stops.push(utf8.push(bytes))
-            if (emitted.isNotEmpty()) { out.append(emitted); onText(emitted) }
-            !stops.stopped
-        } ?: throw LlmException(LlamaBridge.nativeLastError().ifEmpty { "generation failed" })
-        val tail = stops.push(utf8.finish()) + stops.flush()
+            if (emitted.isNotEmpty() && !signal.isCancelled) { out.append(emitted); onText(emitted) }
+            !stops.stopped && !signal.isCancelled
+        } ?: if (signal.isCancelled) return GenResult(out.toString(), GenStats(stopReason = "cancelled"), source)
+             else throw LlmException(LlamaBridge.nativeLastError().ifEmpty { "generation failed" })
+        val tail = if (signal.isCancelled) "" else stops.push(utf8.finish()) + stops.flush()
         if (tail.isNotEmpty()) { out.append(tail); onText(tail) }
-        val stats = lenientJson.decodeFromString(GenStats.serializer(), statsJson)
+        var stats = lenientJson.decodeFromString(GenStats.serializer(), statsJson)
+        if (signal.isCancelled) stats = stats.copy(stopReason = "cancelled")
         return GenResult(out.toString(), stats, source)
     }
 

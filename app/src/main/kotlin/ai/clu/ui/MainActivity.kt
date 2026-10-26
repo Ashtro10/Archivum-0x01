@@ -58,8 +58,11 @@ class MainActivity : BaseActivity() {
     private lateinit var title: TextView
     private lateinit var attachRow: LinearLayout
     private val extra = mutableListOf<Item>()
-    private var streaming: String? = null
-    private var turnJob: Job? = null
+    /** Reply being produced (from [ChatTurns], which outlives this screen); null when idle. */
+    private val streaming: String? get() = core.chat.state.value.streaming
+    private var shownSeq = -1L
+    private var shownEvents = 0
+    private var msgItems: List<Item> = emptyList()
     private val pendingAttachments = mutableListOf<Pair<Attachment, String?>>() // attachment + extracted text
     private var redirected = false // startup failed or a crash report is pending: CrashReportActivity shown instead
 
@@ -72,6 +75,20 @@ class MainActivity : BaseActivity() {
         buildUi()
         scope.launch { app.conversation.collectLatest { refresh() } }
         scope.launch { core.store.changes.collect { t -> if ((t == "messages" || t == "conversations") && streaming == null) refresh() } }
+        scope.launch {
+            var wasRunning = false
+            core.chat.state.collect { st ->
+                if (st.seq != shownSeq) { shownSeq = st.seq; shownEvents = 0; extra.clear() }
+                st.events.drop(shownEvents).forEach { ev -> itemFor(ev, st.text)?.let { extra += it } }
+                shownEvents = st.events.size
+                st.verification?.let { reason -> core.chat.verificationHandled(); verifyOwner("Clu needs to confirm it's you: $reason") { ok -> if (ok) send(st.text, verified = true) } }
+                // While words stream in only the streaming bubble changes: no database query per token on the main thread.
+                if (st.running && wasRunning) showItems() else refresh()
+                if (st.running) scrollToEnd()
+                wasRunning = st.running
+                sendBtn.text = if (st.running || app.voice.state.value.turn == TurnState.SPEAKING) "■" else "➤"
+            }
+        }
         scope.launch {
             combine(core.llm.state, app.voice.state, app.sync.state, app.liveKit.state) { a, b, c, d -> listOf(a, b, c, d) }.collect { x ->
                 updateStatus(x[0] as ai.clu.core.llm.LlmState, x[1] as ai.clu.voice.VoiceUiState, x[2] as ai.clu.sync.SyncUiState, x[3] as ai.clu.voice.LiveKitUiState)
@@ -384,10 +401,28 @@ class MainActivity : BaseActivity() {
 
     private fun refresh() {
         val convId = app.currentConversation()
-        val msgs = core.conversations.messages(convId).map { Item.Msg(it) as Item }
-        adapter.update(msgs + extra + listOfNotNull(streaming?.let { Item.Streaming(it) }))
-        emptyState.visibility = if (adapter.count == 0) View.VISIBLE else View.GONE
+        msgItems = core.conversations.messages(convId).map { Item.Msg(it) as Item }
+        showItems()
         title.text = core.personas.active().name
+    }
+
+    private fun showItems() {
+        val st = core.chat.state.value
+        val live = st.streaming?.takeIf { st.conversationId == app.currentConversation() }
+        adapter.update(msgItems + extra + listOfNotNull(live?.let { Item.Streaming(it) }))
+        emptyState.visibility = if (adapter.count == 0) View.VISIBLE else View.GONE
+    }
+
+    private fun itemFor(ev: AgentEvent, retry: String): Item? = when (ev) {
+        is AgentEvent.ToolStarted -> if (UiPolicy.showToolTraces(core.settings)) Item.Trace("⚙ ${ev.tool} ${ev.args}") else null
+        is AgentEvent.ToolFinished -> if (UiPolicy.showToolTraces(core.settings))
+            Item.Trace((if (ev.result.success) (if (ev.result.verified) "✓ " else "○ ") else "✗ ") + "${ev.tool}: ${ev.result.summary.take(300)}") else null
+        is AgentEvent.Question -> Item.Question(ev.question)
+        is AgentEvent.Alternatives -> Item.Alternatives(ev.messageId, ev.offer, ev.textA, ev.textB)
+        is AgentEvent.ProposalCreated -> Item.Proposal(ev.proposal)
+        is AgentEvent.Control -> { if (ev.command == "stop_listening") app.stopListening(); null }
+        is AgentEvent.Error -> Item.Error(ev.text, retry)
+        else -> null
     }
 
     /** Scrolls to the newest message only if the user is already reading the end (or [force], e.g. after sending). */
@@ -397,7 +432,8 @@ class MainActivity : BaseActivity() {
 
     // ---------------------------------------------------------------- sending
     private fun onSendOrStop() {
-        if (streaming != null || app.speech.busy) { core.agent.cancel(); app.speech.stop(); return }
+        // Stop cancels the typed reply and silences speech; it never touches a voice request.
+        if (streaming != null || app.speech.busy) { core.chat.stop(); app.speech.stop(); return }
         val text = input.text.toString().trim()
         if (text.isEmpty() && pendingAttachments.isEmpty()) return
         input.setText("")
@@ -405,47 +441,22 @@ class MainActivity : BaseActivity() {
     }
 
     private fun send(text: String, verified: Boolean = false) {
+        if (core.chat.running) return // one typed request at a time; the button is Stop meanwhile
         app.lastInteractionAt = System.currentTimeMillis()
         val atts = pendingAttachments.toList(); pendingAttachments.clear(); attachRow.removeAllViews()
         val fileText = atts.mapNotNull { (a, t) -> t?.let { "\n\n[Attached file: ${a.name}]\n$it" } }.joinToString("")
         val imageNote = if (atts.any { it.first.kind == "image" }) "\n\n[The owner attached an image. You cannot see images with the current text-only model; say so if relevant.]" else ""
         val fullText = (text.ifEmpty { "(attachment)" }) + fileText + imageNote
-        extra.clear()
-        streaming = ""
-        refresh(); scrollToEnd(force = true)
         val actor = app.ownerActor().let { if (verified) it.copy(verifiedAt = System.currentTimeMillis()) else it }
-        turnJob = scope.launch {
-            val speak = UiPolicy.shouldSpeak(core.settings, viaVoice = false, nowMs = System.currentTimeMillis())
-            val cfg = ai.clu.core.voice.VoiceConfig.from(core.settings)
-            // Spoken reply streams through the same pipeline as voice (speaks while generating; stop button cancels both).
-            val reply = if (speak) app.speech.reply(cfg) { core.agent.cancel() } else null
-            core.agent.respond(TurnRequest(app.currentConversation(), fullText, actor, attachments = atts.map { it.first })).collect { ev ->
-                when (ev) {
-                    is AgentEvent.Text -> { streaming = (streaming ?: "") + ev.delta; if (cfg.incremental) reply?.text(ev.delta); refreshStreaming() }
-                    AgentEvent.ResetText -> { streaming = ""; refreshStreaming() }
-                    is AgentEvent.Status -> {}
-                    is AgentEvent.ToolStarted -> if (UiPolicy.showToolTraces(core.settings)) { extra += Item.Trace("⚙ ${ev.tool} ${ev.args}"); refreshStreaming() }
-                    is AgentEvent.ToolFinished -> if (UiPolicy.showToolTraces(core.settings)) {
-                        extra += Item.Trace((if (ev.result.success) (if (ev.result.verified) "✓ " else "○ ") else "✗ ") + "${ev.tool}: ${ev.result.summary.take(300)}"); refreshStreaming() }
-                    is AgentEvent.NeedsVerification -> verifyOwner("Clu needs to confirm it's you: ${ev.reason}") { ok -> if (ok) send(text, verified = true) }
-                    is AgentEvent.Question -> extra += Item.Question(ev.question)
-                    is AgentEvent.Alternatives -> extra += Item.Alternatives(ev.messageId, ev.offer, ev.textA, ev.textB)
-                    is AgentEvent.ProposalCreated -> extra += Item.Proposal(ev.proposal)
-                    is AgentEvent.Control -> if (ev.command == "stop_listening") app.stopListening()
-                    is AgentEvent.Error -> extra += Item.Error(ev.text, text)
-                    is AgentEvent.Done -> {
-                        if (reply != null) { if (cfg.incremental) reply.finish() else reply.say(ev.text) }
-                    }
-                    is AgentEvent.UserMessageSaved -> {}
-                }
-            }
-            reply?.finish()
-            streaming = null
-            refresh(); scrollToEnd()
-        }
+        val speak = UiPolicy.shouldSpeak(core.settings, viaVoice = false, nowMs = System.currentTimeMillis())
+        val cfg = ai.clu.core.voice.VoiceConfig.from(core.settings)
+        // A spoken reply streams through the same pipeline as voice. Stopping the speech (voice screen ✕, another reply)
+        // only silences it; the typed reply still completes in the chat.
+        core.chat.send(TurnRequest(app.currentConversation(), fullText, actor, attachments = atts.map { it.first }), text,
+            speech = if (speak) ({ app.speech.reply(cfg) }) else null, incremental = cfg.incremental)
+        scrollToEnd(force = true)
     }
 
-    private fun refreshStreaming() { refresh(); scrollToEnd() }
 
     // ---------------------------------------------------------------- voice
     private fun onMicTouch(e: MotionEvent): Boolean {

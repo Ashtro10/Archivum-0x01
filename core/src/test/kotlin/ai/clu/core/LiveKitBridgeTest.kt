@@ -71,7 +71,9 @@ class LiveKitBridgeTest {
         val slow = object : ai.clu.core.llm.LlmEngine by engine {
             @Volatile var cancelled = false
             override fun cancel() { cancelled = true }
-            override fun generate(messages: List<ai.clu.core.llm.ChatMessage>, params: ai.clu.core.llm.GenParams, onText: (String) -> Unit): ai.clu.core.llm.GenResult {
+            override fun generate(messages: List<ai.clu.core.llm.ChatMessage>, params: ai.clu.core.llm.GenParams, signal: ai.clu.core.llm.CancelSignal,
+                                  onText: (String) -> Unit): ai.clu.core.llm.GenResult {
+                signal.onCancel { cancel() }
                 repeat(200) { if (cancelled) return ai.clu.core.llm.GenResult("", ai.clu.core.llm.GenStats(stopReason = "cancelled"), "local"); onText("word "); Thread.sleep(10) }
                 return ai.clu.core.llm.GenResult("done", ai.clu.core.llm.GenStats(), "local")
             }

@@ -11,6 +11,8 @@ import ai.clu.core.db.SqlDriver
 import ai.clu.core.diag.DiagnosticsLog
 import ai.clu.core.learning.PreferenceEngine
 import ai.clu.core.llm.LlmEngine
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import ai.clu.core.llm.LlmPlatform
 import ai.clu.core.llm.LlmService
 import ai.clu.core.llm.ModelRegistry
@@ -82,6 +84,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
                 else -> llm.engine()
             }
         }
+        override fun unavailableReason(): String? = llm.state.value.takeIf { it.status == ai.clu.core.llm.LlmStatus.ERROR }?.message
     }
 
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
@@ -114,7 +117,24 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         const val LIVEKIT_DEVICE_KEY = "livekit_device_key"
     }
 
+    private val warmScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+
+    /** Typed chat requests, owned by the app rather than a screen. */
+    val chat = ai.clu.core.agent.ChatTurns(agent, warmScope)
+
+    /** Starts the model service and warms the instruction prefix after every model load (see [CluAgent.warmUp]). */
+    fun startModel() {
+        llm.start()
+        warmScope.launch {
+            var warmed = 0L
+            llm.state.collect { st ->
+                if (st.status == ai.clu.core.llm.LlmStatus.READY && st.loadSeq != warmed) { warmed = st.loadSeq; agent.warmUp() }
+            }
+        }
+    }
+
     fun shutdown() {
+        warmScope.cancel()
         node?.shutdown()
         llm.shutdown()
     }

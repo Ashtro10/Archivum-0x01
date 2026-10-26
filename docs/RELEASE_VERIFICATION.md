@@ -1,6 +1,6 @@
 # Release verification and provenance
 
-_Verified 2026-10-24 in the build container. These facts were checked by tools, not recalled._
+_Verified 2026-10-26 in the build container. These facts were checked by tools, not recalled._
 
 ## 1. Where everything is
 
@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 82,667,276 bytes | `stat` |
-| SHA-256 | `7c0f94a6df5177bba0a46b9e6132d3d749e52be996ef06e17868647cae8cb749` | `sha256sum` |
+| File | `dist/clu-release.apk`, 82,687,758 bytes | `stat` |
+| SHA-256 | `a6149abe83824cb41f3917fedaeb5e1811c4d4e4bf6b88cb3913864710776f3f` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.0.0-prototype` (versionCode 1) | `aapt2 dump badging` |
+| Version | `1.1.0-prototype` (versionCode 2; installs as an update over versionCode 1, same package and signer) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -44,7 +44,7 @@ repository.
 | Static API check | 1,225 classes (app, core, LiveKit client incl. generated protocol), every platform reference exists at API 33 | `:app:apiCheck` |
 | APK structure check | 22 manifest components exist, 300 JNI methods (Clu, sherpa-onnx, WebRTC) resolve to exported native symbols, all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu has no video) | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 65,324,677 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 82,687,758 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 

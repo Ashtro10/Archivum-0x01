@@ -65,6 +65,7 @@ class CluApp : Application() {
         val t0 = System.currentTimeMillis()
         platform = platformFactory?.invoke(this) ?: AndroidPlatform(this)
         core = CluCore(AndroidSqlDriver(this), platform)
+        core.agent.trace.sink = { android.util.Log.i("CluTurn", it) } // request lifecycle, no content
         if (core.settings.isDefault(Settings.DEVICE_NAME)) core.settings.set(Settings.DEVICE_NAME, platform.deviceName())
         packs = VoicePackManager(this, core.diag)
         sherpa = SherpaEngines(this, packs)
@@ -89,7 +90,7 @@ class CluApp : Application() {
         liveKit = LiveKitSession(this)
         sync = SyncManager(this)
         createChannels()
-        core.llm.start()
+        core.startModel()
         sync.start()
         ProactiveScheduler.schedule(this)
         scope.launch { core.settings.values.collect { applyServicePolicy() } }

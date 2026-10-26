@@ -24,6 +24,8 @@ data class GgufInfo(
     val tensorCount: Long = 0,
     val hasChatTemplate: Boolean = false,
     val parameterCountHint: Long = 0,
+    /** Smallest file size that holds the start of every tensor (header + data offsets); 0 if unknown. */
+    val minimumBytes: Long = 0,
 ) {
     val quantization: String get() = FILE_TYPES[fileType] ?: if (fileType >= 0) "type $fileType" else "unknown"
 
@@ -63,7 +65,23 @@ object GgufReader {
                 if (key == "general.architecture") arch = v as String
             }
             fun num(k: String) = (wanted[k] as? Number)?.toLong() ?: 0L
-            info = info.copy(
+            // Tensor table: every tensor's data must start inside the file, or the file is incomplete (interrupted
+            // download or copy). llama.cpp would also refuse it, but with a less clear message.
+            var maxOffset = 0L
+            repeat(tensorCount.toInt()) {
+                r.skipString()
+                val dims = r.u32().toInt(); if (dims !in 0..8) throw GgufException("corrupt tensor table")
+                repeat(dims) { r.u64() }
+                r.u32()
+                val off = r.u64(); if (off < 0) throw GgufException("corrupt tensor table")
+                maxOffset = maxOf(maxOffset, off)
+            }
+            val align = (wanted["general.alignment"] as? Number)?.toLong()?.takeIf { it > 0 } ?: 32L
+            val dataStart = (raf.filePointer + align - 1) / align * align
+            val minimum = dataStart + maxOffset + 1
+            if (tensorCount > 0 && minimum > file.length())
+                throw GgufException("file is incomplete: ${file.length()} bytes, needs at least $minimum (interrupted download or copy?)")
+            info = info.copy(minimumBytes = if (tensorCount > 0) minimum else 0,
                 architecture = arch,
                 name = wanted["general.name"] as? String ?: "",
                 fileType = (wanted["general.file_type"] as? Number)?.toInt() ?: -1,

@@ -175,7 +175,7 @@ class AgentTest {
         repeat(20) { ask("Question $it " + "y".repeat(200)) }
         val last = engine.prompts.last()
         assertTrue(engine.countTokens(last) <= 600, "prompt must fit the context window")
-        assertTrue(last.last().content.startsWith("Question 19"))
+        assertTrue(engine.lastUserText.startsWith("Question 19"))
     }
 }
 

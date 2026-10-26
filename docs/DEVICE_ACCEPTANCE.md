@@ -193,6 +193,25 @@ None of these have been run on a physical device yet. For each item, write the r
 | U11 ★ | Fresh install (or with Joe not downloaded) | The chat shows "Clu's voice isn't downloaded yet" with Download Joe (67.2 MB) and Choose voice. Nothing is spoken by a different voice | | |
 | U12 ★ | Airplane mode: repeat U1, U2, U6, and U3 if Whisper is installed | All work offline | | |
 
+## V. Reply reliability and speed (this build) – run on the iQOO Neo 9 Pro, then the Xiaomi Pad 6
+
+None of these have been run on a physical device yet. Background and measurements: [LLM_RELIABILITY.md](LLM_RELIABILITY.md).
+- **Where results come from:** ☰ → Diagnostics → **Requests** (one line per message: model ready, first token, total, and how it ended) and **Performance** (`turn_first_token_ms`, `turn_total_ms`, `prompt_ms`, `tokens_per_s`, `model_load_ms`). With a PC: `adb logcat -s CluTurn` shows the same events live (no message text is logged).
+- **Before you start:** AI models → note the model, quantisation and "loaded in … ms". Keep the screen on.
+
+| ID | Steps | Record / expected | P | N |
+|---|---|---|---|---|
+| V1 ★ | Restart the app, wait 10 s, send "Hello" | Words start appearing within ___ s; Requests shows `generation completed`, first token ___ ms (warm-up after load: Diagnostics log line "warm-up: N instruction tokens") | | |
+| V2 ★ | Send 5 messages in a row, each after the previous answer finished | Each answers; first token ___ / ___ / ___ / ___ / ___ ms (expect turns 2–5 at most about as fast as turn 1, not slower) | | |
+| V3 ★ | Ask for a long answer ("Explain how a car engine works in detail"), tap ■ after a few words | Words stop within ~1 s; the partial answer stays; Requests shows `request cancelled`; the next message answers normally | | |
+| V4 ★ | Ask a long question by typing; while it is answering, open the voice screen and close it with ✕ (or tap the mic and stop) | The typed answer keeps streaming and completes (Requests: `generation completed`). Before this build it was cancelled | | |
+| V5 ★ | Ask something long, rotate the phone / switch dark mode / press Home and come back during the answer | The answer keeps streaming and completes; after it finishes no "…" bubble or ■ button remains | | |
+| V6 | Tap Send twice quickly | One question, one answer | | |
+| V7 | In voice mode ask a question, then say something while Clu answers (barge-in) | Old answer stops, new one is answered; no "response cancelled" left over | | |
+| V8 | AI models → Benchmark | Prompt ___ tokens in ___ ms, ___ tok/s, first token ___ ms. Native backend line shows the CPU features (NEON/dotprod); this build has no GPU/NPU backend | | |
+| V9 | Update test: install this APK over the previous Clu (do not uninstall) | Installs as an update; chats, settings, PIN and downloaded models are all still there; the model is not downloaded again | | |
+| V10 | AI models → Remove nothing; check "Installed models" status after V9 | Status "Loaded and generated successfully" (or "Header valid") – not "File missing" | | |
+
 ## J. Background behaviour
 
 Apply the battery settings in [INSTALL.md](INSTALL.md) §2 first (Autostart ON, Battery saver *No restrictions*).

@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-24_
+_Last updated: 2026-10-26_
 
 ## Current state
 
@@ -12,10 +12,23 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 225 total: 222 passed, 0 failed, 3 skipped by default (run separately: LiveKit E2E 16/16, offline-without-network pass) |
+| Automated tests (JVM / Robolectric / host engines) | 306 total: 299 passed, 0 failed, 7 skipped by default (opt-in benchmarks / model-dependent measurements) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-26: reply reliability and speed (v1.1.0, versionCode 2)
+
+Root causes and fixes are in [docs/LLM_RELIABILITY.md](docs/LLM_RELIABILITY.md):
+* Voice actions no longer cancel typed replies.
+* Rotating the device or leaving the chat no longer kills a reply.
+* Stop reaches llama.cpp.
+* Timeouts are enforced and every request ends in a defined state.
+* A cache-friendly prompt cut the time to the first word 4–8× in host measurements.
+* Request diagnostics were added.
+* Model files are integrity-checked and imports are atomic.
+
+Not yet verified on a device: DEVICE_ACCEPTANCE.md section V.
 
 ## Added 2026-10-24: optional self-hosted LiveKit voice mode
 

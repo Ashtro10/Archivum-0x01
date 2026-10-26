@@ -2,6 +2,7 @@ package ai.clu.core.livekit
 
 import ai.clu.core.agent.AgentEvent
 import ai.clu.core.agent.CluAgent
+import ai.clu.core.agent.TurnOrigin
 import ai.clu.core.agent.TurnRequest
 import ai.clu.core.diag.DiagnosticsLog
 import ai.clu.core.security.Actor
@@ -93,7 +94,7 @@ class RemoteVoiceBridge(
     fun interrupt(reported: Boolean = false) {
         val t = currentTurn
         val generating = job?.isActive == true
-        if (generating) { agent.cancel(); job?.cancel() }
+        if (generating) { agent.cancel(TurnOrigin.LIVEKIT); job?.cancel() }
         if (generating || reported) {
             diag?.i("livekit", "turn $t interrupted" + if (generating) " during generation" else " during playback")
             events(BridgeEvent.Interrupted(t))
@@ -102,7 +103,7 @@ class RemoteVoiceBridge(
 
     private fun respond(turn: Long, text: String, asrMs: Double?) {
         // A newer turn supersedes the reply in progress.
-        if (job?.isActive == true) { agent.cancel(); job?.cancel() }
+        if (job?.isActive == true) { agent.cancel(TurnOrigin.LIVEKIT); job?.cancel() }
         currentTurn = turn
         events(BridgeEvent.Heard(turn, text))
         val who = actor() ?: run {
@@ -121,7 +122,7 @@ class RemoteVoiceBridge(
                 out.append(sentence).append(' ')
             }
             val stats = asrMs?.let { mapOf("asr_ms" to it) } ?: emptyMap()
-            agent.respond(TurnRequest(conversationId(), text, who, viaVoice = true, preStats = stats)).collect { ev ->
+            agent.respond(TurnRequest(conversationId(), text, who, viaVoice = true, preStats = stats, origin = TurnOrigin.LIVEKIT)).collect { ev ->
                 when (ev) {
                     is AgentEvent.Text -> chunker.push(ev.delta).forEach(::emit)
                     is AgentEvent.ResetText -> chunker = SentenceChunker()

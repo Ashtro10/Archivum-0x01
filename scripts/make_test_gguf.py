@@ -6,24 +6,34 @@ from llama.cpp's vocab-only test file for Qwen2. The weights are random, so gene
 is meaningless. This model verifies plumbing (load, template, tokenize, decode, sample,
 KV-cache reuse, grammar, cancellation) - NOT response quality.
 
-usage: make_test_gguf.py <llama.cpp dir> <output.gguf> [seed]
+usage: make_test_gguf.py <llama.cpp dir> <output.gguf> [seed] [--shape tiny|1b]
+
+--shape 1b writes F16 weights with the dimensions of Llama 3.2 1B (2048 embd, 16 layers, 32/8 heads, 8192 ffn,
+tied embeddings) for latency measurements: compute cost matches a real 1B model, output is still meaningless.
+Quantise it with llama-quantize (e.g. Q4_K_M) to match what phones run.
 """
 import sys
 from pathlib import Path
 
 import numpy as np
 
-llama_dir = Path(sys.argv[1])
-out = Path(sys.argv[2])
+shape = sys.argv[sys.argv.index("--shape") + 1] if "--shape" in sys.argv else "tiny"
+args = [a for i, a in enumerate(sys.argv) if a != "--shape" and (i == 0 or sys.argv[i - 1] != "--shape")]
+llama_dir = Path(args[1])
+out = Path(args[2])
 sys.path.insert(0, str(llama_dir / "gguf-py"))
 import gguf  # noqa: E402
 
 vocab = gguf.GGUFReader(str(llama_dir / "models" / "ggml-vocab-qwen2.gguf"))
 
 ARCH = "llama"
-n_embd, n_layer, n_head, n_head_kv, n_ff, n_ctx = 64, 2, 4, 2, 128, 2048
+big = shape == "1b"
+if big:
+    n_embd, n_layer, n_head, n_head_kv, n_ff, n_ctx = 2048, 16, 32, 8, 8192, 8192
+else:
+    n_embd, n_layer, n_head, n_head_kv, n_ff, n_ctx = 64, 2, 4, 2, 128, 2048
 w = gguf.GGUFWriter(str(out), ARCH)
-w.add_name("clu-test-tiny-random")
+w.add_name("clu-test-1b-shape-random" if big else "clu-test-tiny-random")
 w.add_context_length(n_ctx)
 w.add_embedding_length(n_embd)
 w.add_block_count(n_layer)
@@ -32,7 +42,7 @@ w.add_head_count(n_head)
 w.add_head_count_kv(n_head_kv)
 w.add_rope_dimension_count(n_embd // n_head)
 w.add_layer_norm_rms_eps(1e-6)
-w.add_file_type(gguf.LlamaFileType.ALL_F32)
+w.add_file_type(gguf.LlamaFileType.MOSTLY_F16 if big else gguf.LlamaFileType.ALL_F32)
 
 n_vocab = None
 for field in vocab.fields.values():
@@ -60,14 +70,17 @@ w.add_chat_template(
     "{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
 )
 
-rng = np.random.default_rng(int(sys.argv[3]) if len(sys.argv) > 3 else 42)
+rng = np.random.default_rng(int(args[3]) if len(args) > 3 else 42)
 def t(*shape):
+    if big:
+        return (rng.standard_normal(shape, dtype=np.float32) * 0.02).astype(np.float16)
     return (rng.standard_normal(shape) * 0.02).astype(np.float32)
 
 head_dim = n_embd // n_head
 w.add_tensor("token_embd.weight", t(n_vocab, n_embd))
 w.add_tensor("output_norm.weight", np.ones(n_embd, dtype=np.float32))
-w.add_tensor("output.weight", t(n_vocab, n_embd))
+if not big:
+    w.add_tensor("output.weight", t(n_vocab, n_embd))  # 1b shape: tied embeddings, as in Llama 3.2 1B
 for i in range(n_layer):
     p = f"blk.{i}."
     w.add_tensor(p + "attn_norm.weight", np.ones(n_embd, dtype=np.float32))

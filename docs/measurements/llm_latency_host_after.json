@@ -1,0 +1,16 @@
+{
+  "model": "1b-q4km.gguf",
+  "threads": 4,
+  "max_tokens": 48,
+  "load_ms": 5025.5,
+  "warm_up_ms": 3593.8,
+  "warm_up_tokens": 560,
+  "turns": [
+    {"total_ms": 2694.0, "first_text_ms": 531.7, "prompt_tokens": 599.0, "reused_tokens": 558.0, "prompt_ms": 454.9, "first_token_ms": 455.7, "gen_ms": 2098.3, "tokens": 48.0, "tok_per_s": 22.9},
+    {"total_ms": 3278.9, "first_text_ms": 1070.3, "prompt_tokens": 713.0, "reused_tokens": 560.0, "prompt_ms": 1035.9, "first_token_ms": 1036.6, "gen_ms": 2186.6, "tokens": 48.0, "tok_per_s": 22.0},
+    {"total_ms": 3366.0, "first_text_ms": 885.9, "prompt_tokens": 737.0, "reused_tokens": 626.0, "prompt_ms": 861.0, "first_token_ms": 862.0, "gen_ms": 2462.1, "tokens": 48.0, "tok_per_s": 19.5},
+    {"total_ms": 3225.4, "first_text_ms": 1102.4, "prompt_tokens": 849.0, "reused_tokens": 697.0, "prompt_ms": 1083.8, "first_token_ms": 1084.5, "gen_ms": 2099.0, "tokens": 48.0, "tok_per_s": 22.9},
+    {"total_ms": 3539.3, "first_text_ms": 1168.1, "prompt_tokens": 914.0, "reused_tokens": 764.0, "prompt_ms": 1144.8, "first_token_ms": 1145.6, "gen_ms": 2336.0, "tokens": 48.0, "tok_per_s": 20.5}
+  ],
+  "environment": "amd64 JVM, 4 vCPU (build container, not a phone)"
+}

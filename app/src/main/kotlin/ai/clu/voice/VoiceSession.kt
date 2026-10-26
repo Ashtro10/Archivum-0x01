@@ -2,6 +2,7 @@ package ai.clu.voice
 
 import ai.clu.CluApp
 import ai.clu.core.agent.AgentEvent
+import ai.clu.core.agent.TurnOrigin
 import ai.clu.core.agent.TurnRequest
 import ai.clu.core.config.Settings
 import ai.clu.core.config.UiPolicy
@@ -91,7 +92,7 @@ class VoiceSession(private val app: CluApp) {
     fun stop() {
         running.set(false)
         thread?.join(1500); thread = null
-        agentJob?.cancel(); core.agent.cancel()
+        agentJob?.cancel(); core.agent.cancel(TurnOrigin.VOICE)
         out.stop()
         if (callAudioHeld) { callAudioHeld = false; out.route = "media"; app.callAudio.leave() }
         turn.stop()
@@ -140,7 +141,7 @@ class VoiceSession(private val app: CluApp) {
         if (core.settings.string(Settings.VOICE_MODE) == "livekit") core.diag.i("voice", "offline conversation: ${path.reason}")
         activatedAt = System.currentTimeMillis()
         val actions = turn.onActivated()
-        if (TurnAction.StopPlayback in actions) { out.stop(); core.agent.cancel() }
+        if (TurnAction.StopPlayback in actions) { out.stop(); core.agent.cancel(TurnOrigin.VOICE) }
         if (spokenAck || turn.state == TurnState.LISTENING) {
             when (cfg.ackMode) {
                 "tone" -> out.playTone(cfg)
@@ -309,7 +310,7 @@ class VoiceSession(private val app: CluApp) {
                 if (turn.state == TurnState.SPEAKING && cfg.bargeIn) {
                     if (bargeIn.onFrame(vad.isSpeechDetected(), AudioMath.dbfs(AudioMath.rms(frame)), FRAME_MS, now)) {
                         for (a in turn.onSpeechStarted()) if (a == TurnAction.StopPlayback) {
-                            out.stop(); core.agent.cancel(); agentJob?.cancel()
+                            out.stop(); core.agent.cancel(TurnOrigin.VOICE); agentJob?.cancel()
                             core.diag.perf("barge_in_detect_ms", (now - speechStartAt).toDouble())
                             activatedAt = now - 1000 // the owner's words just before the barge-in decision are wanted
                             asrStream = newAsrStream(0.8)
@@ -456,7 +457,7 @@ class VoiceSession(private val app: CluApp) {
         val timings = TurnTimings(0).apply {
             userSpeechEnd = tEndOfSpeech - (c.minSilenceSec * 1000).toLong(); transcriptFinal = tEndOfSpeech + asrMs.toLong()
         }
-        val reply = if (speak) out.reply(c, timings) { core.agent.cancel() } else null
+        val reply = if (speak) out.reply(c, timings) { core.agent.cancel(TurnOrigin.VOICE) } else null
         reply?.onFirstAudio = { turn.onSpeakingStarted(); publish() }
         var stats: Map<String, Double> = emptyMap()
         reply?.completion?.invokeOnCompletion {

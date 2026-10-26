@@ -26,7 +26,7 @@ interface LlmPlatform {
 enum class LlmStatus { NO_MODEL, UNLOADED, LOADING, READY, GENERATING, ERROR }
 
 data class LlmState(val status: LlmStatus, val modelId: String? = null, val modelName: String? = null, val message: String = "",
-                    val loadMs: Long = 0, val contextSize: Int = 0)
+                    val loadMs: Long = 0, val contextSize: Int = 0, /** Increments with every successful model load. */ val loadSeq: Long = 0)
 
 /** Generation parameters derived from settings, learned preferences and thermal state. */
 object GenerationParams {
@@ -66,6 +66,7 @@ class LlmService(
     @Volatile private var engine: LlamaEngine? = null
     @Volatile private var lastUsed = now()
     @Volatile private var nativeReady = false
+    private var loadSeq = 0L
 
     private val reloadKeys = listOf(Settings.MODEL_ACTIVE, Settings.CONTEXT_LENGTH, Settings.THREADS, Settings.BATCH, Settings.USE_MMAP,
         Settings.CHAT_TEMPLATE, Settings.ACCELERATION)
@@ -137,6 +138,18 @@ class LlmService(
             _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, "Model file is missing: ${entry.path}")
             return null
         }
+        // Integrity before loading: a file whose size changed since it was checked (replaced, truncated, partly
+        // overwritten) is validated again instead of being handed to llama.cpp blindly.
+        if (File(entry.path).length() != entry.sizeBytes) {
+            val problem = try { GgufReader.read(File(entry.path)); null } catch (e: GgufException) { e.message } catch (e: java.io.IOException) { e.message }
+            if (problem != null) {
+                registry.setStatus(entry.id, ModelStatus.INCOMPATIBLE, problem)
+                _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, "Model file is damaged: $problem. Import or download it again.")
+                diag?.w("llm", "integrity check failed for ${entry.name}: $problem")
+                return null
+            }
+            registry.register(File(entry.path), entry.name)
+        }
         val cfg = configFor(entry)
         val need = ModelRegistry.estimateRamBytes(entry, cfg.contextLength)
         val avail = platform.availableMemoryBytes()
@@ -156,7 +169,7 @@ class LlmService(
             val ms = now() - t0
             diag?.perf("model_load_ms", ms.toDouble(), entry.name)
             diag?.i("llm", "loaded ${entry.name} in ${ms}ms (ctx=${e.config.contextLength}, threads=${cfg.threads})")
-            _state.value = LlmState(LlmStatus.READY, entry.id, entry.name, "Ready", ms, e.config.contextLength)
+            _state.value = LlmState(LlmStatus.READY, entry.id, entry.name, "Ready", ms, e.config.contextLength, ++loadSeq)
             e
         } catch (t: Throwable) {
             val msg = (t.message ?: t.toString()).take(1000)
@@ -188,22 +201,29 @@ class LlmService(
             override fun isReady() = engine?.isReady() == true
             override fun countTokens(messages: List<ChatMessage>) = runOnLlm { (engine ?: throw LlmException("model unloaded")).countTokens(messages) }
             override fun contextSize() = engine?.contextSize() ?: 0
-            override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult = runOnLlm {
-                val e = engine ?: throw LlmException("model unloaded")
-                _state.value = _state.value.copy(status = LlmStatus.GENERATING)
-                try {
-                    val r = e.generate(messages, params, onText)
-                    lastUsed = now()
-                    registry.get(e.id)?.takeIf { it.status != ModelStatus.VERIFIED && r.stats.generatedTokens > 0 }
-                        ?.let { registry.setStatus(it.id, ModelStatus.VERIFIED) }
-                    diag?.perf("prompt_ms", r.stats.promptMs)
-                    diag?.perf("first_token_ms", r.stats.firstTokenMs)
-                    diag?.perf("tokens_per_s", r.stats.tokensPerSecond)
-                    r
-                } finally {
-                    if (_state.value.status == LlmStatus.GENERATING) _state.value = _state.value.copy(status = LlmStatus.READY)
+            override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult =
+                generate(messages, params, CancelSignal(), onText)
+            override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult =
+                runOnLlm(signal, cancelled = { cancelledResult(source) }) {
+                    // Queued behind another request and cancelled meanwhile: never start.
+                    if (signal.isCancelled) return@runOnLlm cancelledResult(source)
+                    val e = engine ?: throw LlmException("model unloaded")
+                    _state.value = _state.value.copy(status = LlmStatus.GENERATING)
+                    try {
+                        val r = e.generate(messages, params, signal, onText)
+                        lastUsed = now()
+                        registry.get(e.id)?.takeIf { it.status != ModelStatus.VERIFIED && r.stats.generatedTokens > 0 }
+                            ?.let { registry.setStatus(it.id, ModelStatus.VERIFIED) }
+                        if (r.stats.stopReason != "cancelled" && params.maxTokens > 0) {
+                            diag?.perf("prompt_ms", r.stats.promptMs)
+                            diag?.perf("first_token_ms", r.stats.firstTokenMs)
+                            diag?.perf("tokens_per_s", r.stats.tokensPerSecond)
+                        }
+                        r
+                    } finally {
+                        if (_state.value.status == LlmStatus.GENERATING) _state.value = _state.value.copy(status = LlmStatus.READY)
+                    }
                 }
-            }
             override fun cancel() { engine?.cancel() }
         }
     }
@@ -214,6 +234,16 @@ class LlmService(
         thread.submit<T> { block() }.get()
     } catch (e: java.util.concurrent.ExecutionException) {
         throw e.cause ?: e
+    }
+
+    /** Like [runOnLlm], but a cancel while the task is still queued removes it from the queue. */
+    private fun <T> runOnLlm(signal: CancelSignal, cancelled: () -> T, block: () -> T): T {
+        val started = java.util.concurrent.atomic.AtomicBoolean(false)
+        val f = thread.submit<T> { started.set(true); block() }
+        // A running task is stopped by the engine through the same signal and returns its partial result.
+        return signal.onCancel { if (!started.get()) f.cancel(false) }.use {
+            try { f.get() } catch (e: java.util.concurrent.CancellationException) { cancelled() } catch (e: java.util.concurrent.ExecutionException) { throw e.cause ?: e }
+        }
     }
 
     fun shutdown() {

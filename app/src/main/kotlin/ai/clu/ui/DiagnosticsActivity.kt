@@ -29,6 +29,14 @@ class DiagnosticsActivity : BaseActivity() {
         h1("Model")
         val s = core.llm.state.value
         p("${s.status} ${s.modelName ?: ""} ${s.message}\n${runCatching { LlamaBridge.nativeSystemInfo() }.getOrDefault("native library not loaded")}", C.MUTED, 12f)
+        h1("Requests (latest first)")
+        p("Lifecycle of each message: received → created → model ready → generation started → first token → completed / cancelled / " +
+            "timeout / error. Times are from the moment the message was received. No message content is recorded. Also in logcat (tag CluTurn).", C.MUTED, 12f)
+        val reqs = core.agent.trace.recent()
+        if (reqs.isEmpty()) p("No requests yet.", C.MUTED, 12f)
+        reqs.take(15).forEach { r ->
+            p(r.summary() + "\n" + r.events.joinToString("  ") { "${it.name.lowercase()} +${it.atMs - r.startedAt}ms" }, C.MUTED, 12f)
+        }
         h1("Performance (measured on this device)")
         val perf = core.diag.perfSummary()
         if (perf.isEmpty()) p("No measurements yet – chat, use voice or run the benchmark in AI models.")

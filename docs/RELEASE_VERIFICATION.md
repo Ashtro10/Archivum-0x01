@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 83,142,567 bytes | `stat` |
-| SHA-256 | `041a43042356a25d61b05eba0b42103594814c804f35f378f291542140a034e1` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,088,268 bytes | `stat` |
+| SHA-256 | `8687c1ece185784d03c7634576f56d64b1c352497531f66739a5950bf4841184` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.2.0-prototype` (versionCode 3; installs as an update over versionCode 1 and 2, same package and signer) | `aapt2 dump badging` |
+| Version | `1.3.0-prototype` (versionCode 4; installs as an update over versionCodes 1–3, same package and signer) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -38,13 +38,13 @@ repository.
 | Signing certificate SHA-256 | `B8:D4:60:94:2F:88:EE:74:D2:59:6B:BD:D3:4E:6A:44:F4:4D:CF:47:BF:DE:0D:0C:51:06:BF:A5:53:70:BE:C6` | apksig + keytool |
 | `allowBackup` | `false` | `aapt2 dump xmltree` |
 | Debuggable | no (release build, D8 `--release`) | `aapt2 dump badging` (no `application-debuggable`) |
-| Reference check | R8 `TraceReferences --check` against API 33: no missing class/method/field referenced from Clu's, the LiveKit client's or WebRTC's code. The only gaps are optional paths inside libraries: Commons Compress/Lang, kotlinx `ClassValue` fallbacks, OkHttp's optional TLS providers (Conscrypt/BouncyCastle/OpenJSSE), protobuf's `sun.misc.Unsafe` probe, and `org.jni_zero.JniZeroJni` (not referenced by any WebRTC Java class; residual risk only if native code calls `JniZero.setJniClassLoader`) | `TraceReferences` |
+| Reference check | Static scan of every type referenced from the release dex against the classes in the APK plus API 33 (`android.jar`): nothing missing in Clu's code. The gaps are optional paths in libraries: desktop-JVM classes (log4j, AWT, `sun.misc`, `java.lang.instrument`), OkHttp's optional TLS providers (Conscrypt/BouncyCastle/OpenJSSE), compression codecs (xz, zstd, brotli), Twilio `audioswitch` (only used by the SDK's default audio handler, which Clu replaces with its own; built lazily through a Dagger `Provider`), and `livekit.org.jni_zero.JniZeroJni` (only used by `JniZero.setJniClassLoader`, which nothing calls; also absent from upstream's artifact). Details: docs/LIVEKIT_AGENT.md §6 | dex type-reference scan |
 | Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
-| Static API check | 1,225 classes (app, core, LiveKit client incl. generated protocol), every platform reference exists at API 33 | `:app:apiCheck` |
-| APK structure check | 22 manifest components exist, 300 JNI methods (Clu, sherpa-onnx, WebRTC) resolve to exported native symbols, all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu has no video) | `:app:verifyApk -Pclu.verify=release` |
+| Static API check | 784 classes (app, core), every platform reference exists at API 33. The prebuilt LiveKit SDK is not part of this check: it is built by LiveKit for minSdk 21 | `:app:apiCheck` |
+| APK structure check | 25 manifest components exist; 376 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 83,142,567 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 85,088,268 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 
@@ -59,7 +59,9 @@ value above.
 | `libclu_whisper.so` (whisper.cpp 231638a0 + JNI, built here; only JNI symbols exported) | 1.6 MB | `70a65e42a1dfd8bd2c526c16de6a4250a58d8cae727cf0fbf68bfd16a32a7ad6` | liblog, libdl, libm, libc | 16 KB |
 | `libsherpa-onnx-jni.so` (prebuilt, sherpa-onnx 1.13.8) | 4.8 MB | `3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f` | libandroid, liblog, libonnxruntime, libm, libdl, libc | 16 KB |
 | `libonnxruntime.so` (prebuilt, from the same archive) | 22.2 MB | `33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1` | libdl, liblog, libm, libc | 16 KB |
-| `libjingle_peerconnection_so.so` (prebuilt WebRTC, io.github.webrtc-sdk:android 150.7871.04; LiveKit mode only) | 12.3 MB | `2b561520298d9fec3e216baf58a53fbddf4a46dfd247880cbc3821875ed20200` | libEGL, libdl, libm, liblog, libc | 16 KB |
+| `liblkjingle_peerconnection_so.so` (prebuilt WebRTC with `livekit.` prefix, io.livekit:android-prefixed 150.7871.04, from the official SDK; server mode only) | 12.3 MB | `6b0f579e043dfc6bd39d22d86f2c3855e0039988edbde52392450893810c3772` | libEGL, libdl, libm, liblog, libc | 16 KB |
+| `liblivekit_uniffi.so` (prebuilt, io.livekit:livekit-uniffi-android 0.1.12; token/JWT helpers of the SDK) | 1.6 MB | `5a361b8d7ecf4ef4ca4a4788d671c72e2de1b54c3605e888951225b00cb02c93` | libdl, libm, libc | 16 KB |
+| `libjnidispatch.so` (prebuilt, JNA 5.19.1; used by livekit-uniffi) | 0.2 MB | `abc26e994517bcaa3309acdb0a27373864086c7569c89d3087b8626fada9ef06` | libc, libdl, libm | 16 KB |
 
 All dependencies are Android system libraries (or each other), so there is no hidden third-party `.so`. 16 KB
 alignment keeps the libraries loadable on 16 KB-page kernels. `libclu_llama.so` links libc++ statically.
@@ -84,9 +86,10 @@ since then, but not who originally published them. The trust anchors are the HTT
 | Android NDK r29 (community build) | `github.com/HomuHomu833/android-ndk-custom/releases/download/r29/android-ndk-r29-x86_64-linux-gnu.tar.xz` | `adf4cb3e…7cd4378` | **only** the Bionic sysroot (headers, stub libs, libc++ static) and compiler-rt builtins |
 | androidx.test monitor sources | `github.com/android/android-test` @ `edea994e9ad1…` (git) | git commit hash | test-only shim (not shipped) |
 | llama.cpp | `github.com/ggml-org/llama.cpp` tag b11844, submodule commit `06230cb` | git commit hash | compiled into `libclu_llama.so` |
-| WebRTC Android SDK 150.7871.04 (BSD) | `maven-central…/io/github/webrtc-sdk/android/150.7871.04/android-150.7871.04.aar` | `1872dda4…5c69c84c` | classes jar + arm64 `libjingle_peerconnection_so.so` (**shipped**, LiveKit mode) |
-| protoc 4.36.2 | `maven-central…/com/google/protobuf/protoc/4.36.2/protoc-4.36.2-linux-x86_64.exe` | `f6ee22d6…5198f864` | generates the LiveKit protocol classes (build only) |
-| LiveKit protocol definitions (Apache-2.0) | `github.com/livekit/protocol` tag v1.53.0, commit `5f3bf01d…` (git) | git commit hash | `livekit_rtc/models/metrics.proto` → generated classes (**shipped**) |
+| LiveKit Android SDK 2.29.2 (Apache-2.0) | `maven-central…/io/livekit/livekit-android/2.29.2/livekit-android-2.29.2.aar` | `4ede9085…c379f076` | classes (**shipped**) |
+| LiveKit prefixed WebRTC 150.7871.04 (BSD) | `maven-central…/io/github/webrtc-sdk/android-prefixed/150.7871.04/android-prefixed-150.7871.04.aar` | `96f1ebbd…7db5d8b3` | classes + arm64 `liblkjingle_peerconnection_so.so` (**shipped**) |
+| livekit-uniffi-android 0.1.12 (Apache-2.0) | `maven-central…/io/livekit/livekit-uniffi-android/0.1.12/…aar` | `bf4a46a5…8b8a8d8a3d` | classes + `liblivekit_uniffi.so` (**shipped**) |
+| JNA 5.19.1 (Apache-2.0/LGPL) and jwtdecode 2.0.2 (MIT) | `maven-central…/net/java/dev/jna/jna/5.19.1/jna-5.19.1.aar`, `…/com/auth0/android/jwtdecode/2.0.2/…aar` | `b57125cb…1624ed`, `89d4d1cd…e8fe72` | classes + `libjnidispatch.so` (**shipped**) |
 
 Full hashes are in `scripts/setup_toolchain.sh`.
 
@@ -119,7 +122,7 @@ ONNX Runtime libraries are the upstream project's own prebuilt release binaries,
 | org.jetbrains annotations 23.0.0 | `7b0f1972…` |
 | OkHttp 4.12.0 (LiveKit signalling WebSocket) | `b1050081…91d5f4e0` |
 | Okio 3.6.0 (OkHttp dependency) | `67543f07…cb713da28412` |
-| protobuf-javalite 4.36.2 (LiveKit protocol runtime) | `8f4f93d0…df43137` |
+| protobuf-javalite 3.25.9, Dagger 2.46 + javax.inject 1, Gson 2.8.9, semver4j 3.1.0, android-jain-sip-ri 1.3.0-91 (LiveKit SDK dependencies) | `e85ac75f…`, `2250c583…`, `91c77044…`, `d3999291…`, `0f33724d…`, `3d91eb33…` |
 
 Gap: Gradle's dependency-verification file and the wrapper's `distributionSha256Sum` are not yet set up, so Maven and
 Gradle downloads rely on HTTPS alone. The hashes above record what was actually used for this build.
@@ -128,10 +131,14 @@ Gradle downloads rely on HTTPS alone. The hashes above record what was actually 
 
 ```bash
 git clone -b claude/clu-android-ai-build-5cspi2 --recurse-submodules https://github.com/Ashtro10/Archivum-0x01
-scripts/setup_toolchain.sh && scripts/build_native.sh android
+scripts/setup_toolchain.sh && scripts/fetch_livekit_sdk.sh && scripts/build_native.sh android
 export CLU_KEYSTORE=/path/clu-release.p12 CLU_KEYSTORE_PASSWORD=…   # see SIGNING_AND_BACKUP.md
 ./gradlew :core:test :app:test :app:apiCheck :app:verifyApk :app:assembleRelease -Pclu.verify=release
 ```
+
+Until 1.3.0 the build logic in `buildSrc/src/main/kotlin/clu/build/` (APK packaging, signing, verification) was
+excluded from git by an over-broad `build/` ignore rule, so earlier commits could not be rebuilt from the repository
+alone. It is committed from 1.3.0.
 
 The build is not bit-for-bit reproducible across machines. Native code and zip timestamps are normalised, but
 compiler versions may differ. An update needs only the same signing key, not the same bytes.

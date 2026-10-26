@@ -1,9 +1,14 @@
-# Clu voice server (token endpoint + voice agent). Python 3.10+. Tested with these exact versions.
+# Clu server: token endpoint (clu_voice_server.py) + LiveKit Agents worker (clu_agent.py). Python 3.10+.
+# Tested with these exact versions (host E2E, docs/measurements/livekit-agents-e2e.json).
+livekit-agents==1.8.9
+livekit-plugins-silero==1.8.9
+livekit-plugins-turn-detector==1.8.9
+livekit-plugins-openai==1.8.9
+livekit-blingfire==1.2.0
 livekit==1.1.21
 livekit-api==1.2.2
 livekit-protocol==1.1.28
-sherpa-onnx==1.13.8
-numpy==2.5.4
 aiohttp==3.14.5
-protobuf==7.36.2
-PyJWT==2.15.1
+numpy==2.5.4
+# Local (no-cloud) speech stack only (CLU_STACK=local):
+sherpa-onnx==1.13.8

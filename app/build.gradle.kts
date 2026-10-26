@@ -29,9 +29,15 @@ java {
 dependencies {
     compileOnly(files(androidJarFile))
     implementation(project(":core"))
-    // Optional self-hosted LiveKit voice path: protocol client + WebRTC Android SDK classes (native lib in toolchain/jniLibs).
-    implementation(project(":lkclient"))
-    implementation(files(toolchain.file("webrtc/webrtc-sdk.jar")))
+    // Official LiveKit Android SDK (io.livekit:livekit-android 2.29.2) and its Android-library dependencies, unpacked by
+    // scripts/fetch_livekit_sdk.sh (AAR classes + arm64 natives); plain-jar dependencies from Maven Central below.
+    implementation(fileTree(toolchain.dir("livekit/jars")) { include("*.jar") })
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.protobuf:protobuf-javalite:3.25.9")
+    implementation("com.google.dagger:dagger:2.46")
+    implementation("com.vdurmont:semver4j:3.1.0")
+    implementation("javax.sip:android-jain-sip-ri:1.3.0-91")
+    implementation("com.google.code.gson:gson:2.8.9")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.apache.commons:commons-compress:1.27.1")
 
@@ -80,6 +86,9 @@ fun registerVariant(name: String, release: Boolean) {
         resourceApk.set(linkResources.flatMap { it.outputApk })
         dexDir.set(dex.flatMap { it.outputDir })
         jniDirs.from(toolchain.dir("jniLibs"))
+        jniDirs.from(toolchain.dir("livekit/jniLibs"))
+        // The custom LiveKit client's WebRTC build is replaced by the SDK's prefixed WebRTC (liblkjingle_peerconnection_so).
+        excludeLibs.add("libjingle_peerconnection_so.so")
         jniDirs.from(rootProject.layout.projectDirectory.dir("native/build/jniLibs"))
         assetDirs.from(layout.projectDirectory.dir("src/main/assets"))
         assetDirs.from(toolchain.dir("assets"))
@@ -117,7 +126,6 @@ val apiCheck by tasks.registering(ApiCheckTask::class) {
     classes.from(sourceSets.main.get().output.classesDirs)
     classes.from(project(":core").sourceSets.main.get().output.classesDirs)
     report.set(layout.buildDirectory.file("reports/api-check.txt"))
-    classes.from(project(":lkclient").sourceSets.main.get().output.classesDirs)
 }
 
 // Android compiles regexes with ICU, which rejects patterns desktop Java accepts (e.g. an unescaped '}').
@@ -138,8 +146,7 @@ val verifyApk by tasks.registering(VerifyApkTask::class) {
     aapt2.set(toolchain.file("aapt2"))
     classes.from(sourceSets.main.get().output.classesDirs)
     classes.from(project(":core").sourceSets.main.get().output.classesDirs)
-    classes.from(project(":lkclient").sourceSets.main.get().output.classesDirs)
-    classes.from(toolchain.file("webrtc/webrtc-sdk.jar"))
+    classes.from(fileTree(toolchain.dir("livekit/jars")) { include("*.jar") })
     report.set(layout.buildDirectory.file("reports/verify-apk.txt"))
 }
 tasks.named("check") { dependsOn(apiCheck, verifyApk) }

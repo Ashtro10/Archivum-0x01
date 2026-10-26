@@ -36,6 +36,8 @@ class CluApp : Application() {
     lateinit var whisper: ai.clu.voice.WhisperStt
     lateinit var voice: VoiceSession
     lateinit var liveKit: LiveKitSession
+    /** The conversation engine both screens use (server agent or on-device). */
+    lateinit var engine: ai.clu.voice.Engine
     lateinit var sync: SyncManager
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -88,6 +90,7 @@ class CluApp : Application() {
         registerAndroidTools()
         voice = VoiceSession(this)
         liveKit = LiveKitSession(this)
+        engine = ai.clu.voice.Engine(this)
         sync = SyncManager(this)
         createChannels()
         core.startModel()

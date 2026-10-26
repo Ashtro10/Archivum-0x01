@@ -79,12 +79,19 @@ class UiScreenshotTest {
     @Test fun voiceAdvancedScreen() { if (label != null) render(Robolectric.buildActivity(ai.clu.ui.VoiceActivity::class.java,
         android.content.Intent().putExtra("advanced", true)).setup().get(), "voice-advanced", false) }
     @Test fun chatScreenWithKeyboard() = shot("chat-keyboard", ime = true)
-    @Test fun voiceMode() = shot("voice", ime = false) { a ->
-        // Voice-mode overlay as shown while listening (state set directly; no microphone in the JVM).
-        val f = MainActivity::class.java.getDeclaredField("voiceOverlay").apply { isAccessible = true }
-        (f.get(a) as View).visibility = View.VISIBLE
-        fun tv(n: String) = MainActivity::class.java.getDeclaredField(n).apply { isAccessible = true }.get(a) as android.widget.TextView
-        tv("voiceLabel").text = "Clu is listening…"; tv("voiceTranscript").text = "set an alarm for seven tomorrow"; tv("voiceTimer").text = "00:07"
-        (MainActivity::class.java.getDeclaredField("voiceOrb").apply { isAccessible = true }.get(a) as ai.clu.ui.OrbView).apply { mode = ai.clu.ui.OrbView.Mode.LISTENING; level = 0.6f }
+    @Test fun connectionScreen() { if (label != null) render(Robolectric.buildActivity(ai.clu.ui.ConnectionActivity::class.java).setup().get(), "connection", false) }
+
+    /** The voice HUD in each state, set directly (no microphone or server in the JVM); the HUD's animation is frozen at one frame. */
+    private fun voice(name: String, ui: ai.clu.voice.EngineUi) {
+        if (label == null) return
+        val a = Robolectric.buildActivity(ai.clu.ui.VoiceChatActivity::class.java).setup().get()
+        a.javaClass.getDeclaredMethod("render", ai.clu.voice.EngineUi::class.java).apply { isAccessible = true }.invoke(a, ui)
+        render(a, name, false)
     }
+    private val connected = ai.clu.voice.EngineUi(server = true, link = ai.clu.core.live.Link.CONNECTED, micOn = true)
+    @Test fun voiceIdle() = voice("voice-idle", connected.copy(phase = ai.clu.core.live.AgentPhase.LISTENING, micOn = false))
+    @Test fun voiceListening() = voice("voice-listening", connected.copy(phase = ai.clu.core.live.AgentPhase.LISTENING, micLevel = 0.6f, userLive = "what's the weather like in Pune tomorrow"))
+    @Test fun voiceThinking() = voice("voice-thinking", connected.copy(phase = ai.clu.core.live.AgentPhase.THINKING, thinking = true, userLive = "what's the weather like in Pune tomorrow"))
+    @Test fun voiceSpeaking() = voice("voice-speaking", connected.copy(phase = ai.clu.core.live.AgentPhase.SPEAKING, agentLevel = 0.7f, agentLive = "Tomorrow in Pune: mostly sunny, around 31 degrees."))
+    @Test fun voiceDisconnected() = voice("voice-disconnected", connected.copy(link = ai.clu.core.live.Link.FAILED, error = "Can't reach Clu's server. Retrying in 4 s."))
 }

@@ -153,6 +153,9 @@ class WakeSettingsTest {
         s.set(Settings.BACKGROUND_LISTENING, true)
         assertTrue(ServicePolicy.shouldRunListeningService(s, micPermission = true))
         assertFalse(ServicePolicy.shouldRunListeningService(s, micPermission = false))
+        s.set(Settings.VOICE_MODE, "livekit")
+        assertFalse(ServicePolicy.shouldRunListeningService(s, micPermission = true))
+        s.set(Settings.VOICE_MODE, "offline")
         s.set(Settings.WAKE_ENABLED, false)
         assertFalse(ServicePolicy.shouldRunListeningService(s, micPermission = true))
     }

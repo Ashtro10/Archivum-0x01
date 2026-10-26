@@ -60,7 +60,8 @@ accounting. (Practical note: LiveKit's Android SDK also depends on Google Maven/
 unreachable from this build environment.) No LiveKit Cloud or other hosted media service is involved.
 
 **Update 2026-10-24:** the offline path above is unchanged and remains the default. An *optional*, self-hosted LiveKit mode now
-exists as a second path. See [LIVEKIT_INTEGRATION.md](LIVEKIT_INTEGRATION.md).
+exists as a second path. See [LIVEKIT_AGENT.md](LIVEKIT_AGENT.md). **Update 1.3.0:** the app now uses the official LiveKit
+Android SDK (built in from its Maven AARs with small AndroidX shims), and the server side is a LiveKit Agents worker.
 
 **Possible future use (original note):** if a laptop or tablet later hosts a LiveKit server, it could stream the phone's microphone
 to the home device's larger model in real time. The engine interfaces (`LlmEngine`, `TtsBackend`, ASR) keep that

@@ -43,22 +43,9 @@ class LiveKitSettingsTest {
     @Test fun mode() {
         assertEquals("offline", s.string(Settings.VOICE_MODE), "offline is the default")
         assertEquals(SettingScope.DEVICE, Settings[Settings.VOICE_MODE]!!.scope, "each device chooses its own path")
-        // Offline mode never selects LiveKit, whatever the network state.
-        assertEquals(ConversationPath.OFFLINE, VoiceModePolicy.select(s, online = true, configured = true).path)
-        s.set(Settings.VOICE_MODE, "livekit")
-        assertEquals(ConversationPath.LIVEKIT, VoiceModePolicy.select(s, online = true, configured = true).path)
+        assertEquals(SettingResult.Ok, s.set(Settings.VOICE_MODE, "livekit"))
+        assertEquals("livekit", s.string(Settings.VOICE_MODE))
         assertIs<SettingResult.Invalid>(s.set(Settings.VOICE_MODE, "cloud"))
-    }
-
-    @Test fun fallback() {
-        s.set(Settings.VOICE_MODE, "livekit")
-        val noNet = VoiceModePolicy.select(s, online = false, configured = true)
-        assertEquals(ConversationPath.OFFLINE, noNet.path); assertTrue(noNet.reason.contains("no network"))
-        assertEquals(ConversationPath.OFFLINE, VoiceModePolicy.select(s, online = true, configured = false).path)
-        assertEquals(ConversationPath.OFFLINE, VoiceModePolicy.select(s, online = true, configured = true, serverReachable = false).path)
-        s.set(Settings.LK_FALLBACK, false)
-        val e = assertFailsWith<LiveKitException> { VoiceModePolicy.select(s, online = false, configured = true) }
-        assertTrue(e.message!!.contains("fallback to offline is turned off"))
     }
 
     @Test fun tokenEndpoint() {
@@ -118,7 +105,7 @@ class LiveKitSettingsTest {
     }
 
     @Test fun agentName() {
-        assertEquals("clu-voice", s.string(Settings.LK_AGENT_NAME))
+        assertEquals("clu", s.string(Settings.LK_AGENT_NAME))
         assertIs<SettingResult.Invalid>(s.set(Settings.LK_AGENT_NAME, "bad name!"))
         s.set(Settings.LK_AGENT_NAME, "my-clu-agent")
         configure(); serverReturns(); token()

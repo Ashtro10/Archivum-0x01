@@ -23,10 +23,13 @@ class SettingsActivity : BaseActivity() {
             p(title, C.TEXT, 16f); p(desc, C.MUTED, 12f)
             setOnClickListener { open() }
         }
-        section("Voice", "Clu's voice, language and how listening works.") { startActivity(Intent(this@SettingsActivity, VoiceActivity::class.java)) }
-        section("Models & offline downloads", "The language model that runs on this phone, and optional downloads.") { startActivity(Intent(this@SettingsActivity, ModelsActivity::class.java)) }
-        for (sec in SimpleSettings.all) section(sec.title, sec.description) {
-            startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", sec.id))
+        section("Connection", "Who answers: Clu's server (LiveKit agent) or this device, and the server details.") { startActivity(Intent(this@SettingsActivity, ConnectionActivity::class.java)) }
+        section(SimpleSettings.CONVERSATION.title, SimpleSettings.CONVERSATION.description) {
+            startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", SimpleSettings.CONVERSATION.id))
+        }
+        if (core.settings.string(Settings.VOICE_MODE) != "livekit") {
+            section("On-device voice", "Voice and language for the on-device engine.") { startActivity(Intent(this@SettingsActivity, VoiceActivity::class.java)) }
+            section("On-device model", "The language model that runs on this phone, and optional downloads.") { startActivity(Intent(this@SettingsActivity, ModelsActivity::class.java)) }
         }
         section("Diagnostics", "Request timings, speech recognition and performance — for fixing problems.") { startActivity(Intent(this@SettingsActivity, DiagnosticsActivity::class.java)) }
         button("All settings (advanced)") { startActivity(Intent(this@SettingsActivity, SettingsActivity::class.java).putExtra("advanced", true)) }

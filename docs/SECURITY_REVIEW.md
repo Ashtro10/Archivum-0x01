@@ -108,12 +108,12 @@ The Bionic sysroot comes from a community NDK build (risk discussed there). Ther
 
 ## 7a. Optional LiveKit voice mode (added 2026-10-24)
 
-Full analysis: [LIVEKIT_INTEGRATION.md](LIVEKIT_INTEGRATION.md) §4.
+Current design: [LIVEKIT_AGENT.md](LIVEKIT_AGENT.md) §3 (Secrets). Updated for 1.3.0: the agent now does the reasoning, so it
+sees everything said and typed in server mode (with the cloud stack, so do LiveKit Inference and its model providers).
 * No LiveKit API key or secret in the app. A revocable device key is Keystore-encrypted and changes need owner verification.
 * Short-lived, room-scoped tokens are checked by the app before use; over-privileged tokens are refused.
 * TLS is required except to private-network addresses.
-* Only the agent participant can drive Clu. The agent (on the owner's machine) sees transcripts and replies.
-* The starter app's defaults (LiveKit homepage demo agent, LiveKit Cloud sandbox) are **not** used anywhere.
+* A room holds only the owner's device and the dispatched agent: tokens are issued only by the owner's token server, per device and room. The phone no longer executes anything on the agent's behalf; the agent can only send text, audio and state (the RPC "brain bridge" was removed).
 * New permission: `MODIFY_AUDIO_SETTINGS` (normal), used only during a LiveKit session.
 * New network endpoints, both configured by the owner and none by default: the token endpoint and the LiveKit server it names.
 

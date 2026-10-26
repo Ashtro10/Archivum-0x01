@@ -23,25 +23,27 @@ import kotlinx.coroutines.*
 
 object C {
     val BG = Color.parseColor("#000000")
-    val SURFACE = Color.parseColor("#121214")
-    val SURFACE2 = Color.parseColor("#1C1C20")
-    val BORDER = Color.parseColor("#2C2C32")
-    val TEXT = Color.parseColor("#F2F2F5")
-    val MUTED = Color.parseColor("#8E8E96")
-    val ACCENT = Color.parseColor("#B54BFF")      // violet
-    val ACCENT2 = Color.parseColor("#FF3D7F")     // pink
-    val ACCENT3 = Color.parseColor("#FF5A36")     // red-orange
-    val OK = Color.parseColor("#3FB950")
+    val SURFACE = Color.parseColor("#10141A")
+    val SURFACE2 = Color.parseColor("#192029")
+    val BORDER = Color.parseColor("#26303A")
+    val TEXT = Color.parseColor("#F2F4F6")
+    val MUTED = Color.parseColor("#8A94A0")
+    // Clu's identity (hexagonal HUD): teal -> cyan -> deep blue.
+    val ACCENT = Color.parseColor("#3FD0C0")      // teal
+    val ACCENT2 = Color.parseColor("#2AA7E0")     // cyan
+    val ACCENT3 = Color.parseColor("#2B5BD7")     // deep blue
+    val OK = Color.parseColor("#3FD0A0")
     val WARN = Color.parseColor("#E3A72F")
+    val ERROR = Color.parseColor("#FF5C5C")
 }
 
 /** Dark "glass" circle/pill: near-black fill with a subtle light border (header and control buttons). */
 fun glassBg(radius: Float = 200f) = GradientDrawable().apply {
-    colors = intArrayOf(Color.parseColor("#26262B"), Color.parseColor("#141417")); orientation = GradientDrawable.Orientation.TOP_BOTTOM
+    colors = intArrayOf(Color.parseColor("#1E2630"), Color.parseColor("#11161C")); orientation = GradientDrawable.Orientation.TOP_BOTTOM
     cornerRadius = radius; setStroke(2, C.BORDER)
 }
 
-/** Clu's accent gradient (violet -> pink -> red), used for the microphone and send buttons. */
+/** Clu's accent gradient (teal -> cyan -> blue), used for the microphone and send buttons. */
 fun accentBg(radius: Float = 200f) = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(C.ACCENT, C.ACCENT2, C.ACCENT3)).apply { cornerRadius = radius }
 
 fun Context.dp(v: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()

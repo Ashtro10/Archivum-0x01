@@ -1,4 +1,4 @@
-# On-device acceptance checklist — v1.0.0-prototype
+# On-device acceptance checklist — v1.3.0-prototype
 
 **Status: NOT YET RUN ON ANY DEVICE.** Nothing in this file has been executed on the Xiaomi Pad 6 or the iQOO Neo 9
 Pro. Until a row is filled in from a real device, that behaviour counts as **unverified**, whatever the automated
@@ -193,6 +193,33 @@ None of these have been run on a physical device yet. For each item, write the r
 | U11 ★ | Fresh install (or with Joe not downloaded) | The chat shows "Clu's voice isn't downloaded yet" with Download Joe (67.2 MB) and Choose voice. Nothing is spoken by a different voice | | |
 | U12 ★ | Airplane mode: repeat U1, U2, U6, and U3 if Whisper is installed | All work offline | | |
 
+## X. Clu server engine, voice HUD and chat (1.3.0) – iQOO Neo 9 Pro first, then Xiaomi Pad 6
+
+None of these have run on a device. Setup: [LIVEKIT_AGENT.md](LIVEKIT_AGENT.md) §3. Note which stack the server
+runs (`cloud` or `local`) next to every timing. Agent-measured timings appear in Connection ("Last reply started …")
+and in Diagnostics → Performance as `lk_speech_end_to_first_audio_ms`, `lk_llm_ttft_ms` and `lk_tts_ttfb_ms`.
+
+| ID | Steps | Record / expected | P | N |
+|---|---|---|---|---|
+| X1 ★ | Install over 1.2.0 | Installs as an update; chats kept | | |
+| X2 ★ | Settings → Connection → *Clu server*, token endpoint, device key, **Test connection** | "Connected – Clu's agent is listening" within a few seconds. Record time: ___ s | | |
+| X3 ★ | Chat: type "What's the capital of France?" with 🔊 off (text → text) | "Thinking…" appears, then the reply streams in. No audio | | |
+| X4 ★ | Same with 🔊 on (text → spoken) | Reply text and speech. Record send → first audio (stopwatch/video): ___ ms | | |
+| X5 ★ | Chat: tap 🎤, ask a question, 🔊 off (voice → text) | Your words appear as the message-box hint while you speak; the reply streams in as text only | | |
+| X6 ★ | Tap ⬡ (voice chat), ask "How are you doing today?" (voice → spoken) | HUD: LISTENING (teal, ring follows your voice) → THINKING → SPEAKING (pulses with Clu's audio) → LISTENING. Record end of speech → first audio, 5 tries: ___ ms | | |
+| X7 ★ | Follow-up: "And what about tomorrow?" after a question about today | Answer uses the earlier context | | |
+| X8 ★ | Talk over a long answer | Clu stops quickly (record ___ ms) and answers the new question. The interrupted reply is marked *interrupted* in the chat | | |
+| X9 ★ | Tap ■ while Clu is speaking or thinking | Stops at once; HUD returns to LISTENING | | |
+| X10 ★ | Loudspeaker at high volume, stay silent during a long answer | Clu does **not** interrupt itself (echo cancellation). Count false stops: ___ | | |
+| X11 ★ | Mute (mic button) in voice chat | HUD shows MIC OFF and no animation; nothing is transcribed | | |
+| X12 ★ | Airplane mode during a conversation, wait 10 s, then turn it off | HUD shows OFFLINE/CONNECTING with a red marker and no fake activity; it reconnects by itself and the conversation continues. Record recovery time: ___ s | | |
+| X13 ★ | Stop `clu_agent.py` on the server while connected | Within about 15 s: "Clu's agent hasn't joined…" message; HUD WAITING. Restart the agent: Clu becomes ready without restarting the app | | |
+| X14 ★ | Stop the token server / wrong device key | Clear error in Connection and on the screens; no reply from the on-device model | | |
+| X15 ★ | Rotate the phone in chat; open and close the keyboard | Composer stays above the keyboard; send and mic remain visible and tappable | | |
+| X16 ★ | ⬡ → ⌨ → ⬡ several times | Switches without losing the conversation; leaving voice chat turns the microphone off | | |
+| X17 | Switch Connection to *This device*, airplane mode, chat and voice | On-device engine works offline as in section N-A | | |
+| X18 | 10 min voice conversation: battery %, warmth, data used (Android settings → Data usage) | ___ % / ___ / ___ MB | | |
+
 ## W. Voice-first agent (this build) – iQOO Neo 9 Pro first, then Xiaomi Pad 6
 
 None of these have been run on a physical device yet. Background: [VOICE_AND_AGENT.md](VOICE_AND_AGENT.md). Timings come from Diagnostics → Requests and Performance (`speech_end_to_transcript_ms`, `speech_end_to_first_token_ms`, `speech_end_to_first_audio_ms`, `interrupt_to_silence_ms`, `reply_end_to_listening_ms`).
@@ -303,23 +330,8 @@ already be installed.
 | NA6 ★ | "End of the line" | Session ends | | |
 | NA7 | Switch mode to **LiveKit** while still in airplane mode, say the wake word | Falls back: "continuing offline" (Voice screen), conversation works offline | | |
 
-**N-B. LiveKit mode (optional; needs your own server, see server/README.md).** A computer on the same Wi-Fi or on the
-phone's hotspot runs `livekit-server` and `clu_voice_server.py serve`.
-
-| ID | Steps | Expected | Result |
-|---|---|---|---|
-| NB1 | `python clu_voice_server.py add-device phone` → Clu → Voice → **Set device key** (owner verification) → paste | "Device key saved (encrypted)" | |
-| NB2 | LiveKit settings → Token endpoint `http://<PC-IP>:8089/token` (owner verification) | Saved | |
-| NB3 | Voice → **Use LiveKit** → **Start LiveKit conversation** | Status: connecting → connected → "Voice agent ready"; record "connected in … ms": ____ | |
-| NB4 | Say "How are you doing today?" | Voice screen shows "Hearing…" while you speak, then "Heard: …"; Clu answers in the server's voice; chat history shows the turn | |
-| NB5 | Record end of speech → first audio (stopwatch or video): ____ ms (5 tries) | Host reference ≈1.3 s; phone not yet measured | |
-| NB6 | Ask about a memory (D1) | Answer uses the memory (brain on the phone) | |
-| NB7 | Talk over a long answer | Clu stops within about 1 s. Record ____ ms. Check it does **not** interrupt itself at normal speaker volume | |
-| NB8 | "End of the line" | Farewell spoken, session ends, wake word works again (offline) | |
-| NB9 | Wake word while in LiveKit mode | Tone, then the conversation continues through LiveKit | |
-| NB10 | Stop the server (Ctrl+C) during a session | Clu reports the session ended; next activation falls back to offline | |
-| NB11 | Revoke the key on the server (`revoke-device phone`), start again | "Token server rejected this device key"; falls back to offline | |
-| NB12 | 10 min LiveKit conversation: battery %, warmth, RAM (Diagnostics) | Record: ____ % / ____ / ____ MB | |
+**N-B (removed in 1.3.0).** The old LiveKit mode with automatic offline fallback no longer exists. Test the Clu
+server engine in section X.
 
 ---
 

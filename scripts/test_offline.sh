@@ -22,7 +22,7 @@ assert t.connect_ex((\"1.1.1.1\", 443)) != 0, \"network is reachable - not an of
 print(\"network namespace: loopback only, internet unreachable\")
 "
 W=(); [[ -n "$2" ]] && W=(-Dclu.whisperModels="$2" -Dclu.sttFixtures="$3")
-./gradlew --offline --no-daemon -q :lkclient:test --tests "*OfflineConversationTest*" \
-  :core:test --tests "*StreamingSpeechTest*" --tests "*AdaptiveChunkerTest*" --tests "*WhisperIntegrationTest*" --tests "*WhisperEngineTest*" \
+./gradlew --offline --no-daemon -q :core:test --tests "*OfflineConversationTest*" \
+  --tests "*StreamingSpeechTest*" --tests "*AdaptiveChunkerTest*" --tests "*WhisperIntegrationTest*" --tests "*WhisperEngineTest*" \
   -Dclu.offline=true -Dclu.lk.python="$0" -Dclu.lk.models="$1" "${W[@]}"
 ' "$PY" "$MODELS" "$WHISPER" "$FIXTURES"

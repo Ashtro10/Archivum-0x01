@@ -53,7 +53,14 @@ anyway while the app is a prototype.
 * Then Settings (in Clu) → Wake words & activation → **Background listening** ON. A notification shows while the
   microphone is in use. Android 14 only allows starting it while Clu is open.
 
-## 3. Load a model and voice
+## 3. Connect Clu to its server (recommended)
+
+Clu's best conversation quality comes from its server engine: a LiveKit Agents worker on your computer or on LiveKit
+Cloud. Set it up with [LIVEKIT_AGENT.md](LIVEKIT_AGENT.md) §3, then in Clu: ☰ → **Connection** → *Clu server* →
+**Token endpoint…** and **Device key…** → **Test connection**. Server mode needs network access for the whole
+conversation. To use Clu without any network, choose *This device* and do step 3b.
+
+## 3b. Load an on-device model and voice (the *This device* engine)
 
 See [MODELS_AND_VOICE.md](MODELS_AND_VOICE.md). Recommended: Qwen2.5-3B-Instruct Q4_K_M on both devices (or the
 1.5B model on the phone for speed). Then Voice → download the *Clu voice – Ryan* pack (67 MB).

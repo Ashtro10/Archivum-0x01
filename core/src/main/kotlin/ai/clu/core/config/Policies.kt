@@ -62,8 +62,10 @@ object ServicePolicy {
     enum class ProactiveDelivery { NOTIFICATION, SPEAK }
 
     /** Background listening runs only if enabled, the wake word or clap is on, and the mic permission is granted. */
+    /** Background wake listening belongs to the on-device engine; with the Clu server selected it stays off (no silent offline replies). */
     fun shouldRunListeningService(s: SettingsStore, micPermission: Boolean): Boolean =
-        micPermission && s.bool(Settings.BACKGROUND_LISTENING) && (s.bool(Settings.WAKE_ENABLED) || s.bool(Settings.CLAP_ENABLED))
+        micPermission && s.string(Settings.VOICE_MODE) != "livekit" && s.bool(Settings.BACKGROUND_LISTENING) &&
+            (s.bool(Settings.WAKE_ENABLED) || s.bool(Settings.CLAP_ENABLED))
 
     fun shouldServeSync(s: SettingsStore) = s.bool(Settings.SYNC_ENABLED) && s.bool(Settings.SYNC_SERVE)
 

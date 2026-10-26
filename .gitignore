@@ -1,5 +1,8 @@
 .gradle/
-build/
+/build/
+/*/build/
+/testing/*/build/
+/buildSrc/build/
 toolchain/
 local.properties
 *.keystore
@@ -14,3 +17,4 @@ server/devices.json
 server/models/
 server/.venv/
 server/livekit.yaml
+buildSrc/.kotlin/

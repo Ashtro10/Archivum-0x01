@@ -1,11 +1,8 @@
-package ai.clu.livekit
+package ai.clu.core
 
-import ai.clu.core.*
 import ai.clu.core.agent.AgentEvent
 import ai.clu.core.agent.TurnRequest
 import ai.clu.core.config.Settings
-import ai.clu.core.livekit.ConversationPath
-import ai.clu.core.livekit.VoiceModePolicy
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -19,8 +16,8 @@ import org.junit.jupiter.api.Test
 /**
  * Offline mode with no network at all (run inside a network namespace: scripts/test_offline.sh). A new voice
  * conversation runs through the same engines and models the APK bundles - sherpa-onnx streaming ASR (20M zipformer)
- * and Piper TTS (sherpa-onnx 1.13.8, here via its Python binding) and Clu's core with the real llama.cpp engine -
- * with LiveKit selected but unreachable, so the fallback path is exercised too.
+ * and Piper TTS (sherpa-onnx 1.13.8, here via its Python binding) and Clu's core with the real llama.cpp engine,
+ * with the on-device engine selected ("This device"; there is no automatic fallback from the Clu server engine).
  *
  * Not covered here (needs the phone): Android microphone/speaker, the sherpa-onnx Android JNI build, the arm64 llama
  * build and its speed.
@@ -73,15 +70,10 @@ else:
         val transcript = py("asr", "How are you doing today?")
         assertTrue("how are you" in transcript, "offline ASR transcript: '$transcript'")
 
-        // 2. Clu decides the path: LiveKit selected but no network -> offline (fallback), never a network call.
+        // 2. The on-device engine is selected (the default) and the platform reports no network.
         val platform = TestPlatform().apply { online = false }
         val core = newCore(platform = platform)
-        core.settings.set(Settings.VOICE_MODE, "livekit")
-        core.settings.set(Settings.LK_TOKEN_URL, "https://lk.example.net/token", verified = true)
-        platform.secrets[CluCore.LIVEKIT_DEVICE_KEY] = "phone.0123456789abcdef0123"
-        val decision = VoiceModePolicy.select(core.settings, online = platform.isOnline(), configured = core.liveKitTokens.isConfigured())
-        assertEquals(ConversationPath.OFFLINE, decision.path)
-        core.settings.set(Settings.VOICE_MODE, "offline")
+        assertEquals("offline", core.settings.string(Settings.VOICE_MODE))
 
         // 3. New conversation with the real llama.cpp engine (tiny random-weight model: plumbing, not answer quality).
         val model = File(System.getProperty("clu.testModel", "../native/build/test/tiny.gguf"))

@@ -42,7 +42,11 @@
 * **Live tools** (web, maps, external AI) were tested only against fake responses.
 * **Alarms:** verified through the system's next-alarm record when the clock app registers it; otherwise reported
   as unconfirmed. Timers, calendar entries and maps are hand-offs to other apps and reported as such.
-* **LiveKit** is optional and self-hosted only; see LIVEKIT_INTEGRATION.md §8 for its limitations (no reconnect, LAN/hotspot by default, no speaker verification over LiveKit, Android WebRTC path not yet run on a device).
+* **Clu server engine (LiveKit)** needs a running `clu_agent.py` and network access for the whole conversation. It is
+  not offline. In server mode the agent does not use the phone's memories, tools or characters (feature freeze), and
+  background wake-word listening is off. Not yet run on a phone: SDK audio, echo cancellation, interruption on a real
+  speaker, reconnection on mobile networks, battery. Local-stack latency (about 2.2 s from end of speech to first
+  audio on the host) misses the 1 s target. The cloud stack is unmeasured. See LIVEKIT_AGENT.md.
 * **UI** is functional and plain (framework Views), as agreed: visual design is the next phase.
 * **Self-improvement** is limited to measurement, suggestions and reversible configuration; no autonomous code
   changes or on-device training.

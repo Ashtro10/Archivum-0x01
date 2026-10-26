@@ -52,8 +52,8 @@ local network. Full matrix: [docs/OFFLINE_MATRIX.md](docs/OFFLINE_MATRIX.md).
 | [docs/RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md) | APK checksum, certificate, ABI, native deps, provenance of all binaries |
 | [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md) | Permissions, endpoints, downloads, data at rest, sync; fixes made |
 | [docs/SIGNING_AND_BACKUP.md](docs/SIGNING_AND_BACKUP.md) | Release key custody, signed updates, data backup/restore |
-| [docs/LIVEKIT_INTEGRATION.md](docs/LIVEKIT_INTEGRATION.md) | Optional self-hosted LiveKit voice mode: starter evaluation, decision, architecture, security, tests, measurements |
-| [server/README.md](server/README.md) | Setting up the optional LiveKit voice server on your own computer |
+| [docs/LIVEKIT_AGENT.md](docs/LIVEKIT_AGENT.md) | Clu server engine: official LiveKit SDK + LiveKit Agents worker; architecture, setup (Cloud or self-hosted), costs, measured latency, what is verified |
+| [server/README.md](server/README.md) | Running the Clu agent worker and token endpoint |
 
 ## Building from source
 

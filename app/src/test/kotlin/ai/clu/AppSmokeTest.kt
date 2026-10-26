@@ -82,9 +82,8 @@ class AppSmokeTest {
         val a = launch(MainActivity::class.java)
         val views = allViews(a.window.decorView)
         val input = views.filterIsInstance<EditText>().first()
-        val send = views.filterIsInstance<Button>().first { it.text == "➤" }
         input.setText("tell me something interesting")
-        send.performClick()
+        views.filterIsInstance<android.widget.TextView>().first { it.contentDescription == "Send" }.performClick()
         val deadline = System.currentTimeMillis() + 10_000
         val list = views.filterIsInstance<ListView>().first()
         while (System.currentTimeMillis() < deadline) { idle(); if (app.core.conversations.messages(app.currentConversation()).size >= 2) break }
@@ -100,7 +99,7 @@ class AppSmokeTest {
         val a = launch(MainActivity::class.java)
         val views = allViews(a.window.decorView)
         views.filterIsInstance<EditText>().first().setText("what time is it?")
-        views.filterIsInstance<Button>().first { it.text == "➤" }.performClick()
+        views.filterIsInstance<android.widget.TextView>().first { it.contentDescription == "Send" }.performClick()
         val deadline = System.currentTimeMillis() + 10_000
         while (System.currentTimeMillis() < deadline) { idle(); if (app.core.conversations.messages(app.currentConversation()).size >= 2) break }
         assertTrue(app.core.conversations.messages(app.currentConversation())[1].content.startsWith("It is"))
@@ -110,7 +109,8 @@ class AppSmokeTest {
         listOf(ConversationsActivity::class.java, MemoryActivity::class.java, MemoryEditActivity::class.java, ProposalsActivity::class.java,
             SettingsActivity::class.java, WakeWordsActivity::class.java, ModelsActivity::class.java, VoiceActivity::class.java,
             CharactersActivity::class.java, CharacterEditActivity::class.java, PeopleActivity::class.java, CommandsActivity::class.java,
-            DevicesActivity::class.java, PreferencesActivity::class.java, ToolHistoryActivity::class.java, DiagnosticsActivity::class.java)
+            DevicesActivity::class.java, PreferencesActivity::class.java, ToolHistoryActivity::class.java, DiagnosticsActivity::class.java,
+            ConnectionActivity::class.java, VoiceChatActivity::class.java)
             .forEach { cls -> val a = launch(cls); assertFalse("${cls.simpleName} finished unexpectedly", a.isFinishing) }
     }
 

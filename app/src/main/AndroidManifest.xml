@@ -53,6 +53,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ui.VoiceChatActivity" android:screenOrientation="portrait" />
+        <activity android:name=".ui.ConnectionActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.ConversationsActivity" />
         <activity android:name=".ui.MemoryActivity" />
         <activity android:name=".ui.MemoryEditActivity" android:windowSoftInputMode="adjustResize" />

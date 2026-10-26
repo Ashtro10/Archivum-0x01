@@ -290,43 +290,9 @@ class VoiceActivity : BaseActivity() {
         scope.launch { app.voice.state.collect { s -> live.text = "State: ${s.turn.name.lowercase()} · noise ${"%.1f".format(s.noiseDb)} dBFS (${s.environment.name.lowercase()})\n" +
             "Heard: ${s.lastHeard}\nPartial: ${s.partial}\nSpeaker: ${s.speaker}\n${s.info}${if (s.error.isNotBlank()) "\n⚠ " + s.error else ""}" +
             (if (s.lastLatency.isNotEmpty()) "\nLast latency: " + s.lastLatency.entries.joinToString { "${it.key}=${"%.0f".format(it.value)}" } else "") } }
-        h1("Conversation mode")
-        val lkMode = core.settings.string(Settings.VOICE_MODE) == "livekit"
-        val decision = app.liveKit.decide()
-        p(if (lkMode) "LiveKit: speech recognition and Clu's voice run on your own LiveKit server; the model, memory, tools and permissions stay on this device."
-          else "Offline: microphone, speech recognition, model and voice all run on this device. No network needed.", C.MUTED, 12f)
-        p("Next conversation: ${if (decision.path == ai.clu.core.livekit.ConversationPath.LIVEKIT) "LiveKit" else "offline"} (${decision.reason})", C.TEXT, 13f)
-        row {
-            smallButton(if (lkMode) "Use offline" else "Use LiveKit") {
-                core.settings.set(Settings.VOICE_MODE, if (lkMode) "offline" else "livekit"); build()
-            }
-            smallButton(if (app.liveKit.deviceKey() == null) "Set device key" else "Replace device key") {
-                verifyOwner("Change the LiveKit device key") { ok ->
-                    if (ok) prompt("Device key", hint = "id.secret from: clu_voice_server.py add-device <id>", password = true) { key ->
-                        if (key.matches(Regex("[a-z0-9][a-z0-9-]{0,30}\\.[A-Za-z0-9_-]{16,}"))) { app.liveKit.setDeviceKey(key); toast("Device key saved (encrypted)."); build() }
-                        else toast("That does not look like a device key (id.secret).")
-                    }
-                }
-            }
-            if (app.liveKit.deviceKey() != null) smallButton("Remove key") {
-                verifyOwner("Remove the LiveKit device key") { ok -> if (ok) { app.liveKit.setDeviceKey(null); toast("Device key removed."); build() } }
-            }
-        }
-        row {
-            smallButton(if (app.liveKit.active) "End LiveKit session" else "Start LiveKit conversation") {
-                when {
-                    app.liveKit.active -> app.liveKit.stop()
-                    !app.hasMic() -> toast("Grant microphone permission first (mic button in chat).")
-                    else -> { app.voice.stop(); app.liveKit.start(resumeWakeAfter = false) }
-                }
-            }
-            smallButton("LiveKit settings") { startActivity(Intent(this@VoiceActivity, SettingsCategoryActivity::class.java).putExtra("cat", "LIVEKIT")) }
-        }
-        val lkLive = p("", C.TEXT, 13f)
-        scope.launch { app.liveKit.state.collect { s -> lkLive.text = "LiveKit: ${s.status.name.lowercase()}" +
-            (if (s.agentState.isNotBlank()) " · agent ${s.agentState}" else "") + (s.connectMs?.let { " · connected in $it ms" } ?: "") +
-            (if (s.message.isNotBlank()) "\n${s.message}" else "") + (if (s.partial.isNotBlank()) "\nHearing: ${s.partial}" else "") +
-            (if (s.lastHeard.isNotBlank()) "\nHeard: ${s.lastHeard}" else "") + (if (s.lastReply.isNotBlank()) "\nReplied: ${s.lastReply.take(160)}" else "") } }
+        h1("Conversation engine")
+        p("Voice and chat use Clu's server (LiveKit) or the on-device engine: Settings → Connection.", C.MUTED, 12f)
+        button("Connection") { startActivity(Intent(this@VoiceActivity, ConnectionActivity::class.java)) }
         button("Voice settings") { startActivity(Intent(this@VoiceActivity, SettingsCategoryActivity::class.java).putExtra("cat", "VOICE")) }
         button("Wake words") { startActivity(Intent(this@VoiceActivity, WakeWordsActivity::class.java)) }
     }

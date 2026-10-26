@@ -53,24 +53,22 @@ object Settings {
         def(SettingDef(key, title, cat, SettingType.TimeOfDay, jsonOf(default), desc, component, effect, SettingScope.SHARED, ApplyMode.IMMEDIATE, false, test))
 
     // ---------------------------------------------------------------- LiveKit voice (optional)
-    val VOICE_MODE = choice("voice.mode", "Conversation mode", LIVEKIT, "offline",
-        listOf("offline" to "Offline: microphone, speech recognition, model and voice all on this device",
-            "livekit" to "LiveKit: speech recognition and voice on your own LiveKit server; Clu's model, memory and tools stay on this device"),
-        "Where voice conversations are processed. Offline needs no network after models are installed.", "VoiceModePolicy, LiveKitSession",
-        "Voice sessions use the selected path", "LiveKitSettingsTest#mode", scope = DEVICE,
-        limits = "LiveKit mode needs your own LiveKit server, token endpoint and Clu voice agent (docs/LIVEKIT_INTEGRATION.md).")
+    val VOICE_MODE = choice("voice.mode", "Conversation engine", LIVEKIT, "offline",
+        listOf("offline" to "On this device: local model, speech recognition and voice (no network)",
+            "livekit" to "Clu server (LiveKit): speech recognition, reasoning and voice on Clu's agent server"),
+        "Which engine answers voice and text. The Clu server gives the best understanding and the fastest, most natural replies; " +
+            "the device engine works without any network.", "Engine, LiveKitSession, LiveConversation",
+        "Voice and chat use the selected engine", "LiveKitSettingsTest#mode", scope = DEVICE,
+        limits = "The Clu server needs a LiveKit server (Cloud or self-hosted), the token endpoint and the Clu agent (docs/LIVEKIT_AGENT.md).")
     val LK_TOKEN_URL = text("livekit.tokenEndpoint", "Token endpoint", LIVEKIT, "",
         "URL of your token server. Clu asks it for a short-lived room token; no LiveKit API key or secret is stored in the app.",
         "TokenProvisioner", "Token requests go to this URL", "LiveKitSettingsTest#tokenEndpoint",
         SettingType.Text(300, pattern = Regex("https?://\\S+")), sensitive = true,
         limits = "https:// required, except http:// to a private-network address when allowed below.")
-    val LK_AGENT_NAME = text("livekit.agentName", "Agent name", LIVEKIT, "clu-voice",
-        "Name of the voice agent your server dispatches to Clu's room.", "TokenProvisioner",
+    val LK_AGENT_NAME = text("livekit.agentName", "Agent name", LIVEKIT, "clu",
+        "Name of the agent your server dispatches to Clu's room (clu_agent.py).", "TokenProvisioner",
         "Sent in the token request (room_config.agents)", "LiveKitSettingsTest#agentName",
         SettingType.Text(64, allowEmpty = false, pattern = Regex("[A-Za-z0-9_.-]+")))
-    val LK_FALLBACK = bool("livekit.fallbackOffline", "Fall back to offline", LIVEKIT, true,
-        "If the LiveKit server cannot be reached, continue the conversation offline instead of failing.", "VoiceModePolicy",
-        "Unreachable server -> offline session", "LiveKitSettingsTest#fallback", scope = DEVICE)
     val LK_LAN_CLEARTEXT = bool("livekit.allowLanCleartext", "Allow unencrypted LAN server", LIVEKIT, true,
         "Allow http:// / ws:// only to private-network addresses (home Wi-Fi, phone hotspot). Internet servers always need TLS.",
         "EndpointPolicy", "ws:// and http:// accepted for private addresses only", "LiveKitSettingsTest#lanCleartext", sensitive = true,

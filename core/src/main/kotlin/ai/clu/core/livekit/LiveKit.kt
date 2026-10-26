@@ -10,32 +10,10 @@ import java.util.Base64
 import kotlinx.serialization.json.*
 
 /**
- * Optional LiveKit voice path. LiveKit only transports audio and messages between this device and the owner's own
- * LiveKit server, where a Clu voice agent does speech recognition and synthesis. Clu's brain (local model, memory,
- * tools, permissions) stays on the device: the agent sends transcripts here and speaks the replies it gets back.
- *
- * Nothing in this package is needed for offline conversations, and nothing here holds a LiveKit API key or secret:
- * room tokens come from the owner's token endpoint, authorised by a revocable per-device key.
+ * Clu server (LiveKit) support that is independent of the Android SDK: room tokens from the owner's token endpoint,
+ * authorised by a revocable per-device key, and the endpoint security policy. Nothing here holds a LiveKit API key or
+ * secret. The engine is chosen explicitly (Settings.VOICE_MODE); there is no automatic fallback between engines.
  */
-enum class ConversationPath { OFFLINE, LIVEKIT }
-
-data class PathDecision(val path: ConversationPath, val reason: String)
-
-object VoiceModePolicy {
-    /** Which path a new voice session uses. [configured] = token endpoint + device key present. */
-    fun select(s: SettingsStore, online: Boolean, configured: Boolean, serverReachable: Boolean? = null): PathDecision {
-        if (s.string(Settings.VOICE_MODE) != "livekit") return PathDecision(ConversationPath.OFFLINE, "offline mode selected")
-        val problem = when {
-            !configured -> "LiveKit is not set up (token endpoint or device key missing)"
-            !online -> "no network connection"
-            serverReachable == false -> "LiveKit server not reachable"
-            else -> null
-        } ?: return PathDecision(ConversationPath.LIVEKIT, "LiveKit mode")
-        return if (s.bool(Settings.LK_FALLBACK)) PathDecision(ConversationPath.OFFLINE, "$problem – continuing offline")
-        else throw LiveKitException("$problem (fallback to offline is turned off)")
-    }
-}
-
 class LiveKitException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** TLS everywhere, except unencrypted connections to private-network addresses when the owner allows it. */

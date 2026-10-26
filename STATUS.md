@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-26 (v1.2.0)_
+_Last updated: 2026-10-26 (v1.3.0)_
 
 ## Current state
 
@@ -12,10 +12,28 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 323 total: 316 passed, 0 failed, 7 skipped by default (opt-in benchmarks / model-dependent measurements) |
+| Automated tests (JVM / Robolectric / host engines) | 323 total: 317 passed, 0 failed, 6 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test); server E2E 8/8 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-26: real-time agent on the official LiveKit SDK, hexagonal HUD (v1.3.0, versionCode 4)
+
+Details, setup, costs and measurements: [docs/LIVEKIT_AGENT.md](docs/LIVEKIT_AGENT.md).
+* The custom LiveKit client and the phone-side "brain bridge" are removed. The app uses the official LiveKit Android
+  SDK 2.29.2. A LiveKit Agents worker (`server/clu_agent.py`) does STT, a streaming LLM, streaming TTS, turn
+  detection and interruption.
+* Two engines, chosen explicitly in Settings → Connection: *Clu server* or *This device* (the earlier on-device
+  pipeline, unchanged). No automatic fallback.
+* New screens: a voice chat built on a hexagonal HUD that shows only real states, an Aura-style text chat and a
+  Connection screen. Everything else is hidden behind Settings (feature freeze).
+* Host E2E with a real livekit-server and worker (local speech, **mock LLM**): all 8 checks pass (four paths,
+  follow-up, interruption, reconnect). Text → first audio 826 ms. Voice end → first audio about 2.2 s with the local
+  stack, so the 1 s target is **not met** there. The cloud stack was not measurable from the build machine.
+* Fixed: the custom build logic (`buildSrc/.../clu/build/`) had never been committed because of an over-broad
+  ignore rule.
+
+Not yet verified on a device: DEVICE_ACCEPTANCE.md section X.
 
 ## Added 2026-10-26: voice-first agent (v1.2.0, versionCode 3)
 
@@ -44,7 +62,7 @@ Not yet verified on a device: DEVICE_ACCEPTANCE.md section V.
 
 ## Added 2026-10-24: optional self-hosted LiveKit voice mode
 
-Two explicit paths ([docs/LIVEKIT_INTEGRATION.md](docs/LIVEKIT_INTEGRATION.md)):
+Two explicit paths (superseded in v1.3.0 by [docs/LIVEKIT_AGENT.md](docs/LIVEKIT_AGENT.md)):
 * **Offline mode (default):** unchanged on-device pipeline. Tested on the host with networking disabled.
 * **LiveKit mode:** speech recognition and voice on your own LiveKit server (`server/`). Clu's model, memory, tools and
   permissions stay on the device. Tested end to end on the host (16/16). Falls back to offline automatically.

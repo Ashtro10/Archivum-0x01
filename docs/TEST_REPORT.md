@@ -81,7 +81,7 @@ has been filled in from a device.
 | `server/tests/test_e2e.py` | Real livekit-server + token server + agent + Python stand-in device | **16/16** |
 | `OfflineConversationTest` (`scripts/test_offline.sh`) | Network namespace, loopback only: ASR → local llama.cpp → TTS, LiveKit fallback | **pass** |
 
-Details, measurements and the defects these tests found: [LIVEKIT_INTEGRATION.md](LIVEKIT_INTEGRATION.md) §6–7. Not run on
+Details: LIVEKIT_INTEGRATION.md (renamed LIVEKIT_AGENT.md in 1.3.0). **Superseded in 1.3.0:** the custom client and its tests were removed; see below. Not run on
 a device: Android WebRTC audio, echo cancellation and barge-in on a real speaker, hotspot NAT, battery/thermal/RAM.
 
 ## Field defect: crash on every launch (found on device, fixed)
@@ -125,3 +125,20 @@ before the fix and now passes: 72 patterns, 0 rejected. Greeting evaluation on a
 
 The in-app **Diagnostics → Run self-tests on this device** and the **AI models → Benchmark** button exist to close
 these gaps on the real devices.
+
+
+## Clu server engine on the official LiveKit SDK (1.3.0, 2026-10-26)
+
+| Test | Environment | Result |
+|---|---|---|
+| `LiveConversationTest` (7): state, history, segment de-duplication, interruption marking, reply timeout, backoff | JVM | pass |
+| `LiveKitSettingsTest` (5), `WakeSettingsTest#background` (no wake listening with the server engine) | JVM | pass |
+| `AppSmokeTest` (21) incl. chat send via the new composer, Connection and Voice chat screens open | Robolectric | pass |
+| `UiScreenshotTest` (11): chat, chat with keyboard, voice HUD idle/listening/thinking/speaking/disconnected, Connection, Settings | Robolectric native graphics, iQOO Neo 9 Pro resolution | rendered (docs/screenshots/p3-*.png) |
+| `server/tests/e2e_agents.py` (8 checks) | Real livekit-server 1.13.10 + LiveKit Agents 1.8.9 worker (Kroko STT, Piper TTS, Silero VAD, turn detector) + **mock LLM** + Python stand-in phone | **8/8**, docs/measurements/livekit-agents-e2e.json |
+| `OfflineConversationTest` (moved to `:core`), `scripts/test_offline.sh` | Network namespace, loopback only | pass |
+| `:app:verifyApk` (376 JNI symbols incl. LiveKit WebRTC and JNA), `:app:apiCheck` (784 classes), dex reference scan | release APK | pass |
+
+Totals: core 276 tests (6 skipped by default: opt-in benchmarks, model-dependent measurements and the namespace-only offline test), app 47 tests; 0 failures. **Not run:** anything on a phone, the official SDK
+connecting to a real room (it needs Android's WebRTC natives), and the cloud stack (LiveKit Cloud not reachable from
+the build machine).

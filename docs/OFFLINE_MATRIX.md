@@ -5,7 +5,7 @@
 | Capability | Offline | Requirements / notes |
 |---|---|---|
 | Voice conversation, offline mode (default) | ✅ | Wake word → VAD → streaming ASR → local model → Piper; verified on the build host with networking disabled (`scripts/test_offline.sh`), not yet on a device |
-| Voice conversation, LiveKit mode (optional) | ❌ by design | Needs your own LiveKit server + Clu voice agent on the local network; falls back to offline when unreachable (`livekit.fallbackOffline`) |
+| Voice and text, Clu server engine | ❌ by design | Needs the LiveKit server and `clu_agent.py` (and internet for the cloud stack). No automatic fallback: choose *This device* in Settings → Connection to work offline |
 | Text conversation | ✅ | A GGUF model imported/downloaded once |
 | Local inference (llama.cpp CPU) | ✅ | — |
 | Speech recognition (streaming zipformer) | ✅ | Bundled in the APK |

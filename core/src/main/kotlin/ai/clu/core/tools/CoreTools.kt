@@ -202,60 +202,139 @@ class WebSearchTool(private val http: HttpFetcher, private val settings: Setting
     }
 }
 
-data class GeoPoint(val name: String, val lat: Double, val lon: Double)
+data class GeoPoint(val name: String, val lat: Double, val lon: Double, val importance: Double = 0.0, val type: String = "")
 
 class Geocoder(private val http: HttpFetcher) {
-    suspend fun find(place: String): GeoPoint? {
-        val r = http.get("https://nominatim.openstreetmap.org/search?q=${enc(place)}&format=json&limit=1", mapOf("User-Agent" to USER_AGENT))
-        if (r.code != 200) return null
-        val arr = CluJson.parseToJsonElement(r.body) as? JsonArray ?: return null
-        val o = arr.firstOrNull() as? JsonObject ?: return null
-        return GeoPoint(o.str("display_name") ?: place, o.str("lat")?.toDoubleOrNull() ?: return null, o.str("lon")?.toDoubleOrNull() ?: return null)
+    suspend fun find(place: String): GeoPoint? = candidates(place, 1).firstOrNull()
+
+    /** Up to [limit] matches from OpenStreetMap Nominatim, best first. */
+    suspend fun candidates(place: String, limit: Int = 3): List<GeoPoint> {
+        val r = http.get("https://nominatim.openstreetmap.org/search?q=${enc(place)}&format=json&limit=$limit", mapOf("User-Agent" to USER_AGENT))
+        if (r.code != 200) return emptyList()
+        val arr = runCatching { CluJson.parseToJsonElement(r.body) as? JsonArray }.getOrNull() ?: return emptyList()
+        return arr.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            GeoPoint(o.str("display_name") ?: place, o.str("lat")?.toDoubleOrNull() ?: return@mapNotNull null, o.str("lon")?.toDoubleOrNull() ?: return@mapNotNull null,
+                (o["importance"] as? JsonPrimitive)?.doubleOrNull ?: 0.0, o.str("type") ?: "")
+        }
+    }
+
+    companion object {
+        /**
+         * Two or more genuinely different places for one name (e.g. "Springfield"): matches more than 50 km apart whose
+         * relevance is close to the best one. Then the agent should ask which one is meant instead of guessing.
+         */
+        fun ambiguous(c: List<GeoPoint>): List<GeoPoint> {
+            val best = c.firstOrNull() ?: return emptyList()
+            val rivals = c.drop(1).filter { DistanceTool.haversineKm(best.lat, best.lon, it.lat, it.lon) > 50 && it.importance >= best.importance * 0.8 }
+            return if (rivals.isEmpty()) emptyList() else listOf(best) + rivals
+        }
     }
 }
 
 class GeocodeTool(private val geo: Geocoder) : Tool {
     override val name = "maps.find"
-    override val description = "Find a place and its coordinates (OpenStreetMap)."
+    override val description = "Find a place (OpenStreetMap): returns the best matches with their full names, to check what the owner meant."
     override val argsExample = """{"place":"Gateway of India"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override val network = NetCategory.MAPS
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val p = args.str("place") ?: return ToolResult.fail("Which place?")
-        val g = geo.find(p) ?: return ToolResult(false, false, "No location found for \"$p\".", error = "not found", usedNetwork = true)
-        return ToolResult.ok("${g.name} (lat ${"%.5f".format(g.lat)}, lon ${"%.5f".format(g.lon)})", data = buildJsonObject {
-            put("lat", g.lat); put("lon", g.lon); put("name", g.name) }, spoken = null, usedNetwork = true)
+        val c = geo.candidates(p, 3)
+        val g = c.firstOrNull() ?: return ToolResult(false, false, "No location found for \"$p\".", error = "not found", usedNetwork = true)
+        val amb = Geocoder.ambiguous(c)
+        val summary = if (amb.isNotEmpty()) "Several different places match \"$p\": " + amb.joinToString("; ") { it.name } + ". Ask which one is meant."
+            else "${g.name} (lat ${"%.5f".format(g.lat)}, lon ${"%.5f".format(g.lon)}). Source: OpenStreetMap."
+        return ToolResult.ok(summary, data = buildJsonObject { put("lat", g.lat); put("lon", g.lon); put("name", g.name) }, spoken = null, usedNetwork = true)
     }
 }
 
+/**
+ * Route distance, travel time and alternatives between two places: Nominatim (OpenStreetMap) for the places, OSRM on
+ * the FOSSGIS servers (routing.openstreetmap.de: car, bike and foot profiles, free, no key, light use only) for routes.
+ * Times are typical times from road speeds: there is no live traffic in this free data, and the result says so.
+ * Public transport is not covered by OSRM: the tool says so and the agent can open Google Maps with transit directions.
+ */
 class DistanceTool(private val http: HttpFetcher, private val geo: Geocoder) : Tool {
     override val name = "maps.distance"
-    override val description = "Road distance and driving time between two places (OpenStreetMap + OSRM)."
-    override val argsExample = """{"from":"Pune","to":"Mumbai"}"""
+    override val description = "Route distance, travel time and alternative routes between two places (OpenStreetMap; no live traffic). " +
+        "mode: driving, walking, cycling or transit."
+    override val argsExample = """{"from":"Manhattan","to":"Queens","mode":"driving"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override val network = NetCategory.MAPS
+
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val from = args.str("from") ?: return ToolResult.fail("Distance from where?")
         val to = args.str("to") ?: return ToolResult.fail("Distance to where?")
-        val a = geo.find(from) ?: return ToolResult(false, false, "Could not locate \"$from\".", error = "not found", usedNetwork = true)
-        val b = geo.find(to) ?: return ToolResult(false, false, "Could not locate \"$to\".", error = "not found", usedNetwork = true)
+        val mode = normaliseMode(args.str("mode"))
+        val ca = geo.candidates(from, 3); val cb = geo.candidates(to, 3)
+        val a = ca.firstOrNull() ?: return ToolResult(false, false, "Could not locate \"$from\".", error = "not found", spoken = "I couldn't find $from on the map.", usedNetwork = true)
+        val b = cb.firstOrNull() ?: return ToolResult(false, false, "Could not locate \"$to\".", error = "not found", spoken = "I couldn't find $to on the map.", usedNetwork = true)
+        // A place name that fits several far-apart places is a question for the owner, not a guess.
+        for ((label, c) in listOf(from to ca, to to cb)) {
+            val amb = Geocoder.ambiguous(c)
+            if (amb.isNotEmpty()) {
+                val opts = amb.take(3).map { short(it.name, 3) }
+                return ToolResult(true, true, "Ambiguous place \"$label\": " + amb.joinToString("; ") { it.name },
+                    spoken = "I found ${amb.size} places called $label: ${opts.joinToString(", or ")}. Which one do you mean?", usedNetwork = true)
+            }
+        }
         val straight = haversineKm(a.lat, a.lon, b.lat, b.lon)
-        val r = http.get("https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false", mapOf("User-Agent" to USER_AGENT))
-        val route = if (r.code == 200) runCatching {
-            val o = CluJson.parseToJsonElement(r.body).jsonObject
-            val rt = (o["routes"] as JsonArray).first().jsonObject
-            rt["distance"]!!.jsonPrimitive.double / 1000 to rt["duration"]!!.jsonPrimitive.double / 60
-        }.getOrNull() else null
-        val summary = if (route != null)
-            "Road distance from ${short(a.name)} to ${short(b.name)}: %.0f km, about %s driving (straight line %.0f km). Source: OSRM/OpenStreetMap.".format(route.first, duration(route.second), straight)
-        else "Straight-line distance from ${short(a.name)} to ${short(b.name)}: %.0f km. Road routing was unavailable, so actual road distance is longer.".format(straight)
-        return ToolResult.ok(summary, verified = true, spoken = summary.substringBefore(" Source:"), usedNetwork = true)
+        if (mode == "transit") {
+            val s = "Public transport routes aren't available in my map data. ${short(a.name)} to ${short(b.name)} is %.0f km in a straight line; I can open Google Maps with transit directions.".format(straight)
+            return ToolResult.ok(s, verified = true, spoken = s, usedNetwork = true)
+        }
+        val profile = when (mode) { "walking" -> "routed-foot/route/v1/foot"; "cycling" -> "routed-bike/route/v1/bike"; else -> "routed-car/route/v1/driving" }
+        val r = runCatching { http.get("https://routing.openstreetmap.de/$profile/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false&alternatives=true&steps=true",
+            mapOf("User-Agent" to USER_AGENT)) }.getOrNull()
+        val routes = if (r?.code == 200) parseRoutes(r.body) else emptyList()
+        if (routes.isEmpty()) {
+            val s = "Straight-line distance from ${short(a.name)} to ${short(b.name)}: %.0f km. Road routing was unavailable right now, so the actual route is longer.".format(straight)
+            return ToolResult(true, false, s, spoken = s, usedNetwork = true)
+        }
+        val verb = when (mode) { "walking" -> "on foot"; "cycling" -> "by bike"; else -> "by car" }
+        val best = routes.first()
+        val via = best.via.takeIf { it.isNotBlank() }?.let { " via $it" } ?: ""
+        val alt = routes.drop(1).take(2).joinToString(" ") { o ->
+            "An alternative${o.via.takeIf { it.isNotBlank() }?.let { " via $it" } ?: ""} is ${km(o.km)} and ${duration(o.min)}."
+        }
+        val spoken = "From ${short(a.name)} to ${short(b.name)} it's ${km(best.km)} $verb, about ${duration(best.min)}$via." +
+            (if (alt.isNotEmpty()) " $alt The first route is the quickest." else "") +
+            (if (mode == "driving") " That's a typical time; I don't have live traffic." else "")
+        val summary = "$spoken Source: OSRM routing on OpenStreetMap data (routing.openstreetmap.de), retrieved now. From: ${a.name}. To: ${b.name}."
+        return ToolResult.ok(summary, verified = true, spoken = spoken, usedNetwork = true)
     }
 
-    private fun short(n: String) = n.split(",").take(2).joinToString(",").trim()
-    private fun duration(min: Double): String { val h = (min / 60).toInt(); val m = (min % 60).roundToInt(); return if (h > 0) "${h} h ${m} min" else "$m min" }
+    data class Route(val km: Double, val min: Double, val via: String)
+
+    private fun short(n: String, parts: Int = 2) = n.split(",").take(parts).joinToString(",").trim()
+    private fun km(k: Double) = if (k < 10) "%.1f kilometres".format(k) else "%.0f kilometres".format(k)
 
     companion object {
+        fun normaliseMode(m: String?): String = when (m?.lowercase()?.trim()) {
+            null, "", "car", "drive", "driving", "road" -> "driving"
+            "walk", "walking", "foot", "on foot" -> "walking"
+            "bike", "bicycle", "cycle", "cycling" -> "cycling"
+            "transit", "train", "bus", "metro", "subway", "public transport", "public transit" -> "transit"
+            else -> "driving"
+        }
+
+        /** OSRM route response → routes (fastest first). `legs[].summary` names the main roads when steps=true. */
+        fun parseRoutes(body: String): List<Route> = runCatching {
+            val o = CluJson.parseToJsonElement(body).jsonObject
+            if (o.str("code") != "Ok") return emptyList()
+            (o["routes"] as JsonArray).map { e ->
+                val rt = e.jsonObject
+                val via = (rt["legs"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.str("summary") }?.filter { it.isNotBlank() }?.joinToString(", ") ?: ""
+                Route(rt["distance"]!!.jsonPrimitive.double / 1000, rt["duration"]!!.jsonPrimitive.double / 60, via)
+            }.sortedBy { it.min }
+        }.getOrDefault(emptyList())
+
+        fun duration(min: Double): String {
+            val h = (min / 60).toInt(); val m = (min % 60).roundToInt()
+            return when { h > 0 && m > 0 -> "$h hour${if (h > 1) "s" else ""} $m minutes"; h > 0 -> "$h hour${if (h > 1) "s" else ""}"; else -> "${maxOf(1, m)} minutes" }
+        }
+
         fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
             val r = 6371.0
             val dLat = Math.toRadians(lat2 - lat1); val dLon = Math.toRadians(lon2 - lon1)

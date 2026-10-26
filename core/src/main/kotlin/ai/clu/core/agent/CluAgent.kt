@@ -300,7 +300,8 @@ class CluAgent(
         val canReadMemory = auth.decide(req.actor, Sensitivity.PERSONAL) == AuthDecision.Allow
         val mems = if (canReadMemory) retriever.retrieve(req.text, persona.readableScopes) else emptyList()
         val toolList = toolsFor(persona, req.text)
-        val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER)
+        val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
+            viaSpeech = req.viaVoice)
         val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"))
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)
         val usedTools = baseMeta.tools.toMutableList()

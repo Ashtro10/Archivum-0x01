@@ -42,11 +42,12 @@ object IntentRouter {
         r("^(?:set\\s+)?(?:the\\s+)?(?:media\\s+)?volume\\s+(?:to\\s+)?(\\d{1,3})\\s*(?:%|percent)?$").find(t)?.let { return RoutedIntent("device.volume", obj("level" to it.groupValues[1]), "volume") }
         r("^(?:turn\\s+(?:the\\s+)?volume|volume)\\s+(up|down)$").find(t)?.let { return RoutedIntent("device.volume", obj("direction" to it.groupValues[1].lowercase()), "volume") }
 
-        r("^(?:how\\s+far|what(?:'s| is)\\s+the\\s+distance)\\s+(?:is\\s+(?:it\\s+)?)?(?:from\\s+)?(.+?)\\s+(?:to|and|from)\\s+(.+?)\\??$").find(t)?.let {
-            val a = it.groupValues[1].removePrefix("between ").trim(); val b = it.groupValues[2].trim()
-            return RoutedIntent("maps.distance", obj("from" to a, "to" to b), "distance") }
-        r("^(?:distance)\\s+(?:from|between)\\s+(.+?)\\s+(?:to|and)\\s+(.+)$").find(t)?.let {
-            return RoutedIntent("maps.distance", obj("from" to it.groupValues[1], "to" to it.groupValues[2]), "distance") }
+        r("^(?:how\\s+far|what(?:'s| is)\\s+the\\s+distance|how\\s+long\\s+(?:does\\s+it|will\\s+it|would\\s+it)\\s+take(?:\\s+to\\s+(?:get|go|travel|drive|walk))?)\\s+(?:is\\s+(?:it\\s+)?)?(?:from\\s+)?(.+?)\\s+(?:to|and|from)\\s+(.+?)\\??$").find(t)?.let {
+            val a = it.groupValues[1].removePrefix("between ").trim(); val (b, mode) = destination(it.groupValues[2], lower)
+            return RoutedIntent("maps.distance", obj("from" to a, "to" to b, "mode" to mode), "distance") }
+        r("^(?:distance|route|directions)\\s+(?:from|between)\\s+(.+?)\\s+(?:to|and)\\s+(.+)$").find(t)?.let {
+            val (b, mode) = destination(it.groupValues[2], lower)
+            return RoutedIntent("maps.distance", obj("from" to it.groupValues[1], "to" to b, "mode" to mode), "distance") }
         r("^(?:navigate|directions|take me|get me directions|drive)\\s+to\\s+(.+)$").find(t)?.let { return RoutedIntent("maps.open", obj("destination" to it.groupValues[1]), "navigate") }
         r("^(?:show\\s+(?:me\\s+)?)(.+?)\\s+on\\s+(?:the\\s+)?maps?$").find(t)?.let { return RoutedIntent("maps.open", obj("query" to it.groupValues[1]), "map") }
         r("^(?:open|find)\\s+(.+?)\\s+(?:in|on)\\s+(?:google\\s+)?maps$").find(t)?.let { return RoutedIntent("maps.open", obj("query" to it.groupValues[1]), "map") }
@@ -68,6 +69,22 @@ object IntentRouter {
             val e = it.groupValues[1].trim(); if (e.any(Char::isDigit) && e.any { c -> c in "+-*/x×÷^%" }) return RoutedIntent("calc", obj("expression" to e), "calc") }
         r("^(?:call|dial)\\s+([+\\d][\\d\\s\\-]{4,})$").find(t)?.let { return RoutedIntent("phone.dial", obj("number" to it.groupValues[1].replace(" ", "")), "dial") }
         return null
+    }
+
+    /**
+     * The destination of a compound question ("… and Queens, how long will it take, and which route?") ends at the first
+     * comma or follow-up clause; a travel mode anywhere in the question is kept ("by bike", "walking", "by train").
+     */
+    private fun destination(raw: String, whole: String): Pair<String, String> {
+        var d = raw.split(Regex("[,;?]|\\s+(?:and\\s+)?(?:how|which|what|when)\\b", RegexOption.IGNORE_CASE)).first()
+        d = d.replace(Regex("\\s+(?:by\\s+(?:car|bike|bicycle|cycle|train|bus|metro|public transport)|on\\s+foot|walking|cycling|driving)$", RegexOption.IGNORE_CASE), "")
+        val mode = when {
+            r("\\b(on foot|walk(?:ing)?)\\b").containsMatchIn(whole) -> "walking"
+            r("\\b(by (?:bike|bicycle|cycle)|cycling)\\b").containsMatchIn(whole) -> "cycling"
+            r("\\b(by (?:train|bus|metro|subway)|public transport|transit)\\b").containsMatchIn(whole) -> "transit"
+            else -> "driving"
+        }
+        return d.trim() to mode
     }
 
     private fun persona(name: String) = RoutedIntent("persona.switch", obj("name" to name.trim()), "persona")

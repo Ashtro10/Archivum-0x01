@@ -23,6 +23,8 @@ class AdaptiveChunker(
 ) {
     private val buf = StringBuilder()
     private var inCode = false
+    /** A chunk that ends at a line break waits for one more character: a second break means a paragraph (longer pause). */
+    private var pendingCut = -1
     var emitted = 0
         private set
 
@@ -31,6 +33,7 @@ class AdaptiveChunker(
         val out = mutableListOf<String>()
         for (ch in delta) {
             buf.append(ch)
+            if (pendingCut >= 0) { emitCut(pendingCut, if (ch == '\n') SpeechText.PARAGRAPH else SpeechText.LINE, out); pendingCut = -1 }
             // Code fences: drop everything between ``` markers.
             if (buf.endsWith("```")) {
                 val before = buf.substring(0, buf.length - 3)
@@ -40,21 +43,31 @@ class AdaptiveChunker(
                 continue
             }
             if (inCode) { if (buf.length > 4) buf.delete(0, buf.length - 3); continue }
-            cut()?.let { n ->
-                val chunk = clean(buf.substring(0, n))
-                buf.delete(0, n)
-                while (buf.isNotEmpty() && buf[0].isWhitespace()) buf.deleteCharAt(0)
-                if (chunk.isNotEmpty()) { out += chunk; emitted++ }
-            }
+            cut()?.let { n -> if (buf[n] == '\n') pendingCut = n else emitCut(n, null, out) }
         }
+        return out
+    }
+
+    /** Emits buf[0, n) with an optional pause mark (line / paragraph end; see SpeechText.targetGapMs). */
+    private fun emitCut(n: Int, mark: Char?, out: MutableList<String>) {
+        val chunk = clean(buf.substring(0, n)).let { if (it.isNotEmpty() && mark != null) it + mark else it }
+        buf.delete(0, n)
+        while (buf.isNotEmpty() && buf[0].isWhitespace()) buf.deleteCharAt(0)
+        if (chunk.isNotEmpty()) { out += chunk; emitted++ }
+    }
+
+    private fun takePending(): List<String> {
+        if (pendingCut < 0) return emptyList()
+        val out = mutableListOf<String>(); emitCut(pendingCut, SpeechText.LINE, out); pendingCut = -1
         return out
     }
 
     /** End of the response: whatever is left (unless inside a code block). */
     fun flush(): List<String> {
+        val pending = takePending()
         val rest = if (inCode) "" else clean(buf.toString())
         buf.setLength(0); inCode = false
-        return if (rest.isEmpty()) emptyList() else listOf(rest).also { emitted++ }
+        return if (rest.isEmpty()) pending else (pending + rest).also { emitted++ }
     }
 
     /** Text waiting for a boundary (used by the pipeline to flush on a generation stall). */
@@ -68,6 +81,7 @@ class AdaptiveChunker(
      */
     fun flushIfStalled(minWords: Int = firstMinWordsSentence, avoidFunctionWordEnd: Boolean = false): List<String> {
         if (inCode) return emptyList()
+        takePending().let { if (it.isNotEmpty()) return it }
         var end = buf.indexOfLast { it.isWhitespace() }
         if (avoidFunctionWordEnd) {
             var e = end
@@ -97,7 +111,7 @@ class AdaptiveChunker(
         val prev = s[boundary - 1]
         val first = emitted == 0
         val words = wordCount(s)
-        val strong = prev in STRONG && !isAbbreviation(s, boundary - 1) || prev == '\n'
+        val strong = prev in STRONG && !isAbbreviation(s, boundary - 1) || prev == '\n' || s[last] == '\n'
         val weak = prev in WEAK || isDash(s, boundary)
         if (first) {
             if (strong && words >= firstMinWordsSentence) return boundary

@@ -193,6 +193,27 @@ None of these have been run on a physical device yet. For each item, write the r
 | U11 ★ | Fresh install (or with Joe not downloaded) | The chat shows "Clu's voice isn't downloaded yet" with Download Joe (67.2 MB) and Choose voice. Nothing is spoken by a different voice | | |
 | U12 ★ | Airplane mode: repeat U1, U2, U6, and U3 if Whisper is installed | All work offline | | |
 
+## W. Voice-first agent (this build) – iQOO Neo 9 Pro first, then Xiaomi Pad 6
+
+None of these have been run on a physical device yet. Background: [VOICE_AND_AGENT.md](VOICE_AND_AGENT.md). Timings come from Diagnostics → Requests and Performance (`speech_end_to_transcript_ms`, `speech_end_to_first_token_ms`, `speech_end_to_first_audio_ms`, `interrupt_to_silence_ms`, `reply_end_to_listening_ms`).
+
+| ID | Steps | Record / expected | P | N |
+|---|---|---|---|---|
+| W1 ★ | Type 3 questions in a row | Each answers; no "…" left; ■ returns to ➤ | | |
+| W2 ★ | Repeat W1 five more times quickly after each answer | No stuck Thinking; Requests shows `generation completed` each time | | |
+| W3 ★ | Tap the mic and hold a 5-turn spoken conversation without touching the phone | Listening → Thinking → Speaking each time; mic never needs a tap. `reply_end_to_listening_ms` ___ | | |
+| W4 ★ | While Clu speaks a long answer, say "stop, tell me something else" | Audio stops at once (`interrupt_to_silence_ms` ___), the new request is answered; nothing of the old answer plays later. Repeat on loudspeaker at high volume while silent: Clu must not interrupt itself (false interruptions ___) | | |
+| W5 ★ | Tap the mic and immediately say "Apple"; repeat 5× | Transcript starts with the first syllable each time (Speech diagnostics) | | |
+| W6 ★ | Indian-English speaker: 10 everyday requests (names, places, numbers) | Transcripts correct ___/10; when a place is misheard, Clu either understands from context or asks one short question | | |
+| W7 ★ | Ask for "three tips for sleeping better, with explanations" by voice | Clear pauses between sentences and items; no "asterisk", "hash", URLs or list numbers spoken | | |
+| W8 ★ | Ask by voice: "The meeting is at 9:30 am on 2026-11-03, costs ₹1,500 and is 12 km away" (ask Clu to repeat it) | Spoken as "nine thirty A M", "3 November 2026", "1500 rupees", "12 kilometres"; final word never cut off | | |
+| W9 ★ | Settings → Voice: ▶ Preview Joe and Lewis; choose Lewis without downloading | Previews play before download. Chat shows "Clu's voice isn't downloaded yet" with a Download Lewis button; no other voice speaks. Download → Lewis speaks. Voice → Advanced → Measure voice: RTF ___ (Lewis is only usable if RTF < 0.8 while the model runs) | | |
+| W10 ★ | Airplane mode: type and speak 3 questions each | All answered locally; voice works | | |
+| W11 ★ | Online: "search for today's news about ISRO" | "Searching the web…" shows; answer names its source; no invented results. Offline: Clu says it can't search | | |
+| W12 ★ | Online: "What is the distance between Manhattan and Queens, how long will the trip take, and which route should I take?" Then "how far is Springfield from Chicago" | First: km, minutes, main roads, an alternative, and "no live traffic". Second: asks which Springfield. "Directions to Phoenix Mall by train" opens Google Maps transit directions | | |
+| W13 ★ | Install this APK over the previous one (do not uninstall) | Chats, settings, chosen voice and downloaded models/voices remain; nothing re-downloads | | |
+| W14 ★ | 60 min of mixed voice conversation on battery, screen on | Battery used ___ %, phone temperature ___, any slowdown (tokens_per_s at start ___ / end ___), crashes ___. Repeat on Pad 6 | | |
+
 ## V. Reply reliability and speed (this build) – run on the iQOO Neo 9 Pro, then the Xiaomi Pad 6
 
 None of these have been run on a physical device yet. Background and measurements: [LLM_RELIABILITY.md](LLM_RELIABILITY.md).

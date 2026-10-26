@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-26_
+_Last updated: 2026-10-26 (v1.2.0)_
 
 ## Current state
 
@@ -12,10 +12,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 306 total: 299 passed, 0 failed, 7 skipped by default (opt-in benchmarks / model-dependent measurements) |
+| Automated tests (JVM / Robolectric / host engines) | 323 total: 316 passed, 0 failed, 7 skipped by default (opt-in benchmarks / model-dependent measurements) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-26: voice-first agent (v1.2.0, versionCode 3)
+
+The changes, measurements and limits are in [docs/VOICE_AND_AGENT.md](docs/VOICE_AND_AGENT.md):
+* Two curated voices with previews: Joe (default) and Lewis (Kokoro, optional).
+* Natural speech delivery: no markdown spoken, notation read as words, measured pauses.
+* Speech-aware prompting for misheard words.
+* Routes with travel modes, alternatives and ambiguity questions.
+* Tool progress shown in the chat.
+* Simpler Settings and navigation.
+
+Not yet verified on a device: DEVICE_ACCEPTANCE.md section W.
 
 ## Added 2026-10-26: reply reliability and speed (v1.1.0, versionCode 2)
 

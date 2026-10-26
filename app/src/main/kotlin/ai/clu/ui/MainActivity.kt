@@ -338,16 +338,18 @@ class MainActivity : BaseActivity() {
 
     /** Navigation as a bottom sheet (reachable with the thumb): history, memory, voice, settings and the rest. */
     private fun showNavSheet() {
-        val entries = mutableListOf(
-            "💬  Chats" to ConversationsActivity::class.java, "🧠  Memory & diary" to MemoryActivity::class.java,
-            "🔊  Voice & speech" to VoiceActivity::class.java, "⚙  Settings" to SettingsActivity::class.java,
-            "🤖  AI models" to ModelsActivity::class.java, "💡  Memory suggestions" to ProposalsActivity::class.java,
-            "🎭  Characters" to CharactersActivity::class.java, "🔐  People & security" to PeopleActivity::class.java,
-            "⌘  Custom commands" to CommandsActivity::class.java, "📱  Phone & tablet" to DevicesActivity::class.java,
-            "📈  Learned preferences" to PreferencesActivity::class.java, "🛠  Tool history" to ToolHistoryActivity::class.java,
-            "🎤  Speech recognition diagnostics" to SpeechDiagnosticsActivity::class.java,
+        // Four everyday destinations; the rest is one tap further under "More" (it used to be 14 equal tiles).
+        val more = listOf(
+            "Memory suggestions" to ProposalsActivity::class.java, "Characters" to CharactersActivity::class.java,
+            "People & security" to PeopleActivity::class.java, "Custom commands" to CommandsActivity::class.java,
+            "Phone & tablet" to DevicesActivity::class.java, "Learned preferences" to PreferencesActivity::class.java,
+            "Tool history" to ToolHistoryActivity::class.java, "Diagnostics" to DiagnosticsActivity::class.java,
         )
-        if (UiPolicy.diagnosticsVisible(core.settings)) entries += "🩺  Diagnostics" to DiagnosticsActivity::class.java
+        val entries = mutableListOf<Pair<String, Class<*>?>>(
+            "💬  Chats" to ConversationsActivity::class.java, "🧠  Memory" to MemoryActivity::class.java,
+            "🔊  Voice" to VoiceActivity::class.java, "⚙  Settings" to SettingsActivity::class.java,
+            "⋯  More" to null,
+        )
         val d = android.app.Dialog(this)
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = roundBg(C.SURFACE, 56f, C.BORDER); setPadding(dp(10), dp(10), dp(10), dp(18)) }
         col.addView(View(this).apply { background = roundBg(C.BORDER, 20f) }, LinearLayout.LayoutParams(dp(40), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(8) })
@@ -356,7 +358,11 @@ class MainActivity : BaseActivity() {
             grid.addView(TextView(this).apply {
                 text = label; textSize = 15f; setTextColor(C.TEXT); setPadding(dp(14), dp(14), dp(10), dp(14)); maxLines = 2
                 background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(C.SURFACE2), null, roundBg(Color.WHITE, 28f))
-                setOnClickListener { d.dismiss(); startActivity(Intent(this@MainActivity, cls)) }
+                setOnClickListener {
+                    d.dismiss()
+                    if (cls != null) startActivity(Intent(this@MainActivity, cls))
+                    else choose("More", more.map { it.first }) { i -> startActivity(Intent(this@MainActivity, more[i].second)) }
+                }
             }, GridLayout.LayoutParams().apply { width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f) })
         }
         col.addView(ScrollView(this).apply { addView(grid) })
@@ -376,12 +382,13 @@ class MainActivity : BaseActivity() {
         val cfg = ai.clu.core.voice.VoiceConfig.from(core.settings)
         val speakingWanted = UiPolicy.shouldSpeak(core.settings, viaVoice = true, nowMs = System.currentTimeMillis())
         val plan = app.speech.status.value.plan
-        val key = "$speakingWanted|${plan.problem}|${cfg.piperVoice}"
+        val key = "$speakingWanted|${plan.problem}|${cfg.piperVoice}|${cfg.ttsEngine}"
         if (key == bannerKey) return
         bannerKey = key
         banner.removeAllViews()
         if (speakingWanted && plan.engine.isNotBlank() && !plan.available) {
-            val missingVoice = plan.engine == ai.clu.core.voice.TtsSelection.PIPER && plan.english == null
+            val chosen = ai.clu.core.voice.ClueVoices.current(core.settings)
+            val missingVoice = chosen != null && plan.english == null
             banner.addView(TextView(this).apply {
                 text = if (missingVoice) "Clu's voice isn't downloaded yet, so replies are text only. Download it once (works offline afterwards) or pick another voice."
                     else "Clu can't speak: ${plan.problem}"
@@ -389,8 +396,8 @@ class MainActivity : BaseActivity() {
             })
             banner.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
-                val missing = if (plan.engine == ai.clu.core.voice.TtsSelection.PIPER) ai.clu.voice.VoicePacks.byId(cfg.piperVoice) else null
-                if (missing != null) smallButton("Download ${missing.title.substringBefore(" (")} (${fmtBytes(missing.bytes)})") {
+                val missing = chosen?.let { ai.clu.voice.VoicePacks.byId(it.packId) }
+                if (missing != null) smallButton("Download ${chosen.name} (${fmtBytes(missing.bytes)})") {
                     startActivity(Intent(this@MainActivity, VoiceActivity::class.java).putExtra("download", missing.id))
                 }
                 smallButton("Choose voice") { startActivity(Intent(this@MainActivity, VoiceActivity::class.java)) }
@@ -409,7 +416,7 @@ class MainActivity : BaseActivity() {
     private fun showItems() {
         val st = core.chat.state.value
         val live = st.streaming?.takeIf { st.conversationId == app.currentConversation() }
-        adapter.update(msgItems + extra + listOfNotNull(live?.let { Item.Streaming(it) }))
+        adapter.update(msgItems + extra + listOfNotNull(live?.let { Item.Streaming(it.ifEmpty { st.status ?: "" }) }))
         emptyState.visibility = if (adapter.count == 0) View.VISIBLE else View.GONE
     }
 

@@ -102,9 +102,13 @@ class VoiceSession(private val app: CluApp) {
     @Volatile private var callAudioHeld = false
 
     /** The reply finished playing (not interrupted): end the turn, or stop after a hold-to-talk reply. */
+    @Volatile private var replyEndedAt = 0L
+
     private fun onReplyPlayed() {
         if (turn.state == TurnState.SPEAKING || turn.state == TurnState.PROCESSING) {
             turn.onResponseComplete(); publish()
+            // The microphone stays open through the reply (barge-in), so listening resumes without restarting capture.
+            if (replyEndedAt > 0 && turn.state == TurnState.LISTENING) core.diag.perf("reply_end_to_listening_ms", (System.currentTimeMillis() - replyEndedAt).toDouble())
             // "One question" listening mode (or hold-to-talk): the microphone closes after the reply.
             val oneShot = core.settings.string(Settings.MIC_MODE) == "tap"
             if ((stopAfterReply || oneShot) && !wakeMode) { stopAfterReply = false; scope.launch { stop() } }
@@ -461,6 +465,7 @@ class VoiceSession(private val app: CluApp) {
         reply?.onFirstAudio = { turn.onSpeakingStarted(); publish() }
         var stats: Map<String, Double> = emptyMap()
         reply?.completion?.invokeOnCompletion {
+            replyEndedAt = System.currentTimeMillis()
             val m = timings.metrics()
             m.forEach { (k, v) -> core.diag.perf(k, v) }
             if (timings.firstAudio > 0) core.diag.perf("endpoint_to_first_audio_ms", (timings.firstAudio - tEndOfSpeech).toDouble())
@@ -470,10 +475,15 @@ class VoiceSession(private val app: CluApp) {
         }
         agentJob = scope.launch {
             var spokeError = false
+            var spokeText = false
+            var narrated = false
             core.agent.respond(TurnRequest(convId, text, actor, viaVoice = true, speakerName = name, preStats = mapOf("asr_ms" to asrMs))).collect { ev ->
                 when (ev) {
-                    is AgentEvent.Text -> if (c.incremental) reply?.text(ev.delta)
+                    is AgentEvent.Text -> { spokeText = true; if (c.incremental) reply?.text(ev.delta) }
                     is AgentEvent.ResetText -> {}
+                    // A slow online lookup gets one short spoken heads-up instead of silence ("Checking the map.").
+                    is AgentEvent.ToolStarted -> if (!spokeText && !narrated && c.incremental) ai.clu.core.tools.ToolProgress.spoken(ev.tool)?.let {
+                        narrated = true; reply?.text("$it ") }
                     is AgentEvent.Done -> {
                         stats = ev.meta.stats
                         if (reply != null) { if (!c.incremental) reply.say(ev.text) else reply.finish() }

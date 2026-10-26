@@ -28,6 +28,8 @@ class ChatTurns(private val agent: CluAgent, private val scope: CoroutineScope) 
         val events: List<AgentEvent> = emptyList(),
         /** Set when the request needs the owner to verify; the screen asks and calls [verificationHandled]. */
         val verification: String? = null,
+        /** What Clu is doing before words arrive ("Searching the web…"); null when nothing to say. */
+        val status: String? = null,
     ) { val running get() = streaming != null }
 
     private val _state = MutableStateFlow(State())
@@ -63,17 +65,21 @@ class ChatTurns(private val agent: CluAgent, private val scope: CoroutineScope) 
         when (ev) {
             is AgentEvent.Text -> {
                 if (incremental) reply?.text(ev.delta)
-                _state.update { if (it.seq == seq && it.streaming != null) it.copy(streaming = it.streaming + ev.delta) else it }
+                _state.update { if (it.seq == seq && it.streaming != null) it.copy(streaming = it.streaming + ev.delta, status = null) else it }
             }
             AgentEvent.ResetText -> _state.update { if (it.seq == seq && it.streaming != null) it.copy(streaming = "") else it }
             is AgentEvent.Done -> {
                 if (reply != null) { if (incremental) reply.finish() else reply.say(ev.text) }
                 // The reply is saved and shown from the conversation; optional follow-up work may still run.
-                _state.update { if (it.seq == seq) it.copy(streaming = null) else it }
+                _state.update { if (it.seq == seq) it.copy(streaming = null, status = null) else it }
             }
             is AgentEvent.Error -> { reply?.finish(); add(seq, ev) }
             is AgentEvent.NeedsVerification -> _state.update { if (it.seq == seq) it.copy(verification = ev.reason) else it }
             is AgentEvent.Status, is AgentEvent.UserMessageSaved -> {}
+            is AgentEvent.ToolStarted -> {
+                ai.clu.core.tools.ToolProgress.label(ev.tool)?.let { l -> _state.update { if (it.seq == seq) it.copy(status = l) else it } }
+                add(seq, ev)
+            }
             else -> add(seq, ev)
         }
     }

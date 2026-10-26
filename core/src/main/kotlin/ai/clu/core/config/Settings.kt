@@ -128,7 +128,7 @@ object Settings {
 
     // ---------------------------------------------------------------- Voice
     val TTS_ENGINE = choice("voice.ttsEngine", "TTS engine", VOICE, "piper",
-        listOf("piper" to "Piper – on-device (English + Hindi voices)", "kitten" to "KittenTTS nano – on-device (English only)",
+        listOf("piper" to "Piper – on-device (English + Hindi voices)", "kokoro" to "Kokoro – on-device, voice Lewis (English)", "kitten" to "KittenTTS nano – on-device (English only)",
             "hayai" to "HayaiTTS – installed app (Android TTS service)", "system" to "Other Android TTS engine"),
         "Which engine synthesises Clu's voice. The selection is used as-is: if the engine is not installed, Clu says so and stays silent instead of switching engines.",
         "SpeechOutput, TtsSelection", "Selects the TTS backend used for every spoken phrase", "VoiceSettingsTest#ttsEngine",

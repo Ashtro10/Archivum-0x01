@@ -40,6 +40,7 @@ local network. Full matrix: [docs/OFFLINE_MATRIX.md](docs/OFFLINE_MATRIX.md).
 | [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) | Model & voice engine report, LiveKit evaluation |
 | [docs/TEST_REPORT.md](docs/TEST_REPORT.md) | What is tested, how, and results |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Measured results (host), how to measure on device |
+| [docs/VOICE_AND_AGENT.md](docs/VOICE_AND_AGENT.md) | Voice choice, speech delivery, conversation latency, agent tools (maps, search), offline/online |
 | [docs/LLM_RELIABILITY.md](docs/LLM_RELIABILITY.md) | Reply pipeline: cancellation, timeouts, request diagnostics, prompt caching, before/after latency |
 | [docs/OFFLINE_MATRIX.md](docs/OFFLINE_MATRIX.md) | Offline vs online capabilities |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Every Android permission and why |

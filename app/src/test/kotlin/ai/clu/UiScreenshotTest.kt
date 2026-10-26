@@ -75,6 +75,9 @@ class UiScreenshotTest {
 
     @Test fun chatScreen() = shot("chat", ime = false)
     @Test fun voiceSettingsScreen() { if (label != null) render(Robolectric.buildActivity(ai.clu.ui.VoiceActivity::class.java).setup().get(), "voice-settings", false) }
+    @Test fun settingsScreen() { if (label != null) render(Robolectric.buildActivity(ai.clu.ui.SettingsActivity::class.java).setup().get(), "settings", false) }
+    @Test fun voiceAdvancedScreen() { if (label != null) render(Robolectric.buildActivity(ai.clu.ui.VoiceActivity::class.java,
+        android.content.Intent().putExtra("advanced", true)).setup().get(), "voice-advanced", false) }
     @Test fun chatScreenWithKeyboard() = shot("chat-keyboard", ime = true)
     @Test fun voiceMode() = shot("voice", ime = false) { a ->
         // Voice-mode overlay as shown while listening (state set directly; no microphone in the JVM).

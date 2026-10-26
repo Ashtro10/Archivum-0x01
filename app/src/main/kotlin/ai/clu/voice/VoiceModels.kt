@@ -55,13 +55,19 @@ object VoicePacks {
         "6fa5be852612ce761094ba74ee6123b4fc4acfefa79bf64dc63acae4a83af2fd", 31_220_690,
         keep = mapOf("model.int8.onnx" to "model.onnx", "voices.bin" to "voices.bin", "tokens.txt" to "tokens.txt"),
         keepDirPrefix = "espeak-ng-data/", kind = "tts-kitten")
+    // Kokoro-82M v0.19 (Apache-2.0), fp32: speaker 10 = bm_lewis, deep British male (~84 Hz median, the most varied
+    // intonation measured). int8 was 3x slower than fp32 on the build host (RTF 1.5 vs 0.54), so the fp32 model is used.
+    val TTS_KOKORO = VoicePack("tts-kokoro-en", "Lewis (Kokoro-82M, English)", "$R/tts-models/kokoro-en-v0_19.tar.bz2",
+        "912804855a04745fa77a30be545b3f9a5d15c4d66db00b88cbcd4921df605ac7", 319_625_534,
+        keep = mapOf("model.onnx" to "model.onnx", "voices.bin" to "voices.bin", "tokens.txt" to "tokens.txt"),
+        keepDirPrefix = "espeak-ng-data/", kind = "tts-kokoro", defaultSpeaker = 10)
     // Hindi (Devanagari) voice, male, ~103 Hz median pitch. Training data licensed CC BY-NC-SA 4.0 (non-commercial).
     val TTS_HI_PRATHAM = VoicePack("tts-hi-pratham", "Hindi voice – Pratham (male, Piper medium; non-commercial licence)",
         "$R/tts-models/vits-piper-hi_IN-pratham-medium.tar.bz2", "2084d321e1d2752f2b64ed3012ba27751df01a80da46f52920098cdcb7e35648", 67_238_438,
         keep = mapOf("hi_IN-pratham-medium.onnx" to "model.onnx", "tokens.txt" to "tokens.txt"), keepDirPrefix = "espeak-ng-data/", kind = "tts-hi")
     val SPEAKER = VoicePack("speaker-campplus", "Speaker recognition (3D-Speaker CAM++)", "$R/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
         "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b", 29_596_978, singleName = "model.onnx", kind = "speaker")
-    val all = listOf(TTS_JOE, TTS_ARCTIC, TTS_NORTHERN, TTS_ALAN, TTS_RYAN, TTS_HI_PRATHAM, TTS_KITTEN, SPEAKER)
+    val all = listOf(TTS_JOE, TTS_KOKORO, TTS_ARCTIC, TTS_NORTHERN, TTS_ALAN, TTS_RYAN, TTS_HI_PRATHAM, TTS_KITTEN, SPEAKER)
     fun byId(id: String?): VoicePack? = all.firstOrNull { it.id == id }
 }
 
@@ -201,7 +207,10 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
         val p = VoicePacks.byId(packId) ?: error("unknown voice pack $packId")
         check(packs.isInstalled(p)) { "${p.title} is not installed" }
         val d = packs.dir(p)
-        val model = if (p.kind == "tts-kitten") OfflineTtsModelConfig(
+        val model = if (p.kind == "tts-kokoro") OfflineTtsModelConfig(
+            kokoro = OfflineTtsKokoroModelConfig(model = File(d, "model.onnx").path, voices = File(d, "voices.bin").path,
+                tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path), numThreads = 4)
+        else if (p.kind == "tts-kitten") OfflineTtsModelConfig(
             kitten = OfflineTtsKittenModelConfig(model = File(d, "model.onnx").path, voices = File(d, "voices.bin").path,
                 tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path), numThreads = 4)
         else OfflineTtsModelConfig(

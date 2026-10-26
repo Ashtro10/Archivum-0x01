@@ -8,6 +8,7 @@ package ai.clu.core.voice
 object TtsSelection {
     const val PIPER = "piper"
     const val KITTEN = "kitten"
+    const val KOKORO = "kokoro"
     const val HAYAI = "hayai"
     const val SYSTEM = "system"
     const val HAYAI_PACKAGE = "dev.ahmedmohamed.hayaitts"
@@ -27,6 +28,7 @@ object TtsSelection {
     fun label(engine: String): String = when (normalise(engine)) {
         PIPER -> "Piper (on-device, sherpa-onnx)"
         KITTEN -> "KittenTTS nano (on-device, sherpa-onnx; English only)"
+        KOKORO -> "Kokoro-82M (on-device, sherpa-onnx; English)"
         HAYAI -> "HayaiTTS (installed app, Android TTS service)"
         SYSTEM -> "Android system TTS engine"
         else -> "unknown engine '$engine'"
@@ -69,6 +71,8 @@ object TtsSelection {
                         (if (others.isNotEmpty()) ", or choose an installed voice (${others.joinToString()})" else "") + ", or choose another engine."
                     null
                 }
+            KOKORO -> if (KOKORO_PACK in f.installedPacks) Route(KOKORO, "Lewis", KOKORO_PACK)
+                else { problem = "The voice Lewis is not downloaded yet (320 MB). Download it on the Voice screen, or choose Joe."; null }
             KITTEN -> if (KITTEN_PACK in f.installedPacks) Route(KITTEN, "speaker ${cfg.kittenSpeaker}", KITTEN_PACK)
                 else { problem = "KittenTTS is not installed (31 MB download on the Voice screen). Choose another engine or install it."; null }
             HAYAI -> if (HAYAI_PACKAGE in f.systemEngines) { systemPackage = HAYAI_PACKAGE; Route(HAYAI, cfg.androidVoice.ifBlank { "HayaiTTS default voice" }) }
@@ -91,7 +95,7 @@ object TtsSelection {
             HINDI_ENGINE -> when {
                 english == null -> null
                 engine == KITTEN -> { hindiNote = "KittenTTS only speaks English: Hindi text is not spoken. Choose Hindi voice = Pratham."; null }
-                engine == PIPER -> { hindiNote = "Piper's English voices cannot read Hindi: choose Hindi voice = Pratham."; null }
+                engine == PIPER || engine == KOKORO -> { hindiNote = "This English voice cannot read Hindi: choose Hindi voice = Pratham."; null }
                 else -> Route(engine, cfg.androidVoiceHi.ifBlank { "engine's Hindi voice" })
             }
             else -> { hindiNote = "Unknown Hindi voice setting '${cfg.hindiVoice}'."; null }
@@ -112,5 +116,8 @@ object TtsSelection {
     )
     const val PIPER_DEFAULT = "tts-joe"
     const val KITTEN_PACK = "tts-kitten-nano"
+    const val KOKORO_PACK = "tts-kokoro-en"
+    /** bm_lewis in kokoro-en-v0_19. */
+    const val KOKORO_SPEAKER = 10
     const val PRATHAM_PACK = "tts-hi-pratham"
 }

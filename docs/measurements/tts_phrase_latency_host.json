@@ -1,0 +1,93 @@
+{
+ "note": "host x86 build container, sherpa-onnx 1.13.8 Python, speed 0.92; not a phone",
+ "results": {
+  "joe_threads2": {
+   "Sure.": {
+    "synth_ms": 57,
+    "audio_s": 0.32,
+    "rtf": 0.176
+   },
+   "Good evening, sir.": {
+    "synth_ms": 124,
+    "audio_s": 0.99,
+    "rtf": 0.125
+   },
+   "The route through the tunnel is faster today.": {
+    "synth_ms": 265,
+    "audio_s": 2.11,
+    "rtf": 0.126
+   },
+   "I checked three sources, and they agree that the store closes at nine tonight.": {
+    "synth_ms": 392,
+    "audio_s": 3.84,
+    "rtf": 0.102
+   }
+  },
+  "joe_threads4": {
+   "Sure.": {
+    "synth_ms": 47,
+    "audio_s": 0.32,
+    "rtf": 0.146
+   },
+   "Good evening, sir.": {
+    "synth_ms": 96,
+    "audio_s": 0.99,
+    "rtf": 0.096
+   },
+   "The route through the tunnel is faster today.": {
+    "synth_ms": 165,
+    "audio_s": 2.11,
+    "rtf": 0.078
+   },
+   "I checked three sources, and they agree that the store closes at nine tonight.": {
+    "synth_ms": 234,
+    "audio_s": 3.84,
+    "rtf": 0.061
+   }
+  },
+  "lewis_threads2": {
+   "Sure.": {
+    "synth_ms": 815,
+    "audio_s": 0.66,
+    "rtf": 1.239
+   },
+   "Good evening, sir.": {
+    "synth_ms": 1301,
+    "audio_s": 1.34,
+    "rtf": 0.972
+   },
+   "The route through the tunnel is faster today.": {
+    "synth_ms": 1976,
+    "audio_s": 2.41,
+    "rtf": 0.82
+   },
+   "I checked three sources, and they agree that the store closes at nine tonight.": {
+    "synth_ms": 3620,
+    "audio_s": 4.46,
+    "rtf": 0.812
+   }
+  },
+  "lewis_threads4": {
+   "Sure.": {
+    "synth_ms": 561,
+    "audio_s": 0.66,
+    "rtf": 0.853
+   },
+   "Good evening, sir.": {
+    "synth_ms": 793,
+    "audio_s": 1.34,
+    "rtf": 0.593
+   },
+   "The route through the tunnel is faster today.": {
+    "synth_ms": 1311,
+    "audio_s": 2.41,
+    "rtf": 0.544
+   },
+   "I checked three sources, and they agree that the store closes at nine tonight.": {
+    "synth_ms": 2043,
+    "audio_s": 4.46,
+    "rtf": 0.458
+   }
+  }
+ }
+}

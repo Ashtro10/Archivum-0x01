@@ -1,6 +1,6 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.1.0-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.2.0-prototype.
 
 * Settings: **192** · verifying test passed: **192** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
@@ -36,7 +36,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 
 | Setting ID | Display name | Default | Accepted values | Scope | Responsible component | Observable effect | Applies | Test | Result | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `voice.ttsEngine` | TTS engine | `"piper"` | `piper`, `kitten`, `hayai`, `system` | SHARED | SpeechOutput, TtsSelection | Selects the TTS backend used for every spoken phrase | Applies immediately | `VoiceSettingsTest#ttsEngine` | passed (binding) · device effect unverified | Piper and KittenTTS need their voice files (downloaded on the Voice screen). HayaiTTS and other engines are separate apps; they synthesise each phrase completely before returning it (phrase-level streaming only). |
+| `voice.ttsEngine` | TTS engine | `"piper"` | `piper`, `kokoro`, `kitten`, `hayai`, `system` | SHARED | SpeechOutput, TtsSelection | Selects the TTS backend used for every spoken phrase | Applies immediately | `VoiceSettingsTest#ttsEngine` | passed (binding) · device effect unverified | Piper and KittenTTS need their voice files (downloaded on the Voice screen). HayaiTTS and other engines are separate apps; they synthesise each phrase completely before returning it (phrase-level streaming only). |
 | `voice.piperVoice` | Piper English voice | `"tts-joe"` | `tts-joe`, `tts-arctic-rms`, `tts-alan`, `tts-northern-male`, `tts-ryan` | SHARED | SpeechOutput | Selects the Piper model file | Applies immediately | `VoiceSettingsTest#piperVoice` | passed (binding) · device effect unverified | Each voice is a separate download. |
 | `voice.sherpaSpeaker` | Piper speaker id | `0` | integer 0–1000 | SHARED | SpeechOutput | Passed as the speaker id to the Piper synthesiser | Applies immediately | `VoiceSettingsTest#speaker` | passed (binding) · device effect unverified | Single-speaker voices ignore values other than 0. |
 | `voice.kittenSpeaker` | KittenTTS voice | `"2"` | `2`, `4`, `0`, `6` | SHARED | SpeechOutput | Kitten speaker id | Applies immediately | `VoiceSettingsTest#kittenSpeaker` | passed (binding) · device effect unverified | – |

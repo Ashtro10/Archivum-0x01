@@ -212,3 +212,23 @@ object ToolCallParser {
         return t.isEmpty() || "<tool>".startsWith(t.take(6)) && t.length < 6 || t.startsWith("<tool>")
     }
 }
+
+/** Short progress lines while a slow (network) tool runs: shown in the chat and spoken once in voice mode. */
+object ToolProgress {
+    fun label(tool: String): String? = when (tool) {
+        "web.search" -> "Searching the web…"
+        "maps.find" -> "Looking up the place…"
+        "maps.distance" -> "Checking the routes…"
+        "trains.lookup" -> "Looking up the train…"
+        "external.ai" -> "Asking your external AI service…"
+        else -> null // instant, on-device tools need no narration
+    }
+
+    /** The spoken form (one short phrase, so it never delays the answer noticeably). */
+    fun spoken(tool: String): String? = when (tool) {
+        "web.search" -> "Let me look that up."
+        "maps.find", "maps.distance" -> "Checking the map."
+        "trains.lookup" -> "Let me check."
+        else -> null
+    }
+}

@@ -90,6 +90,7 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
                     val sid = if (lang == "hi") 0 else cfg.sherpaSpeakerId
                     SherpaBackend("Piper · ${pack.title}${if (sid > 0) " · speaker $sid" else ""}", { engines.tts(pack.id) }, sid)
                 }
+                TtsSelection.KOKORO -> SherpaBackend("Lewis (Kokoro)", { engines.tts(TtsSelection.KOKORO_PACK) }, TtsSelection.KOKORO_SPEAKER)
                 TtsSelection.KITTEN -> SherpaBackend("KittenTTS nano · speaker ${cfg.kittenSpeaker}", { engines.tts(TtsSelection.KITTEN_PACK) }, cfg.kittenSpeaker)
                 else -> SystemTtsBackend(context, p.systemPackage ?: "", if (lang == "hi") cfg.androidVoiceHi else cfg.androidVoice, lang, diag)
             }
@@ -100,7 +101,8 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
 
     private fun synthesize(text: String, lang: String): Pair<FloatArray, Int>? {
         val c = cfg ?: return null
-        val clean = SpeechTextPreprocessor(c.pronunciations).apply(text)
+        // Notation becomes words (markdown, URLs, times, units...); the owner's pronunciation fixes apply after that.
+        val clean = SpeechTextPreprocessor(c.pronunciations).apply(ai.clu.core.voice.SpeechText.forSpeech(text))
         if (clean.isBlank()) return null
         val b = try { backendFor(c, lang) } catch (e: Exception) { report(e.message ?: "speech engine unavailable"); throw e }
             ?: return null // no voice for this language (plan.hindiNote explains it on the Voice screen)
@@ -108,7 +110,8 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
         val pcm = try { b.synthesize(clean, c) } catch (e: Exception) { report("${b.label}: ${e.message}"); throw e }
         diag?.perf("tts_ms_per_char", (System.currentTimeMillis() - t0).toDouble() / clean.length, b.label)
         _status.value = _status.value.copy(lastSpoke = b.label, lastError = null)
-        return VoiceEffect(pcm.rate, c.metallic).process(pcm.samples) to pcm.rate
+        // Pause after the chunk by how it ends (sentence, clause, paragraph), topped up over the voice's own silence.
+        return ai.clu.core.voice.SpeechText.withPause(text, VoiceEffect(pcm.rate, c.metallic).process(pcm.samples), pcm.rate) to pcm.rate
     }
 
     // ------------------------------------------------------------------ measurements (Voice screen; run off the main thread)

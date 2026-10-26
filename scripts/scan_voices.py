@@ -9,7 +9,7 @@ transcribing the audio back with whisper.cpp (whisper-cli + ggml model) and repo
 
 Writes WAV samples of the full evaluation for listening. Host x86 measurements, not phone numbers.
 
-usage: scan_voices.py <dir with vits-piper-*/kitten-*/supertonic dirs> <out dir> [--whisper-cli BIN --whisper-model M]
+usage: scan_voices.py <dir with vits-piper-*/kitten-*/kokoro-*/supertonic dirs> <out dir> [--whisper-cli BIN --whisper-model M]
        [--lang en|hi] [--top 4]
 """
 from __future__ import annotations
@@ -87,6 +87,15 @@ def load(d: Path, threads: int):
             m = json.loads(j.read_text())
             names = {v: k for k, v in (m.get("speaker_id_map") or {}).items()}
         return sherpa_onnx.OfflineTts(cfg), names, "piper"
+    if (d / "voices.bin").exists() and "kokoro" in d.name:
+        onnx = next(d.glob("model*.onnx"))
+        cfg = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
+            kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(model=str(onnx), voices=str(d / "voices.bin"), tokens=str(d / "tokens.txt"),
+                                                           data_dir=str(d / "espeak-ng-data")), num_threads=threads))
+        # Speaker order of kokoro-en-v0_19 (sherpa-onnx model card).
+        names = dict(enumerate(["af", "af_bella", "af_nicole", "af_sarah", "af_sky", "am_adam", "am_michael", "bf_emma", "bf_isabella",
+                                "bm_george", "bm_lewis"]))
+        return sherpa_onnx.OfflineTts(cfg), names, "kokoro"
     if (d / "voices.bin").exists():
         onnx = next(d.glob("model*.onnx"))
         cfg = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(

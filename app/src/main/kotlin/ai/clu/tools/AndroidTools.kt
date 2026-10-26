@@ -164,13 +164,19 @@ class VolumeTool(private val context: Context) : Tool {
 
 class MapsOpenTool(private val context: Context) : Tool {
     override val name = "maps.open"
-    override val description = "Open the maps app at a place or with navigation to a destination."
-    override val argsExample = """{"destination":"Phoenix Mall Pune"} or {"query":"coffee near me"}"""
+    override val description = "Open the maps app at a place, or with directions to a destination (live traffic and public transport are shown there). " +
+        "mode: driving, walking, cycling or transit."
+    override val argsExample = """{"destination":"Phoenix Mall Pune","mode":"transit"} or {"query":"coffee near me"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override val deviceAction = true
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val dest = args.str("destination"); val q = args.str("query")
+        val mode = ai.clu.core.tools.DistanceTool.normaliseMode(args.str("mode"))
+        val origin = args.str("from")
         val uri = when {
+            // Directions (not turn-by-turn) for transit or a given start point: Google Maps' public directions URL.
+            dest != null && (mode != "driving" || origin != null) -> Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(dest) +
+                (origin?.let { "&origin=" + Uri.encode(it) } ?: "") + "&travelmode=" + when (mode) { "walking" -> "walking"; "cycling" -> "bicycling"; "transit" -> "transit"; else -> "driving" })
             dest != null -> Uri.parse("google.navigation:q=" + Uri.encode(dest))
             q != null -> Uri.parse("geo:0,0?q=" + Uri.encode(q))
             else -> return ToolResult.fail("Where to?")

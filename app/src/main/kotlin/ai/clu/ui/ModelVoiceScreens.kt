@@ -174,7 +174,84 @@ class VoiceActivity : BaseActivity() {
         intent.getStringExtra("download")?.let { id -> intent.removeExtra("download"); VoicePacks.byId(id)?.takeIf { !app.packs.isInstalled(it) }?.let { downloadPack(it, null) } }
     }
 
-    private fun build(): Unit = screen("Voice") {
+    private val advanced get() = intent.getBooleanExtra("advanced", false)
+    private fun build() { if (advanced) advancedBuild() else simpleBuild() }
+    private val preview = PreviewPlayer()
+    override fun onPause() { super.onPause(); preview.stop() }
+
+    /**
+     * The normal Voice screen: pick Clu's voice by name (with a preview that works before downloading), fix a missing
+     * voice in one tap, and the three listening choices that matter. Engines, model files and measurements are under
+     * "Advanced voice settings".
+     */
+    private fun simpleBuild(): Unit = screen("Voice") {
+        val V = ai.clu.core.voice.ClueVoices
+        val current = V.current(core.settings)
+        val plan = app.speech.refresh(cfg())
+        h1("Clu's voice")
+        if (current == null) p("An advanced voice setting is in use (${ai.clu.core.voice.TtsSelection.label(plan.engine)}). Choose a voice below to go back to the standard voices.", C.MUTED, 12f)
+        V.all.forEach { voice ->
+            val pack = VoicePacks.byId(voice.packId)!!
+            val installed = app.packs.isInstalled(pack)
+            val selected = voice == current
+            card {
+                p(voice.name + if (selected) "  ✓" else "", C.TEXT, 17f)
+                p(voice.description, C.MUTED, 13f)
+                p(when {
+                    selected && installed -> "Clu speaks with this voice."
+                    selected -> "Selected, but not downloaded yet: Clu stays silent until it is (it never switches to another voice)."
+                    installed -> "Downloaded."
+                    else -> "Download ${fmtBytes(voice.downloadBytes)} (runs offline afterwards)."
+                }, if (selected && !installed) C.WARN else C.MUTED, 12f)
+                val prog = p("", C.MUTED, 12f)
+                row {
+                    smallButton("▶ Preview") { preview.play(this@VoiceActivity, voice.previewAsset) }
+                    if (!installed) smallButton("Download ${fmtBytes(voice.downloadBytes)}") { downloadPack(pack, prog) }
+                    if (!selected) smallButton("Use ${voice.name}") {
+                        V.select(core.settings, voice); app.speech.refresh(cfg())
+                        if (!installed) downloadPack(pack, prog)
+                        build()
+                    }
+                }
+            }
+        }
+        if (plan.available) row {
+            smallButton("Say something") { app.speech.speak("I am ${core.settings.string(Settings.CLU_NAME)}. I'm listening, and I'll keep it brief.", cfg()) }
+            smallButton("Stop") { app.speech.stop() }
+        }
+        h1("Listening")
+        card {
+            fun opts(key: String) = (Settings[key]!!.type as ai.clu.core.config.SettingType.Choice).options
+            val c = cfg()
+            val whisperOk = app.whisper.model(c.whisperModel)?.let { app.whisper.isInstalled(it) } == true
+            val route = ai.clu.core.voice.AsrRouting.plan(c.sttLanguage, whisperOk)
+            p("Language: ${opts("voice.sttLanguage").first { it.first == c.sttLanguage }.second}", C.TEXT, 14f)
+            route.note?.let { p(it, C.WARN, 12f) }
+            p("After Clu answers: ${opts("voice.micMode").first { it.first == core.settings.string(Settings.MIC_MODE) }.second}", C.TEXT, 14f)
+            p("Interrupt Clu by simply speaking while it talks.", C.MUTED, 12f)
+            row {
+                smallButton("Language…") { val o = opts("voice.sttLanguage"); choose("Language you speak", o.map { it.second }) { i -> core.settings.set(Settings.STT_LANGUAGE, o[i].first); build() } }
+                smallButton("After answers…") { val o = opts("voice.micMode"); choose("After Clu answers", o.map { it.second }) { i -> core.settings.set(Settings.MIC_MODE, o[i].first); build() } }
+                smallButton("I pause a lot") {
+                    val o = listOf(800, 1000, 1300)
+                    choose("Wait after you stop talking", o.map { "${"%.1f".format(it / 1000.0)} s" + when (it) { 800 -> " (default)"; 1000 -> " (relaxed)"; else -> " (long pauses)" } }) { i ->
+                        core.settings.set(Settings.END_SILENCE, o[i]); build() }
+                }
+            }
+        }
+        h1("Hindi (optional downloads)")
+        card {
+            val small = ai.clu.core.stt.WhisperModels.all.firstOrNull { it.id.contains("small") } ?: ai.clu.core.stt.WhisperModels.all.first()
+            val asrOk = app.whisper.isInstalled(small)
+            val ttsOk = app.packs.isInstalled(VoicePacks.TTS_HI_PRATHAM)
+            p("Understanding Hindi and Hindi-English: ${if (asrOk) "installed" else "needs ${fmtBytes(small.bytes)}"}. Clu's Hindi voice (Pratham): ${if (ttsOk) "installed" else "needs ${fmtBytes(VoicePacks.TTS_HI_PRATHAM.bytes)}"}.", C.MUTED, 12f)
+            p("English works fully offline without these.", C.MUTED, 12f)
+            button("Manage downloads") { startActivity(Intent(this@VoiceActivity, VoiceActivity::class.java).putExtra("advanced", true)) }
+        }
+        button("Advanced voice settings") { startActivity(Intent(this@VoiceActivity, VoiceActivity::class.java).putExtra("advanced", true)) }
+    }
+
+    private fun advancedBuild(): Unit = screen("Voice – advanced") {
         val v = app.voice.state.value
         p("Offline speech recognition, wake-word and voice-activity models are built in. The Clu voice and speaker recognition are optional downloads.", C.MUTED, 12f)
         h1("Listening & speech recognition")
@@ -427,7 +504,7 @@ class VoiceActivity : BaseActivity() {
     /** Confirms size and source, downloads, verifies and installs [pack]; [prog] shows progress. */
     private fun downloadPack(pack: VoicePack, prog: TextView?) {
         core.network.check(ai.clu.core.tools.NetCategory.DOWNLOADS)?.let { toast(it); return }
-        val why = if (pack.id == core.settings.string(Settings.TTS_PIPER_VOICE)) "\nThis is the voice Clu is set to speak with." else ""
+        val why = if (pack.id == ai.clu.core.voice.ClueVoices.current(core.settings)?.packId) "\nThis is the voice Clu is set to speak with." else ""
         confirm("Download ${fmtBytes(pack.bytes)}?", "${pack.title}\nFrom the sherpa-onnx releases on GitHub. Verified by SHA-256 before use.$why", "Download") {
             toast("Downloading ${pack.title}…")
             scope.launch {
@@ -498,4 +575,31 @@ class WakeWordsActivity : BaseActivity() {
         button("Test now") { if (app.hasMic()) { app.voice.start(true); toast("Listening for wake words – watch the status line in chat or the Voice screen.") } }
         button("Activation settings") { startActivity(Intent(this@WakeWordsActivity, SettingsCategoryActivity::class.java).putExtra("cat", "WAKE")) }
     }
+}
+
+/** Plays a bundled 16-bit PCM WAV preview clip (works before the voice itself is downloaded). */
+class PreviewPlayer {
+    private var track: android.media.AudioTrack? = null
+
+    fun play(ctx: android.content.Context, asset: String) {
+        stop()
+        val bytes = runCatching { ctx.assets.open(asset).use { it.readBytes() } }.getOrNull() ?: return
+        val bb = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val rate = bb.getInt(24)
+        var off = 12
+        while (off + 8 <= bytes.size && String(bytes, off, 4, Charsets.US_ASCII) != "data") off += 8 + bb.getInt(off + 4)
+        if (off + 8 > bytes.size) return
+        val pcm = bytes.copyOfRange(off + 8, minOf(bytes.size, off + 8 + bb.getInt(off + 4)))
+        val t = android.media.AudioTrack.Builder()
+            .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            .setAudioFormat(android.media.AudioFormat.Builder().setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate)
+                .setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO).build())
+            .setTransferMode(android.media.AudioTrack.MODE_STATIC).setBufferSizeInBytes(pcm.size).build()
+        t.write(pcm, 0, pcm.size)
+        t.play()
+        track = t
+    }
+
+    fun stop() { track?.let { runCatching { it.stop() }; it.release() }; track = null }
 }

@@ -55,6 +55,7 @@ class TurnTimings(val responseId: Long) {
     fun metrics(): Map<String, Double> = buildMap {
         d(userSpeechEnd, transcriptFinal)?.let { put("speech_end_to_transcript_ms", it) }
         d(transcriptFinal, firstToken)?.let { put("transcript_to_first_token_ms", it) }
+        d(userSpeechEnd, firstToken)?.let { put("speech_end_to_first_token_ms", it) }
         d(firstToken, firstTtsRequest)?.let { put("first_token_to_first_tts_ms", it) }
         d(firstTtsRequest, firstAudio)?.let { put("first_tts_to_first_audio_ms", it) }
         d(userSpeechEnd, firstAudio)?.let { put("speech_end_to_first_audio_ms", it) }

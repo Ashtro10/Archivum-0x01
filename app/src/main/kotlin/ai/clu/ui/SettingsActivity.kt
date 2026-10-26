@@ -14,7 +14,26 @@ import kotlinx.serialization.json.*
 class SettingsActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
-        screen("Settings") {
+        if (intent.getBooleanExtra("advanced", false)) advanced() else simple()
+    }
+
+    /** The normal Settings screen: a few task-oriented sections; engine internals live under "All settings". */
+    private fun simple() = screen("Settings") {
+        fun section(title: String, desc: String, open: () -> Unit) = card {
+            p(title, C.TEXT, 16f); p(desc, C.MUTED, 12f)
+            setOnClickListener { open() }
+        }
+        section("Voice", "Clu's voice, language and how listening works.") { startActivity(Intent(this@SettingsActivity, VoiceActivity::class.java)) }
+        section("Models & offline downloads", "The language model that runs on this phone, and optional downloads.") { startActivity(Intent(this@SettingsActivity, ModelsActivity::class.java)) }
+        for (sec in SimpleSettings.all) section(sec.title, sec.description) {
+            startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", sec.id))
+        }
+        section("Diagnostics", "Request timings, speech recognition and performance — for fixing problems.") { startActivity(Intent(this@SettingsActivity, DiagnosticsActivity::class.java)) }
+        button("All settings (advanced)") { startActivity(Intent(this@SettingsActivity, SettingsActivity::class.java).putExtra("advanced", true)) }
+    }
+
+    private fun advanced() {
+        screen("All settings") {
             p("Every setting below changes real behaviour. Each is listed with its effect and verified by an automated test (see docs/SETTINGS_REGISTER.md).")
             SettingCategory.values().forEach { cat ->
                 val n = UiPolicy.visibleSettings(core.settings, cat).size
@@ -31,20 +50,25 @@ class SettingsActivity : BaseActivity() {
 }
 
 class SettingsCategoryActivity : BaseActivity() {
-    private lateinit var cat: SettingCategory
+    private var title = ""
+    private var defs: () -> List<SettingDef> = { emptyList() }
+    /** Simple sections show the setting and its current effect only; the full register metadata is for "All settings". */
+    private var simple = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        cat = SettingCategory.valueOf(intent.getStringExtra("cat")!!)
+        val sec = SimpleSettings.byId(intent.getStringExtra("section"))
+        if (sec != null) { title = sec.title; simple = true; defs = { sec.keys.mapNotNull { Settings[it] } } }
+        else { val cat = SettingCategory.valueOf(intent.getStringExtra("cat")!!); title = cat.title; defs = { UiPolicy.visibleSettings(core.settings, cat) } }
     }
 
     override fun onResume() { super.onResume(); build() }
 
     private fun build() {
-        screen(cat.title) {
-            for (d in UiPolicy.visibleSettings(core.settings, cat)) card { control(d) }
+        screen(title) {
+            for (d in defs()) card { control(d) }
             button("Reset this section to defaults") {
-                verifyOwner("Reset ${cat.title}") { ok -> if (ok) { UiPolicy.visibleSettings(core.settings, cat).forEach { core.settings.reset(it.key, verified = true) }; build() } }
+                verifyOwner("Reset $title") { ok -> if (ok) { defs().forEach { core.settings.reset(it.key, verified = true) }; build() } }
             }
         }
     }
@@ -109,6 +133,7 @@ class SettingsCategoryActivity : BaseActivity() {
             }
             is SettingType.Structured -> smallButton("Edit wake words") { startActivity(Intent(this@SettingsCategoryActivity, WakeWordsActivity::class.java)) }
         }
+        if (simple) { note?.let { p("⚠ $it", C.WARN, 11f) }; if (!core.settings.isDefault(d.key)) smallButton("Reset to default") { apply(d, d.default) }; return }
         val meta = buildList {
             add("Effect: ${d.effect}"); add(d.apply.label)
             if (d.limitations.isNotBlank()) add("Limitation: ${d.limitations}")

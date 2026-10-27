@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.3.1-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.4.0-prototype.
 
-* Settings: **191** · verifying test passed: **191** · other: **0**
+* Settings: **201** · verifying test passed: **201** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -23,6 +23,8 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `persona.humor` | Humour | `"dry"` | `none`, `dry`, `frequent` | SHARED | PromptBuilder | Adds a humour instruction | Applies from the next response | `PersonaSettingsTest#humor` | passed | – |
 | `persona.sarcasm` | Sarcasm | `"light"` | `off`, `light`, `sharp` | SHARED | PromptBuilder, RefusalTemplates | Adds a sarcasm instruction; selects refusal line style | Applies from the next response | `PersonaSettingsTest#sarcasm` | passed | – |
 | `persona.directness` | Directness | `"direct"` | `diplomatic`, `direct`, `blunt` | SHARED | PromptBuilder | Adds a directness instruction | Applies from the next response | `PersonaSettingsTest#directness` | passed | – |
+| `persona.explanation` | Explanations | `"balanced"` | `minimal`, `balanced`, `thorough` | SHARED | PromptBuilder | Adds an explanation-depth instruction | Applies from the next response | `PersonaSettingsTest#explanation` | passed | – |
+| `persona.proactivity` | Unprompted observations | `"occasional"` | `off`, `occasional`, `active` | SHARED | PromptBuilder | Adds an instruction about unrequested observations | Applies from the next response | `PersonaSettingsTest#proactivity` | passed | – |
 | `persona.greetOnSessionStart` | Greet when activated | `true` | true / false | SHARED | VoiceSession, ResponseTemplates | A greeting line is spoken/shown on activation | Applies immediately | `PersonaSettingsTest#greetOnStart` | passed | – |
 | `persona.greetings` | Greeting lines | `["{greeting}, {owner}.","I'm listening, {owner}.","Yes, {own` | list of ≤ 20 entries (≤ 160 chars each, at least 1) | SHARED | ResponseTemplates | One line is chosen for activation greetings | Applies immediately | `PersonaSettingsTest#greetings` | passed | – |
 | `persona.customInstructions` | Custom instructions | `""` | text ≤ 2000 chars | SHARED | PromptBuilder | Included verbatim in the system prompt | Applies from the next response | `PersonaSettingsTest#customInstructions` | passed | – |
@@ -148,6 +150,10 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.memory.remember.confirm` | Confirm before memory.remember | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.diary.recent.enabled` | Allow diary.recent | `true` | true / false | SHARED | ToolExecutor | When off, diary.recent is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.diary.recent.confirm` | Confirm before diary.recent | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.diary.search.enabled` | Allow diary.search | `true` | true / false | SHARED | ToolExecutor | When off, diary.search is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.diary.search.confirm` | Confirm before diary.search | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.diary.add.enabled` | Allow diary.add | `true` | true / false | SHARED | ToolExecutor | When off, diary.add is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.diary.add.confirm` | Confirm before diary.add | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.persona.switch.enabled` | Allow persona.switch | `true` | true / false | SHARED | ToolExecutor | When off, persona.switch is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.persona.switch.confirm` | Confirm before persona.switch | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.web.search.enabled` | Allow web.search | `true` | true / false | SHARED | ToolExecutor | When off, web.search is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
@@ -192,7 +198,11 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `net.maps` | Maps & places | `true` | true / false | SHARED | NetworkPolicy, MapsTools | Geocode/route tools permitted | Applies immediately | `NetworkSettingsTest#categories` | passed | – |
 | `net.travel` | Travel / trains | `true` | true / false | SHARED | NetworkPolicy, TrainTool | Train lookup permitted | Applies immediately | `NetworkSettingsTest#categories` | passed | – |
 | `net.downloads` | Model & voice downloads | `true` | true / false | SHARED | NetworkPolicy, Downloader | Downloads permitted | Applies immediately | `NetworkSettingsTest#categories` | passed | – |
-| `net.searchProvider` | Search provider | `"duckduckgo"` | `duckduckgo`, `wikipedia` | SHARED | WebSearchTool | Selects the provider queried | Applies immediately | `NetworkSettingsTest#searchProvider` | passed | – |
+| `net.searchProvider` | Search provider | `"duckduckgo"` | `duckduckgo`, `wikipedia`, `brave`, `searxng` | SHARED | SearchService | Selects the provider queried | Applies immediately | `NetworkSettingsTest#searchProvider` | passed | – |
+| `net.searchAuto` | Search automatically | `"auto"` | `auto`, `explicit` | SHARED | SearchNeed, CluAgent | A detected need runs web.search before the reply | Applies immediately | `SearchAgentTest#autoSetting` | passed | – |
+| `net.searchResults` | Results per search | `4` | integer 3–5 | SHARED | SearchService | count sent to the provider; results passed to the model | Applies immediately | `SearchAgentTest#resultCount` | passed | – |
+| `net.searchReadPages` | Read top result pages | `true` | true / false | SHARED | PageReader, RobotsPolicy | Up to 2 page fetches per search after a robots.txt check | Applies immediately | `SearchTest#pageReading` | passed | – |
+| `net.searxngUrl` | SearXNG address | `""` | text ≤ 300 chars, validated format | SHARED | SearxngSearch | Searches go to this instance | Applies immediately | `SearchTest#searxng` | passed | – |
 | `net.externalAi` | External AI | `"off"` | `off`, `on_request`, `auto` | SHARED | ExternalAiTool, CluAgent | Whether the external AI tool can be used | Applies immediately | `NetworkSettingsTest#externalAi` | passed | – |
 | `net.externalAiUrl` | External AI endpoint | `""` | text ≤ 300 chars, validated format | SHARED | ExternalAiTool | Requests go to this endpoint | Applies immediately | `NetworkSettingsTest#externalAi` | passed | – |
 | `net.externalAiModel` | External AI model | `""` | text ≤ 100 chars | SHARED | ExternalAiTool | Model field of the request | Applies immediately | `NetworkSettingsTest#externalAi` | passed | – |

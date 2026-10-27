@@ -1,6 +1,6 @@
 # Release verification and provenance
 
-_Verified 2026-10-26 in the build container. These facts were checked by tools, not recalled._
+_Verified 2026-10-27 in the build container. These facts were checked by tools, not recalled._
 
 ## 1. Where everything is
 
@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,100,556 bytes | `stat` |
-| SHA-256 | `6066f43ed52a0244dbc95cead669a823a9629d7e021a9211121860819c43db47` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,153,807 bytes | `stat` |
+| SHA-256 | `022e28cce019882a516643e6a83b17b7c8970f6923620bbf86cca6f81cfd1ede` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.3.1-prototype` (versionCode 5; installs as an update over versionCodes 1–4, same package and signer) | `aapt2 dump badging` |
+| Version | `1.4.0-prototype` (versionCode 6; installs as an update over versionCodes 1–5, same package and signer; the diary table is created and old diary memories migrated on first launch) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |

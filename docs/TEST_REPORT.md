@@ -169,3 +169,24 @@ Totals 1.3.1: core 284 tests (6 skipped by default; `TokenServerConformanceTest`
 app 47 tests, 0 failures; `OfflineConversationTest` passed separately in the network namespace; `:app:verifyApk`
 (376 JNI symbols) and `:app:apiCheck` (793 classes) pass on the release APK.
 
+
+## Stage 1: search, memory, diary, personality, Android actions (1.4.0, 2026-10-27)
+
+| Suite | What it covers | Result |
+|---|---|---|
+| `SearchTest` (7) | Brave / SearXNG / keyless parsing from documented response shapes; key sent only as a header; robots.txt rules; page excerpts; no invented results on errors; when a search is needed (14 should / 17 should not) | pass |
+| `SearchAgentTest` (9) | automatic vs explicit search; result count; ordinary chat never searches; failure offline and with a local answer; sources from a model-called search; no citation numbers in speech; voice reply < 500 ms during a 1.5 s search; **no memory, diary, name or history in any outgoing request** | pass |
+| `DiaryTest` (6) | offline CRUD, browse by date, search, restart, not memory until promoted, saving from a conversation, summaries go to the diary, v1→v2 migration | pass |
+| `MemoryStage1Test` (6) | categories, standing instructions, approval of inferences, manual insert/edit/delete across restart, bounded retrieval, explicit feedback | pass |
+| `PersonaSettingsTest` (+2) | explanation depth and proactivity change the prompt | pass |
+| `Stage1UiTest` (4, Robolectric) | search badge and tappable sources, in-chat suggestion saved only on approval, diary screens, search settings and key entry | pass |
+| `PersonaMeasurement` (opt-in, real SmolLM2-135M) | reply length per setting — see docs/measurements/persona_host.json | measured: length follows the token budget; explanation/proactivity have little effect on this model |
+| `OfflineConversationTest` in a loopback-only network namespace | offline conversation still completes | pass |
+| `:app:icuRegexCheck` | now joins patterns split with `+` (it previously checked only the first piece, so multi-line patterns were never fully checked) | 165 patterns, 0 rejected |
+
+**Real providers vs mocks.** Every search test uses recorded responses through a fake HTTP layer. **No live request
+reached Brave, SearXNG, Wikipedia or DuckDuckGo** (the build machine cannot reach them). Nothing was run on the tablet.
+
+Totals 1.4.0: core 315 tests (7 skipped by default: opt-in benchmarks/measurements and the namespace-only offline
+test, which passed separately), app 51 tests, 0 failures; `:app:verifyApk` (376 JNI symbols) and `:app:apiCheck`
+pass on the release APK.

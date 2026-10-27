@@ -43,13 +43,13 @@ class SearchAgentTest {
     @Test fun personalDataNeverSentToTheProvider() {
         core.settings.set(Settings.OWNER_NAME, "Ashwin")
         core.memories.save(ai.clu.core.memory.Memory(category = ai.clu.core.memory.MemoryCategory.CORE_FACT, title = "Sister in Pune",
-            content = "My sister Riya lives in Pune, flat zebra-17.", source = ai.clu.core.memory.MemorySource.OWNER_SUPPLIED))
+            content = "Pune weather forecast note: my sister Riya says carry an umbrella to flat zebra-17.", source = ai.clu.core.memory.MemorySource.OWNER_SUPPLIED))
         core.diary.add("Argued with Riya about the Pune flat. secret-diary-marker")
         ask("Hello, how are you?") // some history in the conversation
         engine.reply("Rain is expected in Pune today [1].")
         val d = done(ask("What's the weather forecast in Pune today?"))
         assertTrue(d.meta.sources.isNotEmpty())
-        assertTrue(engine.lastSystem.contains("zebra-17"), "the memory is used locally in the prompt")
+        assertTrue(engine.prompts.last().any { it.content.contains("zebra-17") }, "the memory is used locally in the prompt: ${engine.prompts.last()}")
         val outgoing = http.requests + http.headers.map { it.toString() }
         assertTrue(outgoing.isNotEmpty())
         for (secret in listOf("zebra", "Riya", "secret-diary", "Ashwin", "Hello"))

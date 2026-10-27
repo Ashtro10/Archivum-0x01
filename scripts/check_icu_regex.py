@@ -66,6 +66,9 @@ LIT = r'"((?:[^"\\]|\\.)*)"'
 CALLS = re.compile(r'(?:\bRegex\(|\br\(|Pattern\.compile\()\s*(?:"""(.*?)"""|' + LIT + r')|' + LIT + r'\.toRegex\(', re.S)
 
 
+MORE = re.compile(r'\s*\+\s*' + LIT)
+
+
 def unescape(s: str) -> str:
     s = re.sub(r"\$\{[^}]*\}", "x", s)  # string templates -> literal text (Regex.escape output is \Q..\E, valid in ICU)
     return re.sub(r'\\(.)', lambda m: {"n": "\n", "t": "\t", "r": "\r", "b": "\b"}.get(m.group(1), m.group(1)), s)
@@ -80,6 +83,10 @@ for d in dirs:
         for m in CALLS.finditer(text):
             raw = m.group(1)
             pattern = raw if raw is not None else unescape(m.group(2) if m.group(2) is not None else m.group(3))
+            if raw is None and m.group(2) is not None:  # a pattern split over lines: "..." + "..." + ...
+                pos = m.end()
+                while (more := MORE.match(text, pos)):
+                    pattern += unescape(more.group(1)); pos = more.end()
             count += 1
             status, offset = icu_compile(pattern)
             if status > 0:  # U_ZERO_ERROR = 0, warnings < 0

@@ -19,6 +19,13 @@
 4. **Community NDK sysroot and unpinned model hashes** (see SECURITY_REVIEW.md §8): to be replaced or pinned once
    `dl.google.com` / `huggingface.co` are reachable.
 
+## Stage 3 status (1.5.1)
+
+* Still **no device and no live provider** were reachable (no adb/KVM; network policy denies the provider hosts). See STAGE3_RELIABILITY.md §5.
+* DNS rebinding with zero-TTL answers between the check and the connection is not closed (no address pinning).
+* After Stop, an in-flight request finishes in the background up to its socket timeout; nothing new starts.
+* Memories synced to a device with *Persistent memory* off are refused and not re-sent automatically when memory is turned on.
+
 ## Stage 2 limitations (1.5.0)
 
 * **Nothing in Stage 2 has run on a device.** No Android device or emulator was available (no adb, no KVM). Live search providers and real web pages were not contacted either: every research test uses mocked HTTP responses.

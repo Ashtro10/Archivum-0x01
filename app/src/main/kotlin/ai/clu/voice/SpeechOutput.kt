@@ -255,10 +255,15 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
 
     /** Barge-in / stop button: silence now, drop everything queued, cancel the producer. */
     fun stop() {
+        val t0 = System.nanoTime()
+        val wasSpeaking = busy
         synchronized(this) { queue.clear(); announcing = null }
         stream.interrupt()
         synchronized(backends) { backends.values.forEach { it.second.cancel() } }
         abandonFocus()
+        // Stop request → playback paused and flushed (Diagnostics → Performance). The device's own output latency
+        // after pause() is not visible to the app and is not included.
+        if (wasSpeaking) diag?.perf("stop_to_silence_ms", (System.nanoTime() - t0) / 1e6)
     }
 
     val busy get() = stream.speaking || synchronized(this) { queue.isNotEmpty() }

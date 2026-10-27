@@ -36,7 +36,7 @@ class VoiceAgentTest {
         assertNull(ClueVoices.current(core.settings), "an advanced engine is reported as such")
     }
 
-    @Test fun spokenTurnsWarnTheModelAboutRecognitionErrorsAndAskForSpokenStyle() = runBlocking {
+    @Test fun spokenTurnsWarnTheModelAboutRecognitionErrorsAndAskForSpokenStyle(): Unit = runBlocking {
         val engine = ScriptedEngine().reply("Sure.", "Sure.")
         core.useEngine(engine)
         val conv = core.conversations.create().id
@@ -47,7 +47,7 @@ class VoiceAgentTest {
         assertFalse(engine.lastSystem.contains("misheard"), "typed turns are not treated as transcripts")
     }
 
-    @Test fun slowToolsShowProgressInTheChat() = runBlocking {
+    @Test fun slowToolsShowProgressInTheChat(): Unit = runBlocking {
         val platform = TestPlatform()
         val c = newCore(platform = platform)
         platform.fakeHttp.routes["duckduckgo"] = HttpResponse(200, """{"AbstractText":"Queens is a borough of New York City.","AbstractURL":"https://en.wikipedia.org/wiki/Queens"}""")

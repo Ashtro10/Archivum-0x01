@@ -46,7 +46,7 @@ class DiaryTest {
         assertEquals("Started learning the sitar.", again.diary.get(e.id)!!.body)
     }
 
-    @Test fun diaryIsNotMemoryUntilPromoted() = runBlocking {
+    @Test fun diaryIsNotMemoryUntilPromoted(): Unit = runBlocking {
         val engine = ScriptedEngine(); core.useEngine(engine)
         val e = diary.add("Decided to apply for the Pune job next month.", date = "2025-10-12")
         assertEquals(0, core.memories.count(), "a diary entry is not a memory")
@@ -64,7 +64,7 @@ class DiaryTest {
         assertTrue(engine.lastSystem.contains("apply for the Pune job"), "once promoted, it is a memory and can be retrieved")
     }
 
-    @Test fun savingFromConversationOnRequest() = runBlocking {
+    @Test fun savingFromConversationOnRequest(): Unit = runBlocking {
         val engine = ScriptedEngine(); core.useEngine(engine)
         val conv = core.conversations.create().id
         val owner = core.auth.actorForSpeaker(null, false)!!
@@ -81,7 +81,7 @@ class DiaryTest {
         assertEquals(3, diary.count())
     }
 
-    @Test fun conversationSummariesGoToTheDiary() = runBlocking {
+    @Test fun conversationSummariesGoToTheDiary(): Unit = runBlocking {
         val engine = ScriptedEngine(); core.useEngine(engine)
         val conv = core.conversations.create().id
         repeat(3) { core.conversations.addMessage(conv, ai.clu.core.conversation.Role.USER, "message $it") }

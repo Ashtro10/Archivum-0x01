@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.5.0)_
+_Last updated: 2026-10-27 (v1.5.1)_
 
 ## Current state
 
@@ -16,6 +16,15 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-27: Stage 3 — reliability audit (v1.5.1, versionCode 8)
+
+Details: [docs/STAGE3_RELIABILITY.md](docs/STAGE3_RELIABILITY.md). **No device and no live provider were reachable**
+from the build environment, so this release fixes what probing found and makes device measurement possible:
+* Fixed: hostile pages could freeze research for minutes (linear HTML extraction); Stop didn't stop a running search;
+  DNS rebinding / odd numeric addresses could bypass the local-network block; records written while a sync scope was
+  off were never sent; one Stage 2 test had silently never run.
+* Added device timings to Diagnostics: stop-to-silence and return-from-background. Device checklist: §Z17–Z21 and §P.
 
 ## Added 2026-10-27: Stage 2 — research, contextual memory, phone ↔ tablet, tasks (v1.5.0, versionCode 7)
 

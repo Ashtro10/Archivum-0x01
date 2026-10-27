@@ -1,4 +1,4 @@
-# On-device acceptance checklist — v1.5.0-prototype
+# On-device acceptance checklist — v1.5.1-prototype
 
 **Status: NOT YET RUN ON ANY DEVICE.** Nothing in this file has been executed on the Xiaomi Pad 6 or the iQOO Neo 9
 Pro. Until a row is filled in from a real device, that behaviour counts as **unverified**, whatever the automated
@@ -310,6 +310,30 @@ Background: [STAGE2_RESEARCH_MEMORY_SYNC.md](STAGE2_RESEARCH_MEMORY_SYNC.md). In
 | Z14 | Edit the same memory on both devices while one is offline; reconnect and sync | The later edit wins on both (or a conflict copy with "Keep both"); no duplicates | | |
 | Z15 | Without network between devices: Export sync file (memories only) on the phone, move it, Import on the tablet; import again | Memories arrive; second import "0 changes applied"; wrong passphrase refused | | |
 | Z16 | Background the app for 10 min, reopen; rotate the tablet | No crash; chat/HUD state correct; keyboard behaves | | |
+| Z17 | (1.5.1) Ask a research question, press Stop while "Searching the web…" shows | Stops at once; reply marked interrupted; next message works | | |
+| Z18 | (1.5.1) Upgrade 1.5.0 → 1.5.1 | Installs as an update; data intact (no migration in 1.5.1) | | |
+| Z19 | (1.5.1) Turn "Sync memories" off, save a memory, sync; turn it on, sync | The memory reaches the other device after turning it on | | |
+| Z20 | Deny the microphone permission, try voice; then allow it in Android settings and return | Clear message when denied; voice works after allowing, without restarting | | |
+| Z21 | Swipe Clu away from recents during a conversation; reopen | Conversation and history are back; no duplicate messages | | |
+
+## P. Performance measurements (1.5.1) — record for each device
+
+Developer diagnostics ON (Settings → All settings → Developer & diagnostics). After each step, open ⋮ → Diagnostics →
+Performance and note the value (median of 5 tries). *Copy report* exports everything.
+
+| Measure | How | Diagnostics value | Pad 6 | Neo 9 Pro |
+|---|---|---|---|---|
+| Cold start | Force-stop Clu, open it | `app_create_ms` | | |
+| Return from background | Home, wait 1 min, reopen Clu | `resume_to_frame_ms` | | |
+| End of speech → first audio | Voice: ask a short question offline | `endpoint_to_first_audio_ms` | | |
+| Interruption detected | Speak over Clu's answer | `barge_in_detect_ms` | | |
+| Stop → silence | Press Stop while Clu speaks | `stop_to_silence_ms` | | |
+| First token | Typed question with the model loaded | `turn_first_token_ms` | | |
+| Memory during conversation | After 10 exchanges | PSS / Java heap line at the top | | |
+| Memory during research | Right after a researched answer | PSS / Java heap | | |
+| Battery | 20 min of mixed voice/text use; Android battery settings | % used by Clu | | |
+| Sync | Sync now with 100+ memories | "Last: … (N ms)" on Phone & tablet | | |
+
 
 ## J. Background behaviour
 
@@ -406,6 +430,7 @@ server engine in section X.
 | N Modes (offline / LiveKit) | | | |
 | Y Stage 1 (search, memory, diary) | | | |
 | Z Stage 2 (research, memory, sync, tasks) | | | |
+| P Performance (1.5.1) | | | |
 
 **Acceptance rule:** v1 is accepted when sections A–E, G, H and M pass on both devices, and every FAIL in F, I, J, K
 or L either passes after tuning or is written up as a known limitation that you have agreed to. No new features

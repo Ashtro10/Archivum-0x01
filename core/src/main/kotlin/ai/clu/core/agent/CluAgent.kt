@@ -317,7 +317,8 @@ class CluAgent(
                 diag?.d("agent", "auto search: ${need.reason}")
                 val args = kotlinx.serialization.json.buildJsonObject { put("query", kotlinx.serialization.json.JsonPrimitive(need.query)) }
                 emit(AgentEvent.ToolStarted("web.search", args))
-                val r = tools.execute("web.search", args, ctx)
+                val r = executeCancellable(turn, "web.search", args, ctx)
+                    ?: run { finish(req, turn, "", baseMeta.copy(tools = listOf("web.search"), interrupted = true), emit); return }
                 emit(AgentEvent.ToolFinished("web.search", r))
                 if (r.success) { generateReply(req, turn, persona, ctx, baseMeta.copy(tools = listOf("web.search")), emit, preToolResult = "web.search" to r); return }
                 searchFailed(req, turn, persona, ctx, baseMeta, emit, r)
@@ -365,9 +366,10 @@ class CluAgent(
                 }
                 routed != null -> {
                     emit(AgentEvent.ToolStarted(routed.tool, routed.args))
-                    val r = tools.execute(routed.tool, routed.args, ctx)
-                    emit(AgentEvent.ToolFinished(routed.tool, r)); used += routed.tool
+                    val r = executeCancellable(turn, routed.tool, routed.args, ctx)
+                    if (r != null) { emit(AgentEvent.ToolFinished(routed.tool, r)); used += routed.tool }
                     when {
+                        r == null -> steps[i].copy(status = StepStatus.SKIPPED)
                         r.needsVerification -> { halted = true; emit(AgentEvent.NeedsVerification(r.error ?: "verification")); steps[i].copy(status = StepStatus.NEEDS_YOU, result = "needs your verification first") }
                         r.needsConfirmation -> { halted = true; steps[i].copy(status = StepStatus.NEEDS_YOU, result = "not confirmed, so not done") }
                         r.success -> steps[i].copy(status = StepStatus.DONE, result = line(r.spoken ?: r.summary))
@@ -377,9 +379,10 @@ class CluAgent(
                 search != null -> {
                     val args = kotlinx.serialization.json.buildJsonObject { put("query", kotlinx.serialization.json.JsonPrimitive(search)) }
                     emit(AgentEvent.ToolStarted("web.search", args))
-                    val r = tools.execute("web.search", args, ctx)
-                    emit(AgentEvent.ToolFinished("web.search", r)); used += "web.search"
-                    if (r.success) { searches += i to r; WebSearchTool.sources(r).size.let { n -> steps[i].copy(status = StepStatus.DONE, result = "searched, $n source${if (n == 1) "" else "s"} — answer below") } }
+                    val r = executeCancellable(turn, "web.search", args, ctx)
+                    if (r != null) { emit(AgentEvent.ToolFinished("web.search", r)); used += "web.search" }
+                    if (r == null) steps[i].copy(status = StepStatus.SKIPPED)
+                    else if (r.success) { searches += i to r; WebSearchTool.sources(r).size.let { n -> steps[i].copy(status = StepStatus.DONE, result = "searched, $n source${if (n == 1) "" else "s"} — answer below") } }
                     else steps[i].copy(status = StepStatus.FAILED, result = line("search failed: " + (r.error ?: r.summary).removePrefix("The web search could not be completed: ")))
                 }
                 else -> { questions += i; steps[i].copy(status = StepStatus.ANSWER, result = "answered below") }
@@ -565,7 +568,7 @@ class CluAgent(
                 val args = if (call.name == "external.ai" && !settings.bool(Settings.EXT_AI_SHARE_MEMORY))
                     kotlinx.serialization.json.buildJsonObject { put("question", kotlinx.serialization.json.JsonPrimitive(req.text)) } else call.args
                 emit(AgentEvent.ToolStarted(call.name, args))
-                val r = tools.execute(call.name, args, ctx)
+                val r = executeCancellable(turn, call.name, args, ctx) ?: break
                 emit(AgentEvent.ToolFinished(call.name, r))
                 usedTools += call.name
                 usedNetwork = usedNetwork || r.usedNetwork
@@ -629,6 +632,19 @@ class CluAgent(
     }
 
     /** How the model is asked to answer from search results: synthesis with numbered citations, no URLs, honest gaps. */
+    /**
+     * Runs a tool so that cancelling the turn (Stop, a newer request, closing voice) cancels it too: no further network
+     * requests start (provider, robots.txt, pages) and the agent doesn't continue with its result. Null = cancelled.
+     */
+    private suspend fun executeCancellable(turn: Turn, name: String, args: JsonObject, ctx: ToolContext): ToolResult? {
+        if (turn.signal.isCancelled) return null
+        return coroutineScope {
+            val run = async { tools.execute(name, args, ctx) }
+            val reg = turn.signal.onCancel { run.cancel() }
+            try { run.await() } catch (e: CancellationException) { if (turn.signal.isCancelled && isActive) null else throw e } finally { reg.close() }
+        }
+    }
+
     private fun searchInstruction(results: String, viaVoice: Boolean) = "[Web search results]\n$results\n" +
         "Answer my question from these sources. Start with the direct answer in one or two sentences, then the key reasons. " +
         (if (viaVoice) "Mention the sites by name where it matters; do not read out numbers or links. "

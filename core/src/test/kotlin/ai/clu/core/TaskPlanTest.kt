@@ -92,7 +92,7 @@ class TaskPlanTest {
         assertTrue(done(ask("continue the task")).text.startsWith("I don't have a recent unfinished task"))
     }
 
-    @Test fun cancellingSkipsTheRemainingSteps() = runBlocking {
+    @Test fun cancellingSkipsTheRemainingSteps(): Unit = runBlocking {
         val slow = FakeTool("timer.set", ToolResult.ok("Timer set."), delayMs = 800)
         core.toolRegistry.register(slow)
         val events = async(Dispatchers.Default) { core.agent.respond(TurnRequest(conv, "Set a timer for 1 minute, then open Spotify", owner)).toList() }

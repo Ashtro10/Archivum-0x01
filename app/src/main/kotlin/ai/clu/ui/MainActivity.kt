@@ -70,6 +70,13 @@ class MainActivity : BaseActivity() {
 
     override fun onStart() { super.onStart(); if (!redirected) { app.engine.screenVisible("chat", true); app.engine.startChat() } }
 
+    private var restartedAt = 0L
+    /** Return from the background → first frame drawn (Diagnostics → Performance: resume_to_frame_ms). */
+    override fun onRestart() {
+        super.onRestart(); restartedAt = System.nanoTime()
+        window.decorView.post { window.decorView.postOnAnimation { if (restartedAt > 0) { core.diag.perf("resume_to_frame_ms", (System.nanoTime() - restartedAt) / 1e6); restartedAt = 0 } } }
+    }
+
     override fun onStop() { if (!redirected) app.engine.screenVisible("chat", false); super.onStop() }
 
     override fun onResume() {

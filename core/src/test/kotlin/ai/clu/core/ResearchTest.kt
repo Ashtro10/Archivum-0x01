@@ -37,7 +37,7 @@ class ResearchTest {
     private fun ask(text: String) = runBlocking { core.agent.respond(TurnRequest(conv, text, owner)).toList() }
     private fun done(ev: List<AgentEvent>) = ev.filterIsInstance<AgentEvent.Done>().single()
 
-    @Test fun comparisonsSearchEachOptionAndMergeAcrossSites() = runBlocking {
+    @Test fun comparisonsSearchEachOptionAndMergeAcrossSites(): Unit = runBlocking {
         assertEquals(listOf("Pixel 9 vs iPhone 16 for photography", "Pixel 9 for photography", "iPhone 16 for photography"),
             ResearchPlan.queries("compare Pixel 9 and iPhone 16 for photography"))
         assertEquals(listOf("Jio vs Airtel", "Jio", "Airtel"), ResearchPlan.queries("Jio vs Airtel"))
@@ -54,7 +54,7 @@ class ResearchTest {
         assertEquals(3, out.independentSites)
     }
 
-    @Test fun pagesAreFetchedSafely() = runBlocking {
+    @Test fun pagesAreFetchedSafely(): Unit = runBlocking {
         listOf("http://127.0.0.1/admin", "http://192.168.1.1/", "http://10.0.0.5/x", "http://localhost:8080/", "http://router.local/", "file:///etc/passwd",
             "http://[::1]/", "http://172.20.1.1/", "http://intranet/", "https://user:pw@example.com/").forEach { assertFalse(SafeAddress.allowed(it), it) }
         listOf("https://en.wikipedia.org/wiki/X", "http://93.184.216.34/page", "https://news.example.co.in/a?b=1").forEach { assertTrue(SafeAddress.allowed(it), it) }

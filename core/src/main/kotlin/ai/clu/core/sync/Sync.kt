@@ -111,12 +111,23 @@ class SyncEngine(
      * the peer skipped while it was off are sent. Receivers ignore versions they already have.
      */
     fun requeue(table: String) {
-        val ids = when (table) {
-            DiaryRepository.TABLE -> db.query("SELECT id, hlc FROM diary_entries") { it.str(0) to it.str(1) }
-            MemoryRepository.TABLE -> db.query("SELECT id, hlc FROM memories") { it.str(0) to it.str(1) }
-            else -> emptyList()
-        }
+        val idCol = when (table) { SettingsStore.TABLE, PreferenceEngine.TABLE -> "key"; else -> "id" }
+        val where = if (table == SettingsStore.TABLE) " WHERE scope = 'SHARED'" else ""
+        if (table !in SCOPED) return
+        val ids = db.query("SELECT $idCol, hlc FROM $table$where") { it.str(0) to it.str(1) }
         db.transaction { ids.forEach { (id, h) -> store.logRemote(table, id, h) } }
+    }
+
+    /**
+     * A scope that was off during a sync skipped its changes (the log moved past them). When it is on again, its rows
+     * are queued once more so nothing written in the meantime is lost; receivers ignore versions they already have.
+     */
+    private fun requeueReenabledScopes() {
+        for (t in SCOPED) {
+            val key = "sync_scope_skipped:$t"
+            if (!tableEnabled(t)) { if (store.meta(key) != "1") store.setMeta(key, "1") }
+            else if (store.meta(key) == "1") { requeue(t); store.setMeta(key, "0") }
+        }
     }
 
     /** Every current row of [tables] (including deletions), for a sync file. */
@@ -131,10 +142,10 @@ class SyncEngine(
 
     /** Changes after [sinceSeq], de-duplicated by row (latest state), oldest first, at most [limit] rows. Returns rows + last seq covered. */
     fun changesSince(sinceSeq: Long, limit: Int = 200): Pair<List<SyncRow>, Long> {
-        // Diary sync switched on since the last session: queue every entry once (it was skipped while off).
+        // Diary sync switched on for the first time: queue every entry once (entries from before 1.5.0 were never sent).
         val diaryOn = settings.bool(Settings.SYNC_DIARY) && diary != null
         if (diaryOn && store.meta("diary_sync_queued") != "1") { requeue(DiaryRepository.TABLE); store.setMeta("diary_sync_queued", "1") }
-        if (!diaryOn && store.meta("diary_sync_queued") == "1") store.setMeta("diary_sync_queued", "0")
+        requeueReenabledScopes()
         val entries = db.query("SELECT seq, table_name, row_id FROM change_log WHERE seq > ? ORDER BY seq LIMIT ?", listOf(sinceSeq, limit * 4)) {
             Triple(it.lng(0), it.str(1), it.str(2))
         }
@@ -269,6 +280,8 @@ class SyncEngine(
     }
 
     companion object {
+        private val SCOPED = listOf(MemoryRepository.TABLE, ConversationRepository.CONV, ConversationRepository.MSG, SettingsStore.TABLE,
+            CharacterRepository.TABLE, PreferenceEngine.TABLE, CommandRepository.TABLE, PeopleRepository.TABLE, DiaryRepository.TABLE)
         fun b64(b: ByteArray): String = Base64.getEncoder().encodeToString(b)
         fun b64d(s: String): ByteArray = Base64.getDecoder().decode(s)
     }

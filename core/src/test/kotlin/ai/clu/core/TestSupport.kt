@@ -98,6 +98,9 @@ class FakeHttp : HttpFetcher {
         return route(url)
     }
     val postHeaders: MutableList<Map<String, String>> = java.util.Collections.synchronizedList(mutableListOf())
+    /** Host → addresses for [resolve]; hosts not listed resolve to a public test address. */
+    val dns: MutableMap<String, List<String>> = java.util.concurrent.ConcurrentHashMap()
+    override suspend fun resolve(host: String): List<String> = dns[host] ?: listOf("93.184.216.34")
     override suspend fun postJson(url: String, json: String, headers: Map<String, String>): HttpResponse {
         requests += "POST $url $json"
         postHeaders += headers

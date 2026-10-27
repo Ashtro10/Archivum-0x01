@@ -32,6 +32,9 @@ interface HttpFetcher {
      * [maxBytes] of the body.
      */
     suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int): HttpResponse = get(url, headers)
+
+    /** The addresses [host] resolves to (for refusing names that point into the local network), or null if unknown. */
+    suspend fun resolve(host: String): List<String>? = null
 }
 
 private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")

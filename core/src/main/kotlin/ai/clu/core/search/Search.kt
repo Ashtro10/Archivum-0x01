@@ -203,13 +203,34 @@ object SafeAddress {
         if (u.userInfo != null) return false
         val host = u.host?.lowercase()?.trim('[', ']') ?: return false
         if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan") || !host.contains('.') && !host.contains(':')) return false
-        val v4 = Regex("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$").find(host)?.groupValues?.drop(1)?.map { it.toInt() }
-        if (v4 != null) {
-            val (a, b) = v4
-            return !(a == 10 || a == 127 || a == 0 || a >= 224 || (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127))
-        }
-        if (host.contains(':')) return !(host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80") || host == "::")
+        // Numeric hosts must be plain dotted decimal: octal (0300.0250.0.1), hex (0x7f.0.0.1) and short forms (127.1) are refused.
+        if (Regex("^[0-9a-fx.]+$").matches(host) && host.any(Char::isDigit) && !host.endsWith('.') && host.split('.').all { it.isNotEmpty() && (it.all(Char::isDigit) || it.startsWith("0x")) })
+            return strictV4(host)?.let(::publicV4) ?: false
+        if (host.contains(':')) return publicIp(host)
         return true
+    }
+
+    /** True for a public address; false for loopback, private, link-local, CGNAT, multicast, unspecified (IPv4 and IPv6, incl. IPv4-mapped). */
+    fun publicIp(ip: String): Boolean {
+        val a = ip.lowercase().trim('[', ']').substringBefore('%')
+        strictV4(a)?.let { return publicV4(it) }
+        if (!a.contains(':')) return false
+        val mapped = Regex("^(?:0{0,4}:){0,5}(?:0{0,4}:)?ffff:(\\d+\\.\\d+\\.\\d+\\.\\d+)$").find(a)?.groupValues?.get(1) ?: a.removePrefix("::ffff:").takeIf { strictV4(it) != null }
+        if (mapped != null) return strictV4(mapped)?.let(::publicV4) ?: false
+        val first = a.substringBefore(':').ifEmpty { "0" }
+        return !(a == "::1" || a == "::" || first.startsWith("fc") || first.startsWith("fd") || first.startsWith("fe8") || first.startsWith("fe9") ||
+            first.startsWith("fea") || first.startsWith("feb") || first.startsWith("ff"))
+    }
+
+    private fun strictV4(h: String): List<Int>? {
+        val parts = h.split('.')
+        if (parts.size != 4 || parts.any { it.isEmpty() || it.length > 3 || !it.all(Char::isDigit) || (it.length > 1 && it.startsWith("0")) }) return null
+        return parts.map { it.toInt() }.takeIf { p -> p.all { it in 0..255 } }
+    }
+
+    private fun publicV4(v: List<Int>): Boolean {
+        val (a, b) = v
+        return !(a == 10 || a == 127 || a == 0 || a >= 224 || (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127))
     }
 }
 
@@ -331,6 +352,10 @@ class PageReader(private val http: HttpFetcher, private val robots: RobotsPolicy
         var current = url
         repeat(MAX_REDIRECTS + 1) {
             if (!SafeAddress.allowed(current)) return PageResult(null, "not a public web address")
+            // A public-looking name can still point into the local network (DNS rebinding): check what it resolves to.
+            val host = URI(current).host.trim('[', ']')
+            val ips = runCatching { http.resolve(host) }.getOrElse { return PageResult(null, "the site's address could not be found") }
+            if (ips != null && (ips.isEmpty() || ips.any { !SafeAddress.publicIp(it) })) return PageResult(null, "not a public web address")
             if (!robots.allowed(current)) return PageResult(null, "the site's robots.txt doesn't allow reading it")
             val r = withTimeoutOrNull(TIMEOUT_MS + 1000L) {
                 runCatching { http.fetchPage(current, mapOf("User-Agent" to USER_AGENT, "Accept" to "text/html,text/plain"), MAX_BYTES, TIMEOUT_MS) }
@@ -358,6 +383,41 @@ class PageReader(private val http: HttpFetcher, private val robots: RobotsPolicy
         const val TIMEOUT_MS = 6000
         const val MAX_REDIRECTS = 3
 
+        private val SKIP = setOf("script", "style", "noscript", "nav", "header", "footer", "aside", "form", "svg", "template", "iframe", "select")
+        private val BLOCK = setOf("p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "td", "th", "tr", "table", "br", "section", "article",
+            "main", "blockquote", "pre", "dd", "dt", "figcaption", "body", "html", "hr")
+
+        /**
+         * The page's visible text split into blocks (paragraphs, list items, headings, cells), with scripts, styles and
+         * navigation removed. One forward pass over the HTML — linear time and no regular-expression backtracking, so a
+         * malformed or hostile page (thousands of unclosed tags) can't stall the phone. Unclosed skipped elements end
+         * the text at that point.
+         */
+        fun textBlocks(html: String): List<String> {
+            val out = mutableListOf<String>(); val sb = StringBuilder()
+            fun flush() { if (sb.isNotBlank()) htmlToText(sb.toString()).takeIf { it.isNotBlank() }?.let { out += it }; sb.setLength(0) }
+            var i = 0; val n = html.length
+            while (i < n) {
+                val c = html[i]
+                if (c != '<') { sb.append(c); i++; continue }
+                if (html.startsWith("<!--", i)) { val e = html.indexOf("-->", i + 4); i = if (e < 0) n else e + 3; continue }
+                val end = html.indexOf('>', i + 1)
+                if (end < 0) break
+                var j = i + 1; val closing = j < end && html[j] == '/'; if (closing) j++
+                val nameStart = j
+                while (j < end && html[j].isLetterOrDigit()) j++
+                val name = html.substring(nameStart, j).lowercase()
+                i = end + 1
+                if (!closing && name in SKIP && html[end - 1] != '/') {
+                    flush()
+                    val close = html.indexOf("</$name", i, ignoreCase = true)
+                    i = if (close < 0) n else html.indexOf('>', close).let { if (it < 0) n else it + 1 }
+                } else if (name in BLOCK) flush() else sb.append(' ')
+            }
+            flush()
+            return out
+        }
+
         /** A publication date the page itself declares (article:published_time, datePublished, or a <time datetime>). */
         fun published(html: String): String? = listOf(
             Regex("(?i)<meta[^>]+(?:property|name)=[\"'](?:article:published_time|og:published_time|date|pubdate|publish-date|dc\\.date)[\"'][^>]*content=[\"']([^\"']+)"),
@@ -366,9 +426,9 @@ class PageReader(private val http: HttpFetcher, private val robots: RobotsPolicy
         ).firstNotNullOfOrNull { it.find(html)?.groupValues?.get(1)?.let(::isoDay) }
 
         fun extract(html: String, query: String, maxChars: Int): String? {
-            val body = html.replace(Regex("(?is)<(script|style|noscript|nav|header|footer|aside|form|svg)[^>]*>.*?</\\1>"), " ")
-            val paragraphs = Regex("(?is)<(p|li|h[1-4]|td)[^>]*>(.*?)</\\1>").findAll(body).map { htmlToText(it.groupValues[2]) }.filter { it.length >= 40 }.toList()
-                .ifEmpty { htmlToText(body).split(Regex("(?<=[.!?])\\s+")).filter { it.length >= 40 } }
+            val blocks = textBlocks(html)
+            val paragraphs = blocks.filter { it.length >= 40 }
+                .ifEmpty { blocks.joinToString(" ").split(Regex("(?<=[.!?])\\s+")).filter { it.length >= 40 } }
             if (paragraphs.isEmpty()) return null
             val terms = query.lowercase().split(Regex("\\W+")).filter { it.length > 2 }.toSet()
             val scored = paragraphs.mapIndexed { i, p -> Triple(i, p, terms.count { p.lowercase().contains(it) }) }

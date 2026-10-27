@@ -47,6 +47,8 @@ class AndroidHttp : HttpFetcher {
         return HttpResponse(code, body, h)
     }
 
+    override suspend fun resolve(host: String): List<String> = withContext(Dispatchers.IO) { java.net.InetAddress.getAllByName(host).mapNotNull { it.hostAddress } }
+
     override suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int) = withContext(Dispatchers.IO) {
         val c = open(url, headers).apply { connectTimeout = timeoutMs; readTimeout = timeoutMs; instanceFollowRedirects = false }
         try { read(c, maxBytes) } finally { c.disconnect() }

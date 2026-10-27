@@ -23,6 +23,8 @@ data class PromptContext(
     val styleOverride: String? = null,
     /** The message was spoken and transcribed by speech recognition; the reply will be spoken aloud. */
     val viaSpeech: Boolean = false,
+    /** The owner's standing instructions saved in memory ("from now on…"): part of Clu's rules, not per-message context. */
+    val standingInstructions: List<String> = emptyList(),
 )
 
 /**
@@ -73,6 +75,7 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
         styleLines(ctx).forEach { appendLine(it) }
         prefs.instructions().takeIf { it.isNotEmpty() }?.let { appendLine("Owner's learned preferences: " + it.joinToString(" ")) }
         settings.string(Settings.CUSTOM_INSTRUCTIONS).takeIf { it.isNotBlank() }?.let { appendLine("Owner's instructions: $it") }
+        if (ctx.standingInstructions.isNotEmpty()) appendLine("Standing instructions the owner asked you to follow: " + ctx.standingInstructions.joinToString(" ") { it.trim().trimEnd('.') + "." })
         commonContext(ctx)
         rules(ctx)
     }
@@ -103,6 +106,14 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
             "off" -> "Do not be sarcastic."; "sharp" -> "Sharp sarcasm is welcome when it fits."; else -> "Light sarcasm is acceptable." })
         add(when (settings.string(Settings.DIRECTNESS)) {
             "diplomatic" -> "Deliver judgements diplomatically."; "blunt" -> "Be blunt: state conclusions without softening."; else -> "Be direct." })
+        add(when (settings.string(Settings.EXPLANATION)) {
+            "minimal" -> "Give conclusions without explaining your reasoning unless asked."
+            "thorough" -> "Explain your reasoning step by step."
+            else -> "Briefly give the key reason behind an answer when it isn't obvious." })
+        add(when (settings.string(Settings.PROACTIVITY)) {
+            "off" -> "Answer only what was asked; do not add unrequested observations or suggestions."
+            "active" -> "Point out risks, better options and relevant related points even when not asked, briefly."
+            else -> "Add an unrequested observation only when it clearly matters (a real risk or a much better option), in one sentence." })
         langLine()?.let { add(it) }
         ctx.styleOverride?.let { add("For this reply only: $it") }
     }

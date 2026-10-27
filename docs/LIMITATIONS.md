@@ -19,6 +19,16 @@
 4. **Community NDK sysroot and unpinned model hashes** (see SECURITY_REVIEW.md §8): to be replaced or pinned once
    `dl.google.com` / `huggingface.co` are reachable.
 
+## Stage 1 limitations (1.4.0)
+
+* **No live search was made during development.** All providers were tested against recorded responses in each API's documented format; the build machine cannot reach Brave, SearXNG, Wikipedia or DuckDuckGo. The first real search happens on the device (DEVICE_ACCEPTANCE §Y).
+* **The default keyless provider is not a news search.** Wikipedia + DuckDuckGo Instant Answers cover encyclopedic facts; news, prices and scores need Brave (your key, metered after the monthly credit) or your own SearXNG.
+* **The Clu server (LiveKit) engine does not search**; automatic search is in the on-device engine.
+* **Personality instructions are followed loosely by small models.** With SmolLM2-135M, response length changed mainly through the token budget, and explanation depth / proactivity had little or no measurable effect (docs/measurements/persona_host.json). Larger models were not available to measure.
+* **"Brief" replies can be cut at the token limit** mid-sentence on small models.
+* **The diary is not synchronised** between phone and tablet in this version.
+* **Android settings intents are untested on MIUI/HyperOS**; the app reports when a screen doesn't exist, but which ones resolve on the Pad 6 is unknown until §Y15 is run.
+
 ## Functional limitations
 
 * **Image understanding:** not available (text-only model, no llama.cpp multimodal projector built). Pictures can

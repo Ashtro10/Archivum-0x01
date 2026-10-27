@@ -92,7 +92,7 @@ class MemoryTest {
         val p1 = core.proposals.propose(ProposalKind.OBSERVATION, "Owner tends to work late on Sundays", "Observed in several conversations")!!
         val p2 = core.proposals.propose(ProposalKind.HYPOTHESIS, "Owner may be avoiding the gym", "Speculative")!!
         assertEquals(0, core.memories.count(), "nothing saved before approval")
-        val m = core.proposals.approve(p1.id)
+        val m = core.proposals.approve(p1.id)!!
         assertEquals(MemorySource.APPROVED_INFERENCE, m.source); assertEquals(MemoryCategory.INSIGHT, m.category)
         core.proposals.reject(p2.id)
         assertEquals(1, core.memories.count())

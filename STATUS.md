@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.3.1)_
+_Last updated: 2026-10-27 (v1.4.0)_
 
 ## Current state
 
@@ -16,6 +16,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-27: Stage 1 — persistent, connected personal AI (v1.4.0, versionCode 6)
+
+Details: [docs/STAGE1_SEARCH_MEMORY_DIARY.md](docs/STAGE1_SEARCH_MEMORY_DIARY.md). Device checklist: DEVICE_ACCEPTANCE §Y.
+* **Web search** when a question needs current information (rules, not a model), through documented APIs: keyless
+  Wikipedia + DuckDuckGo Instant Answers (default), Brave Search API (your key), or your SearXNG. Answers cite numbered
+  sources shown as tappable cards; links come only from the provider. robots.txt is checked before reading pages.
+  Failures are stated plainly; ordinary chat never searches and keeps working offline.
+* **Long-term memory**: categories (preference, project, instruction, decision…), standing instructions in every
+  reply, inferred insights as in-chat suggestions that need approval, "Remember this" on any message.
+* **Diary**: separate from memory, offline, browse by date, search, edit, delete, "Keep as memory"; voice/text
+  commands ("Add to my diary: …", "Save this conversation to my diary").
+* **Personality**: explanation depth and proactivity settings; explicit feedback ("be more concise", "call me …")
+  changes the matching setting. Measured on SmolLM2-135M: the model follows style instructions only loosely.
+* **Android**: open specific settings screens with truthful results; toggle requests explain Android's limits.
+* **Not verified:** any live search provider (unreachable from the build machine) and anything on the tablet.
 
 ## Added 2026-10-27: real-model integration and diagnostics (v1.3.1, versionCode 5)
 

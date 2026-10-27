@@ -19,16 +19,16 @@ class MemoryActivity : BaseActivity() {
     override fun onResume() { super.onResume(); build() }
 
     private fun build() {
-        screen("Memory & diary") {
+        screen("Memory") {
             p("Long-term memory is separate from conversation history. ${if (!core.settings.bool(ai.clu.core.config.Settings.MEMORY_ENABLED)) "⚠ Persistent memory is OFF – nothing new is saved." else ""}")
             row {
                 smallButton("+ Insert memory") { startActivity(Intent(this@MemoryActivity, MemoryEditActivity::class.java).putExtra("scope", memScope)) }
-                smallButton("+ Diary entry") { startActivity(Intent(this@MemoryActivity, MemoryEditActivity::class.java).putExtra("scope", memScope).putExtra("diary", true)) }
+                smallButton("Diary (${core.diary.count()})") { startActivity(Intent(this@MemoryActivity, DiaryActivity::class.java)) }
                 smallButton("Suggestions (${core.proposals.pending().size})") { startActivity(Intent(this@MemoryActivity, ProposalsActivity::class.java)) }
             }
             val scopes = listOf(CLU_SCOPE to "Clu") + core.characters.list().map { it.id to "${it.name} (character)" }
             spinner(scopes.map { it.second }, scopes.indexOfFirst { it.first == memScope }) { memScope = scopes[it].first; build() }
-            val cats = listOf<MemoryCategory?>(null) + MemoryCategory.values()
+            val cats = listOf<MemoryCategory?>(null) + MemoryCategory.selectable
             spinner(cats.map { it?.label ?: "All categories" }, cats.indexOf(category)) { category = cats[it]; build() }
             val search = field("Search", query)
             smallButton("Search") { query = search.text.toString(); build() }
@@ -94,13 +94,12 @@ class MemoryEditActivity : BaseActivity() {
 
     private fun build() {
         val m = existing
-        val diary = intent.getBooleanExtra("diary", false)
-        screen(if (m == null) (if (diary) "New diary entry" else "Insert memory") else "Edit memory") {
+        screen(if (m == null) "Insert memory" else "Edit memory") {
             m?.let { p("Source: ${it.source.label} · created ${fmtTime(it.createdAt)} · updated ${fmtTime(it.updatedAt)}", C.MUTED, 12f) }
             val title = field("Title", m?.title ?: "")
-            val cats = MemoryCategory.values().toList()
+            val cats = (MemoryCategory.selectable + listOfNotNull(m?.category)).distinct()
             p("Category", C.TEXT, 13f)
-            val cat = spinner(cats.map { it.label }, cats.indexOf(m?.category ?: if (diary) MemoryCategory.DIARY else MemoryCategory.MANUAL))
+            val cat = spinner(cats.map { it.label }, cats.indexOf(m?.category ?: MemoryCategory.MANUAL))
             val dateLabel = p(eventAt?.let { "Event date: " + fmtTime(it) + if (!hasTime) " (date only)" else "" } ?: "Event date: not set", C.TEXT, 13f)
             row {
                 smallButton("Set date") {

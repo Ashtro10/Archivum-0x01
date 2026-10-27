@@ -75,6 +75,22 @@ object Schema {
             """CREATE TABLE perf_samples (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, metric TEXT NOT NULL,
                 value REAL NOT NULL, detail TEXT NOT NULL DEFAULT '')""",
         ),
+        // v1 -> v2: the diary becomes its own store, separate from memories. Diary-category memories move into it (as
+        // entries the owner wrote or approved) and are tombstoned in memories, so they no longer reach prompts.
+        listOf(
+            """CREATE TABLE diary_entries (id TEXT PRIMARY KEY, entry_date TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL,
+                source TEXT NOT NULL, conversation_id TEXT, memory_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0)""",
+            """CREATE INDEX idx_diary_date ON diary_entries(deleted, entry_date)""",
+            """INSERT INTO diary_entries(id, entry_date, title, body, source, conversation_id, memory_id, created_at, updated_at, deleted)
+                SELECT id, strftime('%Y-%m-%d', COALESCE(event_at, created_at) / 1000, 'unixepoch', 'localtime'), title,
+                       CASE WHEN content <> '' THEN content ELSE COALESCE(summary, '') END,
+                       CASE source WHEN 'CONVERSATION' THEN 'conversation' ELSE 'manual' END, NULL, NULL, created_at, updated_at, 0
+                FROM memories WHERE category = 'DIARY' AND deleted = 0""",
+            """DELETE FROM memory_terms WHERE memory_id IN (SELECT id FROM memories WHERE category = 'DIARY')""",
+            """DELETE FROM memory_stats WHERE key IN (SELECT 'len:' || id FROM memories WHERE category = 'DIARY')""",
+            """UPDATE memories SET deleted = 1, content = '', summary = NULL WHERE category = 'DIARY'""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size

@@ -37,6 +37,7 @@ class MainActivity : BaseActivity() {
         data class Msg(val m: Message) : Item()
         data class Live(val text: String, val thinking: Boolean) : Item()
         data class Problem(val text: String, val retry: String?) : Item()
+        data class Suggestion(val p: ai.clu.core.memory.MemoryProposal) : Item()
     }
 
     private lateinit var list: ListView
@@ -61,9 +62,9 @@ class MainActivity : BaseActivity() {
         }
         setContentView(build())
         scope.launch { app.conversation.collectLatest { refresh() } }
-        scope.launch { core.store.changes.collect { t -> if (t == "messages" || t == "conversations") refresh() } }
+        scope.launch { core.store.changes.collect { t -> if (t == "messages" || t == "conversations" || t == "memory_proposals") refresh() } }
         scope.launch { app.engine.ui.collect { render(it) } }
-        scope.launch { core.chat.state.collect { st -> if (!app.engine.server) { st.events.lastOrNull { it is ai.clu.core.agent.AgentEvent.Error }?.let { showItems() } } } }
+        scope.launch { core.chat.state.collect { st -> if (!app.engine.server && (st.status != null || st.events.lastOrNull() is ai.clu.core.agent.AgentEvent.Error)) showItems() } }
         if (core.store.meta("onboarded") == null) onboarding()
     }
 
@@ -219,14 +220,19 @@ class MainActivity : BaseActivity() {
 
     // ------------------------------------------------------------------------------------------------ list
     private fun refresh() {
-        msgItems = core.conversations.messages(app.currentConversation()).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.map { Item.Msg(it) }
+        val conv = app.currentConversation()
+        msgItems = core.conversations.messages(conv).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.map { Item.Msg(it) } +
+            // Memory suggestions Clu made in this conversation: saved only if the owner approves here or in Memory.
+            core.proposals.pending().filter { it.conversationId == conv && it.kind != ai.clu.core.memory.ProposalKind.DIARY }.map { Item.Suggestion(it) }
         showItems()
     }
 
     private fun showItems() {
         val extra = mutableListOf<Item>()
+        val status = if (!last.server) core.chat.state.value.status else null
         when {
             last.agentLive.isNotBlank() -> extra += Item.Live(last.agentLive, false)
+            status != null && last.thinking -> extra += Item.Live(status, true)
             last.thinking -> extra += Item.Live("", true)
         }
         val chatError = if (!last.server) (core.chat.state.value.events.lastOrNull { it is ai.clu.core.agent.AgentEvent.Error } as? ai.clu.core.agent.AgentEvent.Error)?.text else null
@@ -246,22 +252,27 @@ class MainActivity : BaseActivity() {
         override fun getItem(position: Int) = items[position]
         override fun getItemId(position: Int) = position.toLong()
         override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View = when (val it = items[position]) {
-            is Item.Msg -> if (it.m.role == Role.USER) userRow(it.m.content) else cluRow(it.m.content, if (it.m.meta.interrupted) "interrupted" else null)
-            is Item.Live -> cluRow(if (it.thinking) "Thinking…" else it.text, null, muted = it.thinking)
+            is Item.Msg -> if (it.m.role == Role.USER) userRow(it.m) else cluRow(it.m.content, badge(it.m), muted = false, msg = it.m)
+            is Item.Live -> cluRow(if (it.thinking) it.text.ifBlank { "Thinking…" } else it.text, null, muted = it.thinking)
             is Item.Problem -> problemRow(it.text, it.retry)
+            is Item.Suggestion -> suggestionRow(it.p)
         }
     }
 
-    private fun userRow(text: String): View = LinearLayout(this).apply {
+    private fun userRow(m: Message): View = LinearLayout(this).apply {
         gravity = Gravity.END; setPadding(dp(48), dp(6), 0, dp(6))
         addView(TextView(context).apply {
-            this.text = text; textSize = 16f; setTextColor(C.TEXT); setLineSpacing(0f, 1.15f)
+            this.text = m.content; textSize = 16f; setTextColor(C.TEXT); setLineSpacing(0f, 1.15f)
             background = roundBg(C.SURFACE2, dp(20).toFloat(), C.BORDER); setPadding(dp(16), dp(11), dp(16), dp(11))
-            setOnLongClickListener { copy(text); true }
+            setOnLongClickListener { messageMenu(m); true }
         })
     }
 
-    private fun cluRow(text: String, sub: String?, muted: Boolean = false): View = LinearLayout(this).apply {
+    /** Under a reply: where it came from. A searched answer says so (with its sources below); others show their engine. */
+    private fun badge(m: Message): String? =
+        listOfNotNull(ai.clu.core.config.UiPolicy.sourceBadge(core.settings, m.meta), "interrupted".takeIf { m.meta.interrupted }).joinToString(" · ").ifEmpty { null }
+
+    private fun cluRow(text: String, sub: String?, muted: Boolean = false, msg: Message? = null): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), dp(28), dp(8))
         addView(TextView(context).apply { this.text = "⬡"; textSize = 18f; setTextColor(C.ACCENT); gravity = Gravity.CENTER_HORIZONTAL },
             LinearLayout.LayoutParams(dp(30), -2))
@@ -269,10 +280,59 @@ class MainActivity : BaseActivity() {
             orientation = LinearLayout.VERTICAL
             addView(TextView(context).apply {
                 this.text = text; textSize = 16f; setTextColor(if (muted) C.MUTED else C.TEXT); setLineSpacing(0f, 1.2f)
-                setOnLongClickListener { copy(text); true }
+                setOnLongClickListener { if (msg != null) messageMenu(msg) else copy(text); true }
             })
-            sub?.let { addView(TextView(context).apply { this.text = it; textSize = 11f; setTextColor(C.MUTED); setPadding(0, dp(3), 0, 0) }) }
+            sub?.let { addView(TextView(context).apply { this.text = it; textSize = 11f; setTextColor(C.MUTED); setPadding(0, dp(4), 0, 0) }) }
+            // Sources exactly as the search provider returned them; tapping opens the page in the browser.
+            msg?.meta?.sources?.forEachIndexed { i, src -> addView(sourceRow(i + 1, src)) }
         }, LinearLayout.LayoutParams(0, -2, 1f))
+    }
+
+    private fun sourceRow(n: Int, src: ai.clu.core.conversation.SourceRef): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL; setPadding(dp(10), dp(8), dp(8), dp(8)); minimumHeight = dp(48)
+        background = roundBg(C.SURFACE, dp(12).toFloat(), C.BORDER)
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) }
+        addView(TextView(context).apply { this.text = "[$n] ${src.title}"; textSize = 14f; setTextColor(C.ACCENT); maxLines = 2 })
+        addView(TextView(context).apply {
+            this.text = (runCatching { java.net.URI(src.url).host?.removePrefix("www.") }.getOrNull() ?: src.url) + if (src.snippet.isNotBlank()) " — " + src.snippet.take(140) else ""
+            textSize = 12f; setTextColor(C.MUTED); maxLines = 2
+        })
+        contentDescription = "Source $n: ${src.title}. Opens in the browser."
+        setOnClickListener {
+            runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(src.url))) }.onFailure { toast("No browser available") }
+        }
+    }
+
+    private fun suggestionRow(p: ai.clu.core.memory.MemoryProposal): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL; setPadding(dp(30), dp(6), dp(16), dp(6))
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL; background = roundBg(C.SURFACE, dp(14).toFloat(), C.BORDER); setPadding(dp(14), dp(10), dp(14), dp(6))
+            addView(TextView(context).apply { this.text = "Remember this? (Clu's suggestion — not saved unless you approve)"; textSize = 12f; setTextColor(C.MUTED) })
+            addView(TextView(context).apply { this.text = p.text; textSize = 15f; setTextColor(C.TEXT); setPadding(0, dp(4), 0, dp(4)) })
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                fun action(label: String, f: () -> Unit) = addView(TextView(context).apply {
+                    this.text = label; textSize = 14f; setTextColor(C.ACCENT); setPadding(dp(4), dp(10), dp(18), dp(10)); setOnClickListener { f() } })
+                action("Save") { runCatching { core.proposals.approve(p.id) }.onSuccess { toast("Saved to memory") }.onFailure { toast(it.message ?: "Couldn't save") } }
+                action("Edit") { prompt("Edit before saving", p.text, multiline = true) { t -> runCatching { core.proposals.approve(p.id, t) }.onSuccess { toast("Saved to memory") } } }
+                action("Dismiss") { core.proposals.reject(p.id) }
+            })
+        })
+    }
+
+    /** Long press on a message: copy, keep it in the diary, or ask Clu to remember it (explicit, so it is saved directly). */
+    private fun messageMenu(m: Message) {
+        choose("Message", listOf("Copy", "Save to diary", "Remember this")) { i ->
+            when (i) {
+                0 -> copy(m.content)
+                1 -> runCatching { core.diary.add(if (m.role == Role.USER) m.content else "Clu: ${m.content}",
+                        source = if (m.role == Role.USER) ai.clu.core.diary.DiarySource.MANUAL else ai.clu.core.diary.DiarySource.CONVERSATION,
+                        conversationId = m.conversationId) }.onSuccess { toast("Saved to your diary") }.onFailure { toast(it.message ?: "Couldn't save") }
+                2 -> runCatching { core.memories.save(ai.clu.core.memory.Memory(category = ai.clu.core.memory.MemoryCategory.classify(m.content),
+                        title = m.content.take(60), content = m.content, source = if (m.role == Role.USER) ai.clu.core.memory.MemorySource.OWNER_INSTRUCTION
+                        else ai.clu.core.memory.MemorySource.CONVERSATION)) }.onSuccess { toast("Saved to memory") }.onFailure { toast(it.message ?: "Couldn't save") }
+            }
+        }
     }
 
     private fun problemRow(text: String, retry: String?): View = LinearLayout(this).apply {
@@ -290,14 +350,16 @@ class MainActivity : BaseActivity() {
 
     // ------------------------------------------------------------------------------------------------ menu
     private fun menu() {
-        val items = listOf("New chat", "Conversations", "Voice chat", "Connection", "Settings")
+        val items = listOf("New chat", "Conversations", "Voice chat", "Memory", "Diary", "Connection", "Settings")
         choose("Clu", items) { i ->
             when (i) {
                 0 -> app.openConversation(null)
                 1 -> startActivity(Intent(this, ConversationsActivity::class.java))
                 2 -> startActivity(Intent(this, VoiceChatActivity::class.java))
-                3 -> startActivity(Intent(this, ConnectionActivity::class.java))
-                4 -> startActivity(Intent(this, SettingsActivity::class.java))
+                3 -> startActivity(Intent(this, MemoryActivity::class.java))
+                4 -> startActivity(Intent(this, DiaryActivity::class.java))
+                5 -> startActivity(Intent(this, ConnectionActivity::class.java))
+                6 -> startActivity(Intent(this, SettingsActivity::class.java))
             }
         }
     }

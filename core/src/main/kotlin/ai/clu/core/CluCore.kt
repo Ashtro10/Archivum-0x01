@@ -51,6 +51,10 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val conversations = ConversationRepository(store)
     val memories = MemoryRepository(store, settings)
     val proposals = ProposalRepository(store, settings, memories)
+    /** The owner's diary: separate from memory; entries reach memory only when promoted. */
+    val diary = ai.clu.core.diary.DiaryRepository(store, memories)
+    /** Web search through documented provider APIs (key/URL configured on the device; none built in). */
+    val search = ai.clu.core.search.SearchService(settings, platform.http) { platform.secret(BRAVE_SEARCH_KEY) }
     val prefs = PreferenceEngine(store, settings)
     val characters = CharacterRepository(store, memories)
     val personas = PersonaManager(settings, characters)
@@ -88,7 +92,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     }
 
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
-        inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) })
+        inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) }, diary = diary)
 
     private var node: SyncNode? = null
 
@@ -97,6 +101,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
 
     init {
         registerCoreTools()
+        proposals.diarySink = { text, at, conv ->
+            diary.add(text, source = ai.clu.core.diary.DiarySource.CONVERSATION, conversationId = conv, date = ai.clu.core.diary.DiaryRepository.dayOf(at)) }
         people.ensureOwner(settings.string(Settings.OWNER_NAME))
         commands.seedDefaults()
         memories.purgeExpired()
@@ -105,9 +111,10 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     }
 
     private fun registerCoreTools() {
-        val web = WebSearchTool(platform.http, settings)
+        val web = WebSearchTool(search)
         val geo = Geocoder(platform.http)
-        listOf(TimeTool(), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(memories), PersonaSwitchTool(personas),
+        listOf(TimeTool(), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
+            DiaryAddTool(diary, conversations), PersonaSwitchTool(personas),
             web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") })
             .forEach(toolRegistry::register)
     }
@@ -115,6 +122,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     companion object {
         /** SecretStore name of the per-device key that authorises token requests at the owner's token endpoint. */
         const val LIVEKIT_DEVICE_KEY = "livekit_device_key"
+        /** SecretStore name of the owner's Brave Search API key (entered on the device; never in the app). */
+        const val BRAVE_SEARCH_KEY = "brave_search_key"
     }
 
     private val warmScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)

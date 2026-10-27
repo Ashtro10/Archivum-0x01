@@ -80,17 +80,30 @@ class JdbcDriver(val path: String) : SqlDriver {
 }
 
 class FakeHttp : HttpFetcher {
-    val requests = mutableListOf<String>()
-    val routes = mutableMapOf<String, HttpResponse>()
+    /** Every request URL in order (thread-safe: searches fetch in parallel). */
+    val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val routes: MutableMap<String, HttpResponse> = java.util.concurrent.ConcurrentHashMap()
+    /** Headers of GET requests, in order. */
+    val headers: MutableList<Map<String, String>> = java.util.Collections.synchronizedList(mutableListOf())
+    /** When set, every request fails with this exception (e.g. no network). */
+    @Volatile var failWith: Exception? = null
+    /** Simulated latency per request. */
+    @Volatile var delayMs = 0L
+    /** The most specific route whose key is part of the URL (longest key wins). */
+    private fun route(url: String) = routes.entries.filter { url.contains(it.key) }.maxByOrNull { it.key.length }?.value ?: HttpResponse(404, "")
     override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
-        requests += url
-        return routes.entries.firstOrNull { url.contains(it.key) }?.value ?: HttpResponse(404, "")
+        requests += url; this.headers += headers
+        if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
+        failWith?.let { throw it }
+        return route(url)
     }
-    val postHeaders = mutableListOf<Map<String, String>>()
+    val postHeaders: MutableList<Map<String, String>> = java.util.Collections.synchronizedList(mutableListOf())
     override suspend fun postJson(url: String, json: String, headers: Map<String, String>): HttpResponse {
         requests += "POST $url $json"
         postHeaders += headers
-        return routes.entries.firstOrNull { url.contains(it.key) }?.value ?: HttpResponse(404, "")
+        if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
+        failWith?.let { throw it }
+        return route(url)
     }
 }
 

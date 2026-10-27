@@ -217,21 +217,56 @@ class WebOpenTool(private val context: Context) : Tool {
     }
 }
 
+/**
+ * Opens a system settings screen with documented Settings intents. Android lets apps open these screens but not flip
+ * switches such as Wi-Fi or Bluetooth themselves, so "turn on Wi-Fi" opens the panel and says the owner must toggle it.
+ * The result is reported only after Android resolved and started the screen.
+ */
 class SettingsPanelTool(private val context: Context) : Tool {
     override val name = "device.settings"
-    override val description = "Open a system settings panel: wifi, bluetooth, internet, volume, battery, display."
+    override val description = "Open a system settings screen: wifi, bluetooth, internet, volume, sound, battery, display, location, apps, storage, " +
+        "date, accessibility, security, privacy, notifications, clu (Clu's app info), or main."
     override val argsExample = """{"panel":"wifi"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override val deviceAction = true
-    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
-        val action = when (args.str("panel")?.lowercase()) {
-            "wifi", "wi-fi" -> Settings.Panel.ACTION_WIFI; "internet", "data" -> Settings.Panel.ACTION_INTERNET_CONNECTIVITY
-            "volume", "sound" -> Settings.Panel.ACTION_VOLUME; "bluetooth" -> Settings.ACTION_BLUETOOTH_SETTINGS
-            "battery" -> Intent.ACTION_POWER_USAGE_SUMMARY; "display", "brightness" -> Settings.ACTION_DISPLAY_SETTINGS
-            else -> return ToolResult.fail("Which settings panel?")
+
+    /** Panel name (as spoken) to an intent and a readable name. Null: not a settings screen Clu knows. */
+    fun intentFor(panel: String): Pair<Intent, String>? {
+        val p = panel.lowercase().replace(Regex("[^a-z& ]"), " ").replace(Regex("\\s+"), " ").trim().removeSuffix(" settings")
+        val pkg = Uri.parse("package:${context.packageName}")
+        return when (p) {
+            "", "main", "system", "phone", "tablet", "device", "android" -> Intent(Settings.ACTION_SETTINGS) to "Settings"
+            "wifi", "wi fi" -> Intent(Settings.Panel.ACTION_WIFI) to "Wi-Fi"
+            "internet", "data", "mobile data", "network", "airplane mode", "flight mode" -> Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY) to "Internet"
+            "volume" -> Intent(Settings.Panel.ACTION_VOLUME) to "Volume"
+            "sound", "sounds", "ringtone" -> Intent(Settings.ACTION_SOUND_SETTINGS) to "Sound"
+            "bluetooth" -> Intent(Settings.ACTION_BLUETOOTH_SETTINGS) to "Bluetooth"
+            "battery", "power" -> Intent(Intent.ACTION_POWER_USAGE_SUMMARY) to "Battery"
+            "display", "brightness", "screen" -> Intent(Settings.ACTION_DISPLAY_SETTINGS) to "Display"
+            "location", "gps" -> Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) to "Location"
+            "apps", "app", "applications" -> Intent(Settings.ACTION_APPLICATION_SETTINGS) to "Apps"
+            "storage" -> Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS) to "Storage"
+            "date", "time", "date & time", "date and time" -> Intent(Settings.ACTION_DATE_SETTINGS) to "Date & time"
+            "accessibility" -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS) to "Accessibility"
+            "security" -> Intent(Settings.ACTION_SECURITY_SETTINGS) to "Security"
+            "privacy" -> Intent(Settings.ACTION_PRIVACY_SETTINGS) to "Privacy"
+            "notifications", "notification", "clu notifications" ->
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName) to "Clu's notifications"
+            "clu", "app info", "clu app info", "clue", "permissions", "clu permissions" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg) to "Clu's app info"
+            else -> null
         }
-        return if (context.startNew(Intent(action))) ToolResult(true, true, "Opened ${args.str("panel")} settings. Android requires you to toggle it yourself.",
-            spoken = "Here are the ${args.str("panel")} settings.") else ToolResult.fail("That settings panel isn't available.")
+    }
+
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        val panel = args.str("panel") ?: "main"
+        val (intent, label) = intentFor(panel) ?: return ToolResult.fail("I don't know a settings screen called \"$panel\". I can open Wi-Fi, Bluetooth, " +
+            "internet, volume, sound, battery, display, location, apps, storage, date & time, accessibility, security, privacy, notifications or Clu's app info.")
+        if (intent.resolveActivity(context.packageManager) == null) return ToolResult.fail("This device has no $label settings screen I can open.")
+        if (!context.startNew(intent)) return ToolResult.fail("Android refused to open the $label settings.")
+        val toggle = args.str("toggle") == "true"
+        val summary = if (toggle) "Opened $label settings. Android doesn't let apps switch this themselves, so you'll need to toggle it there."
+            else "Opened $label settings."
+        return ToolResult(true, true, summary, spoken = if (toggle) "Here are the $label settings; Android needs you to flip the switch." else "Opening $label settings.")
     }
 }
 

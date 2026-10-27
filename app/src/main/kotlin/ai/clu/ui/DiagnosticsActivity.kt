@@ -48,7 +48,7 @@ class DiagnosticsActivity : BaseActivity() {
                 (t.plan.problem ?: t.lastError)?.let { " · ⚠ $it" }.orEmpty() }, C.MUTED, 12f)
         h1("Memory")
         p("Memories: ${core.memories.count()} · pending suggestions: ${core.proposals.pending().size} · messages: ${core.conversations.countMessages()} · " +
-            "diary entries: ${core.memories.list(null, MemoryCategory.DIARY).size}", C.MUTED, 12f)
+            "diary entries: ${core.diary.count()}", C.MUTED, 12f)
         h1("Sync")
         p("Device ${core.store.deviceId.take(8)} · entity ${core.store.entityId.take(8)} · peers ${core.syncEngine.peers().size} · change log seq ${core.syncEngine.maxSeq()}", C.MUTED, 12f)
         h1("Feature tests")

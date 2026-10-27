@@ -59,6 +59,8 @@
         <activity android:name=".ui.MemoryActivity" />
         <activity android:name=".ui.MemoryEditActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.ProposalsActivity" />
+        <activity android:name=".ui.DiaryActivity" />
+        <activity android:name=".ui.DiaryEditActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.SettingsActivity" />
         <activity android:name=".ui.SettingsCategoryActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.WakeWordsActivity" />

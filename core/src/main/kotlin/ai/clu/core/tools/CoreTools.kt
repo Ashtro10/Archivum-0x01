@@ -2,7 +2,13 @@ package ai.clu.core.tools
 
 import ai.clu.core.config.Settings
 import ai.clu.core.config.SettingsStore
+import ai.clu.core.conversation.ConversationRepository
+import ai.clu.core.conversation.Role
+import ai.clu.core.diary.DiaryEntry
+import ai.clu.core.diary.DiaryRepository
+import ai.clu.core.diary.DiarySource
 import ai.clu.core.memory.*
+import ai.clu.core.search.SearchService
 import ai.clu.core.persona.PersonaManager
 import ai.clu.core.security.Sensitivity
 import ai.clu.core.util.CluJson
@@ -72,7 +78,7 @@ class CalcTool : Tool {
 
 class MemorySearchTool(private val memories: MemoryRepository) : Tool {
     override val name = "memory.search"
-    override val description = "Search Clu's long-term memory and diary for a topic, person or event."
+    override val description = "Search Clu's long-term memory for a topic, person or event."
     override val argsExample = """{"query":"Ashutosh birthday"}"""
     override val sensitivity = Sensitivity.PERSONAL
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
@@ -92,23 +98,68 @@ class RememberTool(private val memories: MemoryRepository, private val settings:
         val text = args.str("text") ?: return ToolResult.fail("Nothing to remember.")
         val scope = ctx.persona.writeScope ?: return ToolResult.fail("${ctx.persona.name} does not keep memories.")
         if (!settings.bool(Settings.MEMORY_ENABLED)) return ToolResult.fail("Persistent memory is turned off, so I can't save that.")
-        val m = memories.save(Memory(category = MemoryCategory.CORE_FACT, title = text.take(60), content = text, source = MemorySource.OWNER_INSTRUCTION, scope = scope))
+        val category = args.str("category")?.let { c -> MemoryCategory.selectable.firstOrNull { it.name.equals(c, true) } } ?: MemoryCategory.classify(text)
+        val m = memories.save(Memory(category = category, title = text.take(60), content = text, source = MemorySource.OWNER_INSTRUCTION, scope = scope))
         val check = memories.get(m.id)
-        return if (check != null && !check.deleted) ToolResult.ok("Saved to memory: \"$text\"", spoken = "Noted. I'll remember that.")
+        val spoken = if (category == MemoryCategory.INSTRUCTION) "Understood. I'll do that from now on." else "Noted. I'll remember that."
+        return if (check != null && !check.deleted) ToolResult.ok("Saved to memory (${category.label.lowercase()}): \"$text\"", spoken = spoken)
         else ToolResult.fail("Saving the memory could not be verified.")
     }
 }
 
-class DiaryRecentTool(private val memories: MemoryRepository) : Tool {
+private fun diaryLine(e: DiaryEntry) = "- [${e.date}] ${e.title}${if (e.body.isNotBlank() && e.body != e.title) " — " + e.body.replace(Regex("\\s+"), " ").take(400) else ""} (${e.source.label.lowercase()})"
+
+/** Diary tools are Clu's only (characters keep no diary). The diary is read only when the owner asks about it. */
+class DiaryRecentTool(private val diary: DiaryRepository) : Tool {
     override val name = "diary.recent"
-    override val description = "List the most recent diary entries."
+    override val description = "List the owner's most recent diary entries (only when the owner asks about the diary)."
     override val argsExample = """{"count":5}"""
     override val sensitivity = Sensitivity.PERSONAL
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        if (!ctx.persona.isClu) return ToolResult.fail("${ctx.persona.name} has no access to the diary.")
         val n = (args.int("count") ?: 5).coerceIn(1, 20)
-        val list = ctx.persona.readableScopes.flatMap { memories.list(it, MemoryCategory.DIARY, limit = n) }.take(n)
+        val list = diary.list(limit = n)
         if (list.isEmpty()) return ToolResult.ok("There are no diary entries yet.", spoken = null)
-        return ToolResult.ok(list.joinToString("\n") { PromptMemoryFormat.line(it) }, spoken = null)
+        return ToolResult.ok(list.joinToString("\n", transform = ::diaryLine), spoken = null)
+    }
+}
+
+class DiarySearchTool(private val diary: DiaryRepository) : Tool {
+    override val name = "diary.search"
+    override val description = "Search the owner's diary for words (only when the owner asks what they wrote)."
+    override val argsExample = """{"query":"thesis"}"""
+    override val sensitivity = Sensitivity.PERSONAL
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        if (!ctx.persona.isClu) return ToolResult.fail("${ctx.persona.name} has no access to the diary.")
+        val q = args.str("query") ?: return ToolResult.fail("No query given.")
+        val list = diary.search(q, limit = 8)
+        if (list.isEmpty()) return ToolResult.ok("No diary entries mention \"$q\".", spoken = null)
+        return ToolResult.ok(list.joinToString("\n", transform = ::diaryLine), spoken = null)
+    }
+}
+
+/**
+ * Writes a diary note the owner explicitly asked for: the given text, or ("save this conversation") the latest
+ * exchange of the current conversation. Verified by reading the entry back.
+ */
+class DiaryAddTool(private val diary: DiaryRepository, private val conversations: ConversationRepository) : Tool {
+    override val name = "diary.add"
+    override val description = "Add a note to the owner's diary when explicitly asked. Args: text, or {\"conversation\": true} for the latest exchange."
+    override val argsExample = """{"text":"Finished the first draft of the thesis"}"""
+    override val sensitivity = Sensitivity.CONFIG
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        if (!ctx.persona.isClu) return ToolResult.fail("${ctx.persona.name} has no access to the diary.")
+        val fromConversation = args.str("conversation")?.toBooleanStrictOrNull() == true || args.str("text") == null
+        val (text, source) = if (!fromConversation) args.str("text")!! to DiarySource.MANUAL else {
+            val conv = ctx.conversationId ?: return ToolResult.fail("There's no conversation to save.")
+            val msgs = conversations.messages(conv).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1).takeLast(2)
+            if (msgs.isEmpty()) return ToolResult.fail("There's nothing in this conversation to save yet.")
+            msgs.joinToString("\n") { "${if (it.role == Role.USER) "Me" else "Clu"}: ${it.content}" } to DiarySource.CONVERSATION
+        }
+        val e = diary.add(text, source = source, conversationId = ctx.conversationId)
+        val check = diary.get(e.id)
+        return if (check != null) ToolResult.ok("Saved to your diary for ${check.date}: \"${check.title}\"", spoken = "Added to your diary.")
+        else ToolResult.fail("Saving the diary entry could not be verified.")
     }
 }
 
@@ -144,61 +195,42 @@ object PromptMemoryFormat {
 
 // ------------------------------------------------------------------------------------------------ network tools
 
-class WebSearchTool(private val http: HttpFetcher, private val settings: SettingsStore) : Tool {
+/**
+ * Web search through [SearchService] (documented provider APIs only). The result for the model numbers the sources and
+ * names their sites but carries no URLs, so the model can't paste or invent addresses; the full sources (title, URL,
+ * snippet) travel in [ToolResult.data] and are shown under the reply as links.
+ */
+class WebSearchTool(private val search: SearchService) : Tool {
     override val name = "web.search"
-    override val description = "Search the web for current information (returns sources). Use for news, facts that may have changed, prices."
-    override val argsExample = """{"query":"weather Pune today"}"""
+    override val description = "Search the web for current information (returns numbered sources). Use for news, recent releases, prices, results, facts that may have changed."
+    override val argsExample = """{"query":"latest Android version"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override val network = NetCategory.WEB
 
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val q = args.str("query") ?: return ToolResult.fail("No query given.")
-        val results = mutableListOf<String>()
-        if (settings.string(Settings.SEARCH_PROVIDER) == "duckduckgo") {
-            runCatching {
-                val r = http.get("https://api.duckduckgo.com/?q=${enc(q)}&format=json&no_html=1&skip_disambig=1", mapOf("User-Agent" to USER_AGENT))
-                if (r.code == 200) {
-                    val o = CluJson.parseToJsonElement(r.body).jsonObject
-                    o.str("AbstractText")?.let { results += "$it (source: ${o.str("AbstractURL") ?: "DuckDuckGo"})" }
-                    o.str("Answer")?.let { results += "Answer: $it (DuckDuckGo)" }
-                    (o["RelatedTopics"] as? JsonArray)?.take(3)?.forEach { t -> (t as? JsonObject)?.str("Text")?.let { results += "$it (${t.str("FirstURL") ?: ""})" } }
-                }
-            }
-            if (results.isEmpty()) runCatching {
-                val r = http.get("https://html.duckduckgo.com/html/?q=${enc(q)}", mapOf("User-Agent" to USER_AGENT))
-                if (r.code == 200) results += parseDdgHtml(r.body).take(5)
+        val out = search.search(q)
+        if (out.error != null) return ToolResult(false, false, "The web search could not be completed: ${out.error}", error = out.error, spoken = null, usedNetwork = true)
+        val retrieved = SimpleDateFormat("d MMM yyyy HH:mm", Locale.ENGLISH).format(Date(ctx.now))
+        val summary = buildString {
+            appendLine("Web search for \"${out.query}\" via ${out.provider}, retrieved $retrieved. Numbered sources:")
+            out.hits.forEachIndexed { i, h ->
+                appendLine("[${i + 1}] ${h.title} (${host(h.url)}): ${h.snippet.take(400)}")
+                h.pageText?.let { appendLine("    Page excerpt: ${it.take(1200)}") }
             }
         }
-        if (results.isEmpty()) runCatching { results += wikipedia(http, q) }
-        if (results.isEmpty()) return ToolResult(false, false, "The search returned no usable results for \"$q\".", error = "no results",
-            spoken = "I couldn't find reliable results for that.", usedNetwork = true)
-        return ToolResult.ok("Search results for \"$q\" (retrieved now):\n" + results.joinToString("\n") { "- $it" }, spoken = null, usedNetwork = true)
+        val data = buildJsonArray { out.hits.forEach { h -> addJsonObject { put("title", h.title); put("url", h.url); put("snippet", h.snippet.take(300)); put("provider", h.provider) } } }
+        return ToolResult.ok(summary.trim(), verified = true, data = data, spoken = null, usedNetwork = true)
     }
 
     companion object {
-        fun parseDdgHtml(html: String): List<String> {
-            val out = mutableListOf<String>()
-            val re = Regex("""<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>.*?class="result__snippet"[^>]*>(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
-            for (m in re.findAll(html)) {
-                val title = strip(m.groupValues[2]); val snippet = strip(m.groupValues[3])
-                var url = m.groupValues[1]
-                Regex("uddg=([^&]+)").find(url)?.let { url = java.net.URLDecoder.decode(it.groupValues[1], "UTF-8") }
-                out += "$title: $snippet ($url)"
-            }
-            return out
-        }
-        fun strip(s: String) = s.replace(Regex("<[^>]+>"), "").replace("&amp;", "&").replace("&quot;", "\"").replace("&#x27;", "'").replace("&lt;", "<").replace("&gt;", ">").trim()
+        fun host(url: String) = runCatching { java.net.URI(url).host?.removePrefix("www.") }.getOrNull() ?: url
 
-        suspend fun wikipedia(http: HttpFetcher, q: String): List<String> {
-            val r = http.get("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&format=json&srlimit=3", mapOf("User-Agent" to USER_AGENT))
-            if (r.code != 200) return emptyList()
-            val hits = CluJson.parseToJsonElement(r.body).jsonObject["query"]?.jsonObject?.get("search") as? JsonArray ?: return emptyList()
-            return hits.mapNotNull { h ->
-                val o = h as? JsonObject ?: return@mapNotNull null
-                val title = o.str("title") ?: return@mapNotNull null
-                "$title: ${strip(o.str("snippet") ?: "")} (https://en.wikipedia.org/wiki/${enc(title.replace(' ', '_'))})"
-            }
-        }
+        /** Sources carried by a web.search result (for the message's source links). */
+        fun sources(r: ToolResult): List<ai.clu.core.conversation.SourceRef> = (r.data as? JsonArray)?.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            ai.clu.core.conversation.SourceRef(o.str("title") ?: return@mapNotNull null, o.str("url") ?: return@mapNotNull null, o.str("snippet").orEmpty())
+        }.orEmpty()
     }
 }
 
@@ -358,7 +390,7 @@ class TrainTool(private val search: WebSearchTool) : Tool {
         val q = args.str("query") ?: return ToolResult.fail("Which train or route?")
         val r = search.run(buildJsonObject { put("query", "$q train") }, ctx)
         val note = "Note: live running status and seat availability are only authoritative on NTES (enquiry.indianrail.gov.in) and IRCTC; I could not query them directly."
-        return if (r.success) ToolResult(true, false, r.summary + "\n" + note, spoken = null, usedNetwork = true)
+        return if (r.success) ToolResult(true, false, r.summary + "\n" + note, data = r.data, spoken = null, usedNetwork = true)
         else ToolResult(false, false, "No train information found. $note", error = r.error, usedNetwork = true)
     }
 }

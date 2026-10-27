@@ -106,7 +106,7 @@ class AppSmokeTest {
     }
 
     @Test fun everyScreenOpens() {
-        listOf(ConversationsActivity::class.java, MemoryActivity::class.java, MemoryEditActivity::class.java, ProposalsActivity::class.java,
+        listOf(ConversationsActivity::class.java, MemoryActivity::class.java, MemoryEditActivity::class.java, ProposalsActivity::class.java, DiaryActivity::class.java, DiaryEditActivity::class.java,
             SettingsActivity::class.java, WakeWordsActivity::class.java, ModelsActivity::class.java, VoiceActivity::class.java,
             CharactersActivity::class.java, CharacterEditActivity::class.java, PeopleActivity::class.java, CommandsActivity::class.java,
             DevicesActivity::class.java, PreferencesActivity::class.java, ToolHistoryActivity::class.java, DiagnosticsActivity::class.java,

@@ -1,6 +1,7 @@
 package ai.clu.ui
 
 import ai.clu.core.config.*
+import ai.clu.core.CluCore
 import ai.clu.voice.AndroidAsr
 import ai.clu.voice.VoicePacks
 import android.Manifest
@@ -26,6 +27,9 @@ class SettingsActivity : BaseActivity() {
         section("Connection", "Who answers: Clu's server (LiveKit agent) or this device, and the server details.") { startActivity(Intent(this@SettingsActivity, ConnectionActivity::class.java)) }
         section(SimpleSettings.CONVERSATION.title, SimpleSettings.CONVERSATION.description) {
             startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", SimpleSettings.CONVERSATION.id))
+        }
+        for (sec in listOf(SimpleSettings.MEMORY, SimpleSettings.TOOLS)) section(sec.title, sec.description) {
+            startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", sec.id))
         }
         if (core.settings.string(Settings.VOICE_MODE) != "livekit") {
             section("On-device voice", "Voice and language for the on-device engine.") { startActivity(Intent(this@SettingsActivity, VoiceActivity::class.java)) }
@@ -70,9 +74,25 @@ class SettingsCategoryActivity : BaseActivity() {
     private fun build() {
         screen(title) {
             for (d in defs()) card { control(d) }
+            if (intent.getStringExtra("section") == SimpleSettings.TOOLS.id) card { searchKey() }
             button("Reset this section to defaults") {
                 verifyOwner("Reset $title") { ok -> if (ok) { defs().forEach { core.settings.reset(it.key, verified = true) }; build() } }
             }
+        }
+    }
+
+    /** The Brave Search key is a secret: kept in the encrypted secret store on this device, never in settings, exports or logs. */
+    private fun LinearLayout.searchKey() {
+        val has = !app.platform.secrets.get(CluCore.BRAVE_SEARCH_KEY).isNullOrBlank()
+        p("Brave Search API key", C.TEXT, 15f)
+        p((if (has) "A key is saved on this device." else "No key saved.") + " Needed only for the Brave provider; get one at brave.com/search/api. " +
+            "Only your search words are sent to Brave — never memories or diary entries.", C.MUTED, 12f)
+        row {
+            smallButton(if (has) "Replace key" else "Enter key") {
+                verifyOwner("Change the search API key") { ok -> if (ok) prompt("Brave Search API key", password = true) { k ->
+                    app.platform.secrets.put(CluCore.BRAVE_SEARCH_KEY, k.trim().ifEmpty { null }); toast(if (k.isBlank()) "Key removed." else "Key saved."); build() } }
+            }
+            if (has) smallButton("Remove key") { verifyOwner("Remove the search API key") { ok -> if (ok) { app.platform.secrets.put(CluCore.BRAVE_SEARCH_KEY, null); build() } } }
         }
     }
 

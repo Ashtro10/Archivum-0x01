@@ -27,7 +27,13 @@ data class MessageMeta(
     val error: String = "",
     val interrupted: Boolean = false,
     val personaId: String = "clu",
+    /** Web sources the reply was based on (from web.search), shown as links under it. Empty for offline answers. */
+    val sources: List<SourceRef> = emptyList(),
 )
+
+/** A source a reply used: exactly what the search provider returned (never written by the model). */
+@Serializable
+data class SourceRef(val title: String, val url: String, val snippet: String = "")
 
 data class Conversation(
     val id: String, val title: String, val personaId: String, val archived: Boolean, val createdAt: Long, val updatedAt: Long,

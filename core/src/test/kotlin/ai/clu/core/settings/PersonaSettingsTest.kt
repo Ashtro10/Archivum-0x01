@@ -139,4 +139,21 @@ class PersonaSettingsTest {
         core.personas.switchToClu()
         assertTrue(system().startsWith("You are Clu,"))
     }
+
+    @Test fun explanation() {
+        assertTrue(system().contains("Briefly give the key reason behind an answer"))
+        s.set(Settings.EXPLANATION, "minimal")
+        assertTrue(system().contains("Give conclusions without explaining your reasoning unless asked."))
+        s.set(Settings.EXPLANATION, "thorough")
+        assertTrue(system().contains("Explain your reasoning step by step."))
+        assertIs<SettingResult.Invalid>(s.set(Settings.EXPLANATION, "verbose"))
+    }
+
+    @Test fun proactivity() {
+        assertTrue(system().contains("Add an unrequested observation only when it clearly matters"))
+        s.set(Settings.PROACTIVITY, "off")
+        assertTrue(system().contains("Answer only what was asked; do not add unrequested observations"))
+        s.set(Settings.PROACTIVITY, "active")
+        assertTrue(system().contains("Point out risks, better options and relevant related points even when not asked"))
+    }
 }

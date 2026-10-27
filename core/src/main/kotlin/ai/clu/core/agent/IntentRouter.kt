@@ -29,6 +29,16 @@ object IntentRouter {
         if (r("^(?:bring\\s+back|back\\s+to|return\\s+to)\\s+(?:clu|clue)$").matches(t)) return persona("clu")
 
         r("^remember\\s+(?:that\\s+)?(.{3,})$").find(t)?.let { return RoutedIntent("memory.remember", obj("text" to it.groupValues[1].trim()), "remember") }
+        // A standing instruction is explicit: saved as an instruction memory and applied to every later reply.
+        r("^(?:from now on|going forward|in future)[,:]?\\s+(.{3,})$").find(t)?.let {
+            return RoutedIntent("memory.remember", obj("text" to "From now on, " + it.groupValues[1].trim(), "category" to "INSTRUCTION"), "instruction") }
+
+        r("^(?:save|add|put|write)\\s+(?:this|that|our|the)\\s+(?:conversation|chat|exchange|answer|reply)\\s+(?:to|in|into)\\s+(?:my\\s+)?diary$").find(t)?.let {
+            return RoutedIntent("diary.add", obj("conversation" to "true"), "diary") }
+        r("^(?:add|write|put|note|save)\\s+(?:this\\s+|it\\s+)?(?:to|in|into|down in)\\s+(?:my\\s+)?diary[:,]?\\s+(?:that\\s+)?(.{2,})$").find(t)?.let {
+            return RoutedIntent("diary.add", obj("text" to it.groupValues[1].trim()), "diary") }
+        r("^(?:diary(?:\\s+entry)?|dear diary)[:,]\\s*(.{2,})$").find(t)?.let { return RoutedIntent("diary.add", obj("text" to it.groupValues[1].trim()), "diary") }
+        r("^(?:make|write)\\s+a\\s+(?:diary|journal)\\s+(?:entry|note)[:,]?\\s+(?:that\\s+)?(.{2,})$").find(t)?.let { return RoutedIntent("diary.add", obj("text" to it.groupValues[1].trim()), "diary") }
 
         r("^(?:set|create|add|make)\\s+(?:an?\\s+)?alarm\\s+(?:for|at)\\s+(.+?)(?:\\s+(?:called|named|labell?ed|for)\\s+(.+))?$").find(t)?.let {
             return RoutedIntent("alarm.set", obj("time" to it.groupValues[1], "label" to it.groupValues[2]), "alarm") }
@@ -51,6 +61,14 @@ object IntentRouter {
         r("^(?:navigate|directions|take me|get me directions|drive)\\s+to\\s+(.+)$").find(t)?.let { return RoutedIntent("maps.open", obj("destination" to it.groupValues[1]), "navigate") }
         r("^(?:show\\s+(?:me\\s+)?)(.+?)\\s+on\\s+(?:the\\s+)?maps?$").find(t)?.let { return RoutedIntent("maps.open", obj("query" to it.groupValues[1]), "map") }
         r("^(?:open|find)\\s+(.+?)\\s+(?:in|on)\\s+(?:google\\s+)?maps$").find(t)?.let { return RoutedIntent("maps.open", obj("query" to it.groupValues[1]), "map") }
+
+        // System settings: checked before "open <app>" so "open Wi-Fi settings" opens the panel, not an app search.
+        r("^(?:open|show|go\\s+to|show\\s+me)\\s+(?:the\\s+|my\\s+)?(?:(.+?)\\s+)?settings$").find(t)?.let {
+            return RoutedIntent("device.settings", obj("panel" to (it.groupValues[1].ifBlank { "main" })), "settings") }
+        r("^(?:turn|switch)\\s+(?:on|off)\\s+(?:the\\s+)?(wi-?fi|bluetooth|location|gps|mobile\\s+data|data|airplane\\s+mode|flight\\s+mode)$").find(t)?.let {
+            return RoutedIntent("device.settings", obj("panel" to it.groupValues[1], "toggle" to "true"), "settings") }
+        r("^(?:turn|switch)\\s+(?:the\\s+)?(wi-?fi|bluetooth|location|gps|mobile\\s+data|airplane\\s+mode|flight\\s+mode)\\s+(?:on|off)$").find(t)?.let {
+            return RoutedIntent("device.settings", obj("panel" to it.groupValues[1], "toggle" to "true"), "settings") }
 
         r("^(?:open|launch|start|run)\\s+(?:the\\s+|my\\s+)?(.+?)(?:\\s+app)?$").find(t)?.let {
             val app = it.groupValues[1]

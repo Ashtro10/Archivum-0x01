@@ -19,10 +19,33 @@ import kotlin.math.ln
 enum class MemoryCategory(val label: String) {
     CORE_FACT("Core fact"),
     EXPERIENCE("Relationship / experience"),
-    DIARY("Diary entry"),
+    /** Legacy: diary entries live in the diary since 1.4 (migrated); kept so old rows and synced peers still parse. */
+    DIARY("Diary entry (legacy)"),
     TEMPORARY("Temporary context"),
     INSIGHT("Approved insight"),
     MANUAL("Manually inserted"),
+    PREFERENCE("Preference"),
+    PROJECT("Project / status"),
+    /** How Clu should behave ("from now on…"): always part of Clu's instructions, not retrieved by relevance. */
+    INSTRUCTION("Instruction for Clu"),
+    DECISION("Decision / commitment");
+
+    companion object {
+        /** Categories the owner can pick for a memory (the diary is separate). */
+        val selectable get() = values().filter { it != DIARY }
+
+        /** Category for something the owner explicitly asked Clu to remember, from its wording. */
+        fun classify(text: String): MemoryCategory {
+            val t = text.trim().lowercase()
+            return when {
+                Regex("^(?:from now on|always|never|don't|do not|please (?:always|never)|whenever i|when i ask|you should|stop )").containsMatchIn(t) -> INSTRUCTION
+                Regex("\\b(?:i (?:have )?decided|we (?:have )?decided|decision|i(?:'ll| will) |i promised|i committed|commitment|we agreed|i agreed)\\b").containsMatchIn(t) -> DECISION
+                Regex("\\b(?:project|working on|milestone|deadline|status of|progress on|sprint|launch of)\\b").containsMatchIn(t) -> PROJECT
+                Regex("\\b(?:i prefer|i like|i love|i hate|i don't like|i dislike|my favou?rite|i'd rather|i enjoy)\\b").containsMatchIn(t) -> PREFERENCE
+                else -> CORE_FACT
+            }
+        }
+    }
 }
 
 /** Where a memory came from. Clu must not claim to have witnessed OWNER_SUPPLIED events. */
@@ -265,6 +288,8 @@ data class MemoryProposal(
  */
 class ProposalRepository(private val store: CluStore, private val settings: SettingsStore, private val memories: MemoryRepository) {
     private val db = store.db
+    /** Where approved diary suggestions go (the diary, not memory). Set by the composition root. */
+    @Volatile var diarySink: ((text: String, createdAt: Long, conversationId: String?) -> Unit)? = null
 
     fun propose(kind: ProposalKind, text: String, rationale: String, conversationId: String? = null): MemoryProposal? {
         if (kind != ProposalKind.DIARY && !settings.bool(Settings.PROPOSE_INSIGHTS)) return null
@@ -282,16 +307,23 @@ class ProposalRepository(private val store: CluStore, private val settings: Sett
     fun pending(): List<MemoryProposal> = query("WHERE status = 'PENDING' ORDER BY created_at DESC")
     fun get(id: String): MemoryProposal? = query("WHERE id = ?", listOf(id)).firstOrNull()
 
-    /** Owner approves; the (optionally edited) text becomes a memory with APPROVED_INFERENCE provenance. */
-    fun approve(id: String, editedText: String? = null, category: MemoryCategory? = null): Memory {
+    /**
+     * Owner approves; the (optionally edited) text becomes a memory with APPROVED_INFERENCE provenance. An approved
+     * diary suggestion becomes a diary entry instead (returns null): the diary is not memory.
+     */
+    fun approve(id: String, editedText: String? = null, category: MemoryCategory? = null): Memory? {
         val p = get(id) ?: throw IllegalArgumentException("proposal not found")
         check(p.status == ProposalStatus.PENDING) { "proposal already decided" }
         val text = editedText?.takeIf { it.isNotBlank() } ?: p.text
-        val cat = category ?: if (p.kind == ProposalKind.DIARY) MemoryCategory.DIARY else MemoryCategory.INSIGHT
-        val m = memories.save(Memory(category = cat, title = text.take(60), content = text,
-            source = if (p.kind == ProposalKind.DIARY) MemorySource.CONVERSATION else MemorySource.APPROVED_INFERENCE,
-            eventAt = if (p.kind == ProposalKind.DIARY) p.createdAt else null,
-            tags = listOf(p.kind.name.lowercase())))
+        val sink = diarySink
+        if (p.kind == ProposalKind.DIARY && sink != null) {
+            sink(text, p.createdAt, p.conversationId)
+            db.execute("UPDATE memory_proposals SET status = 'APPROVED', decided_at = ? WHERE id = ?", listOf(store.clock.now(), id))
+            store.notifyChanged(TABLE)
+            return null
+        }
+        val m = memories.save(Memory(category = category ?: MemoryCategory.INSIGHT, title = text.take(60), content = text,
+            source = MemorySource.APPROVED_INFERENCE, tags = listOf(p.kind.name.lowercase())))
         db.execute("UPDATE memory_proposals SET status = 'APPROVED', decided_at = ?, memory_id = ? WHERE id = ?", listOf(store.clock.now(), m.id, id))
         store.notifyChanged(TABLE)
         return m

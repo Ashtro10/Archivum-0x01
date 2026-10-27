@@ -105,6 +105,14 @@ object Settings {
     val DIRECTNESS = choice("persona.directness", "Directness", GENERAL, "direct",
         listOf("diplomatic" to "Diplomatic", "direct" to "Direct", "blunt" to "Blunt"), "How directly Clu delivers judgements.",
         "PromptBuilder", "Adds a directness instruction", "PersonaSettingsTest#directness", apply = ApplyMode.NEXT_TURN)
+    val EXPLANATION = choice("persona.explanation", "Explanations", GENERAL, "balanced",
+        listOf("minimal" to "Conclusions only", "balanced" to "Brief reasoning", "thorough" to "Step-by-step reasoning"),
+        "How much of the reasoning behind an answer Clu explains.", "PromptBuilder", "Adds an explanation-depth instruction",
+        "PersonaSettingsTest#explanation", apply = ApplyMode.NEXT_TURN)
+    val PROACTIVITY = choice("persona.proactivity", "Unprompted observations", GENERAL, "occasional",
+        listOf("off" to "Never – answer only what I ask", "occasional" to "When clearly useful", "active" to "Point out risks and better options freely"),
+        "Whether Clu adds observations you didn't ask for (a risk, a better option, a related point).", "PromptBuilder",
+        "Adds an instruction about unrequested observations", "PersonaSettingsTest#proactivity", apply = ApplyMode.NEXT_TURN)
     val GREET_ON_START = bool("persona.greetOnSessionStart", "Greet when activated", GENERAL, true,
         "Speak a greeting when a voice session starts.", "VoiceSession, ResponseTemplates", "A greeting line is spoken/shown on activation",
         "PersonaSettingsTest#greetOnStart")
@@ -388,8 +396,22 @@ object Settings {
     val NET_DOWNLOADS = bool("net.downloads", "Model & voice downloads", NETWORK, true, "Allow downloading models/voice packs (always with your confirmation).",
         "NetworkPolicy, Downloader", "Downloads permitted", "NetworkSettingsTest#categories")
     val SEARCH_PROVIDER = choice("net.searchProvider", "Search provider", NETWORK, "duckduckgo",
-        listOf("duckduckgo" to "DuckDuckGo (instant answers + HTML results)", "wikipedia" to "Wikipedia only"),
-        "Source for web research.", "WebSearchTool", "Selects the provider queried", "NetworkSettingsTest#searchProvider")
+        listOf("duckduckgo" to "Wikipedia + DuckDuckGo Instant Answers (free, no key; not for news)", "wikipedia" to "Wikipedia only (free, no key)",
+            "brave" to "Brave Search API (your key; full web incl. news)", "searxng" to "SearXNG (your own instance)"),
+        "Which documented search API answers searches. Only the search words are sent.", "SearchService",
+        "Selects the provider queried", "NetworkSettingsTest#searchProvider")
+    val SEARCH_AUTO = choice("net.searchAuto", "Search automatically", NETWORK, "auto",
+        listOf("auto" to "When a question needs current information", "explicit" to "Only when I say \"search\" or \"look up\""),
+        "Whether Clu searches on its own for news, prices, releases, results and other time-sensitive questions, or only on request. " +
+            "Ordinary conversation never triggers a search.", "SearchNeed, CluAgent", "A detected need runs web.search before the reply",
+        "SearchAgentTest#autoSetting")
+    val SEARCH_RESULTS = int("net.searchResults", "Results per search", NETWORK, 4, 3, 5, "How many results Clu retrieves and reads.",
+        "SearchService", "count sent to the provider; results passed to the model", "SearchAgentTest#resultCount", advanced = true)
+    val SEARCH_READ_PAGES = bool("net.searchReadPages", "Read top result pages", NETWORK, true,
+        "Also read short excerpts of the two best result pages when their robots.txt allows it (more accurate answers, ~2 extra requests).",
+        "PageReader, RobotsPolicy", "Up to 2 page fetches per search after a robots.txt check", "SearchTest#pageReading", advanced = true)
+    val SEARXNG_URL = text("net.searxngUrl", "SearXNG address", NETWORK, "", "Base URL of a SearXNG instance with JSON output enabled.",
+        "SearxngSearch", "Searches go to this instance", "SearchTest#searxng", SettingType.Text(300, pattern = Regex("https?://\\S+")))
     val EXT_AI_MODE = choice("net.externalAi", "External AI", NETWORK, "off",
         listOf("off" to "Never", "on_request" to "Only when I ask for deep analysis", "auto" to "When Clu judges it useful"),
         "Optional OpenAI-compatible service for deeper analysis. Not required for anything.", "ExternalAiTool, CluAgent",

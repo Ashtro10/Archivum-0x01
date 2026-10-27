@@ -90,7 +90,9 @@ class MemoryRetriever(private val settings: SettingsStore, private val memories:
         val max = settings.int(Settings.MEMORY_MAX)
         if (max == 0) return emptyList()
         val min = effectiveThreshold(settings.double(Settings.MEMORY_MIN_SCORE), memories.count())
-        return memories.rank(query, scopes, limit = max).filter { it.score >= min || it.memory.pinned && it.score >= min / 2 }
+        // Instructions are part of the system prompt already; legacy diary rows are not memories.
+        return memories.rank(query, scopes, limit = max + 4).filter { it.memory.category != MemoryCategory.INSTRUCTION && it.memory.category != MemoryCategory.DIARY }
+            .filter { it.score >= min || it.memory.pinned && it.score >= min / 2 }.take(max)
     }
 
     companion object {
@@ -102,6 +104,13 @@ class MemoryRetriever(private val settings: SettingsStore, private val memories:
         fun effectiveThreshold(configured: Double, count: Long): Double =
             configured * (kotlin.math.ln(count + 1.0) / kotlin.math.ln(51.0)).coerceIn(0.35, 1.5)
     }
+}
+
+/** Citation markers in an answer built from search results: only [n] that refer to a real source survive. */
+object Citations {
+    private val marker = Regex("\\s?\\[(\\d{1,2})](?!\\()")
+    fun clean(text: String, sourceCount: Int, spoken: Boolean): String =
+        marker.replace(text) { m -> val n = m.groupValues[1].toInt(); if (!spoken && n in 1..sourceCount) m.value else "" }.trim()
 }
 
 /** Suggests (never saves) observations from explicit self-descriptions in the owner's messages. */
@@ -132,6 +141,7 @@ class CluAgent(
     private val now: () -> Long = System::currentTimeMillis,
     private val deviceRole: () -> String = { "portable" },
     var timeouts: TurnTimeouts = TurnTimeouts(),
+    private val diary: ai.clu.core.diary.DiaryRepository? = null,
 ) {
     private val retriever = MemoryRetriever(settings, memories)
     private val turns = CopyOnWriteArrayList<Turn>()
@@ -226,6 +236,18 @@ class CluAgent(
         // 3. Owner-defined custom commands.
         commands.match(text)?.let { cmd -> runCommand(cmd, req, turn, ctx, baseMeta, emit); return }
 
+        // 3b. Explicit feedback on Clu's replies ("be more concise", "call me …"): changes the matching setting.
+        if (persona.isClu && req.actor.role == PersonRole.OWNER) ai.clu.core.learning.FeedbackRouter.match(text)?.let { fb ->
+            val r = when (val v = fb.value) { is Boolean -> settings.set(fb.key, v); is Int -> settings.set(fb.key, v); else -> settings.set(fb.key, v.toString()) }
+            val reply = when (r) {
+                ai.clu.core.config.SettingResult.Ok -> "${fb.confirmation} (Settings → Conversation → ${Settings[fb.key]?.title ?: fb.key}.)"
+                ai.clu.core.config.SettingResult.RequiresVerification -> "Changing ${Settings[fb.key]?.title?.lowercase() ?: "that"} needs your verification; change it in Settings."
+                else -> "I couldn't change that setting ($r)."
+            }
+            finish(req, turn, reply, baseMeta.copy(source = "template"), emit)
+            return
+        }
+
         // 4. Deterministic routing of explicit commands.
         val routed = IntentRouter.route(text)
         if (routed != null && tools.has(routed.tool)) {
@@ -255,8 +277,38 @@ class CluAgent(
             return
         }
 
-        // 5. Model-driven reply (may call tools).
+        // 5. Automatic web search when the question needs current or source-backed information (never for ordinary chat).
+        if (persona.isClu && settings.string(Settings.SEARCH_AUTO) == "auto" && tools.has("web.search") && tools.isEnabled("web.search")) {
+            ai.clu.core.search.SearchTrigger.detect(text, now())?.let { need ->
+                diag?.d("agent", "auto search: ${need.reason}")
+                val args = kotlinx.serialization.json.buildJsonObject { put("query", kotlinx.serialization.json.JsonPrimitive(need.query)) }
+                emit(AgentEvent.ToolStarted("web.search", args))
+                val r = tools.execute("web.search", args, ctx)
+                emit(AgentEvent.ToolFinished("web.search", r))
+                if (r.success) { generateReply(req, turn, persona, ctx, baseMeta.copy(tools = listOf("web.search")), emit, preToolResult = "web.search" to r); return }
+                searchFailed(req, turn, persona, ctx, baseMeta, emit, r)
+                return
+            }
+        }
+
+        // 6. Model-driven reply (may call tools).
         generateReply(req, turn, persona, ctx, baseMeta, emit, preToolResult = null)
+    }
+
+    /**
+     * A needed search failed (no internet, provider error, nothing found). Clu says so; with "When offline" set to
+     * answer locally, the model may add what it knows, clearly marked as possibly outdated. Ordinary chat is unaffected.
+     */
+    private suspend fun searchFailed(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
+                                     emit: (AgentEvent) -> Unit, r: ToolResult) {
+        val reason = (r.error ?: r.summary).removePrefix("The web search could not be completed: ").trimEnd('.')
+        if (settings.string(Settings.OFFLINE_BEHAVIOR) == "local_answer") {
+            val note = r.copy(spoken = null, summary = "OFFLINE: the web search could not be completed ($reason). Begin with one sentence saying so. " +
+                "Then, if you know the answer from your own knowledge, give it briefly and say it may be outdated; if it depends on current " +
+                "information you don't have, say you can't answer it reliably right now.")
+            generateReply(req, turn, persona, ctx, baseMeta.copy(tools = listOf("web.search"), error = "search_failed"), emit, preToolResult = "web.search" to note)
+        } else finish(req, turn, "I couldn't search the web just now ($reason), so I can't give you current information on that. " +
+            "Ordinary questions still work offline.", baseMeta.copy(source = "tool", tools = listOf("web.search"), error = "search_failed"), emit)
     }
 
     private suspend fun runCommand(cmd: CustomCommand, req: TurnRequest, turn: Turn, ctx: ToolContext, meta: MessageMeta, emit: (AgentEvent) -> Unit) {
@@ -301,7 +353,7 @@ class CluAgent(
         val mems = if (canReadMemory) retriever.retrieve(req.text, persona.readableScopes) else emptyList()
         val toolList = toolsFor(persona, req.text)
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
-            viaSpeech = req.viaVoice)
+            viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList())
         val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"))
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)
         val usedTools = baseMeta.tools.toMutableList()
@@ -309,9 +361,11 @@ class CluAgent(
         // Per-message context rides on the newest user message so the system prompt and history stay cacheable.
         val withContext = "[Context]\n${prompt.turnContext(pctx).trimEnd()}\n[/Context]\n"
         val extra = mutableListOf<ChatMessage>()
+        var sources = if (preToolResult?.first == "web.search" && preToolResult.second.success) WebSearchTool.sources(preToolResult.second) else emptyList()
         if (preToolResult != null) {
             extra += ChatMessage("user", withContext + req.text)
-            extra += ChatMessage("user", "[Tool result: ${preToolResult.first}]\n${preToolResult.second.summary}\nAnswer my request using only this result. Mention the source and any uncertainty.")
+            extra += ChatMessage("user", if (sources.isNotEmpty()) searchInstruction(preToolResult.second.summary, req.viaVoice)
+                else "[Tool result: ${preToolResult.first}]\n${preToolResult.second.summary}\nAnswer my request using only this result. Mention the source and any uncertainty.")
         }
         val maxSteps = settings.int(Settings.AGENT_MAX_STEPS)
         var finalText = ""
@@ -367,12 +421,16 @@ class CluAgent(
                     return
                 }
                 extra += ChatMessage("assistant", "<tool>{\"name\": \"${call.name}\", \"args\": ${call.args}}</tool>")
-                extra += ChatMessage("user", "[Tool result: ${call.name}] ${if (r.success) "" else "FAILED: "}${r.summary.take(3000)}")
+                if (call.name == "web.search" && r.success && WebSearchTool.sources(r).isNotEmpty()) {
+                    sources = WebSearchTool.sources(r)
+                    extra += ChatMessage("user", searchInstruction(r.summary.take(6000), req.viaVoice))
+                } else extra += ChatMessage("user", "[Tool result: ${call.name}] ${if (r.success) "" else "FAILED: "}${r.summary.take(3000)}")
                 emit(AgentEvent.Status("Using ${call.name}…"))
                 continue
             }
             // Tool markup is never reply text, also when it could not be parsed (malformed call from a small model).
             finalText = raw.substringBefore("<tool>").trim()
+            if (sources.isNotEmpty()) finalText = Citations.clean(finalText, sources.size, spoken = req.viaVoice)
             break
         }
         val timedOut = turn.signal.reason == CancelSignal.TIMEOUT
@@ -384,8 +442,8 @@ class CluAgent(
         // An empty reply (immediate end-of-generation, or only a malformed tool call) is an error with Retry, not "…".
         if (emptyOutput) emit(AgentEvent.Error("My model returned an empty reply. Please try again or rephrase.", kind = "empty"))
         val source = when { usedTools.contains("external.ai") -> "external"; else -> engine.source }
-        val meta = baseMeta.copy(source = source, engine = engine.id, tools = usedTools.distinct(), interrupted = turn.signal.isCancelled,
-            error = when { timedOut -> "timeout"; emptyOutput -> "empty_output"; else -> "" },
+        val meta = baseMeta.copy(source = source, engine = engine.id, tools = usedTools.distinct(), interrupted = turn.signal.isCancelled, sources = sources,
+            error = when { timedOut -> "timeout"; emptyOutput -> "empty_output"; else -> baseMeta.error },
             stats = baseMeta.stats + mapOf("prompt_ms" to stats.promptMs, "first_token_ms" to stats.firstTokenMs, "gen_ms" to stats.generateMs,
                 "tokens" to stats.generatedTokens.toDouble(), "tok_per_s" to stats.tokensPerSecond, "reused_tokens" to stats.reusedTokens.toDouble(),
                 "prompt_tokens" to stats.promptTokens.toDouble())
@@ -413,6 +471,14 @@ class CluAgent(
             proposals.propose(ai.clu.core.memory.ProposalKind.OBSERVATION, t, why, req.conversationId)?.let { emit(AgentEvent.ProposalCreated(it)) }
         }
     }
+
+    /** How the model is asked to answer from search results: synthesis with numbered citations, no URLs, honest gaps. */
+    private fun searchInstruction(results: String, viaVoice: Boolean) = "[Web search results]\n$results\n" +
+        "Answer my question from these sources in your own words; do not list the results. " +
+        (if (viaVoice) "Mention the sites by name where it matters; do not read out numbers or links. "
+         else "Cite sources as [1], [2] right after the statements they support. Do not write URLs. ") +
+        "If the sources don't answer the question, say so plainly. Keep what the sources state separate from your own knowledge or " +
+        "inference, and say when something is uncertain or the sources disagree."
 
     /** Submit → model ready / first token / end, per request (Diagnostics → Performance). */
     private fun turnMetrics(turn: Turn) {
@@ -448,6 +514,10 @@ class CluAgent(
             } finally { done.set(true); watchdog.cancel() }
         }
 
+    /** Instruction memories ("from now on…"), Clu only, newest last, at most 12 (they are part of the instructions). */
+    private fun standingInstructions(persona: ActivePersona): List<String> = if (!persona.isClu || !settings.bool(Settings.MEMORY_ENABLED)) emptyList()
+        else memories.list(CLU_SCOPE, MemoryCategory.INSTRUCTION, limit = 12).sortedBy { it.createdAt }.map { it.bodyForPrompt().take(300) }
+
     private fun toolsFor(persona: ActivePersona, text: String) = tools.available(persona).filter { t ->
         t.network == null || network.check(t.network!!) == null
     }.filter { it.name != "external.ai" || settings.string(Settings.EXT_AI_MODE) == "auto" || wantsDeepAnalysis(text) && settings.string(Settings.EXT_AI_MODE) == "on_request" }
@@ -461,7 +531,8 @@ class CluAgent(
         if (busy()) return null
         val engine = inference.select()?.takeIf { it.source == "local" } ?: return null
         val persona = personas.active()
-        val pctx = PromptContext(persona, emptyList(), toolsFor(persona, ""), now(), network.isOnline(), deviceRole())
+        val pctx = PromptContext(persona, emptyList(), toolsFor(persona, ""), now(), network.isOnline(), deviceRole(),
+            standingInstructions = standingInstructions(persona))
         val system = ChatMessage("system", prompt.staticSystem(pctx))
         return try {
             withContext(Dispatchers.IO) { engine.generate(listOf(system), GenParams(maxTokens = 0), CancelSignal()) {} }.stats
@@ -546,9 +617,10 @@ class CluAgent(
                 }.takeIf { it.stats.stopReason != "cancelled" }?.text?.trim()
             }.getOrNull()
         } ?: ("Conversation about: " + userMsgs.take(4).joinToString("; ") { it.content.take(80) })
-        if (mode == "automatic") memories.save(Memory(category = MemoryCategory.DIARY, title = "Conversation " +
-            java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(now())), content = summary,
-            source = MemorySource.CONVERSATION, eventAt = now()))
+        // Diary entries go to the diary, never straight into memory.
+        if (mode == "automatic" && diary != null) diary.add(summary, title = "Conversation " +
+            java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(now())),
+            source = ai.clu.core.diary.DiarySource.CONVERSATION, conversationId = conversationId, date = ai.clu.core.diary.DiaryRepository.dayOf(now()))
         else proposals.propose(ai.clu.core.memory.ProposalKind.DIARY, summary, "Summary of a conversation", conversationId)
     }
 }

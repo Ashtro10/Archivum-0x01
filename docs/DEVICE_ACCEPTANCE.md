@@ -1,4 +1,4 @@
-# On-device acceptance checklist — v1.3.0-prototype
+# On-device acceptance checklist — v1.4.0-prototype
 
 **Status: NOT YET RUN ON ANY DEVICE.** Nothing in this file has been executed on the Xiaomi Pad 6 or the iQOO Neo 9
 Pro. Until a row is filled in from a real device, that behaviour counts as **unverified**, whatever the automated
@@ -265,6 +265,29 @@ None of these have been run on a physical device yet. Background and measurement
 | V9 | Update test: install this APK over the previous Clu (do not uninstall) | Installs as an update; chats, settings, PIN and downloaded models are all still there; the model is not downloaded again | | |
 | V10 | AI models → Remove nothing; check "Installed models" status after V9 | Status "Loaded and generated successfully" (or "Header valid") – not "File missing" | | |
 
+## Y. Stage 1: search, memory, diary, personality, Android actions (1.4.0) – Xiaomi Pad 6
+
+Background: [STAGE1_SEARCH_MEMORY_DIARY.md](STAGE1_SEARCH_MEMORY_DIARY.md). Use the on-device engine (Connection → this device). The first real web search ever made by Clu happens here: none could be made from the build machine.
+
+| # | Step | Expected | P |
+|---|---|---|---|
+| Y1 | Airplane mode on. Chat: "Explain photosynthesis briefly." | Normal offline answer, badge "On-device model", no search attempted | |
+| Y2 | Online, default provider. "Who is the CEO of Microsoft?" | "Searching the web…", answer with "🔎 Searched the web · N sources" and source cards; tapping a card opens the right page | |
+| Y3 | "Tell me a story about a fox." / "How are you?" | No search | |
+| Y4 | Airplane mode on. "What's the latest news about ISRO today?" | "I couldn't search the web just now (…)"; next ordinary message works | |
+| Y5 | Settings → Search & internet → Brave, enter key, "What's the latest news about ISRO today?" | Current results with sources (or a clear key/quota error) | |
+| Y6 | Voice: ask a search question, then interrupt by speaking | Voice stays responsive; "Let me look that up" spoken; no URLs or [1] read aloud | |
+| Y7 | "Remember that I prefer tea over coffee." Force-stop the app, reopen. "What do I prefer to drink?" | Remembered after restart; Memory shows it as Preference | |
+| Y8 | "From now on, use metric units." then "How tall is Everest?" | Answer in metres; Memory shows an Instruction; deleting it stops the behaviour | |
+| Y9 | "I always forget to drink water when I'm working." | Suggestion card in chat; nothing in Memory until Save | |
+| Y10 | Memory → Insert memory (paste a text), edit it, delete it | Each step reflected; deleted text gone | |
+| Y11 | Airplane mode on. Menu → Diary: new entry, edit date, search a word, delete | All work offline; entries grouped by day | |
+| Y12 | "Save this conversation to my diary"; long-press a message → Save to diary | "Added to your diary."; entries appear; Memory count unchanged | |
+| Y13 | Diary entry → Keep as memory | Appears in Memory with the chosen category | |
+| Y14 | "Be more concise" then ask a question; Settings → Conversation | Confirmation names the setting; Response length shows Brief; replies shorter | |
+| Y15 | "Open Wi-Fi settings", "open battery settings", "turn on Bluetooth", "open Spotify" (installed / not installed) | Correct screen opens; toggle request explains Android's limit; app result is truthful | |
+| Y16 | Settings → Search & internet → Search automatically: "Only when I say" ; repeat Y2 | No search unless asked | |
+
 ## J. Background behaviour
 
 Apply the battery settings in [INSTALL.md](INSTALL.md) §2 first (Autostart ON, Battery saver *No restrictions*).
@@ -358,6 +381,7 @@ server engine in section X.
 | L Stability | | | |
 | M Sync | | | |
 | N Modes (offline / LiveKit) | | | |
+| Y Stage 1 (search, memory, diary) | | | |
 
 **Acceptance rule:** v1 is accepted when sections A–E, G, H and M pass on both devices, and every FAIL in F, I, J, K
 or L either passes after tuning or is written up as a known limitation that you have agreed to. No new features

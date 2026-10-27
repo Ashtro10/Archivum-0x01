@@ -39,6 +39,9 @@ object UiPolicy {
             "template" -> "Built-in response"
             else -> meta.source
         }
+        // A searched answer leads with that (its sources are listed under it); a failed search is said plainly.
+        if (meta.sources.isNotEmpty()) return "🔎 Searched the web · ${meta.sources.size} source${if (meta.sources.size == 1) "" else "s"} · $where"
+        if (meta.error == "search_failed") return "Search unavailable · answered without the web"
         val net = if (meta.stats["network"] == 1.0) " · used internet" else ""
         val tools = if (meta.tools.isNotEmpty()) " · " + meta.tools.joinToString() else ""
         return where + net + tools

@@ -102,13 +102,14 @@ class MemorySettingsTest {
         for (q in listOf("I have an exam tomorrow", "It's on physics", "I think I'm ready")) core.agent.handle(TurnRequest(conv.id, q, Actor.ownerInApp())) {}
         core.agent.writeDiaryIfDue(conv.id)
         assertTrue(core.proposals.pending().any { it.kind == ProposalKind.DIARY })
-        assertEquals(0, core.memories.list(category = MemoryCategory.DIARY).size)
+        assertEquals(0, core.diary.count(), "propose: nothing written until approved")
         s.set(Settings.DIARY_MODE, "automatic")
         core.useEngine(ScriptedEngine().reply("The owner prepared for a physics exam."))
         core.agent.writeDiaryIfDue(conv.id)
-        assertEquals("The owner prepared for a physics exam.", core.memories.list(category = MemoryCategory.DIARY).single().content)
+        assertEquals("The owner prepared for a physics exam.", core.diary.list().single().body, "written to the diary")
+        assertEquals(0, core.memories.count(), "diary entries are not memories")
         s.set(Settings.DIARY_MODE, "off")
         core.agent.writeDiaryIfDue(conv.id)
-        assertEquals(1, core.memories.list(category = MemoryCategory.DIARY).size)
+        assertEquals(1, core.diary.count())
     }
 }

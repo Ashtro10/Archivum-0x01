@@ -118,12 +118,19 @@ class NetworkSettingsTest {
     @Test fun searchProvider(): Unit = runBlocking {
         platform.fakeHttp.routes["wikipedia.org"] = ai.clu.core.tools.HttpResponse(200, wikiBody)
         core.tools.execute("web.search", buildJsonObject { put("query", "Pune") }, ctx)
-        assertTrue(platform.fakeHttp.requests.first().contains("duckduckgo.com"))
+        assertTrue(platform.fakeHttp.requests.any { it.contains("api.duckduckgo.com") }, "keyless default queries Instant Answers (documented API) ...")
+        assertTrue(platform.fakeHttp.requests.none { it.contains("html.duckduckgo.com") }, "... and never scrapes result pages")
         platform.fakeHttp.requests.clear()
         s.set(Settings.SEARCH_PROVIDER, "wikipedia")
         val r = core.tools.execute("web.search", buildJsonObject { put("query", "Pune") }, ctx)
         assertTrue(platform.fakeHttp.requests.none { it.contains("duckduckgo") })
         assertTrue(r.summary.contains("Pune is a city in Maharashtra"))
+        s.set(Settings.SEARCH_PROVIDER, "brave"); platform.fakeHttp.requests.clear()
+        val noKey = core.tools.execute("web.search", buildJsonObject { put("query", "Pune") }, ctx)
+        assertFalse(noKey.success); assertTrue(platform.fakeHttp.requests.isEmpty(), "Brave without a key sends nothing")
+        s.set(Settings.SEARCH_PROVIDER, "searxng"); s.set(Settings.SEARXNG_URL, "https://searx.example.org")
+        core.tools.execute("web.search", buildJsonObject { put("query", "Pune") }, ctx)
+        assertTrue(platform.fakeHttp.requests.any { it.startsWith("https://searx.example.org/search?") })
     }
 
     @Test fun searchNeverFabricates(): Unit = runBlocking {
@@ -167,6 +174,10 @@ class NetworkSettingsTest {
     @Test fun showSources() {
         val meta = ai.clu.core.conversation.MessageMeta(source = "home_device", tools = listOf("web.search"), stats = mapOf("network" to 1.0))
         assertEquals("Home device's model · used internet · web.search", UiPolicy.sourceBadge(s, meta))
+        val searched = meta.copy(source = "local", sources = listOf(ai.clu.core.conversation.SourceRef("A", "https://a.example/x"),
+            ai.clu.core.conversation.SourceRef("B", "https://b.example/y")))
+        assertEquals("🔎 Searched the web · 2 sources · On-device model", UiPolicy.sourceBadge(s, searched))
+        assertEquals("Search unavailable · answered without the web", UiPolicy.sourceBadge(s, meta.copy(tools = emptyList(), error = "search_failed")))
         s.set(Settings.SHOW_SOURCES, false)
         assertNull(UiPolicy.sourceBadge(s, meta))
     }

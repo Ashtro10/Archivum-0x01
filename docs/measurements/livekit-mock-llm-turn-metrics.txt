@@ -1,0 +1,13 @@
+{'transcription_delay_ms': 661, 'end_of_turn_delay_ms': 665, 'llm_ttft_ms': 340, 'tts_ttfb_ms': 108, 'speech_end_to_first_audio_ms': 1299}
+{'transcription_delay_ms': 723, 'end_of_turn_delay_ms': 728, 'llm_ttft_ms': 318, 'tts_ttfb_ms': 349, 'speech_end_to_first_audio_ms': 1594}
+{'transcription_delay_ms': 697, 'end_of_turn_delay_ms': 700, 'llm_ttft_ms': 318, 'speech_end_to_first_audio_ms': 1019}
+{'llm_ttft_ms': 311}
+{'llm_ttft_ms': 308, 'tts_ttfb_ms': 95}
+{'llm_ttft_ms': 309, 'tts_ttfb_ms': 117}
+{'transcription_delay_ms': 846, 'end_of_turn_delay_ms': 848, 'llm_ttft_ms': 316, 'tts_ttfb_ms': 424, 'speech_end_to_first_audio_ms': 1958}
+{'transcription_delay_ms': 746, 'end_of_turn_delay_ms': 746, 'llm_ttft_ms': 313, 'tts_ttfb_ms': 154, 'speech_end_to_first_audio_ms': 1385}
+{'llm_ttft_ms': 310, 'tts_ttfb_ms': 337}
+{'llm_ttft_ms': 310, 'tts_ttfb_ms': 197}
+{'llm_ttft_ms': 331, 'tts_ttfb_ms': 175}
+{'llm_ttft_ms': 337, 'tts_ttfb_ms': 265}
+{'llm_ttft_ms': 340, 'tts_ttfb_ms': 196}

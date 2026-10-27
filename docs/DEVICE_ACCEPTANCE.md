@@ -219,6 +219,11 @@ and in Diagnostics → Performance as `lk_speech_end_to_first_audio_ms`, `lk_llm
 | X16 ★ | ⬡ → ⌨ → ⬡ several times | Switches without losing the conversation; leaving voice chat turns the microphone off | | |
 | X17 | Switch Connection to *This device*, airplane mode, chat and voice | On-device engine works offline as in section N-A | | |
 | X18 | 10 min voice conversation: battery %, warmth, data used (Android settings → Data usage) | ___ % / ___ / ___ MB | | |
+| X19 ★ | (1.3.1) Settings → Connection → Diagnostics while connected | Shows engine, connection, agent state, the server's providers (stack, stt, llm, tts, turn) and timestamped events (`token`, `connect`, `agent_ready` in ms) | | |
+| X20 ★ | Diagnostics → **Copy**, paste into a note | Report has app version, device, endpoint host, events and latencies; **no** conversation text, device key or token | | |
+| X21 ★ | Stop the model server (e.g. Ollama) on the computer, type a question | Within seconds: "Clu's language model failed on the server: …" (no endless "Thinking…"). Restart it: the next question is answered (after 3 failed questions the agent restarts by itself) | | |
+| X22 ★ | Press Home during a chat, wait 70 s, check Diagnostics on return | Event `idle_disconnect` after 60 s (no agent session kept open in the background); reconnects on return | | |
+| X23 ★ | Leave voice chat and come back within a few seconds, then type at once | The first message is answered (no silent drop; Diagnostics shows `typed_resent` only if the agent missed it) | | |
 
 ## W. Voice-first agent (this build) – iQOO Neo 9 Pro first, then Xiaomi Pad 6
 

@@ -1,13 +1,14 @@
 """MOCK OpenAI-compatible chat-completions server for end-to-end tests of the agent pipeline (not a language model).
 
-Streams deterministic replies with a configurable first-token delay and token rate, so speech recognition, turn
-handling, streaming TTS, interruption and transcripts can be tested without a real LLM. Replies reveal what the
-agent sent: the last user message and how many messages were in the context.
+Streams deterministic, scripted replies with a configurable first-token delay and token rate, so speech recognition,
+turn handling, streaming TTS, interruption and transcripts can be tested without a real LLM. Results obtained with it
+are labelled "mock" and say nothing about answer quality or real model latency.
 
     python mock_llm.py PORT [first_token_ms] [ms_per_word]
 """
 import asyncio
 import json
+import re
 import sys
 import time
 
@@ -17,15 +18,34 @@ FIRST_MS = int(sys.argv[2]) if len(sys.argv) > 2 else 300
 WORD_MS = int(sys.argv[3]) if len(sys.argv) > 3 else 30
 
 
+def _text(m) -> str:
+    c = m.get("content", "")
+    return " ".join(p.get("text", "") for p in c if isinstance(p, dict)) if isinstance(c, list) else str(c)
+
+
 def reply_for(messages: list) -> str:
-    users = [m for m in messages if m.get("role") == "user"]
-    last = users[-1]["content"] if users else ""
-    if isinstance(last, list):
-        last = " ".join(p.get("text", "") for p in last if isinstance(p, dict))
-    n = sum(1 for m in messages if m.get("role") in ("user", "assistant"))
-    if "story" in last.lower():
+    """Scripted, deterministic answers: enough for the end-to-end checks to have something to verify (a capital, a
+    remembered name, a long reply to interrupt) without a language model."""
+    users = [_text(m) for m in messages if m.get("role") == "user"]
+    last = (users[-1] if users else "").strip()
+    low = last.lower()
+    if "story" in low:
         return ("Once there was a lighthouse keeper who counted ships every night. " * 6 + "The end.").strip()
-    return f"I heard: {last.strip().rstrip('.?!')}. Context has {n} messages."
+    for country, capital in (("france", "Paris"), ("japan", "Tokyo"), ("italy", "Rome"), ("india", "New Delhi")):
+        if "capital" in low and country in low:
+            return f"The capital of {country.title()} is {capital}."
+    if "two plus two" in low or "2 plus 2" in low or "2+2" in low:
+        return "Two plus two is four."
+    m = re.search(r"my name is (\w+)", low)
+    if m:
+        return f"Nice to meet you, {m.group(1).title()}."
+    if "my name" in low:
+        for u in reversed(users[:-1]):
+            m = re.search(r"my name is (\w+)", u.lower())
+            if m:
+                return f"Your name is {m.group(1).title()}."
+        return "You haven't told me your name."
+    return f"I heard: {last.rstrip('.?!')}."
 
 
 async def completions(request: web.Request) -> web.StreamResponse:

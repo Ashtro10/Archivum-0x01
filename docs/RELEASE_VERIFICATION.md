@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,088,268 bytes | `stat` |
-| SHA-256 | `8687c1ece185784d03c7634576f56d64b1c352497531f66739a5950bf4841184` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,100,556 bytes | `stat` |
+| SHA-256 | `6c3938c33149a2883cb18d7652f9f2818048fcb100532bc8bc98841bad9eef51` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.3.0-prototype` (versionCode 4; installs as an update over versionCodes 1–3, same package and signer) | `aapt2 dump badging` |
+| Version | `1.3.1-prototype` (versionCode 5; installs as an update over versionCodes 1–4, same package and signer) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -41,10 +41,10 @@ repository.
 | Reference check | Static scan of every type referenced from the release dex against the classes in the APK plus API 33 (`android.jar`): nothing missing in Clu's code. The gaps are optional paths in libraries: desktop-JVM classes (log4j, AWT, `sun.misc`, `java.lang.instrument`), OkHttp's optional TLS providers (Conscrypt/BouncyCastle/OpenJSSE), compression codecs (xz, zstd, brotli), Twilio `audioswitch` (only used by the SDK's default audio handler, which Clu replaces with its own; built lazily through a Dagger `Provider`), and `livekit.org.jni_zero.JniZeroJni` (only used by `JniZero.setJniClassLoader`, which nothing calls; also absent from upstream's artifact). Details: docs/LIVEKIT_AGENT.md §6 | dex type-reference scan |
 | Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
-| Static API check | 784 classes (app, core), every platform reference exists at API 33. The prebuilt LiveKit SDK is not part of this check: it is built by LiveKit for minSdk 21 | `:app:apiCheck` |
+| Static API check | 793 classes (app, core), every platform reference exists at API 33. The prebuilt LiveKit SDK is not part of this check: it is built by LiveKit for minSdk 21 | `:app:apiCheck` |
 | APK structure check | 25 manifest components exist; 376 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 85,088,268 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 85,100,556 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 

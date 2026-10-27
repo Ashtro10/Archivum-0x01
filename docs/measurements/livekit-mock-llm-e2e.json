@@ -1,0 +1,296 @@
+{
+ "llm": "MOCK (scripted replies, 300 ms first token) - not a language model",
+ "note": "build machine (x86, no GPU), everything on 127.0.0.1; owner speech is synthesised (Piper) and played into the WebRTC microphone track; STT (sherpa-onnx Kroko), TTS (Piper Joe), VAD (Silero), LiveKit server and agent are real",
+ "checks": {
+  "agent dispatched, listening, providers reported": true,
+  "1 voice -> spoken reply": true,
+  "3 voice -> displayed text (no audio)": true,
+  "2 text -> displayed text (no audio)": true,
+  "4 text -> spoken reply": true,
+  "follow-up: earlier turns reach the model (context kept)": true,
+  "interruption stops the reply and answers the new question": true,
+  "stop button stops speech": true,
+  "short reconnect keeps the session (no duplicate history)": true,
+  "rejoin after the room closed: new agent, history reloaded": true,
+  "recovers after a LiveKit server outage": true,
+  "model outage reported to the app, then recovers": true,
+  "prolonged model outage: session closed, agent leaves, fresh agent works": true
+ },
+ "measurements": {
+  "token_ms": 10,
+  "join_ms": 119,
+  "first_connect_to_agent_listening_ms": 1094,
+  "short_reconnect_to_listening_ms": 125,
+  "rejoin_after_room_closed_to_listening_ms": 1069,
+  "outage_detected_ms": 33131,
+  "livekit_restart_to_agent_listening_ms": 27503,
+  "llm_restart_to_first_reply_text_ms": 2462,
+  "speech_end_to_first_audio_ms": [
+   1408,
+   1775
+  ],
+  "text_to_first_text_ms": [
+   327,
+   671,
+   786
+  ],
+  "text_to_first_audio_ms": [
+   667,
+   749
+  ]
+ },
+ "quality": {
+  "answers_with_expected_fact": 4,
+  "answers_checked": 4
+ },
+ "providers": {
+  "clu.tts": "sherpa-onnx voice",
+  "clu.turn": "vad",
+  "clu.stack": "local",
+  "clu.stt": "sherpa-onnx kroko-en",
+  "clu.llm": "mock (OpenAI-compatible server)"
+ },
+ "voice_to_spoken": {
+  "asked": "What is the capital of France?",
+  "recognised": "what is the capital of france?",
+  "wer": 0.0,
+  "reply": "The capital of France is Paris.",
+  "answer_contains_expected": true,
+  "speech_end_to_first_audio_ms": 1408,
+  "speech_end_to_first_text_ms": 1406,
+  "audio_received": true
+ },
+ "voice_to_text": {
+  "asked": "What is the capital of Italy?",
+  "recognised": "what is the capital of italy?",
+  "wer": 0.0,
+  "reply": "The capital of Italy is Rome.",
+  "answer_contains_expected": true,
+  "speech_end_to_first_audio_ms": null,
+  "speech_end_to_first_text_ms": 1012,
+  "audio_received": false
+ },
+ "follow_up": {
+  "model_request_messages": 10,
+  "earlier_turn_in_model_context": true,
+  "name_recalled_by_model": true
+ },
+ "text_turns": [
+  {
+   "sent": "My name is Ashwin. Please remember it.",
+   "reply": "Nice to meet you, Ashwin.",
+   "spoken": false,
+   "text_to_first_text_ms": 327,
+   "audio_received": false
+  },
+  {
+   "sent": "What is my name?",
+   "reply": "Your name is Ashwin.",
+   "spoken": true,
+   "text_to_first_text_ms": 671,
+   "text_to_first_audio_ms": 667,
+   "audio_received": true
+  },
+  {
+   "sent": "What is the capital of India?",
+   "reply": "The capital of India is New Delhi.",
+   "spoken": true,
+   "text_to_first_text_ms": 786,
+   "text_to_first_audio_ms": 749,
+   "answer_contains_expected": true
+  }
+ ],
+ "interruption": {
+  "tries": [
+   "barged in while speaking"
+  ],
+  "agent_was_speaking_at_barge_in": true,
+  "agent_stopped": true,
+  "owner_starts_talking_to_agent_silent_ms": 655,
+  "recognised": "supp what is two plus two",
+  "reply_to_new_question": "Two plus two is four.",
+  "answer_contains_expected": true
+ },
+ "stop_button": {
+  "agent_was_speaking": true,
+  "stopped": true,
+  "stop_to_agent_silent_ms": 55,
+  "state_after": "listening"
+ },
+ "short_reconnect": {
+  "history_reload": {
+   "loaded": 0,
+   "reason": "session already has history"
+  },
+  "reply": "Your name is Ashwin.",
+  "typed_resends": 0
+ },
+ "rejoin_after_room_closed": {
+  "room_closed_seen": true,
+  "history_reload": {
+   "loaded": 2
+  },
+  "reply": "Your name is Ashwin.",
+  "name_recalled_from_reloaded_history": true
+ },
+ "llm_outage": {
+  "error_event": {
+   "type": "error",
+   "component": "llm",
+   "recoverable": true,
+   "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+  },
+  "send_to_error_ms": 21,
+  "events": [
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "session_closed",
+    "reason": "error",
+    "component": "llm",
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   }
+  ],
+  "session_closed_event": true,
+  "agent_left": true,
+  "reply_after_recovery": "The capital of Japan is Tokyo."
+ },
+ "voice_turns": [
+  {
+   "asked": "What is the capital of France?",
+   "recognised": "what is the capital of france?",
+   "wer": 0.0,
+   "reply": "The capital of France is Paris.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": 1408,
+   "speech_end_to_first_text_ms": 1406,
+   "audio_received": true
+  },
+  {
+   "asked": "What is the capital of Japan?",
+   "recognised": "what is the capital of japan?",
+   "wer": 0.0,
+   "reply": "The capital of Japan is Tokyo.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": 1775,
+   "speech_end_to_first_text_ms": 1753,
+   "audio_received": true
+  },
+  {
+   "asked": "What is the capital of Italy?",
+   "recognised": "what is the capital of italy?",
+   "wer": 0.0,
+   "reply": "The capital of Italy is Rome.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": null,
+   "speech_end_to_first_text_ms": 1012,
+   "audio_received": false
+  }
+ ],
+ "asr": {
+  "utterances": 3,
+  "mean_wer": 0.0,
+  "failures_wer_over_0.3": 0
+ },
+ "metrics_from_agent": [
+  {
+   "llm_ttft_ms": 340,
+   "tts_ttfb_ms": 196
+  }
+ ],
+ "passed": true
+}

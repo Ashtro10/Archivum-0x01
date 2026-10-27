@@ -47,6 +47,8 @@
   background wake-word listening is off. Not yet run on a phone: SDK audio, echo cancellation, interruption on a real
   speaker, reconnection on mobile networks, battery. Local-stack latency (about 2.2 s from end of speech to first
   audio on the host) misses the 1 s target. The cloud stack is unmeasured. See LIVEKIT_AGENT.md.
+  *1.3.1:* tested end to end with a real but tiny model (SmolLM2-135M): pipeline correct, answers poor; median
+  1.2 s from end of speech to first audio on loopback. The Android SDK has still never joined a real room.
 * **UI** is functional and plain (framework Views), as agreed: visual design is the next phase.
 * **Self-improvement** is limited to measurement, suggestions and reversible configuration; no autonomous code
   changes or on-device training.

@@ -41,13 +41,30 @@ OpenAI-compatible LLM).
   audio and text also go to LiveKit Inference and the model providers behind it.
 * Plain `http://` and `ws://` are accepted only for private-network addresses. Put internet-facing servers behind TLS.
 
+## Worker settings for a personal server
+
+| Variable | Default | Why |
+|---|---|---|
+| `CLU_IDLE_PROCESSES` | `1` | One warm agent process. The framework's default (up to 4) loads the speech models several times at once and, on a 4-core computer, made every process miss the start-up timeout (first connection 20.5 s; 1.2 s after the fix) |
+| `CLU_PROCESS_INIT_TIMEOUT` | `60` | Seconds a process may take to load its models (framework default 10) |
+| `CLU_LOAD_THRESHOLD` | `0.95` | The framework's 0.7 marks the worker "full" whenever the computer is busy, e.g. while a local model is generating, and no agent gets dispatched |
+| `CLU_MIN_SILENCE` | `0.45` | Silence (s) that ends an utterance. The largest share of the local stack's reply delay; lower is faster but can cut you off mid-pause |
+| `CLU_TURN` | `model` | `model` = LiveKit turn detector if its files were downloaded (`python clu_agent.py download-files`), otherwise VAD with a warning in the log; `vad` forces VAD |
+
 ## Test
 
 ```bash
+# Real language model (any OpenAI-compatible server the test can start; {port} is filled in):
 python tests/e2e_agents.py --livekit-server "$(command -v livekit-server)" \
-  --kroko models/kroko-en --voice models/vits-piper-en_US-joe-medium --out report.json
+  --kroko models/kroko-en --voice models/vits-piper-en_US-joe-medium --phone-voice <another Piper voice dir> \
+  --llm-cmd "llama-server -m <model.gguf> --host 127.0.0.1 --port {port}" --llm-model <name> --out report.json --trace trace.jsonl
+# Scripted mock instead of a model (pipeline only; replies say nothing about quality):
+python tests/e2e_agents.py ... --mock-llm
 ```
 
-Checks dispatch, the four input/output paths, follow-up context, interruption and reconnect. The language model is a
-mock, so the test measures the pipeline, not answer quality. Note: if your shell has an HTTP(S) proxy set, unset it
-for this test; the worker's local `ws://` connection must not go through the proxy.
+The test plays the owner's questions (synthesised with a second Piper voice) into a real WebRTC microphone track and
+checks the four input/output paths, that earlier turns reach the model, interruption by speech, the stop button, a
+short reconnect, rejoining after the room closed, a LiveKit server outage, and short and prolonged model outages.
+It measures connection, agent start, speech → first audio, text → first text and first audio, and recognition errors.
+Note: if your shell has an HTTP(S) proxy set, unset it for this test; the worker's local `ws://` connection must not
+go through the proxy.

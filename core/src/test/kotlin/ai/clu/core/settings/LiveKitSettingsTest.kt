@@ -81,6 +81,14 @@ class LiveKitSettingsTest {
         rejects("admin grant") { serverReturns { put("roomAdmin", true) } }
         rejects("unencrypted internet server") { serverReturns(serverUrl = "ws://lk.example.net") }
         rejects("device key refused") { platform.fakeHttp.routes["/token"] = HttpResponse(401, "") }
+        fun message(code: Int, body: String): String {
+            core.liveKitTokens.invalidate(); platform.fakeHttp.routes["/token"] = HttpResponse(code, body)
+            return assertFailsWith<LiveKitException> { token() }.message!!
+        }
+        assertTrue(message(400, """{"error": "unknown agent; this server runs 'clu'"}""").contains("unknown agent; this server runs 'clu'"), "the server's reason is shown")
+        assertTrue(message(429, """{"error": "too many attempts"}""").contains("about a minute"))
+        assertTrue(message(403, """{"error": "this device may only join room 'clu-phone'"}""").contains("may only join room"))
+        assertTrue(message(401, "").contains("Re-enter the key"))
         rejects("garbage") { platform.fakeHttp.routes["/token"] = HttpResponse(200, "<html>") }
         platform.secrets.remove(CluCore.LIVEKIT_DEVICE_KEY)
         assertFailsWith<LiveKitException> { core.liveKitTokens.invalidate(); token() }

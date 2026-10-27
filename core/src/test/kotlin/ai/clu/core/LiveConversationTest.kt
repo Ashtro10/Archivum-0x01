@@ -4,6 +4,7 @@ import ai.clu.core.conversation.Role
 import ai.clu.core.live.AgentPhase
 import ai.clu.core.live.Link
 import ai.clu.core.live.LiveConversation
+import ai.clu.core.live.LiveDiagnostics
 import ai.clu.core.util.ManualClock
 import org.junit.jupiter.api.Test
 import kotlin.test.*
@@ -94,5 +95,77 @@ class LiveConversationTest {
         assertFalse(live.state.value.ready)
         live.onAgentState("listening")
         assertTrue(live.state.value.ready)
+    }
+
+    @Test fun replyIsMarkedInterruptedOnlyWhenTheOwnerSpokeOverIt() {
+        live.onLink(Link.CONNECTED); live.onAgentState("speaking")
+        live.onAgentChunk("a1", "A complete answer.")
+        live.onAgentStreamEnd("a1")
+        live.onAgentChunk("a2", "Once there was a")
+        live.onUserTranscript("u9", "stop", final = false) // the owner talks over the reply
+        live.onAgentStreamEnd("a2")
+        live.onAgentState("listening")
+        live.onAgentChunk("a3", "Four.") // the next reply starts clean
+        live.onAgentStreamEnd("a3")
+        assertEquals(listOf(false, true, false), core.conversations.messages(conv).filter { it.role == Role.ASSISTANT }.map { it.meta.interrupted })
+    }
+
+    @Test fun agentErrorsBecomeActionableMessages() {
+        live.onLink(Link.CONNECTED); live.onAgentState("listening")
+        live.onTypedSent("Hello")
+        live.onAgentEvent("""{"type":"error","component":"llm","recoverable":true,"message":"APIConnectionError: Connection error."}""")
+        assertNull(live.state.value.error, "the framework retries recoverable errors; nothing to report yet")
+        assertTrue(live.state.value.awaitingReply)
+        live.onAgentEvent("""{"type":"error","component":"llm","recoverable":false,"message":"APIConnectionError: Connection error."}""")
+        assertEquals("Clu's language model failed on the server: APIConnectionError: Connection error.", live.state.value.error)
+        assertFalse(live.state.value.awaitingReply, "no endless thinking after a model failure")
+        live.onAgentEvent("""{"type":"session_closed","reason":"error","component":"tts","message":"x"}""")
+        assertTrue(live.state.value.error!!.contains("stopped after repeated agent failures") || live.state.value.error!!.contains("repeated"))
+        live.onAgentEvent("not json"); live.onAgentEvent("""{"no":"type"}""") // ignored
+        live.onAgentState(null); live.onAgentState("listening")
+        assertNull(live.state.value.error, "a fresh agent that is listening clears the error")
+    }
+
+    @Test fun thinkingWithoutAnAnswerTimesOut() {
+        live.onLink(Link.CONNECTED); live.onAgentState("listening"); live.onAgentState("thinking")
+        clock.advance(44_000); assertFalse(live.checkReplyTimeout())
+        clock.advance(2_000); assertTrue(live.checkReplyTimeout())
+        assertTrue(live.state.value.error!!.contains("thinking for 45 s"))
+    }
+
+    @Test fun latencyMeasuredOnThePhoneAndDiagnosticsWithoutConversationContent() {
+        live.onLink(Link.CONNECTED); live.onAgentState("listening")
+        live.onProviders(mapOf("clu.stack" to "local", "clu.llm" to "smollm2 (OpenAI-compatible server)", "lk.agent.state" to "listening"))
+        assertEquals(mapOf("stack" to "local", "llm" to "smollm2 (OpenAI-compatible server)"), live.state.value.providers)
+        live.onSpokenReplies(true)
+        live.onTypedSent("My secret plan is to visit Lonavala")
+        clock.advance(400); live.onAgentState("thinking")
+        clock.advance(300); live.onAgentChunk("r", "Sounds good.")
+        clock.advance(200); live.onAgentState("speaking")
+        assertEquals(700L, live.state.value.appMetrics["text_to_first_text"])
+        assertEquals(900L, live.state.value.appMetrics["text_to_speaking"])
+        val report = LiveDiagnostics.report(live.state.value, live.events(), mapOf("device key" to "set", "note" to "phone.AbCdEfGhIjKlMnOpQrStUv"))
+        assertFalse(report.contains("Lonavala") || report.contains("Sounds good"), "no conversation content in diagnostics")
+        assertTrue(report.contains("typed_sent 35 chars") && report.contains("text_to_first_text=700"))
+        assertTrue(report.contains("<device-key>") && !report.contains("AbCdEfGhIjKlMnOpQrStUv"), "device-key-shaped strings are removed")
+        assertEquals("Bearer <key> <token> http://<credentials>@lk.example", LiveDiagnostics.redact("Bearer phone.0123456789abcdef0 eyJhbGciOiJIUzI1.eyJzdWIiOiJjbHUt.c2lnbmF0dXJlcw http://user:pw@lk.example"))
+    }
+
+    @Test fun eventLogIsBounded() {
+        repeat(LiveConversation.MAX_EVENTS + 50) { live.log("x", "$it") }
+        assertEquals(LiveConversation.MAX_EVENTS, live.events().size)
+        assertEquals("50", live.events().first().detail)
+    }
+
+    @Test fun typedMessageCountsAsUnacknowledgedUntilTheAgentReacts() {
+        live.onLink(Link.CONNECTED); live.onAgentState("listening")
+        live.onTypedSent("What is my name?")
+        assertTrue(live.typedUnacknowledged(), "dropped by an agent that hasn't seen the rejoin: the client resends")
+        live.onAgentState("thinking")
+        assertFalse(live.typedUnacknowledged())
+        live.onAgentState("listening"); live.onAgentChunk("x", "Ashwin."); live.onAgentStreamEnd("x")
+        live.onTypedSent("And again?")
+        live.onAgentChunk("y", "Yes.") // a reply without a visible thinking phase also counts
+        assertFalse(live.typedUnacknowledged())
     }
 }

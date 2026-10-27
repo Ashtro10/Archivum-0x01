@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-26 (v1.3.0)_
+_Last updated: 2026-10-27 (v1.3.1)_
 
 ## Current state
 
@@ -12,10 +12,25 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 323 total: 317 passed, 0 failed, 6 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test); server E2E 8/8 |
+| Automated tests (JVM / Robolectric / host engines) | 331 total: 325 passed, 0 failed, 6 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-27: real-model integration and diagnostics (v1.3.1, versionCode 5)
+
+Details: [docs/LIVEKIT_AGENT.md](docs/LIVEKIT_AGENT.md) (status table, §5 measurements, §7 bugs, §8 diagnostics).
+* A complete conversation now runs end to end with a **real** language model (llama.cpp + SmolLM2-135M; the only
+  real weights reachable from the build machine) over a real LiveKit room: all four paths, context, interruption,
+  stop, reconnects, LiveKit and model outages — 13/13 on the build machine.
+* Ten integration bugs fixed, among them: agent start 20.5 s → 1.0 s (worker process settings), typed messages
+  silently dropped after a reconnect, a turn detector that could never run, server failures invisible to the app,
+  and staying connected (billed) in the background.
+* Minimal diagnostics in Settings → Connection with a redacted Copy/Share report.
+* Still **not** verified: the Android SDK in a real room, anything on a phone, the cloud stack (no credentials or
+  network access to LiveKit Cloud here).
+
+Not yet verified on a device: DEVICE_ACCEPTANCE.md section X (X19–X23 are new).
 
 ## Added 2026-10-26: real-time agent on the official LiveKit SDK, hexagonal HUD (v1.3.0, versionCode 4)
 

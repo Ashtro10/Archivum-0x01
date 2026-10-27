@@ -45,12 +45,14 @@ class VoiceChatActivity : BaseActivity() {
 
     override fun onStart() {
         super.onStart()
+        app.engine.screenVisible("voice", true)
         if (!app.hasMic()) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         else { app.engine.startVoice(); sessionStart = System.currentTimeMillis() }
     }
 
     override fun onStop() {
         if (!isChangingConfigurations) app.engine.stopVoice()
+        app.engine.screenVisible("voice", false)
         super.onStop()
     }
 
@@ -148,7 +150,12 @@ class VoiceChatActivity : BaseActivity() {
         phaseLabel.text = when (hud.mode) {
             HexHudView.Mode.LISTENING -> "LISTENING"; HexHudView.Mode.THINKING -> "THINKING"; HexHudView.Mode.SPEAKING -> "SPEAKING"
             HexHudView.Mode.OFFLINE -> if (s.link == Link.NOT_CONFIGURED) "NOT SET UP" else if (s.link == Link.CONNECTING || s.link == Link.RECONNECTING) "CONNECTING" else "OFFLINE"
-            HexHudView.Mode.IDLE -> if (s.server && s.phase == AgentPhase.ABSENT) "WAITING" else if (!s.micOn) "MIC OFF" else "READY"
+            HexHudView.Mode.IDLE -> when {
+                s.server && s.phase == AgentPhase.ABSENT -> "WAITING"
+                s.phase == AgentPhase.INITIALIZING -> "STARTING"
+                !s.micOn -> "MIC OFF"
+                else -> "READY"
+            }
         }
         phaseLabel.setTextColor(if (hud.mode == HexHudView.Mode.OFFLINE) C.ERROR else C.ACCENT)
         youText.text = s.userLive.ifBlank { lastMessage(true) }

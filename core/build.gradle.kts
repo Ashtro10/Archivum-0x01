@@ -37,7 +37,7 @@ tasks.test {
     listOf("clu.bench", "clu.llmBenchModel", "clu.llmBenchThreads", "clu.llmBenchOut", "clu.llmBenchWarmUp").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
     // whisper.cpp host measurements (opt-in: need model files; see docs/VOICE_STREAMING.md)
     systemProperty("clu.whisperLib", rootProject.file("native/build/host/libclu_whisper.so").absolutePath)
-    listOf("clu.whisperModels", "clu.sttFixtures", "clu.offline", "clu.lk.python", "clu.lk.models").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
+    listOf("clu.whisperModels", "clu.sttFixtures", "clu.offline", "clu.lk.python", "clu.lk.models", "clu.serverPython", "clu.liveTrace").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
     systemProperty("clu.whisperOut", rootProject.file("docs/measurements/whisper_cpp_host.json").absolutePath)
     systemProperty("clu.benchOut", rootProject.file("docs/measurements/core_host.json").absolutePath)
 }

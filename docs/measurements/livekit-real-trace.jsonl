@@ -1,0 +1,317 @@
+{"t": 7547, "ev": "connected"}
+{"t": 8481, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 11139, "ev": "stream_open", "id": "3e433876-fc92-4856-8b20-cd3633abcc86", "owner": true, "attrs": {"lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.transcription_final": "false", "lk.segment_id": "SG_6533804f4dc9"}}
+{"t": 11171, "ev": "chunk", "id": "3e433876-fc92-4856-8b20-cd3633abcc86", "text": "what is the capital of france?"}
+{"t": 11171, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 11174, "ev": "stream_end", "id": "3e433876-fc92-4856-8b20-cd3633abcc86"}
+{"t": 11178, "ev": "stream_open", "id": "3cfa3f0a-e5e6-490c-801e-47ed9477d6c7", "owner": true, "attrs": {"lk.transcription_final": "true", "lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.segment_id": "SG_6533804f4dc9"}}
+{"t": 11181, "ev": "chunk", "id": "3cfa3f0a-e5e6-490c-801e-47ed9477d6c7", "text": "what is the capital of france?"}
+{"t": 11185, "ev": "stream_end", "id": "3cfa3f0a-e5e6-490c-801e-47ed9477d6c7"}
+{"t": 11714, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 11845, "ev": "stream_open", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.transcription_final": "false", "lk.segment_id": "SG_0eebf6fe8892"}}
+{"t": 11845, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": "The"}
+{"t": 12506, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": " capital"}
+{"t": 13036, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": " of"}
+{"t": 13037, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": " France"}
+{"t": 13169, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": " is"}
+{"t": 13437, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": " Paris,"}
+{"t": 13704, "ev": "chunk", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3", "text": " France."}
+{"t": 13836, "ev": "stream_end", "id": "60a1b8b4-54c8-4f38-bbcd-55bef0573fb3"}
+{"t": 14070, "ev": "data", "topic": "clu.metrics", "payload": "{\"transcription_delay_ms\": 648, \"end_of_turn_delay_ms\": 651, \"llm_ttft_ms\": 264, \"tts_ttfb_ms\": 187, \"speech_end_to_first_audio_ms\": 1199}"}
+{"t": 14072, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 17226, "ev": "stream_open", "id": "bce8e6cb-d525-4e86-b82d-523295b126c7", "owner": true, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.segment_id": "SG_1a96dca41f2a"}}
+{"t": 17237, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 17238, "ev": "chunk", "id": "bce8e6cb-d525-4e86-b82d-523295b126c7", "text": "what is the capital of japan?"}
+{"t": 17238, "ev": "stream_end", "id": "bce8e6cb-d525-4e86-b82d-523295b126c7"}
+{"t": 17242, "ev": "stream_open", "id": "e9a67013-b2ca-4fd8-be8a-d900b97cafb0", "owner": true, "attrs": {"lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.transcription_final": "true", "lk.segment_id": "SG_1a96dca41f2a"}}
+{"t": 17252, "ev": "chunk", "id": "e9a67013-b2ca-4fd8-be8a-d900b97cafb0", "text": "what is the capital of japan?"}
+{"t": 17252, "ev": "stream_end", "id": "e9a67013-b2ca-4fd8-be8a-d900b97cafb0"}
+{"t": 17601, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 17731, "ev": "stream_open", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "owner": false, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.segment_id": "SG_32b46f13dffa"}}
+{"t": 17732, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": "The"}
+{"t": 18348, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": " capital"}
+{"t": 18833, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": " of"}
+{"t": 18834, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": " Japan"}
+{"t": 18956, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": " is"}
+{"t": 19320, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": " Tokyo,"}
+{"t": 19686, "ev": "chunk", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b", "text": " Japan."}
+{"t": 19809, "ev": "stream_end", "id": "f3c3fcba-76c0-40c7-8b2d-52a07ddf667b"}
+{"t": 20022, "ev": "data", "topic": "clu.metrics", "payload": "{\"transcription_delay_ms\": 636, \"end_of_turn_delay_ms\": 638, \"llm_ttft_ms\": 120, \"tts_ttfb_ms\": 150, \"speech_end_to_first_audio_ms\": 1009}"}
+{"t": 20024, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 23053, "ev": "stream_open", "id": "217cc564-c92e-4814-9d03-43b52bda04e6", "owner": true, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.segment_id": "SG_2657da0095c1"}}
+{"t": 23059, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 23066, "ev": "chunk", "id": "217cc564-c92e-4814-9d03-43b52bda04e6", "text": "what is the capital of italy?"}
+{"t": 23069, "ev": "stream_end", "id": "217cc564-c92e-4814-9d03-43b52bda04e6"}
+{"t": 23084, "ev": "stream_open", "id": "4bcf55c7-021d-45fe-bfc2-0c1494754a9b", "owner": true, "attrs": {"lk.transcription_final": "true", "lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.segment_id": "SG_2657da0095c1"}}
+{"t": 23086, "ev": "chunk", "id": "4bcf55c7-021d-45fe-bfc2-0c1494754a9b", "text": "what is the capital of italy?"}
+{"t": 23087, "ev": "stream_end", "id": "4bcf55c7-021d-45fe-bfc2-0c1494754a9b"}
+{"t": 23210, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 23219, "ev": "stream_open", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.transcription_final": "false", "lk.segment_id": "SG_824d5ed50891"}}
+{"t": 23220, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": "The"}
+{"t": 23220, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": " capital"}
+{"t": 23223, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": " of"}
+{"t": 23240, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": " Italy"}
+{"t": 23254, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": " is"}
+{"t": 23268, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": " Rome"}
+{"t": 23282, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": ","}
+{"t": 23298, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": " Italy"}
+{"t": 23313, "ev": "chunk", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7", "text": "."}
+{"t": 23331, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 23332, "ev": "data", "topic": "clu.metrics", "payload": "{\"transcription_delay_ms\": 651, \"end_of_turn_delay_ms\": 658, \"llm_ttft_ms\": 150, \"speech_end_to_first_audio_ms\": 809}"}
+{"t": 23332, "ev": "stream_end", "id": "e20e6cab-aa82-4566-a519-b66c6b3556f7"}
+{"t": 24875, "ev": "typed", "text": "My name is Ashwin. Please remember it."}
+{"t": 24890, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 25012, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 25014, "ev": "stream_open", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "owner": false, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.segment_id": "SG_c6c09663bbde"}}
+{"t": 25023, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": "You"}
+{"t": 25028, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": "'re"}
+{"t": 25040, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " welcome"}
+{"t": 25054, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": ","}
+{"t": 25069, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " Ash"}
+{"t": 25083, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": "win"}
+{"t": 25098, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": "."}
+{"t": 25112, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " Thank"}
+{"t": 25125, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " you"}
+{"t": 25140, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " for"}
+{"t": 25154, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " sharing"}
+{"t": 25170, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " your"}
+{"t": 25184, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " unique"}
+{"t": 25198, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": " identity"}
+{"t": 25212, "ev": "chunk", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a", "text": "."}
+{"t": 25229, "ev": "stream_end", "id": "7570a65d-1e73-43eb-9d29-b676951eb88a"}
+{"t": 25230, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 125}"}
+{"t": 25233, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 26240, "ev": "typed", "text": "What is my name?"}
+{"t": 26253, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 26776, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 26907, "ev": "stream_open", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "owner": false, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.segment_id": "SG_66c3709cd08d"}}
+{"t": 26909, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": "I'm"}
+{"t": 27177, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " glad"}
+{"t": 27442, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " to"}
+{"t": 27698, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " know"}
+{"t": 27961, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " you"}
+{"t": 28227, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " have"}
+{"t": 28359, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " a"}
+{"t": 28361, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " unique"}
+{"t": 28624, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " identity."}
+{"t": 28978, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " It's"}
+{"t": 29067, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " an"}
+{"t": 29156, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " honor"}
+{"t": 29334, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " to"}
+{"t": 29512, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " be"}
+{"t": 29690, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " a"}
+{"t": 29867, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " part"}
+{"t": 30046, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " of"}
+{"t": 30224, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " this"}
+{"t": 30665, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " community."}
+{"t": 31195, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " I'll"}
+{"t": 31371, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " keep"}
+{"t": 31460, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " it"}
+{"t": 31727, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " simple."}
+{"t": 31992, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " You"}
+{"t": 32170, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " can"}
+{"t": 32435, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " refer"}
+{"t": 32788, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " to"}
+{"t": 33230, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " yourself"}
+{"t": 33582, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " as"}
+{"t": 33847, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " \"Ashwin\""}
+{"t": 34114, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " or"}
+{"t": 34293, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " \"Axel\""}
+{"t": 34470, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " -"}
+{"t": 34649, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " it's"}
+{"t": 34825, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " a"}
+{"t": 35004, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " joke,"}
+{"t": 35181, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " but"}
+{"t": 35359, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " it's"}
+{"t": 35536, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " a"}
+{"t": 35802, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " reminder"}
+{"t": 36067, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " of"}
+{"t": 36245, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " who"}
+{"t": 36422, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " you"}
+{"t": 36688, "ev": "chunk", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d", "text": " are."}
+{"t": 36865, "ev": "stream_end", "id": "6fb282fc-4ad6-4b09-afcc-7f9eb8c0930d"}
+{"t": 36979, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 106, \"tts_ttfb_ms\": 234}"}
+{"t": 36980, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 36993, "ev": "typed", "text": "What is the capital of India?"}
+{"t": 37009, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 37419, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 37549, "ev": "stream_open", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.transcription_final": "false", "lk.segment_id": "SG_49d0436f4cbe"}}
+{"t": 37549, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": "The"}
+{"t": 38045, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " capital"}
+{"t": 38412, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " of"}
+{"t": 38504, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " India"}
+{"t": 38689, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " is"}
+{"t": 38872, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " New"}
+{"t": 39146, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " Delhi,"}
+{"t": 39605, "ev": "chunk", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9", "text": " India."}
+{"t": 39878, "ev": "stream_end", "id": "2ecdf5a7-198d-4c92-8b0f-67ae185323c9"}
+{"t": 39967, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 142, \"tts_ttfb_ms\": 122}"}
+{"t": 39971, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 45367, "ev": "stream_open", "id": "89934b99-19cc-4ad3-8f1f-2606c37d5667", "owner": true, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.segment_id": "SG_e76bed71c006"}}
+{"t": 45377, "ev": "chunk", "id": "89934b99-19cc-4ad3-8f1f-2606c37d5667", "text": "tell me a long story about a lighthouse keeper with many details"}
+{"t": 45380, "ev": "stream_end", "id": "89934b99-19cc-4ad3-8f1f-2606c37d5667"}
+{"t": 45395, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 45398, "ev": "stream_open", "id": "612cd8db-008b-4283-bd40-a8e12f62c5a7", "owner": true, "attrs": {"lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.transcription_final": "true", "lk.segment_id": "SG_e76bed71c006"}}
+{"t": 45406, "ev": "chunk", "id": "612cd8db-008b-4283-bd40-a8e12f62c5a7", "text": "tell me a long story about a lighthouse keeper with many details"}
+{"t": 45407, "ev": "stream_end", "id": "612cd8db-008b-4283-bd40-a8e12f62c5a7"}
+{"t": 46177, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 46304, "ev": "stream_open", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "owner": false, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.segment_id": "SG_e034f0f2c586"}}
+{"t": 46304, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": "I've"}
+{"t": 46569, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": " lost"}
+{"t": 46958, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": " count,"}
+{"t": 47360, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": " I've"}
+{"t": 47617, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": " lost"}
+{"t": 48011, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": " count,"}
+{"t": 48416, "ev": "chunk", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc", "text": " I've"}
+{"t": 48511, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 50544, "ev": "stream_open", "id": "9043570d-6e40-4bef-b5ea-53d8129d5dbe", "owner": true, "attrs": {"lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.transcription_final": "false", "lk.segment_id": "SG_7b9d29bb621d"}}
+{"t": 50547, "ev": "chunk", "id": "9043570d-6e40-4bef-b5ea-53d8129d5dbe", "text": "sop, what is two plus two"}
+{"t": 50560, "ev": "stream_end", "id": "9043570d-6e40-4bef-b5ea-53d8129d5dbe"}
+{"t": 50563, "ev": "stream_end", "id": "729d6db9-3aeb-4c1c-9083-c3b7715543bc"}
+{"t": 50572, "ev": "stream_open", "id": "ffe9720d-b991-4a36-ac2a-ebe1ddfa51a4", "owner": true, "attrs": {"lk.transcription_final": "true", "lk.transcribed_track_id": "TR_AMFnJogmC4tTyD", "lk.segment_id": "SG_7b9d29bb621d"}}
+{"t": 50573, "ev": "chunk", "id": "ffe9720d-b991-4a36-ac2a-ebe1ddfa51a4", "text": "sop, what is two plus two"}
+{"t": 50575, "ev": "data", "topic": "clu.metrics", "payload": "{\"transcription_delay_ms\": 778, \"end_of_turn_delay_ms\": 780, \"llm_ttft_ms\": 209, \"tts_ttfb_ms\": 344, \"speech_end_to_first_audio_ms\": 1584}"}
+{"t": 50581, "ev": "stream_end", "id": "ffe9720d-b991-4a36-ac2a-ebe1ddfa51a4"}
+{"t": 50594, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 51884, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 52010, "ev": "stream_open", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.transcription_final": "false", "lk.segment_id": "SG_6e86cca66cb4"}}
+{"t": 52011, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": "Two"}
+{"t": 52339, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " plus"}
+{"t": 52539, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " two"}
+{"t": 52540, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " is"}
+{"t": 52639, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " a"}
+{"t": 52937, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " delightful"}
+{"t": 53236, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " way"}
+{"t": 53436, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " to"}
+{"t": 53636, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " think"}
+{"t": 53835, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " about"}
+{"t": 54036, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " something"}
+{"t": 54236, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " as"}
+{"t": 54535, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " simple"}
+{"t": 54834, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " as"}
+{"t": 55032, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " it"}
+{"t": 55233, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " can"}
+{"t": 55532, "ev": "chunk", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f", "text": " be."}
+{"t": 55730, "ev": "stream_end", "id": "0a835f61-a4ac-4552-ad2c-b157a42b549f"}
+{"t": 56035, "ev": "data", "topic": "clu.metrics", "payload": "{\"transcription_delay_ms\": 698, \"end_of_turn_delay_ms\": 699, \"llm_ttft_ms\": 730, \"tts_ttfb_ms\": 185, \"speech_end_to_first_audio_ms\": 2037}"}
+{"t": 56037, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 56060, "ev": "typed", "text": "Tell me a long story about a dragon who loved books."}
+{"t": 56078, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 56805, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 56932, "ev": "stream_open", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.transcription_final": "false", "lk.segment_id": "SG_468edc1f865f"}}
+{"t": 56933, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": "The"}
+{"t": 57383, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " dragon"}
+{"t": 57705, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " loved"}
+{"t": 57706, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " to"}
+{"t": 57707, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " read"}
+{"t": 57814, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " and"}
+{"t": 58029, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " was"}
+{"t": 58324, "ev": "stop"}
+{"t": 58331, "ev": "chunk", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607", "text": " always"}
+{"t": 58332, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 239, \"tts_ttfb_ms\": 170}"}
+{"t": 58333, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 58339, "ev": "stream_end", "id": "b7d9c82c-7a23-4a7e-b3be-99c4e960e607"}
+{"t": 59779, "ev": "connected"}
+{"t": 59779, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"clu.tts": "sherpa-onnx voice", "lk.agent.name": "clu", "clu.stt": "sherpa-onnx kroko-en", "clu.stack": "local", "clu.llm": "smollm2 (OpenAI-compatible server)", "lk.agent_name": "clu", "clu.turn": "vad", "lk.agent.state": "listening"}}
+{"t": 61280, "ev": "typed", "text": "What is my name?"}
+{"t": 61296, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 62235, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 62367, "ev": "stream_open", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMg5sT25E3T9nk", "lk.transcription_final": "false", "lk.segment_id": "SG_4b4312c2a5c9"}}
+{"t": 62368, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": "That's"}
+{"t": 62719, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " a"}
+{"t": 62943, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " funny"}
+{"t": 62946, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " one."}
+{"t": 63056, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " In"}
+{"t": 63392, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " many"}
+{"t": 63619, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " ways,"}
+{"t": 63732, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " I'm"}
+{"t": 63956, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " just"}
+{"t": 64068, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " a"}
+{"t": 64404, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " curious"}
+{"t": 64963, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " person"}
+{"t": 65300, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " who"}
+{"t": 65524, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " wants"}
+{"t": 65750, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " to"}
+{"t": 65975, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " know"}
+{"t": 66310, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " about"}
+{"t": 66646, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " the"}
+{"t": 66870, "ev": "chunk", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64", "text": " world."}
+{"t": 66982, "ev": "stream_end", "id": "67b3a8c4-6e30-4b4d-ba4b-e199bff89c64"}
+{"t": 67366, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 174, \"tts_ttfb_ms\": 243}"}
+{"t": 67367, "ev": "attr", "identity": "agent-AJ_JdpZ4FgPdU86", "attrs": {"lk.agent.state": "listening"}}
+{"t": 90222, "ev": "connected"}
+{"t": 91222, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 91723, "ev": "typed", "text": "What is my name?"}
+{"t": 91768, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 92330, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 92461, "ev": "stream_open", "id": "6abb2efe-a2d2-4035-933a-41e48663d29e", "owner": false, "attrs": {"lk.transcribed_track_id": "TR_AMdCe8sKbYj2Zd", "lk.transcription_final": "false", "lk.segment_id": "SG_e6e1b9fa11c2"}}
+{"t": 92461, "ev": "chunk", "id": "6abb2efe-a2d2-4035-933a-41e48663d29e", "text": "My"}
+{"t": 92863, "ev": "chunk", "id": "6abb2efe-a2d2-4035-933a-41e48663d29e", "text": " name"}
+{"t": 93137, "ev": "chunk", "id": "6abb2efe-a2d2-4035-933a-41e48663d29e", "text": " is"}
+{"t": 93276, "ev": "chunk", "id": "6abb2efe-a2d2-4035-933a-41e48663d29e", "text": " Ashwin."}
+{"t": 93414, "ev": "stream_end", "id": "6abb2efe-a2d2-4035-933a-41e48663d29e"}
+{"t": 93659, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 269, \"tts_ttfb_ms\": 195}"}
+{"t": 93663, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 103788, "ev": "participant_left", "identity": "agent-AJ_WTG7VGCj7yN8"}
+{"t": 121569, "ev": "connected"}
+{"t": 147699, "ev": "connected"}
+{"t": 147699, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"clu.tts": "sherpa-onnx voice", "lk.agent.name": "clu", "clu.stt": "sherpa-onnx kroko-en", "clu.stack": "local", "clu.llm": "smollm2 (OpenAI-compatible server)", "lk.agent_name": "clu", "lk.agent.state": "listening", "clu.turn": "vad"}}
+{"t": 149200, "ev": "typed", "text": "What is the capital of France?"}
+{"t": 149214, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 149504, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 149632, "ev": "stream_open", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "owner": false, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AMdCe8sKbYj2Zd", "lk.segment_id": "SG_8c88f54f9a53"}}
+{"t": 149633, "ev": "chunk", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "text": "The"}
+{"t": 150267, "ev": "chunk", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "text": " capital"}
+{"t": 150773, "ev": "chunk", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "text": " of"}
+{"t": 150774, "ev": "chunk", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "text": " France"}
+{"t": 150901, "ev": "chunk", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "text": " is"}
+{"t": 151154, "ev": "chunk", "id": "6e55dba2-e151-4c5c-9922-0261005062da", "text": " Paris."}
+{"t": 151281, "ev": "stream_end", "id": "6e55dba2-e151-4c5c-9922-0261005062da"}
+{"t": 151521, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 109, \"tts_ttfb_ms\": 89}"}
+{"t": 151524, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 151592, "ev": "typed", "text": "What is the capital of Japan?"}
+{"t": 151607, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 151608, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 151716, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 153723, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 155734, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": false, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 155742, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 156749, "ev": "typed", "text": "Are you there?"}
+{"t": 156767, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 156767, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 156875, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 158880, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 160887, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": false, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 160893, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 161906, "ev": "typed", "text": "Are you there?"}
+{"t": 161918, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 161920, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 162025, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 164032, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 166041, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": false, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 166046, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 167063, "ev": "typed", "text": "Are you there?"}
+{"t": 167076, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 167077, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 167183, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 169191, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": true, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 171198, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"error\", \"component\": \"llm\", \"recoverable\": false, \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 171211, "ev": "attr", "identity": "agent-AJ_WTG7VGCj7yN8", "attrs": {"lk.agent.state": "listening"}}
+{"t": 171212, "ev": "data", "topic": "clu.events", "payload": "{\"type\": \"session_closed\", \"reason\": \"error\", \"component\": \"llm\", \"message\": \"APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable\"}"}
+{"t": 171723, "ev": "participant_left", "identity": "agent-AJ_WTG7VGCj7yN8"}
+{"t": 172094, "ev": "connected"}
+{"t": 172952, "ev": "attr", "identity": "agent-AJ_TRMvp6jQ8zRx", "attrs": {"clu.stt": "sherpa-onnx kroko-en", "clu.llm": "smollm2 (OpenAI-compatible server)", "clu.tts": "sherpa-onnx voice", "clu.turn": "vad", "clu.stack": "local"}}
+{"t": 173033, "ev": "attr", "identity": "agent-AJ_TRMvp6jQ8zRx", "attrs": {"lk.agent.state": "listening"}}
+{"t": 173595, "ev": "typed", "text": "What is the capital of Japan?"}
+{"t": 173636, "ev": "attr", "identity": "agent-AJ_TRMvp6jQ8zRx", "attrs": {"lk.agent.state": "thinking"}}
+{"t": 174111, "ev": "attr", "identity": "agent-AJ_TRMvp6jQ8zRx", "attrs": {"lk.agent.state": "speaking"}}
+{"t": 174238, "ev": "stream_open", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "owner": false, "attrs": {"lk.transcription_final": "false", "lk.transcribed_track_id": "TR_AM3LVTcVGzAXdu", "lk.segment_id": "SG_9aa571842d85"}}
+{"t": 174239, "ev": "chunk", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "text": "The"}
+{"t": 174800, "ev": "chunk", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "text": " capital"}
+{"t": 175232, "ev": "chunk", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "text": " of"}
+{"t": 175235, "ev": "chunk", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "text": " Japan"}
+{"t": 175340, "ev": "chunk", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "text": " is"}
+{"t": 175665, "ev": "chunk", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d", "text": " Tokyo."}
+{"t": 175881, "ev": "stream_end", "id": "7e96846a-91b2-4451-aeda-64eed1410a0d"}
+{"t": 176020, "ev": "data", "topic": "clu.metrics", "payload": "{\"llm_ttft_ms\": 260, \"tts_ttfb_ms\": 144}"}
+{"t": 176022, "ev": "attr", "identity": "agent-AJ_TRMvp6jQ8zRx", "attrs": {"lk.agent.state": "listening"}}

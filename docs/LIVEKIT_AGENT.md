@@ -1,13 +1,19 @@
 # Clu's real-time agent (LiveKit) – architecture, setup, costs, test status
 
-Build 1.3.0-prototype (versionCode 4). This replaces the custom LiveKit client of 1.1–1.2 (removed: `lkclient/`,
-`AndroidRtc.kt`, the RPC "brain bridge" and `clu_voice_agent.py`).
+Build 1.3.1-prototype (versionCode 5). The app uses the official LiveKit Android SDK; the conversation runs in a
+LiveKit Agents worker (`server/clu_agent.py`). The custom client of 1.1–1.2 is gone.
 
-**What is and isn't verified.** The app compiles against the official LiveKit Android SDK and its unit/UI tests pass
-on the JVM (Robolectric). The server side ran end to end on the build host (x86, no GPU) with a real
-`livekit-server`, the real LiveKit Agents worker, real speech recognition and voice, a **mock** language model and a
-Python stand-in for the phone. **Nothing in this document has run on a phone.** The device checklist is
-`DEVICE_ACCEPTANCE.md` section X.
+**Verification status (1.3.1).**
+
+| What | Verified? | How |
+|---|---|---|
+| Complete conversation with a **real** language model: STT → LLM → TTS over a real LiveKit room, all four paths, follow-up context, interruption, stop, reconnects, server and model outages | **Yes, on the build machine** | `server/tests/e2e_agents.py` with llama.cpp `llama-server` running SmolLM2-135M-Instruct (real weights, real inference), Kroko STT, Piper TTS, real livekit-server and worker; a Python LiveKit client in the phone's role. 13/13 checks ([report](measurements/livekit-real-llm-e2e.json)) |
+| The app's token client against the real token server | **Yes** (JVM) | `TokenServerConformanceTest`: unchanged `TokenProvisioner` vs. `clu_voice_server.py` process |
+| The app's conversation state fed with what a real agent sent | **Yes** (JVM) | `LiveTraceReplayTest` replays the [recorded event trace](measurements/livekit-real-trace.jsonl) of the real-model run through `LiveConversation`, routed as `LiveKitSession` routes SDK events |
+| The Android SDK joining a real room | **No** | No phone or emulator here (no KVM; no Android system images; the APK is arm64-only and the SDK needs Android's WebRTC). The SDK API usage was checked against the SDK's bytecode (see §7) |
+| Anything on a physical device | **No** | Checklist: `DEVICE_ACCEPTANCE.md` section X |
+| The cloud stack (LiveKit Cloud + Inference) | **No** | Needs a LiveKit Cloud project (credentials) and internet access to `*.livekit.cloud`; neither exists on the build machine (§2) |
+| Answer quality | **Not with a useful model** | The only real model reachable here is 135M parameters: correct pipeline, often wrong or rambling answers (§5) |
 
 ## 1. Architecture
 
@@ -70,20 +76,38 @@ markings, after the first reference image. It is redrawn rather than embedding t
 state and so the reference artwork is not redistributed. The animation loop runs only in listening, thinking or
 speaking.
 
-## 2. Server stacks (`CLU_STACK`)
+## 2. Server stacks (`CLU_STACK`) and where everything runs
 
 | | `cloud` (default) | `local` |
 |---|---|---|
-| STT | LiveKit Inference `deepgram/nova-3`, language `multi` (English including Indian English, Hindi, mixed) | sherpa-onnx, Kroko streaming English (recognised per VAD segment) |
-| LLM | LiveKit Inference `openai/gpt-4.1-mini` | Any OpenAI-compatible server (`CLU_LLM_URL`, default Ollama `llama3.2:3b`) |
+| STT | LiveKit Inference `deepgram/nova-3`, language `multi` (English including Indian English, Hindi, mixed) | sherpa-onnx, Kroko streaming English, recognised per VAD segment |
+| LLM | LiveKit Inference `openai/gpt-4.1-mini` | Any OpenAI-compatible server (`CLU_LLM_URL`, `CLU_LLM_MODEL`; default Ollama `llama3.2:3b`) |
 | TTS | LiveKit Inference `deepgram/aura-2`, voice `zeus` | Piper "Joe" (or Kokoro) via sherpa-onnx |
-| Turn detection | LiveKit multilingual turn-detector model + VAD | Same (or `CLU_TURN=vad`) |
+| Turn detection | LiveKit multilingual turn-detector + VAD (after `download-files`) | Same, or VAD only (`CLU_TURN=vad`) |
 | Interruption | Adaptive (ignores backchannels like "uh-huh") | VAD |
-| Needs | **LiveKit Cloud project** (Inference is a LiveKit Cloud service and does not work with self-hosted `livekit-server`) | Self-hosted `livekit-server` or Cloud; a computer that can run the LLM |
+| Tested here | **No** (no credentials, no internet access to LiveKit Cloud) | **Yes**, with a real model (SmolLM2-135M) |
 | Cost | Usage-billed, see §4 | Electricity only |
 
-Override models with `CLU_STT`, `CLU_LLM`, `CLU_TTS` and `CLU_TTS_VOICE`. Endpointing defaults: 0.4 s minimum and 3.0 s
-maximum silence (`CLU_MIN_ENDPOINT`, `CLU_MAX_ENDPOINT`). Preemptive generation is on.
+**Where each part runs, and what needs internet:**
+
+| Part | Cloud stack | Local stack |
+|---|---|---|
+| Clu app | Phone | Phone |
+| Token server `clu_voice_server.py` | Your computer (holds the LiveKit secret) | Your computer |
+| LiveKit server (media/signalling) | LiveKit Cloud | Your computer (`livekit-server`) |
+| Agent worker `clu_agent.py` | Your computer (or LiveKit Cloud agent hosting) | Your computer |
+| STT / LLM / TTS | LiveKit Inference (cloud providers) | Your computer (sherpa-onnx + model server) |
+| Phone reaches | token server (Wi-Fi or HTTPS) + `wss://<project>.livekit.cloud` | token server + `ws://<computer>:7880`, 7881/TCP, 50000–50100/UDP |
+| Internet needed | Yes: phone and computer, for the whole conversation | **No**, if phone and computer share a network (home Wi-Fi or the phone's hotspot). One-time downloads (Python packages, models, `download-files`) need internet |
+
+Nothing of the server engine runs on the phone. The local stack is "local" to *your computer*, not to the phone; the
+only engine that runs entirely on the phone is *This device* (Settings → Connection), which is a separate, explicit
+choice. Clu never switches between them by itself.
+
+Override models with `CLU_STT`, `CLU_LLM`, `CLU_TTS` and `CLU_TTS_VOICE`. Endpointing: 0.4 s minimum and 3.0 s maximum
+delay (`CLU_MIN_ENDPOINT`, `CLU_MAX_ENDPOINT`); VAD silence 0.45 s (`CLU_MIN_SILENCE`). Preemptive generation is on.
+Worker settings for a personal server (`CLU_IDLE_PROCESSES`, `CLU_PROCESS_INIT_TIMEOUT`, `CLU_LOAD_THRESHOLD`):
+`server/README.md`.
 
 ## 3. Setup
 
@@ -110,6 +134,7 @@ livekit-server generate-keys; cp livekit.yaml.example livekit.yaml   # paste key
 livekit-server --config livekit.yaml &        # 7880 signalling, 7881/tcp, 50000-50100/udp
 ./fetch_models.sh models                      # ~124 MB download, ~180 MB on disk, SHA-256 checked
 ollama pull llama3.2:3b                       # or any OpenAI-compatible server (CLU_LLM_URL / CLU_LLM_MODEL)
+python clu_agent.py download-files            # optional: turn-detector model (otherwise VAD-only, logged)
 export CLU_STACK=local CLU_MODELS=$PWD/models LIVEKIT_API_KEY=... LIVEKIT_API_SECRET=...
 export CLU_PUBLIC_LIVEKIT_URL=ws://<LAN-IP>:7880
 python clu_voice_server.py add-device phone && python clu_voice_server.py serve
@@ -139,39 +164,57 @@ rights and cannot create rooms.
   number here.** Paid plans bill overage. There is no fixed monthly cost unless you choose a paid plan.
 * **Self-hosted (local stack).** No service charges. You need a computer running whenever you want to talk to Clu.
   CPU-only works; a GPU makes the LLM faster.
-* **Avoiding surprise costs.** The app connects only while a Clu screen is open. It disconnects when you end the
-  session, and while connected it keeps one agent session for its single room. An idle open chat screen still holds
-  a session; leave the app or tap ✕ to end it.
+* **Avoiding surprise costs.** The app connects while a Clu conversation screen is visible and disconnects 60 s after
+  none is (app in the background or closed; added in 1.3.1 after finding that 1.3.0 stayed connected in the
+  background). While connected it keeps one agent session for its single room; ✕ in voice chat ends it at once.
 
-## 5. Measurements (host only, labelled honestly)
+## 5. Measurements (build machine; real model vs. mock reported separately)
 
-`docs/measurements/livekit-agents-e2e.json`: build container (4-core x86 Xeon, no GPU), real livekit-server,
-real Agents worker with the **local** stack (Kroko STT, Piper Joe TTS, Silero VAD, turn detector), **mock LLM**
-(first token after 300 ms), Python stand-in phone over loopback.
+Environment: 4-core x86 Xeon container, no GPU; everything on 127.0.0.1 (no Wi-Fi or mobile network in the path);
+local stack: Kroko STT, Piper Joe TTS, Silero VAD, VAD turn detection (the turn-detector files can't be downloaded
+here); the owner's questions are synthesised with a second Piper voice and played into a real WebRTC microphone
+track in real time. A phone adds network latency and audio device buffers on top of these numbers.
 
-| Check | Result |
-|---|---|
-| Agent dispatched and listening | pass (1.56 s after the phone joined) |
-| 1 Voice → spoken reply | pass |
-| 3 Voice → displayed text | pass (recognised "…train to **puna**…": 1 word error in 9) |
-| 4 Text → spoken reply | pass; **text sent → first audio 826 ms** |
-| 2 Text → text, audio off | pass (no audio frames received) |
-| Follow-up keeps context | pass |
-| Interruption | pass; agent audio stopped **804 ms** after the owner started talking, then it answered the new question |
-| Reconnect keeps the conversation | pass; listening again 0.27 s after rejoining, no duplicated history |
+**Real model** — SmolLM2-135M-Instruct Q4_1 in llama.cpp `llama-server` (2 threads):
+[report](measurements/livekit-real-llm-e2e.json), [agent per-turn metrics](measurements/livekit-real-llm-turn-metrics.txt).
+**Mock** — scripted replies, 300 ms first token: [report](measurements/livekit-mock-llm-e2e.json),
+[metrics](measurements/livekit-mock-llm-turn-metrics.txt).
 
-End of speech → first agent audio, voice turns: **2,222 ms** measured at the stand-in phone. The agent's own
-`e2e_latency` metrics were 2,088 / 1,576 / 1,450 ms. LLM first token was 306–365 ms (the mock), TTS first byte
-159–436 ms. **The ≈1 s target is not met with the local stack.** Most of the time goes to the local recogniser,
-which waits for the end of the utterance, plus VAD and endpointing silence. The cloud stack (streaming Deepgram STT,
-streaming TTS) is designed for lower latency but **could not be measured here** because LiveKit Cloud is not
-reachable from the build machine. Real phone latency adds the mobile network and audio device buffers. The
-`clu.metrics` data from the agent is shown in Connection ("Last reply started … ms after you stopped speaking") and
-logged to Diagnostics as `lk_*`, so it can be measured on the device.
+| Measurement | Real model | Mock |
+|---|---|---|
+| Token request / join room | 9 ms / 111 ms | 10 / 119 ms |
+| First connection → agent listening (cold worker) | **1.03 s** (20.5 s before the worker fix, §7) | 1.09 s |
+| Rejoin after the room closed → new agent listening | 1.07 s | 1.07 s |
+| Short reconnect (same session) → listening | 0.13 s | 0.13 s |
+| End of speech → first audio (phone side), 2 spoken voice turns | **1.29 s, 1.15 s** | 1.41, 1.78 s |
+| … agent-measured `e2e_latency`, all spoken voice turns | 0.81–2.04 s (median 1.20 s) | 1.02–1.96 s |
+| Text sent → first reply text | **148 / 556 / 669 ms** | 327 / 671 / 786 ms |
+| Text sent → first audio | **526 / 639 ms** | 667 / 749 ms |
+| Owner starts talking over Clu → Clu silent | 717 ms | similar |
+| Stop button → Clu silent | **55 ms** | similar |
+| Model server down → error event at the app | 16 ms after sending; 3 failed questions → session closed, agent left, a fresh agent answered once the model was back (2.2 s from restart to first reply text) | same |
+| LiveKit server down → client notices / server back → agent listening | 24.8 s / 26.3 s (Python SDK; the Android SDK's timing may differ) | 33.1 / 27.5 s |
+| Speech recognition | 3/3 questions word-perfect (WER 0); the barge-in "Stop. What is two plus two?" heard as "sop, what is two plus two" | "supp what is two plus two" |
 
-Reading the report: the interruption check's `new_reply` field joins every agent transcript finished after the
-cut-off, so it contains the end of the interrupted story followed by the new answer. They are two separate
-streams, and the app shows them as two messages, with the first marked *interrupted*.
+**Where the time goes (largest bottleneck first), agent-measured per spoken voice turn:**
+
+| Stage | Real model | Note |
+|---|---|---|
+| End of speech → final transcript (`transcription_delay`) | 636–778 ms | Recognition itself takes 80–185 ms (measured separately); the rest is the VAD deciding speech ended (0.45 s silence window) plus VAD lag under CPU contention ("VAD inference is slower than realtime" in the log) |
+| LLM first token (`llm_ttft`) | 106–730 ms | A 135M model; a 3B model on CPU or a cloud model will be slower to start and is the next bottleneck |
+| TTS first audio (`tts_ttfb`) | 89–344 ms | First sentence of Piper |
+
+The largest share is the end-of-speech decision, set by `CLU_MIN_SILENCE`. Lowering it trades speed for the risk of
+cutting the owner off mid-pause; it was **not** changed without device evidence. Streaming recognition would save at
+most the ~100 ms recognition time. The ≈1 s goal is met for typed questions (first audio ≈0.5–0.6 s) and roughly met
+for speech (median 1.2 s) **with a tiny model on loopback**; with a realistic model and a phone on Wi-Fi it will be
+higher. The cloud stack (streaming STT, turn detector) is designed for lower end-of-speech latency but is unmeasured.
+
+**Answer quality (real model):** pipeline correct, answers from a 135M model are unreliable: it recalled the name
+in 2 of 3 follow-ups, answered 4 of 4 factual capitals correctly in the final run but said "Florence"/"Mumbai" in
+earlier runs, repeated an earlier answer instead of answering, and rambled for a minute on a story. The mock run,
+which answers deterministically from the last message, shows the right message and context reach the model each
+time. For real use, run at least a 3B instruct model (local) or the cloud stack.
 
 ## 6. Android build notes
 
@@ -188,5 +231,47 @@ streams, and the app shows them as two messages, with the first marked *interrup
   (log4j, AWT, `sun.misc`, Conscrypt, …), `audioswitch` (unused, as above) and `jni_zero.JniZeroJni`. The last one is
   only used by `JniZero.setJniClassLoader`, which nothing calls; it is also missing from upstream's own artifact.
   `verifyApk` checks all 376 JNI symbols against the bundled `.so` files.
-* Release APK: 85,088,268 bytes, up from 83,142,567 in 1.2.0. The previous WebRTC build was replaced by the SDK's
+* Release APK (1.3.1): 85,100,556 bytes, up from 83,142,567 in 1.2.0. The previous WebRTC build was replaced by the SDK's
   prefixed one, and `liblivekit_uniffi`, JNA and the SDK classes were added.
+
+## 7. Integration bugs found and fixed in 1.3.1
+
+Found by tracing the runtime path, by the real-model runs and by reviewing the fixes; each was re-tested by the same run.
+
+| # | Bug (evidence) | Fix |
+|---|---|---|
+| 1 | **Agent start took 20.5 s.** Warm processes load the speech models; with the framework's production defaults (up to 4 warm processes, 10 s init timeout) every process on a 4-core machine missed the timeout and was killed twice (`process exited with non-zero exit code -10`). The worker also marked itself "full" at 0.7 CPU load, which a local model reaches while generating | `num_idle_processes=1`, `initialize_process_timeout=60`, `load_threshold=0.95` (env-configurable). Measured after: 1.03 s |
+| 2 | **Typed message silently dropped after a reconnect.** The agent framework ignores chat from a participant it has not yet seen join (`participant not found, ignoring text input` in the log); a question typed ~60 ms after rejoining got no answer at all, in two runs | App: a message is sent ≥1.5 s after joining and re-sent once if the agent shows no reaction within 4 s (`typed_resent` in Diagnostics). Re-test: answered, 0 re-sends needed |
+| 3 | **Turn detector could never work** in a real deployment: imported lazily inside the job, after the worker had decided (no runners registered) not to start its inference process. The 1.3.0 test hid this by forcing VAD | Imported at module load when its files are present (and for `download-files`); VAD with a logged warning otherwise. *Not runtime-tested: the model files can't be downloaded here* |
+| 4 | **Server-side failures invisible to the app.** STT/LLM/TTS errors stayed in the server log; the app showed "Thinking…" until a generic 30 s timeout. After 3 failures the session closed but the agent stayed in the room, looking alive | Agent publishes errors and session closure on `clu.events` and ends the job on a fatal close; the app shows "Clu's language model failed on the server: …" at once, and the watchdog gets a fresh agent. Re-test: error at the app 16 ms after sending; recovery after the model returned |
+| 5 | **Cached token skipped the agent dispatch.** Reopening Clu within 10 minutes reused the token, so the server never dispatched an agent into the new room (15 s wait for the watchdog) | Fresh token on every connect |
+| 6 | **Connected forever in the background** (agent minutes billed on LiveKit Cloud) | Disconnect 60 s after no Clu screen is visible |
+| 7 | Token server's refusal reasons lost: wrong agent name, wrong room and throttling showed as "HTTP 400/403/429" or "rejected this device key" | The server's reason is shown; 429 explained. Checked against the real server (`TokenServerConformanceTest`) |
+| 8 | Agent latency breakdown incomplete: transcription and end-of-turn delays were never sent (they belong to the owner's message) | Merged into the per-turn report shown in Diagnostics |
+| 9 | Reply stopped with ■ not marked *interrupted*; HUD said READY while the agent was still starting | Marked; HUD shows STARTING |
+| 10 | **Replacement agent started without context.** When a failed session's agent left and the watchdog brought a new one into the same room, the app thought it had already sent the history (found in code review of the outage path) | History is sent again to every new agent. Re-test (app-like flow: stay in the room, token request → new agent → history): the earlier turn reached the new agent's model request |
+
+**Checked and found consistent (no change needed):** the Android SDK reads a transcript's sender from the same packet
+field the agent sets (so the owner's words are never shown as Clu's), the SDK reserves only `lk.rpc_*` text-stream
+topics (no clash with `lk.transcription`), RPC and chat topic names match the agent, the token claims the app checks
+match what the server issues, and cleartext `ws://`/`http://` to a LAN server is permitted by the app's network
+security config (restricted to private addresses in code).
+
+## 8. Diagnostics on the phone
+
+Settings → Connection → **Diagnostics** (not shown in the conversation screens):
+* engine, connection and agent state, and the providers the agent reports (`clu.stack`, `clu.stt`, `clu.llm`,
+  `clu.tts`, `clu.turn` participant attributes);
+* the last error, in plain words with the failing part (token server, LiveKit server, microphone permission, speech
+  recognition, language model, voice);
+* latency measured on the phone (`token`, `connect`, `agent_ready`, `text_to_first_text`, `text_to_speaking`) and by
+  the agent for the last turn (`transcription_delay_ms`, `end_of_turn_delay_ms`, `llm_ttft_ms`, `tts_ttfb_ms`,
+  `speech_end_to_first_audio_ms`);
+* the last 25 of up to 200 timestamped events (link changes, agent joined/left, state changes, errors, re-sends,
+  idle disconnects).
+
+**Copy** / **Share…** produce a text report for sending without a computer. It contains no conversation text
+(typed messages are logged as their length only), and anything shaped like a device key, bearer key or token is
+removed before it leaves the screen (`LiveDiagnostics.redact`, unit-tested). Agent error messages are provider
+error strings, truncated to 200 characters.
+

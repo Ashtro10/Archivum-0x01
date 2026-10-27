@@ -4,6 +4,12 @@ import ai.clu.core.config.SettingResult
 import ai.clu.core.config.Settings
 import ai.clu.core.live.AgentPhase
 import ai.clu.core.live.Link
+import ai.clu.core.live.LiveDiagnostics
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -16,6 +22,7 @@ import kotlinx.coroutines.launch
  */
 class ConnectionActivity : BaseActivity() {
     private var watch: Job? = null
+    private var diagWatch: Job? = null
 
     override fun onResume() { super.onResume(); build() }
 
@@ -72,6 +79,45 @@ class ConnectionActivity : BaseActivity() {
         }
         p("Run the server on your computer (or use LiveKit Cloud): python clu_voice_server.py serve. The phone needs to reach the token endpoint " +
             "and the LiveKit server URL it returns. Audio and text go only to that server.", C.MUTED, 12f)
+
+        h1("Diagnostics")
+        p("For finding problems without a computer. Contains no conversation text, keys or tokens.", C.MUTED, 12f)
+        val diag = p("", C.TEXT, 12f).apply { typeface = Typeface.MONOSPACE; setTextIsSelectable(true) }
+        row {
+            smallButton("Copy") {
+                getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Clu diagnostics", diagnosticsReport()))
+                toast("Diagnostics copied")
+            }
+            smallButton("Share…") {
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, diagnosticsReport()), "Share diagnostics"))
+            }
+        }
+        diagWatch?.cancel()
+        diagWatch = scope.launch {
+            app.liveKit.state.collect { st ->
+                val ev = app.liveKit.live.events().takeLast(25)
+                diag.text = buildString {
+                    append("engine: ").append(if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server" else "this device").append('\n')
+                    append("connection: ").append(st.link.name.lowercase()).append(" · agent: ").append(st.agent.name.lowercase()).append('\n')
+                    if (st.providers.isNotEmpty()) st.providers.forEach { (k, v) -> append(k).append(": ").append(v).append('\n') }
+                    else append("providers: not reported yet\n")
+                    if (st.appMetrics.isNotEmpty()) append("phone (ms): ").append(st.appMetrics.entries.joinToString(" ") { "${it.key}=${it.value}" }).append('\n')
+                    if (st.metrics.isNotEmpty()) append("agent (ms): ").append(st.metrics.entries.joinToString(" ") { "${it.key}=${it.value.toLong()}" }).append('\n')
+                    ev.forEach { append(LiveDiagnostics.time(it.atMs)).append(' ').append(it.kind).append(' ').append(LiveDiagnostics.redact(it.detail)).append('\n') }
+                }.trimEnd()
+            }
+        }
+    }
+
+    private fun diagnosticsReport(): String {
+        val endpoint = core.settings.string(Settings.LK_TOKEN_URL).let { u -> runCatching { java.net.URI(u).let { "${it.scheme}://${it.host}${if (it.port > 0) ":" + it.port else ""}" } }.getOrDefault("?") }
+        val version = runCatching { packageManager.getPackageInfo(packageName, 0).let { "${it.versionName} (${it.longVersionCode})" } }.getOrDefault("?")
+        return LiveDiagnostics.report(app.liveKit.state.value, app.liveKit.live.events(), linkedMapOf(
+            "app" to version, "device" to "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+            "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server (LiveKit)" else "this device (offline)",
+            "token endpoint" to endpoint.ifBlank { "not set" },
+            "device key" to if (app.liveKit.deviceKey() == null) "not set" else "set",
+            "agent name" to core.settings.string(Settings.LK_AGENT_NAME)))
     }
 
     private fun set(server: Boolean) {

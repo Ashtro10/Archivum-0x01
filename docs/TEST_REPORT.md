@@ -135,10 +135,37 @@ these gaps on the real devices.
 | `LiveKitSettingsTest` (5), `WakeSettingsTest#background` (no wake listening with the server engine) | JVM | pass |
 | `AppSmokeTest` (21) incl. chat send via the new composer, Connection and Voice chat screens open | Robolectric | pass |
 | `UiScreenshotTest` (11): chat, chat with keyboard, voice HUD idle/listening/thinking/speaking/disconnected, Connection, Settings | Robolectric native graphics, iQOO Neo 9 Pro resolution | rendered (docs/screenshots/p3-*.png) |
-| `server/tests/e2e_agents.py` (8 checks) | Real livekit-server 1.13.10 + LiveKit Agents 1.8.9 worker (Kroko STT, Piper TTS, Silero VAD, turn detector) + **mock LLM** + Python stand-in phone | **8/8**, docs/measurements/livekit-agents-e2e.json |
+| `server/tests/e2e_agents.py` (8 checks) | Real livekit-server 1.13.10 + LiveKit Agents 1.8.9 worker (Kroko STT, Piper TTS, Silero VAD, turn detector) + **mock LLM** + Python stand-in phone | **8/8** (1.3.0; that report was superseded by the 1.3.1 runs below) |
 | `OfflineConversationTest` (moved to `:core`), `scripts/test_offline.sh` | Network namespace, loopback only | pass |
 | `:app:verifyApk` (376 JNI symbols incl. LiveKit WebRTC and JNA), `:app:apiCheck` (784 classes), dex reference scan | release APK | pass |
 
 Totals: core 276 tests (6 skipped by default: opt-in benchmarks, model-dependent measurements and the namespace-only offline test), app 47 tests; 0 failures. **Not run:** anything on a phone, the official SDK
 connecting to a real room (it needs Android's WebRTC natives), and the cloud stack (LiveKit Cloud not reachable from
 the build machine).
+
+## Real-model integration (1.3.1, 2026-10-27)
+
+**Real providers vs. mocks.** "Real" below means genuine inference: llama.cpp `llama-server` with SmolLM2-135M-Instruct
+(real weights, from the `llm-smollm2` 0.1.2 wheel on PyPI, SHA-256 `bcc81830…`; the GGUF inside is `b179c952…`),
+sherpa-onnx Kroko speech recognition, Piper speech synthesis, Silero VAD, livekit-server 1.13.10 and the LiveKit
+Agents 1.8.9 worker. Cloud providers (LiveKit Inference: Deepgram, OpenAI) were **not** tested: no credentials and no
+network access to them from the build machine.
+
+| Test | Providers | Result |
+|---|---|---|
+| `server/tests/e2e_agents.py --llm-cmd llama-server…` (13 checks: dispatch + providers, 4 paths, context reaches the model, interruption, stop, short reconnect, rejoin after room closed, LiveKit outage, model outage, prolonged model outage) | **Real** (local stack) | **13/13** — docs/measurements/livekit-real-llm-e2e.json |
+| same with `--mock-llm` | STT/TTS/LiveKit real, **LLM mock** | **13/13** — docs/measurements/livekit-mock-llm-e2e.json |
+| `TokenServerConformanceTest` (opt-in `-Dclu.serverPython`) | **Real** token server process; app's `TokenProvisioner` unchanged | pass |
+| `LiveTraceReplayTest` | Event trace recorded from the **real**-model run, replayed into `LiveConversation` | pass |
+| `LiveConversationTest` (+6: interruption marking, agent error events, thinking timeout, phone-side latency, diagnostics redaction, bounded log, typed acknowledgement) | JVM | pass |
+| `LiveKitSettingsTest#tokenEndpoint` (server refusal messages) | JVM, fake HTTP | pass |
+| `OfflineConversationTest` in a loopback-only network namespace | device engine, real llama.cpp (random-weight test model) | pass |
+
+Earlier real-model runs during the work failed in ways that exposed bugs (agent start 20.5 s; a typed message
+dropped after reconnecting; a harness that judged interruption and replies wrongly); all are fixed and described in
+docs/LIVEKIT_AGENT.md §7. **Not run:** the Android SDK in a real room, anything on a phone, the cloud stack.
+
+Totals 1.3.1: core 284 tests (6 skipped by default; `TokenServerConformanceTest` and `LiveTraceReplayTest` ran),
+app 47 tests, 0 failures; `OfflineConversationTest` passed separately in the network namespace; `:app:verifyApk`
+(376 JNI symbols) and `:app:apiCheck` (793 classes) pass on the release APK.
+

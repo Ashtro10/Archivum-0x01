@@ -27,6 +27,9 @@ Protocol with the Clu app (all standard LiveKit Agents conventions plus three sm
   * RPC "clu.interrupt"                            stop the current reply now
   * RPC "clu.load_history" {"messages": [{"role": "user"|"assistant", "text": str}]}  continue an earlier chat
   * data topic "clu.metrics" (agent -> app): per-turn latency measured by the framework
+  * data topic "clu.events" (agent -> app): {"type": "error", "component": "stt"|"llm"|"tts"|..., "recoverable": bool,
+    "message": str} and {"type": "session_closed", "reason": str}. Messages carry no conversation content.
+  * participant attributes "clu.stack", "clu.stt", "clu.llm", "clu.tts", "clu.turn": which providers this agent runs
 """
 from __future__ import annotations
 
@@ -34,6 +37,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -43,6 +47,27 @@ from livekit.agents.voice import room_io
 
 log = logging.getLogger("clu.agent")
 AGENT_NAME = os.environ.get("CLU_AGENT_NAME", "clu")
+
+
+def _turn_model_files_present() -> bool:
+    """The multilingual end-of-turn model's files in the local Hugging Face cache (python clu_agent.py download-files).
+    Repository and revision as pinned by livekit-plugins-turn-detector 1.8.9 (models.py)."""
+    try:
+        from huggingface_hub import hf_hub_download
+        for name, sub in (("languages.json", None), ("model_q8.onnx", "onnx")):
+            hf_hub_download("livekit/turn-detector", name, subfolder=sub, revision="v0.4.1-intl", local_files_only=True)
+        return True
+    except Exception:
+        return False
+
+
+# The turn detector must be imported at module load: importing it registers an inference runner, and the worker
+# starts its inference process only if runners are registered when it starts (a later import inside the job leaves
+# the model without a process to run on). It is imported only when its files exist, because the inference process
+# cannot start without them; `download-files` imports it so that the files get downloaded.
+TURN_MODEL = os.environ.get("CLU_TURN", "model") != "vad" and ("download-files" in sys.argv or _turn_model_files_present())
+if TURN_MODEL:
+    from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 INSTRUCTIONS = """You are Clu, the owner's personal AI assistant. You talk with the owner by voice and text.
 Style: calm, composed, precise and direct; dry wit when it fits; never servile.
@@ -90,14 +115,23 @@ def local_stack(vad, speech):
 def turn_detection():
     """LiveKit's multilingual end-of-turn model (understands that "I want to go to..." is unfinished) when its model
     files are present; plain VAD silence otherwise (CLU_TURN=vad forces that)."""
-    if os.environ.get("CLU_TURN", "model") == "vad":
-        return "vad"
-    try:
-        from livekit.plugins.turn_detector.multilingual import MultilingualModel
+    if TURN_MODEL:
         return MultilingualModel()
-    except Exception as e:  # model files not downloaded
-        log.warning("turn detector unavailable (%s); using VAD silence. Run: python clu_agent.py download-files", e)
-        return "vad"
+    if os.environ.get("CLU_TURN", "model") != "vad":
+        log.warning("turn detector model files not found; using VAD silence. Run: python clu_agent.py download-files")
+    return "vad"
+
+
+def providers(stack: str, turn) -> dict[str, str]:
+    """What this agent runs, for the app's diagnostics (no keys or URLs with credentials)."""
+    if stack == "local":
+        stt, tts = f"sherpa-onnx {os.environ.get('CLU_ASR_DIR', 'kroko-en')}", f"sherpa-onnx {os.environ.get('CLU_TTS_DIR', 'vits-piper-en_US-joe-medium')}"
+        llm_ = f"{os.environ.get('CLU_LLM_MODEL', 'llama3.2:3b')} (OpenAI-compatible server)"
+    else:
+        stt = os.environ.get("CLU_STT", "deepgram/nova-3")
+        llm_ = os.environ.get("CLU_LLM", "openai/gpt-4.1-mini")
+        tts = f"{os.environ.get('CLU_TTS', 'deepgram/aura-2')} {os.environ.get('CLU_TTS_VOICE', 'zeus')}"
+    return {"clu.stack": stack, "clu.stt": stt, "clu.llm": llm_, "clu.tts": tts, "clu.turn": "vad" if turn == "vad" else "turn-detector"}
 
 
 # ------------------------------------------------------------------------------------------------ agent
@@ -117,10 +151,11 @@ async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
     stack = os.environ.get("CLU_STACK", "cloud")
     stt, llm_, tts = local_stack(ctx.proc.userdata["vad"], ctx.proc.userdata["speech"]) if stack == "local" else cloud_stack()
+    turn = turn_detection()
     session = AgentSession(
         stt=stt, llm=llm_, tts=tts, vad=ctx.proc.userdata["vad"], user_away_timeout=None,
         turn_handling=TurnHandlingOptions(
-            turn_detection=turn_detection(),
+            turn_detection=turn,
             endpointing={"min_delay": float(os.environ.get("CLU_MIN_ENDPOINT", "0.4")), "max_delay": float(os.environ.get("CLU_MAX_ENDPOINT", "3.0"))},
             # Barge-in: the owner's speech stops Clu. "adaptive" (LiveKit Cloud) tells real interruptions from "mm-hm";
             # "vad" uses voice activity only. A cough that stops playback resumes it after 1.5 s.
@@ -132,6 +167,8 @@ async def entrypoint(ctx: JobContext) -> None:
     agent = Clu()
     _wire_rpc(ctx, session, agent)
     _wire_metrics(ctx, session)
+    _wire_errors(ctx, session)
+    await ctx.room.local_participant.set_attributes(providers(stack, turn))
     await session.start(agent=agent, room=ctx.room, room_options=room_io.RoomOptions(
         text_input=True, audio_input=True, audio_output=True, text_output=room_io.TextOutputOptions(sync_transcription=True),
         close_on_disconnect=False))
@@ -174,18 +211,70 @@ def _wire_metrics(ctx: JobContext, session: AgentSession) -> None:
     keys = {"transcription_delay": "transcription_delay_ms", "end_of_turn_delay": "end_of_turn_delay_ms", "llm_node_ttft": "llm_ttft_ms",
             "tts_node_ttfb": "tts_ttfb_ms", "e2e_latency": "speech_end_to_first_audio_ms"}
 
+    user_metrics: dict = {}
+
     @session.on("conversation_item_added")
     def on_item(ev) -> None:
         item = ev.item
         m = getattr(item, "metrics", None) or {}
-        if getattr(item, "role", None) != "assistant" or not m:
+        role = getattr(item, "role", None)
+        if role == "user":  # transcription and end-of-turn delays are reported on the owner's message
+            user_metrics.clear(); user_metrics.update(m)
             return
+        if role != "assistant" or not m:
+            return
+        m = {**user_metrics, **m}; user_metrics.clear()
         payload = {out: round(m[k] * 1000) for k, out in keys.items() if isinstance(m.get(k), (int, float)) and m[k] >= 0}
         if payload:
             log.info("turn metrics %s", payload)
             asyncio.ensure_future(ctx.room.local_participant.publish_data(json.dumps(payload), topic="clu.metrics", reliable=True))
 
 
+def _wire_errors(ctx: JobContext, session: AgentSession) -> None:
+    """Speech recognition, model and voice failures go to the app (data topic "clu.events") so it can say what is
+    wrong instead of waiting. When the framework gives up (repeated unrecoverable errors) the job ends: the app then
+    sees that the agent left, reports it, and asks the token server for a fresh agent."""
+    kinds = {"stt_error": "stt", "llm_error": "llm", "tts_error": "tts", "realtime_model_error": "llm"}
+
+    def publish(payload: dict) -> None:
+        asyncio.ensure_future(ctx.room.local_participant.publish_data(json.dumps(payload), topic="clu.events", reliable=True))
+
+    def describe(err) -> str:
+        e = getattr(err, "error", None)
+        # Provider errors name the failure (connection refused, 401, timeout); keep it short and free of payloads.
+        text = f"{type(e).__name__}: {e}" if e is not None else str(err)
+        return text.replace("\n", " ")[:200]
+
+    @session.on("error")
+    def on_error(ev) -> None:
+        err = ev.error
+        component = kinds.get(getattr(err, "type", ""), "agent")
+        recoverable = bool(getattr(err, "recoverable", False))
+        log.warning("%s error (recoverable=%s): %s", component, recoverable, describe(err))
+        publish({"type": "error", "component": component, "recoverable": recoverable, "message": describe(err)})
+
+    @session.on("close")
+    def on_close(ev) -> None:
+        reason = getattr(ev.reason, "value", str(ev.reason))
+        payload = {"type": "session_closed", "reason": reason}
+        if ev.error is not None:
+            payload.update(component=kinds.get(getattr(ev.error, "type", ""), "agent"), message=describe(ev.error))
+        log.warning("session closed: %s", payload)
+        publish(payload)
+        if reason == "error":
+            asyncio.get_event_loop().call_later(0.5, lambda: ctx.shutdown(reason="agent session failed"))
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm, agent_name=AGENT_NAME))
+    cli.run_app(WorkerOptions(
+        entrypoint_fnc=entrypoint, prewarm_fnc=prewarm, agent_name=AGENT_NAME,
+        # One owner, one conversation: one warm process is enough. The framework's production default is up to four,
+        # each loading the speech models at once, which on a 4-core computer made every one of them miss the 10 s
+        # start-up timeout and get killed (measured: first connection 20.5 s instead of ~1 s).
+        num_idle_processes=int(os.environ.get("CLU_IDLE_PROCESSES", "1")),
+        initialize_process_timeout=float(os.environ.get("CLU_PROCESS_INIT_TIMEOUT", "60")),
+        # The default (0.7) marks the worker "full" whenever the computer is busy - e.g. while a local language model
+        # is generating on the same machine - and LiveKit then dispatches no agent.
+        load_threshold=float(os.environ.get("CLU_LOAD_THRESHOLD", "0.95")),
+    ))

@@ -80,10 +80,15 @@ class TokenProvisioner(
         }
         val resp = runCatching { http.postJson(url, body.toString(), mapOf("Authorization" to "Bearer $key")) }
             .getOrElse { throw LiveKitException("Token server not reachable: ${it.message}", it) }
+        // The token server explains refusals in {"error": "..."}; it never echoes the key.
+        val reason = runCatching { CluJson.parseToJsonElement(resp.body).jsonObject["error"]?.jsonPrimitive?.contentOrNull }.getOrNull()?.take(160)
         when (resp.code) {
             in 200..299 -> {}
-            401, 403 -> throw LiveKitException("Token server rejected this device key (HTTP ${resp.code})")
-            else -> throw LiveKitException("Token server error (HTTP ${resp.code})")
+            401 -> throw LiveKitException("Token server rejected this device key (HTTP 401). Re-enter the key from `add-device`, or check it wasn't revoked.")
+            403 -> throw LiveKitException("Token server refused this device (HTTP 403): ${reason ?: "not allowed"}")
+            429 -> throw LiveKitException("Token server is blocking this phone for about a minute after repeated wrong keys (HTTP 429).")
+            400 -> throw LiveKitException("Token server refused the request (HTTP 400): ${reason ?: "bad request"}. Check the agent name in Settings.")
+            else -> throw LiveKitException("Token server error (HTTP ${resp.code})${reason?.let { ": $it" } ?: ""}")
         }
         val json = runCatching { CluJson.parseToJsonElement(resp.body).jsonObject }.getOrElse { throw LiveKitException("Token server returned invalid JSON") }
         val serverUrl = json["server_url"]?.jsonPrimitive?.contentOrNull ?: throw LiveKitException("Token response has no server_url")

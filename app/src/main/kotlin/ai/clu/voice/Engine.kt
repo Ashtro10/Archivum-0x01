@@ -10,8 +10,11 @@ import ai.clu.core.live.Link
 import ai.clu.core.voice.TurnState
 import ai.clu.core.voice.VoiceConfig
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -65,6 +68,25 @@ class Engine(private val app: CluApp) {
         }
     }.stateIn(scope, SharingStarted.Eagerly, EngineUi())
 
+    private val visibleScreens = HashSet<String>()
+    private var idleClose: Job? = null
+
+    /**
+     * A conversation screen became visible or hidden. When none is visible (Clu in the background or closed), the
+     * server connection ends after [IDLE_DISCONNECT_MS]: an open room keeps an agent session running (and, on LiveKit
+     * Cloud, billed). Coming back reconnects; the conversation history stays on the phone.
+     */
+    fun screenVisible(screen: String, visible: Boolean) {
+        if (visible) { visibleScreens += screen; idleClose?.cancel(); idleClose = null; return }
+        visibleScreens -= screen
+        if (visibleScreens.isNotEmpty() || !server) return
+        idleClose?.cancel()
+        idleClose = scope.launch {
+            delay(IDLE_DISCONNECT_MS)
+            if (visibleScreens.isEmpty()) { app.liveKit.live.log("idle_disconnect", "no Clu screen visible for ${IDLE_DISCONNECT_MS / 1000} s"); app.liveKit.close() }
+        }
+    }
+
     /** Voice screen opened: listen and speak replies. */
     fun startVoice() {
         if (server) app.liveKit.open(mic = true, spokenReplies = true)
@@ -109,4 +131,6 @@ class Engine(private val app: CluApp) {
 
     /** End the voice session entirely. */
     fun end() { if (server) app.liveKit.close() else { app.voice.stop(); app.speech.stop() } }
+
+    companion object { const val IDLE_DISCONNECT_MS = 60_000L }
 }

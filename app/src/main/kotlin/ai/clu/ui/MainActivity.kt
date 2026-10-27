@@ -67,7 +67,9 @@ class MainActivity : BaseActivity() {
         if (core.store.meta("onboarded") == null) onboarding()
     }
 
-    override fun onStart() { super.onStart(); if (!redirected) app.engine.startChat() }
+    override fun onStart() { super.onStart(); if (!redirected) { app.engine.screenVisible("chat", true); app.engine.startChat() } }
+
+    override fun onStop() { if (!redirected) app.engine.screenVisible("chat", false); super.onStop() }
 
     override fun onResume() {
         super.onResume()

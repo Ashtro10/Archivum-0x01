@@ -7,6 +7,9 @@ rtc:
   port_range_end: 50100
   # On a home network / phone hotspot keep this false; for an internet-facing server set true (or node_ip).
   use_external_ip: false
+  # If the computer has several network interfaces (Wi-Fi + Ethernet + VPN/Docker), set the address the phone
+  # reaches it on, or media may be offered on an address the phone cannot reach:
+  # node_ip: 192.168.1.20
 keys:
   REPLACE_WITH_API_KEY: REPLACE_WITH_API_SECRET_AT_LEAST_32_CHARS
 logging:

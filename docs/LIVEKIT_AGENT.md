@@ -175,44 +175,49 @@ local stack: Kroko STT, Piper Joe TTS, Silero VAD, VAD turn detection (the turn-
 here); the owner's questions are synthesised with a second Piper voice and played into a real WebRTC microphone
 track in real time. A phone adds network latency and audio device buffers on top of these numbers.
 
-**Real model** — SmolLM2-135M-Instruct Q4_1 in llama.cpp `llama-server` (2 threads):
-[report](measurements/livekit-real-llm-e2e.json), [agent per-turn metrics](measurements/livekit-real-llm-turn-metrics.txt).
-**Mock** — scripted replies, 300 ms first token: [report](measurements/livekit-mock-llm-e2e.json),
+**Real model** — SmolLM2-135M-Instruct Q4_1 in llama.cpp `llama-server` (2 threads). Two runs:
+**B (final code)** — [report](measurements/livekit-real-llm-e2e.json), [agent per-turn metrics](measurements/livekit-real-llm-turn-metrics.txt);
+**A** — same code before fix #10, on the container's previous CPU with an AVX-512 build of llama.cpp (the container
+was moved to other hardware between the runs; B uses a portable AVX2 build) — [report](measurements/livekit-real-llm-e2e-run-a.json),
+[metrics](measurements/livekit-real-llm-turn-metrics-run-a.txt).
+**Mock** — scripted replies, 300 ms first token, on the previous CPU: [report](measurements/livekit-mock-llm-e2e.json),
 [metrics](measurements/livekit-mock-llm-turn-metrics.txt).
 
-| Measurement | Real model | Mock |
+| Measurement | Real model, run B (final) | Real model, run A | Mock |
+|---|---|---|---|
+| Checks passed | **13/13** | 13/13 | 13/13 |
+| Token request / join room | 12 / 134 ms | 9 / 111 ms | 10 / 119 ms |
+| First connection → agent listening (cold worker) | **1.32 s** | 1.03 s (20.5 s before fix #1) | 1.09 s |
+| Rejoin after the room closed → new agent listening | 1.33 s | 1.07 s | 1.07 s |
+| Short reconnect (same session) → listening | 0.14 s | 0.13 s | 0.13 s |
+| End of speech → first audio, phone side (2 spoken voice turns) | **2.90 s, 1.52 s** | 1.29, 1.15 s | 1.41, 1.78 s |
+| … agent-measured `e2e_latency`, all voice turns | 1.03 / 1.37 / 1.92 / 2.81 / **28.2** s (median 1.92 s) | 0.81–2.04 s (median 1.20 s) | 1.02–1.96 s |
+| Text sent → first reply text | **232 / 1,224 / 1,374 ms** | 148 / 556 / 669 ms | 327 / 671 / 786 ms |
+| Text sent → first audio | **1,089 / 1,345 ms** | 526 / 639 ms | 667 / 749 ms |
+| Owner starts talking over Clu → Clu silent | **486 ms** | 717 ms | — |
+| Stop button → Clu silent | **53 ms** | 55 ms | — |
+| Model server down → error event at the client | 27 ms after sending; after 3 failed turns the session closed and the agent left; a fresh agent in the same room received the history and answered 3.5 s after the model came back | 16 ms; 2.2 s | same |
+| LiveKit server down → client notices / back → agent listening | 37.7 s / 27.5 s (Python SDK; the Android SDK's timing may differ) | 24.8 / 26.3 s | 33.1 / 27.5 s |
+| Speech recognition | 3/3 questions word-perfect; "Stop. What is two plus two?" heard as "sop, what is two plus two?" | same | "supp …" |
+
+**Where the time goes, agent-measured per voice turn (run B):**
+
+| Stage | Range | Note |
 |---|---|---|
-| Token request / join room | 9 ms / 111 ms | 10 / 119 ms |
-| First connection → agent listening (cold worker) | **1.03 s** (20.5 s before the worker fix, §7) | 1.09 s |
-| Rejoin after the room closed → new agent listening | 1.07 s | 1.07 s |
-| Short reconnect (same session) → listening | 0.13 s | 0.13 s |
-| End of speech → first audio (phone side), 2 spoken voice turns | **1.29 s, 1.15 s** | 1.41, 1.78 s |
-| … agent-measured `e2e_latency`, all spoken voice turns | 0.81–2.04 s (median 1.20 s) | 1.02–1.96 s |
-| Text sent → first reply text | **148 / 556 / 669 ms** | 327 / 671 / 786 ms |
-| Text sent → first audio | **526 / 639 ms** | 667 / 749 ms |
-| Owner starts talking over Clu → Clu silent | 717 ms | similar |
-| Stop button → Clu silent | **55 ms** | similar |
-| Model server down → error event at the app | 16 ms after sending; 3 failed questions → session closed, agent left, a fresh agent answered once the model was back (2.2 s from restart to first reply text) | same |
-| LiveKit server down → client notices / server back → agent listening | 24.8 s / 26.3 s (Python SDK; the Android SDK's timing may differ) | 33.1 / 27.5 s |
-| Speech recognition | 3/3 questions word-perfect (WER 0); the barge-in "Stop. What is two plus two?" heard as "sop, what is two plus two" | "supp what is two plus two" |
+| End of speech → final transcript (`transcription_delay`) | 750–1,075 ms | Largest share in normal turns. Recognition itself takes 80–185 ms (measured separately); the rest is the VAD deciding speech ended (0.45 s silence window) plus VAD lag under CPU contention ("VAD inference is slower than realtime") |
+| LLM first token (`llm_ttft`) | 185–1,638 ms, one 6.1 s | A 135M model on 2 CPU threads; a 3B model on CPU or a cloud model is the next bottleneck |
+| TTS first audio (`tts_ttfb`) | 236–693 ms, one **12.1 s** | Piper speaks sentence by sentence; when the model produced one endless run-on "sentence", the first audio waited for its end. This caused the 28.2 s outlier |
 
-**Where the time goes (largest bottleneck first), agent-measured per spoken voice turn:**
+The largest share in normal turns is the end-of-speech decision, set by `CLU_MIN_SILENCE`; lowering it trades speed
+for the risk of cutting the owner off, and it was **not** changed without device evidence. Streaming recognition
+would save at most the ~100 ms recognition time. The ≈1 s goal is roughly met for typed questions (first audio
+0.5–1.3 s) and missed for speech (median 1.2–1.9 s) **with a tiny model on loopback**; a realistic model and a phone
+on Wi-Fi add to this. A model that writes long run-on sentences delays the voice badly (TTS waits for a sentence
+end): a remaining limitation of the local stack. The cloud stack is designed for lower latency but is unmeasured.
 
-| Stage | Real model | Note |
-|---|---|---|
-| End of speech → final transcript (`transcription_delay`) | 636–778 ms | Recognition itself takes 80–185 ms (measured separately); the rest is the VAD deciding speech ended (0.45 s silence window) plus VAD lag under CPU contention ("VAD inference is slower than realtime" in the log) |
-| LLM first token (`llm_ttft`) | 106–730 ms | A 135M model; a 3B model on CPU or a cloud model will be slower to start and is the next bottleneck |
-| TTS first audio (`tts_ttfb`) | 89–344 ms | First sentence of Piper |
-
-The largest share is the end-of-speech decision, set by `CLU_MIN_SILENCE`. Lowering it trades speed for the risk of
-cutting the owner off mid-pause; it was **not** changed without device evidence. Streaming recognition would save at
-most the ~100 ms recognition time. The ≈1 s goal is met for typed questions (first audio ≈0.5–0.6 s) and roughly met
-for speech (median 1.2 s) **with a tiny model on loopback**; with a realistic model and a phone on Wi-Fi it will be
-higher. The cloud stack (streaming STT, turn detector) is designed for lower end-of-speech latency but is unmeasured.
-
-**Answer quality (real model):** pipeline correct, answers from a 135M model are unreliable: it recalled the name
-in 2 of 3 follow-ups, answered 4 of 4 factual capitals correctly in the final run but said "Florence"/"Mumbai" in
-earlier runs, repeated an earlier answer instead of answering, and rambled for a minute on a story. The mock run,
+**Answer quality (real model):** pipeline correct, answers from a 135M model are unreliable: in run B it recalled the name in 3 of 4 follow-ups and answered 4 of 4 capitals,
+but said "Florence"/"Mumbai" in earlier runs, repeated an earlier answer instead of answering, rambled for a minute
+on a story, and answered "two plus two" with an endless string of arithmetic. The mock run,
 which answers deterministically from the last message, shows the right message and context reach the model each
 time. For real use, run at least a 3B instruct model (local) or the cloud stack.
 

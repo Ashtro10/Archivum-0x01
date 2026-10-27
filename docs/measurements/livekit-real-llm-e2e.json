@@ -14,29 +14,29 @@
   "rejoin after the room closed: new agent, history reloaded": true,
   "recovers after a LiveKit server outage": true,
   "model outage reported to the app, then recovers": true,
-  "prolonged model outage: session closed, agent leaves, fresh agent works": true
+  "prolonged model outage: session closed, agent leaves, fresh agent in the same room gets the history and answers": true
  },
  "measurements": {
-  "token_ms": 9,
-  "join_ms": 111,
-  "first_connect_to_agent_listening_ms": 1033,
-  "short_reconnect_to_listening_ms": 130,
-  "rejoin_after_room_closed_to_listening_ms": 1066,
-  "outage_detected_ms": 24763,
-  "livekit_restart_to_agent_listening_ms": 26264,
-  "llm_restart_to_first_reply_text_ms": 2213,
+  "token_ms": 12,
+  "join_ms": 134,
+  "first_connect_to_agent_listening_ms": 1315,
+  "short_reconnect_to_listening_ms": 138,
+  "rejoin_after_room_closed_to_listening_ms": 1329,
+  "outage_detected_ms": 37723,
+  "livekit_restart_to_agent_listening_ms": 27545,
+  "llm_restart_to_first_reply_text_ms": 3508,
   "speech_end_to_first_audio_ms": [
-   1288,
-   1150
+   2901,
+   1523
   ],
   "text_to_first_text_ms": [
-   148,
-   669,
-   556
+   232,
+   1224,
+   1374
   ],
   "text_to_first_audio_ms": [
-   639,
-   526
+   1089,
+   1345
   ]
  },
  "quality": {
@@ -44,30 +44,30 @@
   "answers_checked": 4
  },
  "providers": {
-  "clu.tts": "sherpa-onnx voice",
-  "clu.stack": "local",
   "clu.stt": "sherpa-onnx kroko-en",
+  "clu.tts": "sherpa-onnx voice",
   "clu.llm": "smollm2 (OpenAI-compatible server)",
-  "clu.turn": "vad"
+  "clu.turn": "vad",
+  "clu.stack": "local"
  },
  "voice_to_spoken": {
   "asked": "What is the capital of France?",
   "recognised": "what is the capital of france?",
   "wer": 0.0,
-  "reply": "The capital of France is Paris, France.",
+  "reply": "The capital of France is Paris.",
   "answer_contains_expected": true,
-  "speech_end_to_first_audio_ms": 1288,
-  "speech_end_to_first_text_ms": 1334,
+  "speech_end_to_first_audio_ms": 2901,
+  "speech_end_to_first_text_ms": 2971,
   "audio_received": true
  },
  "voice_to_text": {
   "asked": "What is the capital of Italy?",
   "recognised": "what is the capital of italy?",
   "wer": 0.0,
-  "reply": "The capital of Italy is Rome, Italy.",
+  "reply": "The capital of Italy is Rome.",
   "answer_contains_expected": true,
   "speech_end_to_first_audio_ms": null,
-  "speech_end_to_first_text_ms": 864,
+  "speech_end_to_first_text_ms": 1141,
   "audio_received": false
  },
  "follow_up": {
@@ -78,25 +78,25 @@
  "text_turns": [
   {
    "sent": "My name is Ashwin. Please remember it.",
-   "reply": "You're welcome, Ashwin. Thank you for sharing your unique identity.",
+   "reply": "I'm sorry, but in many languages, it's very similar to English. In Italian, it's the capital of the Italian state, not the capital of Italy.",
    "spoken": false,
-   "text_to_first_text_ms": 148,
+   "text_to_first_text_ms": 232,
    "audio_received": false
   },
   {
    "sent": "What is my name?",
-   "reply": "I'm glad to know you have a unique identity. It's an honor to be a part of this community. I'll keep it simple. You can refer to yourself as \"Ashwin\" or \"Axel\" - it's a joke, but it's a reminder of who you are.",
+   "reply": "Hello, my name is Ashwin. I'm Ashwin. I'm an AI assistant, a little AI, with lots of skills, and I'm here to help, but I'm not a substitute for a human in a situation that requires empathy. I can assist you with your life, but I can't always do it for you, so I'm here to help, but I have a different role that I can play. I'm here for a team, a team of a world. I can assist you in your own way, and I can assist you in my role. So, what do you want?",
    "spoken": true,
-   "text_to_first_text_ms": 669,
-   "text_to_first_audio_ms": 639,
+   "text_to_first_text_ms": 1224,
+   "text_to_first_audio_ms": 1089,
    "audio_received": true
   },
   {
    "sent": "What is the capital of India?",
-   "reply": "The capital of India is New Delhi, India.",
+   "reply": "The capital of India is Delhi, which is known as the New Delhi of India. I'm here to assist you with your life, but I can't always assist you in my role. I can assist you in your own way and I can assist you in my role. I'm here for a team. So, I'm here to help you, but I can assist you in my role.\n\nI'm sorry, but the code for helping me with my role is not a code that I can assist you with. I'm here to help you with your life. I'm here to assist you in my role and I can assist you in my role. I'm here to help you, but I can assist you in my role. I'm here to support you, but I'm here to help you in your role, and I'm here to support you in my role.\n\nI'm sorry, but I'm not a replacement for a human. I'm here to assist you in your role, but I can assist you in my role. I'm here to help you, but I can assist you in my role. I'm here to support you, but I can assist you in my role. I'm here to help you, but I can assist you in my role.\n\nI'm sorry, but I'm not a replacement for a human. I'm here to support you, but I can assist you in my role. I'm here to help you",
    "spoken": true,
-   "text_to_first_text_ms": 556,
-   "text_to_first_audio_ms": 526,
+   "text_to_first_text_ms": 1374,
+   "text_to_first_audio_ms": 1345,
    "answer_contains_expected": true
   }
  ],
@@ -106,15 +106,15 @@
   ],
   "agent_was_speaking_at_barge_in": true,
   "agent_stopped": true,
-  "owner_starts_talking_to_agent_silent_ms": 717,
-  "recognised": "sop, what is two plus two",
-  "reply_to_new_question": "Two plus two is a delightful way to think about something as simple as it can be.",
+  "owner_starts_talking_to_agent_silent_ms": 486,
+  "recognised": "sop, what is two plus two?",
+  "reply_to_new_question": "Sop, I'm not sure. Two and two is more like two + two is two * two + two is two + two + two is two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two + two + two + two + two is two +",
   "answer_contains_expected": false
  },
  "stop_button": {
   "agent_was_speaking": true,
   "stopped": true,
-  "stop_to_agent_silent_ms": 55,
+  "stop_to_agent_silent_ms": 53,
   "state_after": "listening"
  },
  "short_reconnect": {
@@ -122,7 +122,7 @@
    "loaded": 0,
    "reason": "session already has history"
   },
-  "reply": "That's a funny one. In many ways, I'm just a curious person who wants to know about the world.",
+  "reply": "I'm afraid of dragons. I'm not sure, but I'm sure of the name I'd give you.\n\nIt's a very, very long name. It is not the name I use, but it's a name that I've used for a very long time. It's not a name I've used, but it's one of many that I've used, and it's one of many that I've loved. It's a name that I've loved all my life, and it's one that I've lost.\n\nIt is a very, very long name. It's a very, very long name that I've lost.\n\nIt's a very, very long name, very, very long. It's a very, very long name that I've lost, and I'm sorry that I've lost it.\n\nIt is a very, very long name, very, very long. It's a very, very long name that I've lost, and I'm sorry that I've lost it.\n\nIt is a very, very long name, very, very long. It's a very, very long name that I've lost.\n\nIt is a very, very long name, very, very long. It's a very, very long name that I've lost, and I'm sorry that I've lost it.\n\nIt is a very, very long name, very, very long. It's a very,",
   "typed_resends": 0
  },
  "rejoin_after_room_closed": {
@@ -130,7 +130,7 @@
   "history_reload": {
    "loaded": 2
   },
-  "reply": "My name is Ashwin.",
+  "reply": "Your name is Ashwin, my friend.",
   "name_recalled_from_reloaded_history": true
  },
  "llm_outage": {
@@ -140,7 +140,7 @@
    "recoverable": true,
    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
   },
-  "send_to_error_ms": 16,
+  "send_to_error_ms": 27,
   "events": [
    {
     "type": "error",
@@ -247,37 +247,41 @@
   ],
   "session_closed_event": true,
   "agent_left": true,
-  "reply_after_recovery": "The capital of Japan is Tokyo."
+  "history_to_new_agent": {
+   "loaded": 2
+  },
+  "reply_after_recovery": "My name is Ashwin.",
+  "history_in_new_agent_context": true
  },
  "voice_turns": [
   {
    "asked": "What is the capital of France?",
    "recognised": "what is the capital of france?",
    "wer": 0.0,
-   "reply": "The capital of France is Paris, France.",
+   "reply": "The capital of France is Paris.",
    "answer_contains_expected": true,
-   "speech_end_to_first_audio_ms": 1288,
-   "speech_end_to_first_text_ms": 1334,
+   "speech_end_to_first_audio_ms": 2901,
+   "speech_end_to_first_text_ms": 2971,
    "audio_received": true
   },
   {
    "asked": "What is the capital of Japan?",
    "recognised": "what is the capital of japan?",
    "wer": 0.0,
-   "reply": "The capital of Japan is Tokyo, Japan.",
+   "reply": "The capital of Japan is Tokyo.",
    "answer_contains_expected": true,
-   "speech_end_to_first_audio_ms": 1150,
-   "speech_end_to_first_text_ms": 1163,
+   "speech_end_to_first_audio_ms": 1523,
+   "speech_end_to_first_text_ms": 1538,
    "audio_received": true
   },
   {
    "asked": "What is the capital of Italy?",
    "recognised": "what is the capital of italy?",
    "wer": 0.0,
-   "reply": "The capital of Italy is Rome, Italy.",
+   "reply": "The capital of Italy is Rome.",
    "answer_contains_expected": true,
    "speech_end_to_first_audio_ms": null,
-   "speech_end_to_first_text_ms": 864,
+   "speech_end_to_first_text_ms": 1141,
    "audio_received": false
   }
  ],
@@ -288,8 +292,12 @@
  },
  "metrics_from_agent": [
   {
-   "llm_ttft_ms": 260,
-   "tts_ttfb_ms": 144
+   "llm_ttft_ms": 185,
+   "tts_ttfb_ms": 691
+  },
+  {
+   "llm_ttft_ms": 1638,
+   "tts_ttfb_ms": 242
   }
  ],
  "passed": true

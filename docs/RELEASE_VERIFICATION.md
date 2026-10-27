@@ -27,7 +27,7 @@ repository.
 | Property | Value | How it was checked |
 |---|---|---|
 | File | `dist/clu-release.apk`, 85,100,556 bytes | `stat` |
-| SHA-256 | `6c3938c33149a2883cb18d7652f9f2818048fcb100532bc8bc98841bad9eef51` | `sha256sum` |
+| SHA-256 | `6066f43ed52a0244dbc95cead669a823a9629d7e021a9211121860819c43db47` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
 | Version | `1.3.1-prototype` (versionCode 5; installs as an update over versionCodes 1–4, same package and signer) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |

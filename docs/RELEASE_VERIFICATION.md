@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,198,863 bytes | `stat` |
-| SHA-256 | `407b60888d179bc5ac61fedf6d2c10149c8415522d358cc4694f3d8d5ace84dd` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,202,959 bytes | `stat` |
+| SHA-256 | `b02593df67f3774027cbdfb0c2d86ae8eb66550081ccc07e456de052ddba701a` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.5.0-prototype` (versionCode 7; installs as an update over versionCodes 1–6, same package and signer; database migrates to schema v3 on first launch — see STAGE2_RESEARCH_MEMORY_SYNC.md §7 for rollback) | `aapt2 dump badging` |
+| Version | `1.5.1-prototype` (versionCode 8; installs as an update over versionCodes 1–7, same package and signer; no database change from 1.5.0 — schema v3) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |

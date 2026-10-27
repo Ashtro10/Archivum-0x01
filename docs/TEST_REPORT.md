@@ -217,3 +217,29 @@ LlmLatencyBenchmark, StreamingSpeechTest#benchmarkPipelineOverhead, 2 Whisper mo
 OfflineConversationTest which runs only inside the network namespace and passed there); app 53 tests, 0 failures.
 `:app:apiCheck` 902 classes on API 33, `:app:icuRegexCheck` 192 patterns 0 rejected, `:app:verifyApk` 376 JNI symbols — all pass.
 **Not run:** anything on a phone or tablet; live search providers; two physical devices syncing.
+
+## Stage 3: reliability audit (1.5.1, 2026-10-27)
+
+**No Android device or emulator** (no adb/KVM) and **no live provider** (the environment's network policy denies
+`en.wikipedia.org`, `api.duckduckgo.com`, `api.search.brave.com` and general websites) were reachable. All results are
+from the build machine; HTTP is mocked unless stated. Details: STAGE3_RELIABILITY.md.
+
+| Suite | Kind | What it covers | Result |
+|---|---|---|---|
+| `Stage3AuditTest` (5) | JVM, mocked HTTP | hostile pages in linear time (was 189 s+); Stop during research stops further requests; DNS rebinding / numeric spellings refused; ordinary chat makes no requests (online and offline); garbage responses never crash | pass |
+| `SyncIntegrityTest` (5) | JVM, two installations over real localhost TCP | stale copies never resurrect deletions; scope re-enable sends skipped rows; damaged sync files refused; restart right after sync; simultaneous syncs | pass |
+| `ResearchTest#pagesAreFetchedSafely` | JVM, mocked HTTP | had silently never run (non-Unit JUnit 5 method); now runs | pass |
+
+Test-count audit: for every core class the number of `@Test` methods equals the number executed (app classes run
+once per Robolectric SDK level, so they execute more).
+
+Commands:
+* `./gradlew test check :app:assembleRelease -Pclu.verify=release -Dclu.serverPython=<venv>/bin/python` → BUILD SUCCESSFUL.
+* `scripts/test_offline.sh <venv>/bin/python <models>` → pass.
+
+Totals 1.5.1: core 349 tests, 0 failures, 8 skipped by default (same opt-in set as 1.5.0: HostBenchmark,
+PersonaMeasurement, Stage2Benchmark, LlmLatencyBenchmark, StreamingSpeechTest#benchmarkPipelineOverhead, two Whisper
+tests needing model files, OfflineConversationTest — run in the namespace and passed); app 53 tests, 0 failures.
+`:app:apiCheck` 905 classes on API 33, `:app:icuRegexCheck` 191 patterns 0 rejected, `:app:verifyApk` 376 JNI symbols — pass.
+APK scan: no credentials in dex/resources/assets (only secret-store key names).
+**Not run:** anything on a phone or tablet; live providers; two physical devices syncing.

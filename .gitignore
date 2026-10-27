@@ -18,3 +18,4 @@ server/models/
 server/.venv/
 server/livekit.yaml
 buildSrc/.kotlin/
+.kotlin/

@@ -75,3 +75,69 @@ These were checked by tests that exercise the behaviour, not by reading code:
    - **On the device:** DEVICE_ACCEPTANCE §Y and §Z.
    - **From this environment:** allow `en.wikipedia.org`, `api.duckduckgo.com`, `api.search.brave.com` and general web access in the environment's network settings (https://code.claude.com/docs/en/cloud-environments#network-access).
 3. **Performance and battery:** cold start, resume, speech end to first audio, stop to silence, memory during conversation and research, and battery over a session. All need the devices.
+
+---
+
+# Stage 3.1 — security audit, regression tests, release stabilisation (1.5.2-prototype)
+
+**Still not verified here:**
+* **Real device:** no adb, USB device or KVM.
+* **Live search providers and websites:** the environment's network policy refuses `en.wikipedia.org`, `api.duckduckgo.com`, `api.search.brave.com` and ordinary sites; the proxy answers 403 to CONNECT.
+
+Every result below comes from the build machine. Each test is labelled as one of:
+* **host integration:** real sockets or TLS on loopback;
+* **JVM:** unit and behaviour tests;
+* **Robolectric:** Android framework code;
+* **mocked:** fake HTTP.
+
+## Security changes
+
+| # | Weakness | Fix | Proof (test, kind) |
+|---|---|---|---|
+| S1 | **DNS check, then connect (TOCTOU).** Stage 3 checked a host's DNS answers, but Android's HTTP client then resolved the name again, so a rebinding DNS server could switch the address in between. | **`PinnedHttpClient`**, a small HTTP/1.1 GET client built on standard JDK sockets:<br>• connects to the exact validated IP; the address literal is parsed without any lookup;<br>• keeps the original host for TLS **SNI** and **certificate plus host-name verification** (`endpointIdentificationAlgorithm=HTTPS`, plus Android's platform `HostnameVerifier`);<br>• never follows redirects; the caller re-validates every hop;<br>• no connection reuse (`Connection: close`, a new socket per request);<br>• uncompressed body, 32 KB of headers, 1 MB of body, a per-read timeout and a total deadline of 3 × timeout. | `PinnedFetchTest` (host integration):<br>• connects to the validated address with the real Host header;<br>• refuses a non-public address and credentials;<br>• blocks header injection;<br>• bounded / chunked bodies, unfollowed redirects, malformed responses;<br>• slow-drip deadline;<br>• HTTPS: trusted certificate OK, **wrong host name refused**, untrusted certificate refused, platform verifier honoured, SNI carries the host name;<br>• DNS answers that change between check and connect (resolved once, request sent to the checked address);<br>• mixed public/private answers refused;<br>• fail-safe without a resolver or a pinned client.<br>**Negative control:** with host-name verification switched off, the HTTPS test fails as expected. |
+| S2 | **robots.txt bypassed every check.** It was fetched with the platform client, which follows redirects anywhere (including into the LAN) and resolves names itself. | robots.txt now goes through the same validated, pinned path (`SafeFetch.get`), with each redirect re-validated. Anything that can't be checked counts as "disallow". | `PinnedFetchTest.robotsTxtCannotBeRedirectedIntoTheLocalNetwork` (mocked): the redirect to 192.168.1.1 is never requested, the page isn't fetched, and robots.txt is fetched pinned. |
+| S3 | **Gaps in the address policy.** Not covered before:<br>• IETF/documentation/benchmark IPv4 ranges;<br>• IPv6 forms carrying an IPv4 address: NAT64 `64:ff9b::/96`, 6to4 `2002::/16`, IPv4-compatible `::a.b.c.d`, Teredo;<br>• site-local `fec0::/10`;<br>• out-of-range ports. | Addresses are parsed into bytes (literals only, never a lookup) and judged by range. Embedded IPv4 addresses are judged as IPv4, and ports must be 1–65535. | `PinnedFetchTest.everySpellingOfANonPublicAddressIsRefused` (JVM): 39 non-public spellings refused, 6 public ones accepted, 18 malformed or unsafe URLs refused. |
+| S4 | **A proxy could carry page requests.** The pinned socket used `new Socket()`, which honours a JVM-wide SOCKS proxy. | `Socket(Proxy.NO_PROXY)` (`PinnedHttpClient.DIRECT`). | `PinnedFetchTest.theDefaultConnectorBypassesProxies` (host integration, on the machine's non-loopback address). A default socket fails through a configured unreachable SOCKS proxy (the control); the production connector connects directly. |
+| S5 | **A cancelled fetch held its socket** until the timeout, because blocking reads can't be interrupted. | `PinnedHttpClient.fetch` closes the socket the moment the coroutine is cancelled. | `PinnedFetchTest.cancellingAFetchClosesItsConnectionAtOnce` (host integration): the server sees the close within 1 s, against a 10 s timeout. |
+| S6 | **API keys could follow a redirect to another host.** The provider client (HttpURLConnection) carried `X-Subscription-Token` to the redirect target. **Reproduced:** the second server received `secret-key-123`. | A request carrying a credential header never follows redirects; a 3xx is returned and reported. Uncredentialed requests still follow ordinary redirects. | `ProviderRedirectTest` (Robolectric, JVM HttpURLConnection against two loopback servers). |
+
+**Audit points with no change needed:**
+* Search providers are only Brave, Wikipedia and DuckDuckGo (fixed HTTPS hosts) and your own SearXNG URL (http/https only, deliberately allowed to be on your network).
+* No connection pooling exists on the page path.
+* All limits from Stage 3 remain.
+
+## Cancellation and lifecycle
+
+| Check | Result | Test (kind) |
+|---|---|---|
+| A newer request supersedes a slow researched one: the old one saves no reply and never reaches the model | pass | `CancellationRaceTest.aNewerRequestSupersedesAndTheOldOneNeverAnswers` (JVM, mocked) |
+| 25 cancellations at random moments against random network delays: exactly one terminal event each, no spurious error, nothing left running, next message works | pass; **5 repeated clean runs** | `cancellingAtRandomMomentsAlwaysEndsCleanly` (JVM, mocked) |
+| **Defect fixed:** an interrupted reply with no words still carried the search's sources | sources are now empty when the reply is empty (cannot produce a misleading source card) | same test |
+| **Defect fixed:** the chat's status line ("Searching the web…") was not cleared when a turn ended abnormally | now cleared in every outcome | `chatStateIsIdleAfterStopDuringResearch`, `aFailingTurnLeavesNoLoadingState` (JVM) |
+| Home → back ×3 and recreating the chat screen: no duplicate or re-sent messages, same conversation, no stuck "Thinking…", next message works | pass | `Stage31LifecycleTest` (Robolectric) |
+| Stop silences speech immediately | Not verifiable without a device. The app records `stop_to_silence_ms` for you. | — |
+
+## Diagnostics
+
+* **Diagnostics → Performance** now lists the checklist's measurements with units:
+  - cold start, return from background, end of speech → first audio, stop → silence, interruption detected;
+  - message → first word, message → complete, recognition, first synthesised phrase, **memory retrieval per message** (new), model load.
+* Anything not yet measured says **"not measured yet"**. Battery is stated as **not measured by Clu**.
+* **Share performance report** copies and shares a text report with:
+  - the app version and versionCode, device model and Android version;
+  - a timestamp and the conditions (online, engine, model loaded, uptime);
+  - current PSS and Java heap, and the timings with units.
+* **The report contains no messages, memories, diary, logs or keys** (`PerfReportTest`, JVM; `Stage31LifecycleTest`, Robolectric).
+* **Clear measurements** resets the timings.
+
+## Device acceptance
+
+[DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md) now starts with 15 plain-language checks: what to do, what success looks like, and what to collect if a step fails (a screenshot, the performance report, or the crash screen's text). No computer or command line is needed. The earlier detailed lists are kept as an appendix.
+
+## Remaining limitations
+
+* **IDN host names:** pages on internationalised host names (non-ASCII) are refused, and the source shows "Snippet only".
+* **Android HTTP proxy:** page reads connect directly, so a global HTTP proxy configured on the Android device is not used for them.
+* **Credentialed requests and redirects:** a redirect returned to a request carrying a key (LiveKit token endpoint, external AI, Brave) is reported as an HTTP error instead of followed.
+* **Untested on Android itself:** host-name verification on Android depends on the platform verifier, and endpoint identification on Android's TLS stack was not tested on a device.
+* **Device and live services:** everything that needs a device or live services is still outstanding (§5 above and DEVICE_ACCEPTANCE).

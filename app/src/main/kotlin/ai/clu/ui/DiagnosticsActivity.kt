@@ -39,8 +39,13 @@ class DiagnosticsActivity : BaseActivity() {
         }
         h1("Performance (measured on this device)")
         val perf = core.diag.perfSummary()
-        if (perf.isEmpty()) p("No measurements yet – chat, use voice or run the benchmark in AI models.")
-        perf.forEach { p("${it.metric}: p50 ${"%.0f".format(it.p50)} · p90 ${"%.0f".format(it.p90)} · p95 ${"%.0f".format(it.p95)} · min ${"%.1f".format(it.min)} · max ${"%.1f".format(it.max)} · last ${"%.1f".format(it.last)} (n=${it.count})", C.MUTED, 12f) }
+        p("Timings in milliseconds unless stated. \"Not measured yet\" means the action hasn't happened since the data was cleared.", C.MUTED, 12f)
+        ai.clu.core.diag.PerfReport.rows(perf).forEach { (k, v) -> p("$k: $v", if (v == "not measured yet") C.MUTED else C.TEXT, 12f) }
+        p("Battery: not measured by Clu — see Android Settings → Battery.", C.MUTED, 12f)
+        row {
+            smallButton("Share performance report") { shareReport() }
+            smallButton("Clear measurements") { confirm("Clear all measurements?", "Timings start again from zero.") { core.diag.clearPerf(); build() } }
+        }
         h1("Voice")
         val v = app.voice.state.value
         p("Running: ${v.running} · turn ${v.turn} · noise ${"%.1f".format(v.noiseDb)} dBFS (${v.environment}) · ${v.info}${if (v.error.isNotBlank()) " · ⚠ ${v.error}" else ""}\n" +
@@ -77,6 +82,24 @@ class DiagnosticsActivity : BaseActivity() {
             smallButton("Clear") { core.diag.clear(); build() }
         }
         core.diag.recent(300, level).forEach { e -> p("${fmtTime(e.ts)} ${e.level.name.first()} ${e.tag}: ${e.message}", if (e.level >= Level.WARN) C.WARN else C.MUTED, 11f) }
+    }
+
+    /** Text report for the device acceptance checklist: versions, device, conditions, timings with units. No private data. */
+    private fun shareReport() {
+        val mi = Debug.MemoryInfo().also { Debug.getMemoryInfo(it) }
+        val version = runCatching { packageManager.getPackageInfo(packageName, 0).let { "${it.versionName} (versionCode ${it.longVersionCode})" } }.getOrDefault("?")
+        val device = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})"
+        val conditions = linkedMapOf(
+            "online" to if (app.platform.isOnline()) "yes" else "no",
+            "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server" else "on-device",
+            "model loaded" to core.llm.state.value.status.let { st -> if (st == ai.clu.core.llm.LlmStatus.READY || st == ai.clu.core.llm.LlmStatus.GENERATING) "yes" else st.name.lowercase() },
+            "uptime" to "${(System.currentTimeMillis() - app.startedAt) / 1000} s")
+        val memory = "PSS ${mi.totalPss / 1024} MB (native ${mi.nativePss / 1024} MB), Java heap ${(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1_048_576} MB"
+        val report = ai.clu.core.diag.PerfReport.build(version, device, conditions, memory, core.diag.perfSummary(), System.currentTimeMillis())
+        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Clu performance report", report))
+        runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, report)
+            .putExtra(Intent.EXTRA_SUBJECT, "Clu performance report"), "Share performance report")) }
+        toast("Report copied to the clipboard.")
     }
 
     private fun runSelfTests() = scope.launch {

@@ -55,7 +55,7 @@ class ChatTurns(private val agent: CluAgent, private val scope: CoroutineScope) 
                 add(seq, AgentEvent.Error("Something went wrong: ${e.message ?: e::class.simpleName}"))
             } finally {
                 reply?.finish()
-                _state.update { if (it.seq == seq) it.copy(streaming = null) else it }
+                _state.update { if (it.seq == seq) it.copy(streaming = null, status = null) else it }
             }
         }
         return true

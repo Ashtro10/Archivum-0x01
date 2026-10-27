@@ -27,11 +27,13 @@ interface HttpFetcher {
     suspend fun postJson(url: String, json: String, headers: Map<String, String> = emptyMap()): HttpResponse
 
     /**
-     * Fetches one web page for reading: does NOT follow redirects (a 3xx comes back with its `location` header so the
-     * caller can re-check robots.txt and the address), gives up after [timeoutMs] per connect/read, and reads at most
-     * [maxBytes] of the body.
+     * Fetches one web page for reading **from the already validated IP [address]** (no DNS lookup of its own, so the
+     * checked address is the one used): does NOT follow redirects (a 3xx comes back with its `location` header so the
+     * caller can re-validate the next hop), gives up after [timeoutMs] per connect/read, reads at most [maxBytes].
+     * HTTPS keeps certificate and host-name verification. A platform without a pinned implementation can't read pages.
      */
-    suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int): HttpResponse = get(url, headers)
+    suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int, address: String): HttpResponse =
+        throw UnsupportedOperationException("page reading needs a pinned HTTP client on this platform")
 
     /** The addresses [host] resolves to (for refusing names that point into the local network), or null if unknown. */
     suspend fun resolve(host: String): List<String>? = null

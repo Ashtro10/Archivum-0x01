@@ -19,11 +19,19 @@
 4. **Community NDK sysroot and unpinned model hashes** (see SECURITY_REVIEW.md §8): to be replaced or pinned once
    `dl.google.com` / `huggingface.co` are reachable.
 
+## Stage 3.1 status (1.5.2)
+
+* Still **no device and no live provider** reachable from the build environment; real-device acceptance is pending (DEVICE_ACCEPTANCE.md).
+* DNS rebinding between check and connection is now **closed for page reading and robots.txt** (connections are pinned to the
+  validated address). Search-provider calls use the platform client (fixed provider hosts, or your own SearXNG).
+* Pages on internationalised (non-ASCII) host names are refused; page reads ignore an Android global HTTP proxy.
+* Requests carrying an API key or token don't follow redirects (reported as an HTTP error instead).
+
 ## Stage 3 status (1.5.1)
 
 * Still **no device and no live provider** were reachable (no adb/KVM; network policy denies the provider hosts). See STAGE3_RELIABILITY.md §5.
-* DNS rebinding with zero-TTL answers between the check and the connection is not closed (no address pinning).
-* After Stop, an in-flight request finishes in the background up to its socket timeout; nothing new starts.
+* ~~DNS rebinding between check and connection~~ — closed in 1.5.2 for page reading (pinned connections).
+* After Stop, an in-flight provider request finishes in the background up to its socket timeout; nothing new starts (page reads close their socket immediately since 1.5.2).
 * Memories synced to a device with *Persistent memory* off are refused and not re-sent automatically when memory is turned on.
 
 ## Stage 2 limitations (1.5.0)

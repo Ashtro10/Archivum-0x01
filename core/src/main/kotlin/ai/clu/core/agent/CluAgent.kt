@@ -481,7 +481,9 @@ class CluAgent(
         val selectMs = (System.nanoTime() - tSelect) / 1_000_000
         trace.record(turn.trace, TurnEvent.MODEL_READY, "${engine.source} ${selectMs}ms")
         val canReadMemory = auth.decide(req.actor, Sensitivity.PERSONAL) == AuthDecision.Allow
+        val tMem = System.nanoTime()
         val mems = if (canReadMemory) retriever.retrieve(req.text, persona.readableScopes) else emptyList()
+        if (canReadMemory) diag?.perf("memory_retrieval_ms", (System.nanoTime() - tMem) / 1e6)
         val toolList = toolsFor(persona, req.text)
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
             viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList())
@@ -601,7 +603,9 @@ class CluAgent(
         // An empty reply (immediate end-of-generation, or only a malformed tool call) is an error with Retry, not "…".
         if (emptyOutput) emit(AgentEvent.Error("My model returned an empty reply. Please try again or rephrase.", kind = "empty"))
         val source = when { usedTools.contains("external.ai") -> "external"; else -> engine.source }
-        val meta = baseMeta.copy(source = source, engine = engine.id, tools = usedTools.distinct(), interrupted = turn.signal.isCancelled, sources = sources,
+        // A reply that was stopped before any words claims no sources (nothing was answered from them).
+        val meta = baseMeta.copy(source = source, engine = engine.id, tools = usedTools.distinct(), interrupted = turn.signal.isCancelled,
+            sources = if (finalText.isBlank() || finalText == prefix?.trim()) emptyList() else sources,
             error = when { timedOut -> "timeout"; emptyOutput -> "empty_output"; else -> baseMeta.error },
             stats = baseMeta.stats + mapOf("prompt_ms" to stats.promptMs, "first_token_ms" to stats.firstTokenMs, "gen_ms" to stats.generateMs,
                 "tokens" to stats.generatedTokens.toDouble(), "tok_per_s" to stats.tokensPerSecond, "reused_tokens" to stats.reusedTokens.toDouble(),

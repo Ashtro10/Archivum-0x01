@@ -243,3 +243,29 @@ tests needing model files, OfflineConversationTest — run in the namespace and 
 `:app:apiCheck` 905 classes on API 33, `:app:icuRegexCheck` 191 patterns 0 rejected, `:app:verifyApk` 376 JNI symbols — pass.
 APK scan: no credentials in dex/resources/assets (only secret-store key names).
 **Not run:** anything on a phone or tablet; live providers; two physical devices syncing.
+
+## Stage 3.1: security audit and release stabilisation (1.5.2, 2026-10-27)
+
+**Not available:** an Android device or emulator (no adb/KVM) and live providers (network policy denies the provider
+hosts). Results by kind — none of these stands in for another:
+
+| Kind | Suites (new or changed) | Result |
+|---|---|---|
+| Host integration (real TCP/TLS on loopback / the machine's own address) | `PinnedFetchTest` (9): pinned connection and Host header; non-public address, credentials, header injection refused; bounded/chunked bodies, unfollowed redirects, malformed responses, slow-drip deadline; HTTPS trusted/wrong-host/untrusted/platform-verifier/SNI; DNS change between check and connect; mixed answers; fail-safe without resolver or pinned client; robots.txt through the protected path; 39 non-public spellings + 18 unsafe URLs refused; proxy bypass (with control); cancel closes the socket. `SyncIntegrityTest`, `SyncStage2Test` (unchanged) | pass |
+| JVM unit/behaviour (mocked HTTP) | `CancellationRaceTest` (4, run 5× clean): supersede, 25 random-moment cancels, chat idle after Stop, failing turn leaves no loading state. `PerfReportTest` (1). `Stage3AuditTest`, `ResearchTest`, `TaskPlanTest` (unchanged, rerun) | pass |
+| Robolectric (Android framework code) | `Stage31LifecycleTest` (2): background/foreground ×3 and recreation without duplicates, re-sends or stuck loading; Diagnostics units, "not measured yet", shareable report. `ProviderRedirectTest` (1): API key not forwarded through a cross-host redirect (JVM HttpURLConnection) | pass |
+| Real Android device | — | **not run** |
+| Live web providers | — | **not run** |
+
+Negative control: with host-name verification disabled in `PinnedHttpClient`, `httpsVerifiesTheCertificateAndHostNameAndSendsSni` failed as expected; the production code was restored and passes.
+
+Commands:
+* `./gradlew test check :app:assembleRelease -Pclu.verify=release -Dclu.serverPython=<venv>/bin/python` → BUILD SUCCESSFUL.
+* `scripts/test_offline.sh <venv>/bin/python <models>` → pass.
+* `for i in 1..5: ./gradlew :core:cleanTest :core:test --tests '*CancellationRaceTest' --tests '*Stage3AuditTest' --tests '*TaskPlanTest'` → 14/14 each run.
+
+Totals 1.5.2: core 363 tests, 0 failures, 8 skipped by default (opt-in: HostBenchmark, PersonaMeasurement,
+Stage2Benchmark, LlmLatencyBenchmark, StreamingSpeechTest#benchmarkPipelineOverhead; two Whisper tests that need model
+files not present here; OfflineConversationTest, which runs only inside the network namespace — passed there); app 56
+tests, 0 failures. Discovery audit: no test class executed fewer tests than it declares. `:app:apiCheck` 915 classes on
+API 33, `:app:icuRegexCheck` 196 patterns 0 rejected, `:app:verifyApk` 376 JNI symbols. APK scan: no credentials.

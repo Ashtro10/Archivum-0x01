@@ -3,6 +3,7 @@ package ai.clu.core.search
 import ai.clu.core.config.Settings
 import ai.clu.core.config.SettingsStore
 import ai.clu.core.tools.HttpFetcher
+import ai.clu.core.tools.HttpResponse
 import ai.clu.core.tools.USER_AGENT
 import ai.clu.core.util.CluJson
 import kotlinx.coroutines.Dispatchers
@@ -201,6 +202,7 @@ object SafeAddress {
         val u = runCatching { URI(url) }.getOrNull() ?: return false
         if (u.scheme?.lowercase() !in setOf("http", "https")) return false
         if (u.userInfo != null) return false
+        if (u.port != -1 && u.port !in 1..65535) return false
         val host = u.host?.lowercase()?.trim('[', ']') ?: return false
         if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan") || !host.contains('.') && !host.contains(':')) return false
         // Numeric hosts must be plain dotted decimal: octal (0300.0250.0.1), hex (0x7f.0.0.1) and short forms (127.1) are refused.
@@ -210,16 +212,37 @@ object SafeAddress {
         return true
     }
 
-    /** True for a public address; false for loopback, private, link-local, CGNAT, multicast, unspecified (IPv4 and IPv6, incl. IPv4-mapped). */
+    /**
+     * True only for a globally routable unicast address. The literal is parsed into bytes (never looked up), so every
+     * spelling of an address is judged the same. Refused: loopback, unspecified, private (RFC 1918), CGNAT, link-local,
+     * IETF/documentation/benchmark ranges, multicast, 240/4 and broadcast; IPv6 loopback/unspecified, unique-local,
+     * link-local, site-local, multicast, documentation, Teredo; and IPv6 forms that carry an IPv4 address (IPv4-mapped,
+     * IPv4-compatible, NAT64 64:ff9b::/96, 6to4 2002::/16) are judged by that embedded IPv4 address.
+     */
     fun publicIp(ip: String): Boolean {
-        val a = ip.lowercase().trim('[', ']').substringBefore('%')
-        strictV4(a)?.let { return publicV4(it) }
-        if (!a.contains(':')) return false
-        val mapped = Regex("^(?:0{0,4}:){0,5}(?:0{0,4}:)?ffff:(\\d+\\.\\d+\\.\\d+\\.\\d+)$").find(a)?.groupValues?.get(1) ?: a.removePrefix("::ffff:").takeIf { strictV4(it) != null }
-        if (mapped != null) return strictV4(mapped)?.let(::publicV4) ?: false
-        val first = a.substringBefore(':').ifEmpty { "0" }
-        return !(a == "::1" || a == "::" || first.startsWith("fc") || first.startsWith("fd") || first.startsWith("fe8") || first.startsWith("fe9") ||
-            first.startsWith("fea") || first.startsWith("feb") || first.startsWith("ff"))
+        val a = ip.trim().trim('[', ']').substringBefore('%')
+        if (strictV4(a) == null && !a.contains(':')) return false // only literals: never trigger a DNS lookup here
+        if (a.contains(':') && !Regex("^[0-9a-fA-F:.]+$").matches(a)) return false
+        val bytes = runCatching { java.net.InetAddress.getByName(a).address }.getOrNull() ?: return false
+        return publicBytes(bytes)
+    }
+
+    private fun publicBytes(b: ByteArray): Boolean {
+        fun u(i: Int) = b[i].toInt() and 0xff
+        if (b.size == 4) return publicV4(listOf(u(0), u(1), u(2), u(3)))
+        if (b.size != 16) return false
+        val first12Zero = (0 until 12).all { u(it) == 0 }
+        val mapped = (0 until 10).all { u(it) == 0 } && u(10) == 0xff && u(11) == 0xff
+        if (first12Zero || mapped) return publicV4(listOf(u(12), u(13), u(14), u(15))) // ::a.b.c.d, ::ffff:a.b.c.d (and ::, ::1 → 0.0.0.x → refused)
+        if (u(0) == 0x00 && u(1) == 0x64 && u(2) == 0xff && u(3) == 0x9b) return publicV4(listOf(u(12), u(13), u(14), u(15))) // NAT64
+        if (u(0) == 0x20 && u(1) == 0x02) return publicV4(listOf(u(2), u(3), u(4), u(5))) // 6to4
+        if (u(0) == 0x20 && u(1) == 0x01 && u(2) == 0x00 && u(3) == 0x00) return false // Teredo (hides an IPv4 address)
+        if (u(0) == 0x20 && u(1) == 0x01 && u(2) == 0x0d && u(3) == 0xb8) return false // documentation
+        if ((u(0) and 0xfe) == 0xfc) return false // unique local fc00::/7
+        if (u(0) == 0xfe && (u(1) and 0xc0) == 0x80) return false // link-local fe80::/10
+        if (u(0) == 0xfe && (u(1) and 0xc0) == 0xc0) return false // site-local fec0::/10
+        if (u(0) == 0xff) return false // multicast
+        return true
     }
 
     private fun strictV4(h: String): List<Int>? {
@@ -229,8 +252,10 @@ object SafeAddress {
     }
 
     private fun publicV4(v: List<Int>): Boolean {
-        val (a, b) = v
-        return !(a == 10 || a == 127 || a == 0 || a >= 224 || (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127))
+        val (a, b, c) = v
+        return !(a == 0 || a == 10 || a == 127 || a >= 224 || (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) ||
+            (a == 100 && b in 64..127) || (a == 192 && b == 0 && (c == 0 || c == 2)) || (a == 198 && (b == 18 || b == 19)) ||
+            (a == 198 && b == 51 && c == 100) || (a == 203 && b == 0 && c == 113) || (a == 192 && b == 88 && c == 99))
     }
 }
 
@@ -281,7 +306,8 @@ object WebContent {
  * Allow/Disallow with longest-match precedence, `*` and `$` wildcards. Unreachable robots.txt (404) allows; a
  * server error or timeout disallows, as the RFC recommends.
  */
-class RobotsPolicy(private val http: HttpFetcher, private val now: () -> Long = System::currentTimeMillis) {
+class RobotsPolicy(http: HttpFetcher, private val now: () -> Long = System::currentTimeMillis) {
+    private val safe = SafeFetch(http)
     private data class Rules(val rules: List<Pair<Boolean, String>>, val fetchedAt: Long)
     private val cache = HashMap<String, Rules>()
 
@@ -293,9 +319,10 @@ class RobotsPolicy(private val http: HttpFetcher, private val now: () -> Long = 
     }
 
     private suspend fun fetch(host: String): Rules {
-        val r = runCatching { withTimeoutOrNull(4000) { http.get("$host/robots.txt", mapOf("User-Agent" to USER_AGENT)) } }.getOrNull()
+        // Through the same validated, pinned path as pages (each redirect re-validated); anything that can't be checked disallows.
+        val (r, refused) = runCatching { safe.get("$host/robots.txt", mapOf("User-Agent" to USER_AGENT), 512 * 1024, 4000, maxRedirects = 3) }.getOrElse { null to "error" }
         val rules = when {
-            r == null || r.code >= 500 -> listOf(false to "/")
+            r == null || refused != null || r.code >= 500 || r.code in 300..399 -> listOf(false to "/")
             r.code in 400..499 -> emptyList()
             else -> parse(r.body)
         }
@@ -336,6 +363,52 @@ class RobotsPolicy(private val http: HttpFetcher, private val now: () -> Long = 
     }
 }
 
+/**
+ * One validated request to the open web (result pages and their robots.txt). Every hop: http(s) only, no credentials,
+ * a well-formed public host name ([SafeAddress]), the name resolved once and *every* answer checked to be public,
+ * then the request goes to that exact checked address ([HttpFetcher.fetchPage] → [PinnedHttpClient]) — the client
+ * never resolves the name again. Returns the response, or the reason it was refused/failed (never throws).
+ */
+class SafeFetch(private val http: HttpFetcher) {
+    /** The checked public addresses of [url]'s host, or why it is refused. */
+    suspend fun validate(url: String): Pair<List<String>?, String?> {
+        if (!SafeAddress.allowed(url)) return null to "not a public web address"
+        val host = runCatching { URI(url).host.trim('[', ']') }.getOrNull() ?: return null to "not a public web address"
+        val literal = host.contains(':') || Regex("^[0-9.]+$").matches(host)
+        val ips = if (literal) listOf(host) else
+            (runCatching { http.resolve(host) }.getOrElse { return null to "the site's address could not be found" } ?: return null to "the site's address could not be checked")
+        if (ips.isEmpty() || ips.any { !SafeAddress.publicIp(it) }) return null to "not a public web address"
+        return ips to null
+    }
+
+    suspend fun hop(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int): Pair<HttpResponse?, String?> {
+        val (ips, refused) = validate(url)
+        if (ips == null) return null to refused
+        val r = withTimeoutOrNull(3L * timeoutMs + 1000) { runCatching { http.fetchPage(url, headers, maxBytes, timeoutMs, ips.first()) } }
+            ?: return null to "the page took too long to load"
+        return r.fold({ it to null }, { e ->
+            null to when (e) {
+                is kotlinx.coroutines.CancellationException -> throw e
+                is javax.net.ssl.SSLException -> "the site's secure connection could not be verified"
+                is java.net.SocketTimeoutException -> "the page took too long to load"
+                else -> "the page could not be loaded"
+            }
+        })
+    }
+
+    /** Follows up to [maxRedirects] redirects, validating every hop. */
+    suspend fun get(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int, maxRedirects: Int): Pair<HttpResponse?, String?> {
+        var current = url
+        repeat(maxRedirects + 1) {
+            val (r, note) = hop(current, headers, maxBytes, timeoutMs)
+            if (r == null || r.code !in 300..399) return r to note
+            val loc = r.headers["location"] ?: return r to null
+            current = runCatching { URI(current).resolve(loc.trim()).toString() }.getOrElse { return null to "invalid redirect" }
+        }
+        return null to "too many redirects"
+    }
+}
+
 /** The outcome of trying to read one result page: [text] when it was read, otherwise [note] says why not. */
 data class PageResult(val text: String?, val note: String?, val published: String? = null)
 
@@ -345,22 +418,17 @@ data class PageResult(val text: String?, val note: String?, val published: Strin
  * at most [MAX_REDIRECTS] redirects (each target re-checked for address and robots.txt). Scripts, styles and
  * navigation are removed. Failures are reported, never thrown.
  */
-class PageReader(private val http: HttpFetcher, private val robots: RobotsPolicy) {
+class PageReader(http: HttpFetcher, private val robots: RobotsPolicy) {
+    private val safe = SafeFetch(http)
     suspend fun excerpt(url: String, query: String, maxChars: Int = 1200): String? = read(url, query, maxChars).text
 
     suspend fun read(url: String, query: String, maxChars: Int = 1200): PageResult {
         var current = url
         repeat(MAX_REDIRECTS + 1) {
-            if (!SafeAddress.allowed(current)) return PageResult(null, "not a public web address")
-            // A public-looking name can still point into the local network (DNS rebinding): check what it resolves to.
-            val host = URI(current).host.trim('[', ']')
-            val ips = runCatching { http.resolve(host) }.getOrElse { return PageResult(null, "the site's address could not be found") }
-            if (ips != null && (ips.isEmpty() || ips.any { !SafeAddress.publicIp(it) })) return PageResult(null, "not a public web address")
+            safe.validate(current).second?.let { return PageResult(null, it) }
             if (!robots.allowed(current)) return PageResult(null, "the site's robots.txt doesn't allow reading it")
-            val r = withTimeoutOrNull(TIMEOUT_MS + 1000L) {
-                runCatching { http.fetchPage(current, mapOf("User-Agent" to USER_AGENT, "Accept" to "text/html,text/plain"), MAX_BYTES, TIMEOUT_MS) }
-            } ?: return PageResult(null, "the page took too long to load")
-            val resp = r.getOrElse { return PageResult(null, "the page could not be loaded") }
+            val (r, refused) = safe.hop(current, mapOf("User-Agent" to USER_AGENT, "Accept" to "text/html,text/plain"), MAX_BYTES, TIMEOUT_MS)
+            val resp = r ?: return PageResult(null, refused ?: "the page could not be loaded")
             if (resp.code in 300..399) {
                 val loc = resp.headers["location"] ?: return PageResult(null, "the page redirected without a target")
                 current = runCatching { URI(current).resolve(loc.trim()).toString() }.getOrElse { return PageResult(null, "the page redirected to an invalid address") }

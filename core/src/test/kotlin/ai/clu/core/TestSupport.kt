@@ -98,9 +98,20 @@ class FakeHttp : HttpFetcher {
         return route(url)
     }
     val postHeaders: MutableList<Map<String, String>> = java.util.Collections.synchronizedList(mutableListOf())
-    /** Host → addresses for [resolve]; hosts not listed resolve to a public test address. */
+    /** Host → addresses for [resolve]; hosts not listed resolve to a public test address. [dnsAnswers] gives successive answers. */
     val dns: MutableMap<String, List<String>> = java.util.concurrent.ConcurrentHashMap()
-    override suspend fun resolve(host: String): List<String> = dns[host] ?: listOf("93.184.216.34")
+    val dnsAnswers: MutableMap<String, ArrayDeque<List<String>>> = java.util.concurrent.ConcurrentHashMap()
+    val resolveCalls: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    override suspend fun resolve(host: String): List<String> {
+        resolveCalls += host
+        return dnsAnswers[host]?.let { q -> synchronized(q) { if (q.size > 1) q.removeFirst() else q.first() } } ?: dns[host] ?: listOf("93.184.216.34")
+    }
+    /** (url, pinned address) of every page fetch: proves the request went to the checked address. */
+    val pinned: MutableList<Pair<String, String>> = java.util.Collections.synchronizedList(mutableListOf())
+    override suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int, address: String): HttpResponse {
+        pinned += url to address
+        return get(url, headers)
+    }
     override suspend fun postJson(url: String, json: String, headers: Map<String, String>): HttpResponse {
         requests += "POST $url $json"
         postHeaders += headers

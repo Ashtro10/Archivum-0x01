@@ -43,6 +43,7 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
 
     fun count(): Long = db.queryOne("SELECT COUNT(*) FROM diag_events") { it.lng(0) } ?: 0
     fun clear() = db.execute("DELETE FROM diag_events")
+    fun clearPerf() = db.execute("DELETE FROM perf_samples")
 
     fun perf(metric: String, value: Double, detail: String = "") {
         db.execute("INSERT INTO perf_samples(ts, metric, value, detail) VALUES(?,?,?,?)", listOf(store.clock.now(), metric, value, detail))

@@ -1,21 +1,61 @@
-# On-device acceptance checklist — v1.5.1-prototype
+# Device acceptance checklist — Clu 1.5.2-prototype
 
-**Status: NOT YET RUN ON ANY DEVICE.** Nothing in this file has been executed on the Xiaomi Pad 6 or the iQOO Neo 9
-Pro. Until a row is filled in from a real device, that behaviour counts as **unverified**, whatever the automated
-tests say ([TEST_REPORT.md](TEST_REPORT.md) explains what they do and do not cover).
+**Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
+check below on a real device, that behaviour is *unverified*.
 
-**How to use it:** do the sections in order on the **Pad 6** first (P = Pad 6), then repeat the starred (★) rows on
-the **Neo 9 Pro** (N), then section M (sync). For each row write **PASS**, **FAIL** (plus what happened), or
-**SKIP** (plus why). A screenshot of Diagnostics after each section helps.
+## Before you start
 
-**Enable diagnostics first:** ⋮ → Settings → Developer & diagnostics → **Developer diagnostics** ON and **Show
-timings under replies** ON. ⋮ → **Diagnostics** then shows the log, measured timings and *Run self-tests on this
-device*.
+* **Devices:** do everything on the **Xiaomi Pad 6** first. Then repeat the checks marked ★ on the **iQOO Neo 9 Pro**.
+  Checks 13–14 need both devices.
+* **Opening the menu:** tap **☰** at the top of the chat screen. "Settings" and "Diagnostics" below are reached from there.
+* **Turn on measurements once:** ☰ → Settings → **All settings (advanced)** → *Developer & diagnostics* → **Developer diagnostics: On**.
+* **How to record each check:** write ✅ (worked), ❌ (didn't), or ➖ (skipped, and why).
+* **The three things to collect when something fails.** You never need a computer, a cable or a command line.
+  1. **A screenshot** of the screen showing the problem.
+  2. **The performance report:** ☰ → Settings → Diagnostics → **Share performance report**. It is also copied to the clipboard, so you can paste it.
+  3. **If Clu crashed:** reopen Clu. A crash screen appears with **Copy** / **Share**. Send that text.
 
-**Recording results:** copy the table rows into a note or reply with them. Failed rows become bug reports. Fixing
-them comes before any new feature.
+  None of these contain your messages, memories, diary or keys.
+
+## The checks
+
+| # | What to do | Success looks like | If it fails, collect |
+|---|---|---|---|
+| 1 ★ | **Upgrade.** Install the new APK over the one you have (don't uninstall). Open Clu. | Android says "Update" (not "Install"); Clu opens normally. | Screenshot of the Android message. Crash text if it crashed. |
+| 2 ★ | **Your data is still there.** Open ☰ → Memory, then ☰ → Diary, then ☰ → Conversations. | The same memories, diary entries and conversations as before, nothing doubled. | Screenshots of the screen that looks wrong; how many items you expected vs. see. |
+| 3 ★ | **Typed chat offline.** Turn on airplane mode. Type "Explain photosynthesis in two sentences." | A reply appears; the label under it says on-device. No error. | Screenshot; performance report. |
+| 4 ★ | **Voice chat offline.** Still offline: tap the **⬡** button at the top (voice chat), ask "What's two plus two?" | Clu hears you, answers aloud, and the hexagon shows listening → thinking → speaking. | Screenshot of the voice screen; performance report; what you said and what Clu heard. |
+| 5 ★ | **Interrupt and Stop.** Ask for something long ("Tell me a long story"). While Clu speaks, start talking. Then ask again and press **Stop** while it speaks. | Clu stops speaking at once both times. After Stop, the next question works normally. | Performance report (it records interruption and stop times); a note of how long it kept talking. |
+| 6 ★ | **Microphone permission.** Android Settings → Apps → Clu → Permissions → Microphone → **Don't allow**. Return to Clu, tap voice. Then allow it again and return. | First: a clear message that the microphone is needed (no crash). After allowing: voice works without restarting Clu. | Screenshot of what Clu showed; crash text if any. |
+| 7 ★ | **Background and return.** Mid-conversation, press Home, wait a minute, reopen Clu. Then swipe Clu away from recent apps and open it again. | The conversation is still there; no message appears twice; nothing is stuck on "Thinking…"; the next message works. | Screenshot; performance report. |
+| 8 | **Live search.** Turn airplane mode off. Ask "Who is the current CEO of Microsoft?" | "Searching the web…", then an answer with the 🔎 label and numbered source cards. Each card says "Page read" or "Snippet only (why)" and when it was retrieved. Tapping a card opens the page. | Screenshot of the answer and cards; the question you asked. |
+| 9 | **Search problems.** (a) Ask a research question and press **Stop** while it says "Searching the web…". (b) Turn airplane mode on and ask "What's the latest Android version?" | (a) It stops immediately, no answer or sources appear afterwards, and the next question works. (b) Clu says it couldn't search and why, then gives an answer marked as possibly outdated. | Screenshots; performance report. |
+| 10 ★ | **Memory.** Say or type "Remember that my favourite tea is masala chai." Close and reopen Clu, ask "What's my favourite tea?" Then in ☰ → Memory edit that memory to "green tea", ask again, then delete it and ask again. | Remembered after reopening; the edited version is used; after deleting, Clu no longer knows. | Screenshot of the Memory screen and the reply at the step that went wrong. |
+| 11 ★ | **Diary.** ☰ → Diary → New entry: write something, save. Search for a word in it. Edit it, then delete it. Check ☰ → Memory. | Each step works offline; the entry never appears in Memory unless you tap "Keep as memory". | Screenshot of the step that went wrong. |
+| 12 | **A multi-step request.** "Set a timer for 1 minute, then open the calculator." | A short plan with ✓ or ✗ for each step that matches what actually happened (the timer really runs). | Screenshot of the plan reply. |
+| 13 | **Pair and sync** (both devices on the same Wi-Fi). On both: ☰ → Settings → **Phone & tablet**. Tablet: **Allow pairing**. Phone: **Pair with…** → choose the tablet. Check that the 6-digit codes match and confirm. Add a memory on the phone, tap **Sync now**. | "Paired and synced"; the new memory appears on the tablet. Editing it on the tablet and syncing updates the phone. | Screenshot of the Phone & tablet screen on both devices (the "Last:" line shows the error). |
+| 14 | **Sync file (no Wi-Fi needed).** Phone: Phone & tablet → **Export sync file**, choose a passphrase, save it. Move the file to the tablet (any way). Tablet: **Import sync file**, enter the passphrase. Import the same file again. Then try once with a wrong passphrase. | First import: "N changes applied". Second: "0 changes applied". Wrong passphrase: a clear refusal, nothing changed. | Screenshot of each message. |
+| 15 ★ | **Performance report.** Do the cold-start and return-from-background steps in the table below, then ☰ → Settings → Diagnostics → **Share performance report** and send it. | The report shows the app version, device, and numbers in ms. Anything not tried yet says "not measured yet". | The report itself. |
+
+### Measurements to fill in (from the performance report)
+
+| Measurement | How to produce it | In the report as | Pad 6 | Neo 9 Pro |
+|---|---|---|---|---|
+| Cold start | Swipe Clu away, open it | Cold start (app_create_ms) | | |
+| Return from background | Home, wait 1 minute, reopen | Return from background (resume_to_frame_ms) | | |
+| End of speech → first audio | Check 4 | End of speech → first audio | | |
+| Stop → silence | Check 5 | Stop/interruption → playback silenced | | |
+| Memory use | Right after check 8 | "Memory now: PSS …" | | |
+| Battery | 20 minutes of use, then Android Settings → Battery | (not measured by Clu) | | |
+
+**When you're done:** send the filled tables, the performance reports and any screenshots. Every ❌ becomes a bug to fix
+before anything new is built.
 
 ---
+
+# Appendix — detailed technical checks (optional)
+
+The sections below are the earlier, more detailed test lists, kept for reference.
 
 ## A. Install and first launch
 

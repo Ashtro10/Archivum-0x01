@@ -27,11 +27,16 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+private val CREDENTIAL_HEADER = Regex("(?i)^(authorization|proxy-authorization|cookie|x-subscription-token|x-api-key|api-key)$|token|secret|key")
+
 class AndroidHttp : HttpFetcher {
     private fun open(url: String, headers: Map<String, String>): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000; readTimeout = 30_000
             headers.forEach { (k, v) -> setRequestProperty(k, v) }
+            // A request carrying a credential (API key, token) never follows a redirect: the client would forward the
+            // header to whatever host the redirect names. The redirect is returned as-is (reported as an HTTP error).
+            if (headers.keys.any { CREDENTIAL_HEADER.containsMatchIn(it) }) instanceFollowRedirects = false
         }
 
     private fun read(c: HttpURLConnection, maxBytes: Int = 2_000_000): HttpResponse {
@@ -49,10 +54,12 @@ class AndroidHttp : HttpFetcher {
 
     override suspend fun resolve(host: String): List<String> = withContext(Dispatchers.IO) { java.net.InetAddress.getAllByName(host).mapNotNull { it.hostAddress } }
 
-    override suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int) = withContext(Dispatchers.IO) {
-        val c = open(url, headers).apply { connectTimeout = timeoutMs; readTimeout = timeoutMs; instanceFollowRedirects = false }
-        try { read(c, maxBytes) } finally { c.disconnect() }
-    }
+    /** Pages are fetched from the validated address only (no second DNS lookup); TLS keeps the platform's verification. */
+    private val pinned = ai.clu.core.search.PinnedHttpClient(hostnameVerifier = { host, session ->
+        javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier().verify(host, session) })
+
+    override suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int, address: String) =
+        pinned.fetch(url, address, headers, maxBytes, timeoutMs)
 
     override suspend fun get(url: String, headers: Map<String, String>) = withContext(Dispatchers.IO) {
         val c = open(url, headers); try { read(c) } finally { c.disconnect() }

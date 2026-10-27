@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.5.1)_
+_Last updated: 2026-10-27 (v1.5.2)_
 
 ## Current state
 
@@ -12,10 +12,21 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 402 total (core 349, app 53): 394 passed, 0 failed, 8 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
+| Automated tests (JVM / Robolectric / host engines) | 419 total (core 363, app 56): 411 passed, 0 failed, 8 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-27: Stage 3.1 — security audit and release stabilisation (v1.5.2, versionCode 9)
+
+Details: [docs/STAGE3_RELIABILITY.md](docs/STAGE3_RELIABILITY.md) (Stage 3.1 section). **Real-device acceptance is pending**
+([docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md), now 15 plain-language checks); live providers unreachable here.
+* Security: page reads and robots.txt connect only to the validated address (pinned HTTP/1.1 client, TLS SNI and
+  certificate/host-name verification kept, no proxy, no reuse); robots.txt no longer bypasses the address checks; wider
+  address policy (NAT64, 6to4, Teredo, reserved ranges, ports); cancelled page reads close their socket; API keys never
+  follow a redirect to another host.
+* Cancellation: no sources on an empty interrupted reply; no stale status line after an abnormal end.
+* Diagnostics: performance list with units and "not measured yet", shareable report (version, device, timestamp, no private data).
 
 ## 2026-10-27: Stage 3 — reliability audit (v1.5.1, versionCode 8)
 

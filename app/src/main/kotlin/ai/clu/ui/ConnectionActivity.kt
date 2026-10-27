@@ -129,6 +129,6 @@ class ConnectionActivity : BaseActivity() {
     private fun engineCard(parent: LinearLayout, title: String, desc: String, selected: Boolean, onPick: () -> Unit) = parent.card {
         p((if (selected) "◉  " else "○  ") + title, if (selected) C.ACCENT else C.TEXT, 16f)
         p(desc, C.MUTED, 12f)
-        setOnClickListener { onPick() }
+        tappable(onPick)
     }
 }

@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.5.2-prototype
+# Device acceptance checklist — Clu 1.5.3-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -21,6 +21,9 @@ check below on a real device, that behaviour is *unverified*.
 
 | # | What to do | Success looks like | If it fails, collect |
 |---|---|---|---|
+| 0a ★ | **(1.5.3) Settings buttons respond.** ☰ → Settings. Tap each entry **on its title text**: Connection, Conversation, Memory & diary, Search & internet, Phone & tablet, **Diagnostics**. Go back after each. | Every entry opens its screen on the first tap, and you see a brief touch highlight. | Which entry didn't open, and where on it you tapped. |
+| 0b ★ | **(1.5.3) Voice screen.** Tap ⬡. Look at the hexagon; tap the 🔊, 🎤 and ⌨ buttons. | Two glowing blue angular eyes inside the hexagon, **no text inside it**. The state word appears below the hexagon. Each button responds. | Screenshot of the voice screen. |
+| 0c | **(1.5.3) Eyes follow Clu's state.** Speak to Clu (🎤) and let it answer. | Listening: the eyes brighten with your voice. Thinking: light runs along the lines beside the eyes. Speaking: the eyes pulse. Airplane mode in server mode: eyes go dark. | Screenshot of the state that looked wrong. |
 | 1 ★ | **Upgrade.** Install the new APK over the one you have (don't uninstall). Open Clu. | Android says "Update" (not "Install"); Clu opens normally. | Screenshot of the Android message. Crash text if it crashed. |
 | 2 ★ | **Your data is still there.** Open ☰ → Memory, then ☰ → Diary, then ☰ → Conversations. | The same memories, diary entries and conversations as before, nothing doubled. | Screenshots of the screen that looks wrong; how many items you expected vs. see. |
 | 3 ★ | **Typed chat offline.** Turn on airplane mode. Type "Explain photosynthesis in two sentences." | A reply appears; the label under it says on-device. No error. | Screenshot; performance report. |

@@ -78,16 +78,16 @@ class VoiceChatActivity : BaseActivity() {
         top.addView(iconButton("✕", "End voice session") { app.engine.end(); finish() }, LinearLayout.LayoutParams(dp(48), dp(48)))
         root.addView(top)
 
-        // Centre: the HUD with the state in its dark interior.
+        // Centre: the HUD (Clu's eyes; no text inside). The state is written on one line just below it.
         val stage = FrameLayout(this)
         hud = HexHudView(this)
         stage.addView(hud, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-        val inner = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
-        phaseLabel = TextView(this).apply { textSize = 15f; setTextColor(C.ACCENT); typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); letterSpacing = 0.35f; gravity = Gravity.CENTER }
-        timerLabel = TextView(this).apply { textSize = 12f; setTextColor(C.MUTED); typeface = Typeface.MONOSPACE; gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) }
-        inner.addView(phaseLabel); inner.addView(timerLabel)
-        stage.addView(inner, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         root.addView(stage, LinearLayout.LayoutParams(-1, 0, 1.25f).apply { setMargins(dp(16), 0, dp(16), 0) })
+        val status = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(2), 0, dp(2)) }
+        phaseLabel = TextView(this).apply { textSize = 14f; setTextColor(C.ACCENT); typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); letterSpacing = 0.35f; gravity = Gravity.CENTER }
+        timerLabel = TextView(this).apply { textSize = 12f; setTextColor(C.MUTED); typeface = Typeface.MONOSPACE; gravity = Gravity.CENTER; setPadding(dp(12), 0, 0, 0) }
+        status.addView(phaseLabel); status.addView(timerLabel)
+        root.addView(status, LinearLayout.LayoutParams(-1, -2))
 
         // Live words: what Clu heard, and what Clu is saying.
         val words = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(28), dp(4), dp(28), dp(4)) }
@@ -158,6 +158,7 @@ class VoiceChatActivity : BaseActivity() {
             }
         }
         phaseLabel.setTextColor(if (hud.mode == HexHudView.Mode.OFFLINE) C.ERROR else C.ACCENT)
+        hud.contentDescription = "Clu: " + phaseLabel.text.toString().lowercase()
         youText.text = s.userLive.ifBlank { lastMessage(true) }
         cluText.text = s.agentLive.ifBlank { lastMessage(false) }
         errorText.text = s.error ?: if (s.server && s.link == Link.RECONNECTING && s.reconnectAttempt > 0) "Reconnecting (attempt ${s.reconnectAttempt})…" else ""

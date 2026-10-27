@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.5.2)_
+_Last updated: 2026-10-27 (v1.5.3)_
 
 ## Current state
 
@@ -12,10 +12,17 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 419 total (core 363, app 56): 411 passed, 0 failed, 8 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
+| Automated tests (JVM / Robolectric / host engines) | 425 total (core 363, app 62): 417 passed, 0 failed, 8 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-27: Stage 3.2 — unresponsive buttons fixed, hexagon HUD redesigned (v1.5.3, versionCode 10)
+
+Details: [docs/STAGE3_2_UI.md](docs/STAGE3_2_UI.md). Settings entries (incl. Diagnostics) and the Connection engine
+cards ignored taps on their text (selectable text swallowed the touch); fixed and covered by real touch-dispatch tests.
+The hexagon has no text inside any more and shows two angular, icy-blue technological eyes that follow Clu's real voice
+state. **Not yet tested on a device.**
 
 ## 2026-10-27: Stage 3.1 — security audit and release stabilisation (v1.5.2, versionCode 9)
 

@@ -188,6 +188,26 @@ fun LinearLayout.smallButton(t: String, onClick: () -> Unit): Button = Button(co
     setPadding(context.dp(10), 0, context.dp(10), 0); setOnClickListener { onClick() }
 }.also { addView(it, LinearLayout.LayoutParams(-2, context.dp(38)).apply { marginEnd = context.dp(6); topMargin = context.dp(4) }) }
 
+/**
+ * Makes a container (e.g. a [card] of [p] lines) one tappable control. [p] text is selectable, and a selectable
+ * TextView is clickable, so it consumed every tap on the text and the container's listener never ran (taps only worked
+ * on the padding). Here the text stops taking touches, the whole area is a ≥48 dp target with touch feedback, and
+ * accessibility services announce it as one button.
+ */
+fun LinearLayout.tappable(onClick: () -> Unit): LinearLayout = apply {
+    fun release(v: View) {
+        if (v is TextView) { v.setTextIsSelectable(false); v.isClickable = false; v.isLongClickable = false; v.isFocusable = false }
+        if (v is ViewGroup) for (i in 0 until v.childCount) release(v.getChildAt(i))
+    }
+    for (i in 0 until childCount) release(getChildAt(i))
+    isClickable = true; isFocusable = true
+    minimumHeight = context.dp(48)
+    foreground = android.util.TypedValue().let { tv ->
+        if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) context.getDrawable(tv.resourceId) else null }
+    contentDescription = (0 until childCount).mapNotNull { (getChildAt(it) as? TextView)?.text?.toString() }.joinToString(". ")
+    setOnClickListener { onClick() }
+}
+
 fun LinearLayout.card(build: LinearLayout.() -> Unit): LinearLayout = LinearLayout(context).apply {
     orientation = LinearLayout.VERTICAL; background = roundBg(C.SURFACE, 36f, C.BORDER); setPadding(context.dp(14), context.dp(10), context.dp(14), context.dp(10)); build()
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = context.dp(8) }) }

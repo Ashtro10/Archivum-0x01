@@ -22,7 +22,7 @@ class SettingsActivity : BaseActivity() {
     private fun simple() = screen("Settings") {
         fun section(title: String, desc: String, open: () -> Unit) = card {
             p(title, C.TEXT, 16f); p(desc, C.MUTED, 12f)
-            setOnClickListener { open() }
+            tappable(open)
         }
         section("Connection", "Who answers: Clu's server (LiveKit agent) or this device, and the server details.") { startActivity(Intent(this@SettingsActivity, ConnectionActivity::class.java)) }
         section(SimpleSettings.CONVERSATION.title, SimpleSettings.CONVERSATION.description) {

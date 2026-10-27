@@ -269,3 +269,19 @@ Stage2Benchmark, LlmLatencyBenchmark, StreamingSpeechTest#benchmarkPipelineOverh
 files not present here; OfflineConversationTest, which runs only inside the network namespace — passed there); app 56
 tests, 0 failures. Discovery audit: no test class executed fewer tests than it declares. `:app:apiCheck` 915 classes on
 API 33, `:app:icuRegexCheck` 196 patterns 0 rejected, `:app:verifyApk` 376 JNI symbols. APK scan: no credentials.
+
+## Stage 3.2: unresponsive buttons and hexagon HUD (1.5.3, 2026-10-27)
+
+**No device available** — Robolectric (Android framework code) and JVM only; physical taps are not verified.
+
+| Kind | Suite | Result |
+|---|---|---|
+| Robolectric, real touch dispatch (MotionEvent DOWN/UP through the window) | `TouchDispatchTest` (6): Settings sections open on a tap on their text (negative control: fails with the old listener); ☰/⬡/Send respond before and after a reply and backgrounding; no full-screen clickable overlay; HUD not clickable and a tap on it blocks nothing; speaker/keyboard buttons work; Connection engine card selects on tap; voice main button starts the voice pipeline; the HUD draws no text in the frame or any state (negative control: the old HUD's six labels are caught) | pass |
+
+Commands:
+* `./gradlew test check :app:assembleRelease -Pclu.verify=release -Dclu.serverPython=<venv>/bin/python` → BUILD SUCCESSFUL (core tests came from Gradle's cache for unchanged core sources, so they were then rerun fresh with `./gradlew :core:test --rerun` → 363 tests, 0 failures).
+* `scripts/test_offline.sh <venv>/bin/python <models>` → pass.
+
+Totals 1.5.3: core 363 tests (0 failures, 8 skipped by default — the same opt-in set as 1.5.2), app 62 tests (0 failures);
+no class executed fewer tests than it declares. `:app:apiCheck` 915 classes, `:app:icuRegexCheck` 196 patterns 0 rejected,
+`:app:verifyApk` 376 JNI symbols. APK scan: no credentials or test data.

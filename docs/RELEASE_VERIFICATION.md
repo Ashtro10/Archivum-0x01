@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,215,247 bytes | `stat` |
-| SHA-256 | `b16e956cc4f0d99a7016fee0acc722c502ea805b49650204a38a676107c0efc9` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,219,343 bytes | `stat` |
+| SHA-256 | `a7ad52af775aa2c8edd87435a5e08d8ab2bf988cfc3051a4f150066b365d4cf8` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.5.3-prototype` (versionCode 10; installs as an update over versionCodes 1–9, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.2 in commit `d3804d4`, 1.5.1 in `d2ff358`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
+| Version | `1.5.4-prototype` (versionCode 11; installs as an update over versionCodes 1–10, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.3 in commit `be85d72`, 1.5.2 in `d3804d4`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -42,7 +42,7 @@ repository.
 | Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
 | Static API check | 793 classes (app, core), every platform reference exists at API 33. The prebuilt LiveKit SDK is not part of this check: it is built by LiveKit for minSdk 21 | `:app:apiCheck` |
-| APK structure check | 25 manifest components exist; 376 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
+| APK structure check | 27 manifest components exist; 377 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
 
 **Check the download on the tablet (optional):** the file size should be 85,100,556 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
@@ -55,7 +55,7 @@ value above.
 
 | Library | Size | SHA-256 | Dynamic dependencies (`readelf -d` NEEDED) | LOAD alignment |
 |---|---|---|---|---|
-| `libclu_llama.so` (llama.cpp + JNI, built here) | 6.3 MB | `2f208149a8b9fe51f91d88b69ec32055a16bdcaaa3f4b90e3b05ff41e7eee690` | liblog, libdl, libm, libc | 16 KB |
+| `libclu_llama.so` (llama.cpp + JNI, built here) | 6.3 MB | `5334a89a057d1c9aef84070006c550db643aa689d75d153c3761950ac7d759a6` | liblog, libdl, libm, libc | 16 KB |
 | `libclu_whisper.so` (whisper.cpp 231638a0 + JNI, built here; only JNI symbols exported) | 1.6 MB | `70a65e42a1dfd8bd2c526c16de6a4250a58d8cae727cf0fbf68bfd16a32a7ad6` | liblog, libdl, libm, libc | 16 KB |
 | `libsherpa-onnx-jni.so` (prebuilt, sherpa-onnx 1.13.8) | 4.8 MB | `3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f` | libandroid, liblog, libonnxruntime, libm, libdl, libc | 16 KB |
 | `libonnxruntime.so` (prebuilt, from the same archive) | 22.2 MB | `33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1` | libdl, liblog, libm, libc | 16 KB |

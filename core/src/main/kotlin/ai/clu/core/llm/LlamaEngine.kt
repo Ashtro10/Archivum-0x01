@@ -31,6 +31,7 @@ object LlamaBridge {
     @JvmStatic external fun nativeFreeSession(session: Long)
     @JvmStatic external fun nativeCancel(session: Long)
     @JvmStatic external fun nativeResetSession(session: Long)
+    @JvmStatic external fun nativeSetThreads(session: Long, nThreads: Int, nThreadsBatch: Int)
     @JvmStatic external fun nativeApplyTemplate(model: Long, templateOverride: String?, roles: Array<String>, contents: Array<ByteArray>, addAssistant: Boolean): ByteArray?
     @JvmStatic external fun nativeCountTokens(model: Long, text: ByteArray): Int
     @JvmStatic external fun nativeContextSize(session: Long): Int
@@ -92,8 +93,14 @@ class LlamaEngine private constructor(
         signal.onCancel { cancel() }.use { return generateLocked(messages, params, signal, onText) }
     }
 
+    private var decodeThreads = config.threads
+
     private fun generateLocked(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult {
         if (signal.isCancelled) return cancelledResult(source)
+        // The prompt is always read with every configured thread (speech is not running yet); only token-by-token
+        // generation leaves cores to a synthesiser that runs alongside it (GenParams.reserveThreads).
+        val want = decodeThreadsFor(config.threads, params.reserveThreads)
+        if (want != decodeThreads) { LlamaBridge.nativeSetThreads(session, want, config.threads); decodeThreads = want }
         val prompt = format(messages)
         val utf8 = Utf8Stream()
         val stops = StopSequenceFilter(params.stop)
@@ -123,6 +130,9 @@ class LlamaEngine private constructor(
     }
 
     companion object {
+        /** Decode threads with [reserve] cores left free, never below 2 (or the configured count if that is lower). */
+        fun decodeThreadsFor(configured: Int, reserve: Int): Int = if (reserve <= 0) configured else maxOf(minOf(configured, 2), configured - reserve)
+
         private val lenientJson = Json { ignoreUnknownKeys = true }
 
         /** Loads a GGUF model. Throws [LlmException] with llama.cpp's diagnostics on failure. */

@@ -73,8 +73,12 @@ class LlmService(
 
     init { refreshNoModelState() }
 
-    /** Starts background behaviour: reload on config change, idle unloading, optional preload. */
-    fun start() {
+    /**
+     * Starts background behaviour: reload on config change, idle unloading, optional preload. [preload] = false leaves
+     * the load to [prepare] (the app calls it when a screen is visible or voice starts): a process started in the
+     * background loaded the model while Android was freezing it (loads "taking" up to an hour) and held its memory.
+     */
+    fun start(preload: Boolean = true) {
         refreshNoModelState()
         scope.launch {
             settings.observeAny(reloadKeys).drop(1).collect {
@@ -93,12 +97,29 @@ class LlmService(
                 checkIdle()
             }
         }
-        if (settings.bool(Settings.LOAD_ON_START)) scope.launch { loadIfNeeded() }
+        if (preload && settings.bool(Settings.LOAD_ON_START)) scope.launch { loadIfNeeded() }
     }
+
+    /**
+     * The owner is about to use Clu (a screen became visible, voice started): counts as use for the idle timer and, if
+     * the model is set to load at start, loads it now so the first reply doesn't wait for it.
+     */
+    fun prepare() {
+        lastUsed = now()
+        val st = _state.value.status
+        if (settings.bool(Settings.LOAD_ON_START) && engine == null && st != LlmStatus.LOADING && st != LlmStatus.ERROR &&
+            settings.string(Settings.MODEL_ACTIVE).isNotEmpty()) scope.launch { loadIfNeeded() }
+    }
+
+    @Volatile private var lastIdleCheck = 0L
 
     fun checkIdle() {
         val mins = settings.int(Settings.AUTO_UNLOAD)
-        if (mins > 0 && engine != null && _state.value.status == LlmStatus.READY && now() - lastUsed > mins * 60_000L) {
+        // A check that comes much later than its 30 s period means the process was frozen or asleep: it is waking up,
+        // usually because the owner is coming back. Skip that round instead of unloading the model they are about to use.
+        val t = now(); val gap = t - lastIdleCheck; lastIdleCheck = t
+        if (gap > IDLE_CHECK_MAX_GAP_MS) return
+        if (mins > 0 && engine != null && _state.value.status == LlmStatus.READY && t - lastUsed > mins * 60_000L) {
             diag?.i("llm", "idle for $mins min – unloading")
             runBlocking { unload() }
         }
@@ -160,14 +181,15 @@ class LlmService(
             return null
         }
         _state.value = LlmState(LlmStatus.LOADING, entry.id, entry.name, "Loading ${entry.name}…")
-        val t0 = now()
+        val t0 = System.nanoTime()
+        val visible = diag?.visibilityMark() ?: 0
         return try {
             if (!nativeReady) { platform.loadNativeLibrary(); nativeReady = true }
             val e = LlamaEngine.load(entry.id, entry.path, cfg)
             engine = e
             lastUsed = now()
-            val ms = now() - t0
-            diag?.perf("model_load_ms", ms.toDouble(), entry.name)
+            val ms = (System.nanoTime() - t0) / 1_000_000
+            diag?.perfSpan("model_load_ms", ms.toDouble(), visible, entry.name)
             diag?.i("llm", "loaded ${entry.name} in ${ms}ms (ctx=${e.config.contextLength}, threads=${cfg.threads})")
             _state.value = LlmState(LlmStatus.READY, entry.id, entry.name, "Ready", ms, e.config.contextLength, ++loadSeq)
             e
@@ -214,11 +236,7 @@ class LlmService(
                         lastUsed = now()
                         registry.get(e.id)?.takeIf { it.status != ModelStatus.VERIFIED && r.stats.generatedTokens > 0 }
                             ?.let { registry.setStatus(it.id, ModelStatus.VERIFIED) }
-                        if (r.stats.stopReason != "cancelled" && params.maxTokens > 0) {
-                            diag?.perf("prompt_ms", r.stats.promptMs)
-                            diag?.perf("first_token_ms", r.stats.firstTokenMs)
-                            diag?.perf("tokens_per_s", r.stats.tokensPerSecond)
-                        }
+                        if (r.stats.stopReason != "cancelled" && params.maxTokens > 0) recordGeneration(r.stats)
                         r
                     } finally {
                         if (_state.value.status == LlmStatus.GENERATING) _state.value = _state.value.copy(status = LlmStatus.READY)
@@ -229,6 +247,23 @@ class LlmService(
     }
 
     fun cancel() { engine?.cancel() }
+
+    /**
+     * Per generation: prompt processing (with how many tokens were new, i.e. not reused from the cache, which decides
+     * its cost) and generation speed. Speeds over fewer than [MIN_RATE_TOKENS] tokens are kept apart ("…_short"):
+     * a 3-token reply's rate is mostly noise.
+     */
+    private fun recordGeneration(st: GenStats) {
+        val d = diag ?: return
+        val fresh = st.promptTokens - st.reusedTokens
+        val detail = "prompt ${st.promptTokens} reused ${st.reusedTokens} generated ${st.generatedTokens}"
+        d.perf("prompt_ms", st.promptMs, detail)
+        d.perf("first_token_ms", st.firstTokenMs, detail)
+        d.perf("prompt_tokens", st.promptTokens.toDouble())
+        d.perf("prompt_new_tokens", fresh.toDouble())
+        if (fresh >= MIN_RATE_TOKENS && st.promptMs > 0) d.perf("prefill_tok_per_s", fresh * 1000.0 / st.promptMs)
+        d.perf(if (st.generatedTokens >= MIN_RATE_TOKENS) "tokens_per_s" else "tokens_per_s_short", st.tokensPerSecond, detail)
+    }
 
     private fun <T> runOnLlm(block: () -> T): T = try {
         thread.submit<T> { block() }.get()
@@ -244,6 +279,11 @@ class LlmService(
         return signal.onCancel { if (!started.get()) f.cancel(false) }.use {
             try { f.get() } catch (e: java.util.concurrent.CancellationException) { cancelled() } catch (e: java.util.concurrent.ExecutionException) { throw e.cause ?: e }
         }
+    }
+
+    private companion object {
+        const val IDLE_CHECK_MAX_GAP_MS = 90_000L
+        const val MIN_RATE_TOKENS = 16
     }
 
     fun shutdown() {

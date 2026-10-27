@@ -50,6 +50,24 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
         db.execute("DELETE FROM perf_samples WHERE id <= (SELECT MAX(id) FROM perf_samples) - 5000")
     }
 
+    /**
+     * Whether the app has a visible screen (the app sets it; true where there is no UI, e.g. tests). A measurement that
+     * spans time with no visible screen is recorded under a separate "…_background_ms" name ([perfSpan]): Android
+     * throttles or freezes such a process, so the time says nothing about how fast Clu is. Kept, never mixed in.
+     */
+    @Volatile var foreground = true
+        private set
+    @Volatile private var hidden = 0L // times the app left the foreground
+
+    fun setForeground(visible: Boolean) { if (!visible && foreground) hidden++; foreground = visible }
+
+    /** Taken when a measurement starts; see [perfSpan]. */
+    fun visibilityMark(): Long = if (foreground) hidden else -1
+
+    /** Records a duration that started at [mark]: under [metric] if the app stayed visible throughout, else as background. */
+    fun perfSpan(metric: String, value: Double, mark: Long, detail: String = "") =
+        perf(if (mark >= 0 && foreground && mark == hidden) metric else classified(metric, "background"), value, detail)
+
     data class PerfSummary(val metric: String, val count: Long, val avg: Double, val min: Double, val max: Double, val last: Double,
                            val p50: Double = 0.0, val p90: Double = 0.0, val p95: Double = 0.0)
 
@@ -78,6 +96,8 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
             val rank = Math.ceil(p / 100.0 * sorted.size).toInt().coerceIn(1, sorted.size)
             return sorted[rank - 1]
         }
+        /** "turn_total_ms" + "cancelled" -> "turn_total_cancelled_ms": samples of one kind kept apart from the others. */
+        fun classified(metric: String, kind: String) = if (metric.endsWith("_ms")) metric.removeSuffix("_ms") + "_${kind}_ms" else "${metric}_$kind"
         fun redact(s: String): String = secretPatterns.fold(s) { acc, (re, rep) -> re.replace(acc, rep) }
     }
 }

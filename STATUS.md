@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.5.3)_
+_Last updated: 2026-10-27 (v1.5.4)_
 
 ## Current state
 
@@ -12,10 +12,19 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 425 total (core 363, app 62): 417 passed, 0 failed, 8 skipped by default (opt-in benchmarks / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
+| Automated tests (JVM / Robolectric / host engines) | 437 total (core 375, app 62): 427 passed, 0 failed, 10 skipped by default (opt-in benchmarks and audits / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-27: Stage 3.3 — voice latency audit and targeted fixes (v1.5.4, versionCode 11)
+
+Details: [docs/STAGE3_3_VOICE_LATENCY.md](docs/STAGE3_3_VOICE_LATENCY.md). From the owner's Neo 9 Pro performance report:
+(1) long conversations lost llama.cpp's prompt cache every turn (history trimmed one message per turn) — now trimmed in
+one step with a stable start; (2) speech synthesis and generation starved each other's CPU — spoken replies now generate
+with 2 cores left free and synthesis uses 2 threads; (3) the model loaded in background processes and could be unloaded
+on waking — now it loads when a screen is visible or voice starts. Diagnostics keep background, stopped, timed-out and
+interrupted samples apart. Host-verified only; **device latency improvement unverified**.
 
 ## 2026-10-27: Stage 3.2 — unresponsive buttons fixed, hexagon HUD redesigned (v1.5.3, versionCode 10)
 

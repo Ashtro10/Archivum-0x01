@@ -42,6 +42,8 @@ data class TurnRequest(
     /** Timings measured before the agent (e.g. speech recognition), recorded with the reply. */
     val preStats: Map<String, Double> = emptyMap(),
     val origin: TurnOrigin = if (viaVoice) TurnOrigin.VOICE else TurnOrigin.TEXT,
+    /** The reply is synthesised on this device while it is generated: generation leaves cores to the synthesiser. */
+    val spokenOnDevice: Boolean = false,
 )
 
 sealed class AgentEvent {
@@ -73,7 +75,7 @@ sealed class AgentEvent {
 data class TurnTimeouts(val firstTokenMs: Long = 120_000, val stallMs: Long = 30_000)
 
 /** One running request: its own cancellation and its lifecycle trace. */
-class Turn internal constructor(val origin: TurnOrigin, val signal: CancelSignal, val trace: RequestTrace.Request) {
+class Turn internal constructor(val origin: TurnOrigin, val signal: CancelSignal, val trace: RequestTrace.Request, internal val visible: Long = 0) {
     /** The reply has been delivered; only optional extra work (alternative reply, diary) is still running. */
     @Volatile var followUp = false
         internal set
@@ -93,6 +95,14 @@ interface InferenceRouter {
  */
 private const val TASK_TOOL = "task.plan"
 private const val TASK_RESUME_MS = 2 * 3_600_000L
+/** When the history overflows the context window, it is cut to this share of the room it has (see fitToContext). */
+private const val HISTORY_TRIM_TARGET = 0.6
+/**
+ * Cores token generation leaves to on-device speech synthesis (which runs on 2 threads) during a spoken reply. With
+ * both on all cores, each stalls the other: measured on the phone, synthesis ran up to 12× slower than its best and
+ * generation dropped to 4 tokens/s; reproduced on the build machine (docs/STAGE3_3_VOICE_LATENCY.md).
+ */
+private const val SPEECH_RESERVED_THREADS = 2
 private val LOOKUP = Regex("(?i)^(?:search|look up|look into|find|research|check|compare)\\b")
 
 class MemoryRetriever(private val settings: SettingsStore, private val memories: MemoryRepository, private val now: () -> Long = System::currentTimeMillis) {
@@ -205,7 +215,7 @@ class CluAgent(
 
     private fun begin(req: TurnRequest): Turn {
         turns.forEach { if (it.followUp || it.origin == req.origin) it.signal.cancel(if (it.followUp) "follow-up dropped" else CancelSignal.SUPERSEDED) }
-        val t = Turn(req.origin, CancelSignal(), trace.begin(req.origin.name.lowercase(), "chars=${req.text.length}"))
+        val t = Turn(req.origin, CancelSignal(), trace.begin(req.origin.name.lowercase(), "chars=${req.text.length}"), diag?.visibilityMark() ?: 0)
         turns += t
         return t
     }
@@ -487,7 +497,8 @@ class CluAgent(
         val toolList = toolsFor(persona, req.text)
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
             viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList())
-        val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"))
+        val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"),
+            reserveThreads = if (req.spokenOnDevice) SPEECH_RESERVED_THREADS else 0)
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)
         val usedTools = baseMeta.tools.toMutableList()
         var usedNetwork = preToolResult?.second?.usedNetwork == true
@@ -514,7 +525,7 @@ class CluAgent(
         while (true) {
             val system = prompt.staticSystem(pctx)
             val convo = if (preToolResult == null) listOf(ChatMessage("user", withContext + req.text)) + extra else extra
-            val msgs = fitToContext(engine, system, history, convo, params.maxTokens)
+            val msgs = fitToContext(engine, system, history, convo, params.maxTokens, req.conversationId)
             val buf = StringBuilder()
             var streaming = false
             var shown = 0
@@ -663,13 +674,24 @@ class CluAgent(
         mems.map { it.memory.bodyForPrompt() + " " + it.memory.title + " " + it.memory.people.joinToString(" ") } + pctx.standingInstructions +
             listOf(settings.string(Settings.OWNER_NAME), settings.string(Settings.OWNER_ADDRESS))
 
-    /** Submit → model ready / first token / end, per request (Diagnostics → Performance). */
+    /**
+     * Submit → model ready / first token / end, per request (Diagnostics → Performance), noted with the request number.
+     * Requests that were stopped, timed out or failed are kept under their own names ("turn_total_cancelled_ms", …), and
+     * any request during which the app was not visible under "…_background_ms", so they don't distort the normal timings.
+     */
     private fun turnMetrics(turn: Turn) {
+        val d = diag ?: return
         val t = turn.trace
-        t.at(TurnEvent.MODEL_READY)?.let { diag?.perf("turn_model_ready_ms", it.toDouble()) }
-        t.at(TurnEvent.GENERATION_STARTED)?.let { diag?.perf("turn_generation_start_ms", it.toDouble()) }
-        t.at(TurnEvent.FIRST_TOKEN)?.let { diag?.perf("turn_first_token_ms", it.toDouble()) }
-        t.terminal?.let { diag?.perf("turn_total_ms", (it.atMs - t.startedAt).toDouble()) }
+        val note = "request #${t.id} ${turn.origin.name.lowercase()}"
+        val outcome = when (t.terminal?.name) {
+            TurnEvent.REQUEST_CANCELLED -> "cancelled"; TurnEvent.REQUEST_TIMEOUT -> "timeout"
+            TurnEvent.INFERENCE_ERROR, TurnEvent.MODEL_INIT_FAILED -> "error"; else -> null
+        }
+        fun rec(metric: String, ms: Long) = d.perfSpan(outcome?.let { DiagnosticsLog.classified(metric, it) } ?: metric, ms.toDouble(), turn.visible, note)
+        t.at(TurnEvent.MODEL_READY)?.let { rec("turn_model_ready_ms", it) }
+        t.at(TurnEvent.GENERATION_STARTED)?.let { rec("turn_generation_start_ms", it) }
+        t.at(TurnEvent.FIRST_TOKEN)?.let { rec("turn_first_token_ms", it) }
+        t.terminal?.let { rec("turn_total_ms", it.atMs - t.startedAt) }
     }
 
     /**
@@ -725,20 +747,39 @@ class CluAgent(
 
     private fun wantsDeepAnalysis(text: String) = Regex("\\b(deep|deeper|in-depth|thorough|detailed) (analysis|research|look)|analy[sz]e (this )?(deeply|thoroughly)", RegexOption.IGNORE_CASE).containsMatchIn(text)
 
-    /** Keeps the newest history that fits the context window together with system prompt and reply budget. */
-    fun fitToContext(engine: LlmEngine, system: String, history: List<Message>, tail: List<ChatMessage>, maxTokens: Int): List<ChatMessage> {
+    /** Per conversation: the first history message kept in the prompt since the window last overflowed. */
+    private val historyStart = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * Keeps the newest history that fits the context window together with system prompt and reply budget.
+     *
+     * When the history no longer fits, the oldest messages are dropped down to [HISTORY_TRIM_TARGET] of its room in one
+     * step, and later turns start from the same message (per [conversationId]) until it overflows again. Dropping one
+     * message per turn instead moved the start of the history every turn, so llama.cpp could reuse only the system
+     * prompt from its cache and re-read the whole history before every reply of a long conversation.
+     */
+    fun fitToContext(engine: LlmEngine, system: String, history: List<Message>, tail: List<ChatMessage>, maxTokens: Int, conversationId: String? = null): List<ChatMessage> {
         val ctxSize = engine.contextSize().takeIf { it > 0 } ?: 2048
         val budget = ctxSize - maxTokens - 32
-        val hist = history.map { ChatMessage(if (it.role == Role.USER) "user" else "assistant", it.content) }.toMutableList()
-        fun est(list: List<ChatMessage>) = list.sumOf { it.content.length / 3 + 8 }
-        val fixed = listOf(ChatMessage("system", system)) + tail
-        while (hist.isNotEmpty() && est(fixed + hist) > budget) hist.removeAt(0)
-        var msgs = listOf(ChatMessage("system", system)) + hist + tail
+        var hist = history
+        // Messages far beyond any window (a token is never more than ~8 characters here) are not worth counting exactly.
+        var chars = hist.sumOf { it.content.length.toLong() }
+        while (hist.size > 1 && chars / 8 > ctxSize) { chars -= hist[0].content.length; hist = hist.drop(1) }
+        conversationId?.let { historyStart[it] }?.let { anchor -> hist.indexOfFirst { it.id == anchor }.takeIf { it > 0 }?.let { hist = hist.drop(it) } }
+        fun build(h: List<Message>) = listOf(ChatMessage("system", system)) + h.map { ChatMessage(if (it.role == Role.USER) "user" else "assistant", it.content) } + tail
+        var msgs = build(hist)
         var exact = engine.countTokens(msgs)
-        while (exact > budget && hist.isNotEmpty()) {
-            hist.removeAt(0)
-            msgs = listOf(ChatMessage("system", system)) + hist + tail
-            exact = engine.countTokens(msgs)
+        if (exact > budget && hist.isNotEmpty()) {
+            // Keep HISTORY_TRIM_TARGET of the room left for history after the instructions and the new message; the rest is
+            // room to grow before the next cut. Exact counts, binary search over where the kept history starts.
+            val room = budget - engine.countTokens(build(emptyList()))
+            val target = budget - room + (room * HISTORY_TRIM_TARGET).toInt()
+            var lo = 0; var hi = hist.size // smallest start whose prompt fits target (hist.size = no history)
+            while (lo < hi) { val mid = (lo + hi) / 2; if (engine.countTokens(build(hist.drop(mid))) <= target) hi = mid else lo = mid + 1 }
+            val h = hist.drop(lo).dropWhile { it.role == Role.ASSISTANT } // the kept history starts with the owner's message
+            msgs = build(h); exact = engine.countTokens(msgs)
+            hist = h
+            conversationId?.let { id -> h.firstOrNull()?.let { historyStart[id] = it.id } ?: historyStart.remove(id) }
         }
         if (exact > budget) {
             // Still too large: shrink the per-message context (memories) first, then the instructions, as a last resort.

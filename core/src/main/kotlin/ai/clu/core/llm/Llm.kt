@@ -19,6 +19,8 @@ data class GenParams(
     val grammar: String? = null,
     /** Generation stops when any of these strings appears (the stop string is not included). */
     val stop: List<String> = emptyList(),
+    /** Cores to leave free while generating token by token (on-device speech runs alongside); 0 = use all configured. */
+    val reserveThreads: Int = 0,
 )
 
 @Serializable

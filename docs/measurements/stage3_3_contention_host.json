@@ -1,0 +1,17 @@
+{
+  "model": "1b-q4km.gguf",
+  "vcpus": 4,
+  "rows": [
+    {"llama_threads": 4, "busy_threads": 0, "tok_per_s": 21.1, "busy_work_per_thread_per_s": 0},
+    {"llama_threads": 4, "busy_threads": 2, "tok_per_s": 1.0, "busy_work_per_thread_per_s": 68996},
+    {"llama_threads": 4, "busy_threads": 4, "tok_per_s": 1.4, "busy_work_per_thread_per_s": 47072},
+    {"llama_threads": 4, "reserve_threads": 2, "busy_threads": 2, "tok_per_s": 12.1, "busy_work_per_thread_per_s": 95848},
+    {"llama_threads": 3, "busy_threads": 0, "tok_per_s": 17.0, "busy_work_per_thread_per_s": 0},
+    {"llama_threads": 3, "busy_threads": 2, "tok_per_s": 7.5, "busy_work_per_thread_per_s": 75067},
+    {"llama_threads": 3, "busy_threads": 4, "tok_per_s": 1.4, "busy_work_per_thread_per_s": 54323},
+    {"llama_threads": 2, "busy_threads": 0, "tok_per_s": 12.2, "busy_work_per_thread_per_s": 0},
+    {"llama_threads": 2, "busy_threads": 2, "tok_per_s": 12.1, "busy_work_per_thread_per_s": 92123},
+    {"llama_threads": 2, "busy_threads": 4, "tok_per_s": 5.4, "busy_work_per_thread_per_s": 61237}
+  ],
+  "environment": "amd64 JVM, 4 vCPU (build container, not a phone); busy threads simulate synthesis workers"
+}

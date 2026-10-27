@@ -81,6 +81,8 @@ class VoiceSession(private val app: CluApp) {
         this.wakeMode = wakeMode
         activatedAt = System.currentTimeMillis()
         running.set(true)
+        core.llm.prepare() // the model loads while the owner speaks, not after
+
         if (cfg.outputRoute == "communication") { app.callAudio.enter(); out.route = "communication"; callAudioHeld = true }
         turn.start(wakeMode)
         if (!wakeMode) onActivated(spokenAck = false)
@@ -171,6 +173,7 @@ class VoiceSession(private val app: CluApp) {
         val utterance = ArrayList<FloatArray>()
         var speechActive = false
         var speechStartAt = 0L
+        var vadOnsetAt = 0L // start of the current unbroken run of voice activity (barge-in timing origin)
         var lastNoisePublish = 0L
         var lastLevelPublish = 0L
         var asrMatchBuffer = ArrayList<FloatArray>()
@@ -297,11 +300,15 @@ class VoiceSession(private val app: CluApp) {
                 }
                 // Barge-in: no wake word needed. The detector ignores Clu's own voice leaking into the microphone (level
                 // relative to the echo floor measured during playback) and needs ~180 ms of real speech.
+                val vadSpeech = vad.isSpeechDetected()
+                vadOnsetAt = if (!vadSpeech) 0L else if (vadOnsetAt == 0L) now else vadOnsetAt
                 if (turn.state == TurnState.SPEAKING && cfg.bargeIn) {
-                    if (bargeIn.onFrame(vad.isSpeechDetected(), AudioMath.dbfs(AudioMath.rms(frame)), FRAME_MS, now)) {
+                    if (bargeIn.onFrame(vadSpeech, AudioMath.dbfs(AudioMath.rms(frame)), FRAME_MS, now)) {
                         for (a in turn.onSpeechStarted()) if (a == TurnAction.StopPlayback) {
                             out.stop(); core.agent.cancel(TurnOrigin.VOICE); agentJob?.cancel()
-                            core.diag.perf("barge_in_detect_ms", (now - speechStartAt).toDouble())
+                            // From the start of the voice activity that triggered it. (It used to be measured from the endpointer's
+                            // speech start, which can be seconds older: echo or an earlier utterance that never ended.)
+                            core.diag.perf("barge_in_detect_ms", (now - (if (vadOnsetAt > 0) vadOnsetAt else now)).toDouble())
                             activatedAt = now - 1000 // the owner's words just before the barge-in decision are wanted
                             asrStream = newAsrStream(0.8)
                             utterance.clear(); utterance += preRoll(0.8)
@@ -450,12 +457,14 @@ class VoiceSession(private val app: CluApp) {
         val reply = if (speak) out.reply(c, timings) { core.agent.cancel(TurnOrigin.VOICE) } else null
         reply?.onFirstAudio = { turn.onSpeakingStarted(); publish() }
         var stats: Map<String, Double> = emptyMap()
+        val note = "voice turn ${voiceTurns.incrementAndGet()}"
         reply?.completion?.invokeOnCompletion {
             replyEndedAt = System.currentTimeMillis()
             val m = timings.metrics()
-            m.forEach { (k, v) -> core.diag.perf(k, v) }
-            if (timings.firstAudio > 0) core.diag.perf("endpoint_to_first_audio_ms", (timings.firstAudio - tEndOfSpeech).toDouble())
-            core.diag.perf("tts_errors", timings.errors.get().toDouble())
+            // An interrupted reply's playback figures (gaps, overlap with generation) describe a cut-off reply: kept apart.
+            m.forEach { (k, v) -> core.diag.perf(if (reply.cancelled && k in PLAYBACK_METRICS) ai.clu.core.diag.DiagnosticsLog.classified(k, "interrupted") else k, v, note) }
+            if (timings.firstAudio > 0) core.diag.perf("endpoint_to_first_audio_ms", (timings.firstAudio - tEndOfSpeech).toDouble(), note)
+            core.diag.perf("tts_errors", timings.errors.get().toDouble(), note)
             publish { it.copy(lastLatency = stats + m) }
             if (!reply.cancelled) onReplyPlayed()
         }
@@ -463,7 +472,8 @@ class VoiceSession(private val app: CluApp) {
             var spokeError = false
             var spokeText = false
             var narrated = false
-            core.agent.respond(TurnRequest(convId, text, actor, viaVoice = true, speakerName = name, preStats = mapOf("asr_ms" to asrMs))).collect { ev ->
+            core.agent.respond(TurnRequest(convId, text, actor, viaVoice = true, speakerName = name, preStats = mapOf("asr_ms" to asrMs),
+                spokenOnDevice = reply != null)).collect { ev ->
                 when (ev) {
                     is AgentEvent.Text -> { spokeText = true; if (c.incremental) reply?.text(ev.delta) }
                     is AgentEvent.ResetText -> {}
@@ -531,6 +541,8 @@ class VoiceSession(private val app: CluApp) {
         } finally { cap.stop(); if (wasRunning) start(wm) }
     }
 
+    private val voiceTurns = java.util.concurrent.atomic.AtomicLong()
+
     private class Transcript(val text: String, val audio: FloatArray, val tEnd: Long, val asrMs: Double, val engine: String, val language: String)
 
     companion object {
@@ -539,6 +551,7 @@ class VoiceSession(private val app: CluApp) {
         const val FRAME_MS = 30
         /** Audio kept from before the VAD fired (VAD onset delay measured at ~0.25-0.45 s; see docs/SPEECH_RECOGNITION.md). */
         const val PRE_ROLL_SEC = 1.0
+        private val PLAYBACK_METRICS = setOf("max_chunk_gap_ms", "audio_started_before_generation_end_ms")
 
     }
 }

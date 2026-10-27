@@ -26,7 +26,9 @@ object PerfReport {
         Metric("memory_retrieval_ms", "Memory retrieval per message", "ms"),
         Metric("model_load_ms", "Language model load", "ms"),
     )
-    private val units = mapOf("tokens_per_s" to "tokens/s", "bench_tok_per_s" to "tokens/s", "tts_rtf" to "× real time", "tts_ms_per_char" to "ms/char", "tts_errors" to "count")
+    private val units = mapOf("tokens_per_s" to "tokens/s", "tokens_per_s_short" to "tokens/s", "prefill_tok_per_s" to "tokens/s",
+        "prompt_tokens" to "tokens", "prompt_new_tokens" to "tokens", "bench_tok_per_s" to "tokens/s", "tts_rtf" to "× real time",
+        "tts_ms_per_char" to "ms/char", "tts_errors" to "count")
 
     fun unitOf(metric: String) = KEY_METRICS.firstOrNull { it.key == metric }?.unit ?: units[metric] ?: if (metric.endsWith("_ms")) "ms" else ""
 
@@ -52,6 +54,8 @@ object PerfReport {
         appendLine("Conditions: " + conditions.entries.joinToString(", ") { "${it.key}=${it.value}" })
         appendLine("Memory now: ${memory ?: "not available"}")
         appendLine("Measurements on this device (p50 = median, p90 = 90th percentile, over the last samples kept):")
+        appendLine("(\"…_background_ms\": the app was not visible during the measurement; \"…_cancelled/_timeout/_error/_interrupted\": " +
+            "stopped, timed-out, failed or interrupted requests. Kept apart from the normal timings, not deleted.)")
         rows(perf).forEach { (k, v) -> appendLine("- $k: $v") }
         appendLine("- Battery: not measured by Clu (see Android Settings → Battery for Clu's share)")
         append("This report contains no messages, memories, diary entries, logs or keys.")

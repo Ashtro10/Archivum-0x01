@@ -36,6 +36,20 @@ class LlamaEngineIntegrationTest {
         assertEquals(1024, engine.contextSize())
     }
 
+    @Test fun reservingThreadsForSpeechChangesOnlyTokenGeneration() {
+        val e = LlamaEngine.load("tiny4", model.absolutePath, LlamaConfig(contextLength = 512, batchSize = 128, threads = 4, useMmap = true))
+        try {
+            val greedy = GenParams(maxTokens = 12, temperature = 0f)
+            val plain = e.generate(chat, greedy) {}.text
+            // Same greedy output with 2 decode threads (cache reused), and again after going back to all threads.
+            assertEquals(plain, e.generate(chat, greedy.copy(reserveThreads = 2)) {}.text)
+            assertEquals(plain, e.generate(chat, greedy) {}.text)
+        } finally { e.release() }
+        assertEquals(3, LlamaEngine.decodeThreadsFor(5, 2)); assertEquals(4, LlamaEngine.decodeThreadsFor(6, 2))
+        assertEquals(2, LlamaEngine.decodeThreadsFor(3, 2)); assertEquals(2, LlamaEngine.decodeThreadsFor(2, 2))
+        assertEquals(1, LlamaEngine.decodeThreadsFor(1, 2)); assertEquals(6, LlamaEngine.decodeThreadsFor(6, 0))
+    }
+
     @Test fun chatTemplateIsApplied() {
         val p = engine.format(chat)
         assertTrue(p.contains("<|im_start|>system\nYou are Clu.<|im_end|>"), p)

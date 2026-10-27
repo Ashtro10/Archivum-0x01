@@ -93,13 +93,34 @@ class CluApp : Application() {
         engine = ai.clu.voice.Engine(this)
         sync = SyncManager(this)
         createChannels()
-        core.startModel()
+        // The model loads when a screen becomes visible or voice starts (LlmService.prepare), not in a process Android
+        // started in the background, which it throttles and freezes.
+        core.diag.setForeground(false)
+        trackVisibility()
+        core.startModel(preload = false)
         sync.start()
         ProactiveScheduler.schedule(this)
         scope.launch { core.settings.values.collect { applyServicePolicy() } }
         core.diag.perf("app_create_ms", (System.currentTimeMillis() - t0).toDouble())
         core.diag.i("app", "started on ${ai.clu.platform.DeviceInfo.summary(this)}")
     }
+
+    private var startedActivities = 0
+
+    /** Any Clu screen visible = foreground (Diagnostics keeps background-spanning timings apart; the model gets ready). */
+    private fun trackVisibility() = registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+        override fun onActivityStarted(a: android.app.Activity) {
+            if (startedActivities++ == 0 && isReady) { core.diag.setForeground(true); core.llm.prepare() }
+        }
+        override fun onActivityStopped(a: android.app.Activity) {
+            if (--startedActivities == 0 && !a.isChangingConfigurations && isReady) core.diag.setForeground(false)
+        }
+        override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+        override fun onActivityResumed(a: android.app.Activity) {}
+        override fun onActivityPaused(a: android.app.Activity) {}
+        override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+        override fun onActivityDestroyed(a: android.app.Activity) {}
+    })
 
     private fun registerAndroidTools() {
         val r = core.toolRegistry

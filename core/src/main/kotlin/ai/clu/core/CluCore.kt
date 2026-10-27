@@ -132,9 +132,12 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     /** Typed chat requests, owned by the app rather than a screen. */
     val chat = ai.clu.core.agent.ChatTurns(agent, warmScope)
 
-    /** Starts the model service and warms the instruction prefix after every model load (see [CluAgent.warmUp]). */
-    fun startModel() {
-        llm.start()
+    /**
+     * Starts the model service and warms the instruction prefix after every model load (see [CluAgent.warmUp]).
+     * [preload] = false: the app loads the model through [LlmService.prepare] once the owner is actually there.
+     */
+    fun startModel(preload: Boolean = true) {
+        llm.start(preload)
         warmScope.launch {
             var warmed = 0L
             llm.state.collect { st ->

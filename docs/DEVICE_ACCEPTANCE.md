@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.5.3-prototype
+# Device acceptance checklist — Clu 1.5.4-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -21,6 +21,8 @@ check below on a real device, that behaviour is *unverified*.
 
 | # | What to do | Success looks like | If it fails, collect |
 |---|---|---|---|
+| 0v ★ | **(1.5.4) Voice speed, fresh numbers.** Neo 9 Pro first. ☰ → Settings → Diagnostics → **Clear measurements**. Then: open ⬡ voice chat; have **one conversation of at least 15 exchanges** (short questions, wait for each answer); include 3 interruptions (speak over Clu early in an answer, mid-answer, and between two sentences); press Stop once; leave Clu for a minute (home screen) and come back for 3 more exchanges. Then **Share performance report**. | The report lists `endpoint_to_first_audio_ms`, `first_tts_to_first_audio_ms`, `turn_first_token_ms`, `prompt_new_tokens`, `prefill_tok_per_s`, `tokens_per_s`. Clu's answers start sooner and play without long pauses compared with 1.5.3. | The performance report (always send it, good or bad); which question felt slow. |
+| 0w | **(1.5.4) Interruptions still work, and only you interrupt.** During 0v: let at least two full answers play without speaking. | Clu never stops itself in the middle of its own answer; your interruptions stop it within about a second. | Which answer stopped by itself; performance report. |
 | 0a ★ | **(1.5.3) Settings buttons respond.** ☰ → Settings. Tap each entry **on its title text**: Connection, Conversation, Memory & diary, Search & internet, Phone & tablet, **Diagnostics**. Go back after each. | Every entry opens its screen on the first tap, and you see a brief touch highlight. | Which entry didn't open, and where on it you tapped. |
 | 0b ★ | **(1.5.3) Voice screen.** Tap ⬡. Look at the hexagon; tap the 🔊, 🎤 and ⌨ buttons. | Two glowing blue angular eyes inside the hexagon, **no text inside it**. The state word appears below the hexagon. Each button responds. | Screenshot of the voice screen. |
 | 0c | **(1.5.3) Eyes follow Clu's state.** Speak to Clu (🎤) and let it answer. | Listening: the eyes brighten with your voice. Thinking: light runs along the lines beside the eyes. Speaking: the eyes pulse. Airplane mode in server mode: eyes go dark. | Screenshot of the state that looked wrong. |

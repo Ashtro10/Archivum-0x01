@@ -209,13 +209,13 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
         val d = packs.dir(p)
         val model = if (p.kind == "tts-kokoro") OfflineTtsModelConfig(
             kokoro = OfflineTtsKokoroModelConfig(model = File(d, "model.onnx").path, voices = File(d, "voices.bin").path,
-                tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path), numThreads = 4)
+                tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path), numThreads = SYNTH_THREADS)
         else if (p.kind == "tts-kitten") OfflineTtsModelConfig(
             kitten = OfflineTtsKittenModelConfig(model = File(d, "model.onnx").path, voices = File(d, "voices.bin").path,
-                tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path), numThreads = 4)
+                tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path), numThreads = SYNTH_THREADS)
         else OfflineTtsModelConfig(
             vits = OfflineTtsVitsModelConfig(model = File(d, "model.onnx").path, tokens = File(d, "tokens.txt").path, dataDir = File(d, "espeak-ng-data").path),
-            numThreads = 2)
+            numThreads = SYNTH_THREADS)
         while (sherpaTts.size >= 2) sherpaTts.remove(sherpaTts.keys.first())?.release()
         return OfflineTts(null, OfflineTtsConfig(model = model, maxNumSentences = 1)).also { sherpaTts[packId] = it }
     }
@@ -232,5 +232,14 @@ class SherpaEngines(private val context: Context, private val packs: VoicePackMa
         kwsInst?.release(); kwsInst = null
         sherpaTts.values.forEach { it.release() }; sherpaTts.clear()
         spkInst?.release(); spkInst = null
+    }
+
+    companion object {
+        /**
+         * Synthesiser threads (Kokoro, Kitten, Piper). Synthesis needs far less than speech takes (best measured on the
+         * phone with four: 5.5 ms per character, against ~70 ms per character of spoken audio), so two leave a wide margin while the language model, which generates at the same
+         * time, keeps its own cores (see CluAgent's SPEECH_RESERVED_THREADS). Four oversubscribed the performance cores.
+         */
+        const val SYNTH_THREADS = 2
     }
 }

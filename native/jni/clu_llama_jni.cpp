@@ -200,6 +200,12 @@ JNIEXPORT void JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeCancel(JNIEnv*, jc
     if (s) s->cancel.store(true);
 }
 
+// Threads for single-token decoding and for prompt batches; applies from the next decode step.
+JNIEXPORT void JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeSetThreads(JNIEnv*, jclass, jlong h, jint n_threads, jint n_threads_batch) {
+    auto* s = reinterpret_cast<Session*>(h);
+    if (s && s->ctx) llama_set_n_threads(s->ctx, n_threads, n_threads_batch);
+}
+
 JNIEXPORT void JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeResetSession(JNIEnv*, jclass, jlong h) {
     auto* s = reinterpret_cast<Session*>(h);
     if (!s) return;

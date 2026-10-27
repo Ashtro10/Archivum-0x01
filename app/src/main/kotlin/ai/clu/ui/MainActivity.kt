@@ -297,7 +297,13 @@ class MainActivity : BaseActivity() {
             this.text = (runCatching { java.net.URI(src.url).host?.removePrefix("www.") }.getOrNull() ?: src.url) + if (src.snippet.isNotBlank()) " — " + src.snippet.take(140) else ""
             textSize = 12f; setTextColor(C.MUTED); maxLines = 2
         })
-        contentDescription = "Source $n: ${src.title}. Opens in the browser."
+        // What Clu actually did with the source: opened the page or used only the provider's snippet (and why).
+        val status = listOfNotNull(
+            if (src.opened) "Page read" else if (src.note.isNotBlank()) "Snippet only (${src.note})" else "Snippet only",
+            src.published.takeIf { it.isNotBlank() }?.let { if (it.startsWith("updated")) it else "published $it" },
+            src.retrievedAt.takeIf { it > 0 }?.let { "retrieved ${fmtTime(it)}" })
+        addView(TextView(context).apply { this.text = status.joinToString(" · "); textSize = 11f; setTextColor(C.MUTED); setPadding(0, dp(2), 0, 0) })
+        contentDescription = "Source $n: ${src.title}. ${status.joinToString(". ")}. Opens in the browser."
         setOnClickListener {
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(src.url))) }.onFailure { toast("No browser available") }
         }

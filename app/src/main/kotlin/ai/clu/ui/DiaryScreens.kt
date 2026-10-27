@@ -62,12 +62,17 @@ class DiaryActivity : BaseActivity() {
     }
 }
 
-/** Ask which kind of memory a diary entry becomes, then promote it (the entry itself stays in the diary). */
+/**
+ * Ask which kind of memory a diary entry becomes, show the proposed memory text for editing, and save only when the
+ * owner confirms (the entry itself stays in the diary).
+ */
 fun BaseActivity.keepAsMemory(e: DiaryEntry, done: () -> Unit) {
     val cats = MemoryCategory.selectable
     choose("Keep as memory — what kind?", cats.map { it.label }) { i ->
-        runCatching { core.diary.promote(e.id, cats[i]) }.onSuccess { toast("Saved to memory as ${cats[i].label.lowercase()}"); done() }
-            .onFailure { toast(it.message ?: "Couldn't save") }
+        prompt("Save this memory? (${cats[i].label})", core.diary.proposedMemory(e.id), multiline = true) { text ->
+            runCatching { core.diary.promote(e.id, cats[i], text) }.onSuccess { toast("Saved to memory as ${cats[i].label.lowercase()}"); done() }
+                .onFailure { toast(it.message ?: "Couldn't save") }
+        }
     }
 }
 

@@ -91,6 +91,13 @@ object Schema {
             """DELETE FROM memory_stats WHERE key IN (SELECT 'len:' || id FROM memories WHERE category = 'DIARY')""",
             """UPDATE memories SET deleted = 1, content = '', summary = NULL WHERE category = 'DIARY'""",
         ),
+        // v2 -> v3: diary entries become synchronisable (separately switchable). Existing entries are queued once so a
+        // paired device can receive them if diary sync is turned on; nothing is sent while it is off.
+        listOf(
+            """ALTER TABLE diary_entries ADD COLUMN hlc TEXT NOT NULL DEFAULT ''""",
+            """ALTER TABLE diary_entries ADD COLUMN origin TEXT NOT NULL DEFAULT ''""",
+            """INSERT INTO change_log(table_name, row_id, hlc) SELECT 'diary_entries', id, '' FROM diary_entries""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size

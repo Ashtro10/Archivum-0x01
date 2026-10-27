@@ -33,7 +33,8 @@ data class MessageMeta(
 
 /** A source a reply used: exactly what the search provider returned (never written by the model). */
 @Serializable
-data class SourceRef(val title: String, val url: String, val snippet: String = "")
+data class SourceRef(val title: String, val url: String, val snippet: String = "", val opened: Boolean = false,
+                     val note: String = "", val published: String = "", val retrievedAt: Long = 0)
 
 data class Conversation(
     val id: String, val title: String, val personaId: String, val archived: Boolean, val createdAt: Long, val updatedAt: Long,

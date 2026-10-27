@@ -116,16 +116,20 @@ class SearchTest {
         assertNotNull(reader.excerpt("https://open.example/page", "android 16"))
         http.routes["down.example/robots.txt"] = HttpResponse(503, "")
         assertNull(reader.excerpt("https://down.example/page", "x"), "robots.txt server error: treated as disallowed")
-        // The service reads at most the top two pages, only when the setting is on.
+        // The service reads at most the top two pages, from different sites, only when the setting is on.
         http.routes["searx.example.org"] = HttpResponse(200, """{"results":[
             {"url":"https://open.example/page","title":"T1","content":"c1"},{"url":"https://open.example/page2","title":"T2","content":"c2"},
-            {"url":"https://open.example/page3","title":"T3","content":"c3"}]}""")
-        http.routes["open.example/page2"] = HttpResponse(200, page); http.routes["open.example/page3"] = HttpResponse(200, page)
+            {"url":"https://other.example/page3","title":"T3","content":"c3"},{"url":"https://third.example/p","title":"T4","content":"c4"}]}""")
+        http.routes["open.example/page2"] = HttpResponse(200, page); http.routes["other.example/robots.txt"] = HttpResponse(404, "")
+        http.routes["other.example/page3"] = HttpResponse(200, page)
         core.settings.set(Settings.SEARCH_PROVIDER, "searxng"); core.settings.set(Settings.SEARXNG_URL, "https://searx.example.org")
         http.requests.clear()
         val out = core.search.search("android 16 release")
-        assertNotNull(out.hits[0].pageText); assertNotNull(out.hits[1].pageText); assertNull(out.hits[2].pageText)
-        assertFalse(http.requests.contains("https://open.example/page3"))
+        assertEquals(listOf("https://open.example/page", "https://open.example/page2", "https://other.example/page3", "https://third.example/p"), out.hits.map { it.url })
+        assertNotNull(out.hits[0].pageText); assertNull(out.hits[1].pageText, "a second page from the same site is not read")
+        assertNotNull(out.hits[2].pageText); assertNull(out.hits[3].pageText)
+        assertFalse(http.requests.any { it.contains("open.example/page2") || it.contains("third.example") })
+        assertEquals(3, out.independentSites)
         core.settings.set(Settings.SEARCH_READ_PAGES, false); http.requests.clear()
         assertTrue(core.search.search("android 16 release").hits.all { it.pageText == null })
         assertTrue(http.requests.none { it.contains("open.example") })

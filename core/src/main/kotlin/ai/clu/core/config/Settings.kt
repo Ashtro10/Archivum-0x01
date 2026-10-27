@@ -427,7 +427,7 @@ object Settings {
     val SHOW_SOURCES = bool("net.showSources", "Show where answers came from", NETWORK, true,
         "Label replies as local, tablet-hosted, or external, and list tools used.", "ChatUI", "Source badge shown under replies",
         "NetworkSettingsTest#showSources")
-    val OFFLINE_BEHAVIOR = choice("net.offlineBehavior", "When offline", NETWORK, "explain",
+    val OFFLINE_BEHAVIOR = choice("net.offlineBehavior", "When offline", NETWORK, "local_answer",
         listOf("explain" to "Say live information is unavailable", "local_answer" to "Answer from local knowledge, clearly marked as possibly outdated"),
         "What Clu does when a request needs the internet but none is available.", "CluAgent", "Offline fallback text/flow",
         "NetworkSettingsTest#offlineBehavior")
@@ -453,7 +453,9 @@ object Settings {
         "SyncSettingsTest#port", scope = DEVICE, advanced = true)
     val SYNC_INTERVAL = int("sync.intervalMin", "Auto-sync interval (min)", DEVICES, 5, 0, 240, "While the app runs. 0 = manual only.",
         "SyncService", "Periodic sync attempts", "SyncSettingsTest#interval", scope = DEVICE)
-    val SYNC_MEMORIES = bool("sync.memories", "Sync memories & diary", DEVICES, true, "", "SyncEngine", "memories table included", "SyncSettingsTest#scopes")
+    val SYNC_MEMORIES = bool("sync.memories", "Sync memories", DEVICES, true, "Approved memories, standing instructions and project notes.", "SyncEngine", "memories table included", "SyncSettingsTest#scopes")
+    val SYNC_DIARY = bool("sync.diary", "Sync diary", DEVICES, false, "Off by default: the diary is private. When on, entries go only to your paired device, encrypted in transit, " +
+        "and are included in sync files you choose to export.", "SyncEngine, SyncBundle", "diary entries included", "SyncStage2Test#diaryScope")
     val SYNC_CONVERSATIONS = bool("sync.conversations", "Sync conversation history", DEVICES, true, "", "SyncEngine", "conversations/messages included", "SyncSettingsTest#scopes")
     val SYNC_SETTINGS = bool("sync.settings", "Sync shared settings", DEVICES, true, "Device-specific settings never sync.", "SyncEngine", "shared settings included", "SyncSettingsTest#scopes")
     val SYNC_CHARACTERS = bool("sync.characters", "Sync characters", DEVICES, true, "", "SyncEngine", "characters included", "SyncSettingsTest#scopes")

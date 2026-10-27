@@ -1,4 +1,4 @@
-# On-device acceptance checklist — v1.4.0-prototype
+# On-device acceptance checklist — v1.5.0-prototype
 
 **Status: NOT YET RUN ON ANY DEVICE.** Nothing in this file has been executed on the Xiaomi Pad 6 or the iQOO Neo 9
 Pro. Until a row is filled in from a real device, that behaviour counts as **unverified**, whatever the automated
@@ -288,6 +288,29 @@ Background: [STAGE1_SEARCH_MEMORY_DIARY.md](STAGE1_SEARCH_MEMORY_DIARY.md). Use 
 | Y15 | "Open Wi-Fi settings", "open battery settings", "turn on Bluetooth", "open Spotify" (installed / not installed) | Correct screen opens; toggle request explains Android's limit; app result is truthful | |
 | Y16 | Settings → Search & internet → Search automatically: "Only when I say" ; repeat Y2 | No search unless asked | |
 
+## Z. Stage 2: research, contextual memory, phone ↔ tablet, tasks (1.5.0) – Pad 6 and Neo 9 Pro
+
+Background: [STAGE2_RESEARCH_MEMORY_SYNC.md](STAGE2_RESEARCH_MEMORY_SYNC.md). Install 1.5.0 **over 1.4.0** first (Z1) so the upgrade and migration are tested.
+
+| # | Step | Expected | P | N |
+|---|---|---|---|---|
+| Z1 | Install 1.5.0 over 1.4.0 with some diary entries and memories | App opens; diary entries and memories intact, none duplicated | | |
+| Z2 | Airplane mode: type "Explain photosynthesis briefly", then a voice question, then interrupt Clu mid-reply | Offline text and voice answers; interruption stops speech at once | | |
+| Z3 | Online: "Compare Pixel 9 and iPhone 16 for photography" | "Searching the web…"; answer leads with a conclusion; source cards from several sites, each showing "Page read" or "Snippet only (reason)" and the retrieval time; tapping opens the page | | |
+| Z4 | "Check whether coffee stunts growth" | Searched; answer separates what sources say from "My assessment" | | |
+| Z5 | Airplane mode: "What's the latest Android version?" | Says it couldn't search, then answers marked as possibly outdated; badge "Search unavailable · answered without the web"; next message works | | |
+| Z6 | "Remember that I prefer tea." … later "Remember that I prefer black coffee now." then "What should I drink in the morning?" | Mentions the newer preference or asks which is current — doesn't silently mix them | | |
+| Z7 | Memory: add a Project "Thesis: chapter 4 in progress" and a Decision "Thesis: use survey data". New chat: "Let's continue with the thesis" | Reply uses both without you repeating them | | |
+| Z8 | Diary entry → Keep as memory | Editable proposal shown; nothing saved on Cancel; saved text = edited text | | |
+| Z9 | "Set a timer for 2 minutes, then open Spotify and explain what a P-trap is" | Plan with ✓ timer (timer really set), ✓/✗ Spotify matching reality, explanation below | | |
+| Z10 | "Set an alarm for 6:00, then set a timer for 1 minute", decline the confirmation; then "continue the task" and confirm | First time: alarm "not confirmed", timer not started; after continue: both done | | |
+| Z11 | Start a 3-step plan and press Stop during step 1 | Remaining steps "–", "Stopped" line; nothing else happens | | |
+| Z12 | Settings → Phone & tablet on both devices: pair (same Wi-Fi), Sync now | Memories and shared settings appear on the other device | | |
+| Z13 | Diary entry on the phone, Sync now (Sync diary OFF) — then turn Sync diary ON on both and sync again | Not on the tablet the first time; appears after enabling | | |
+| Z14 | Edit the same memory on both devices while one is offline; reconnect and sync | The later edit wins on both (or a conflict copy with "Keep both"); no duplicates | | |
+| Z15 | Without network between devices: Export sync file (memories only) on the phone, move it, Import on the tablet; import again | Memories arrive; second import "0 changes applied"; wrong passphrase refused | | |
+| Z16 | Background the app for 10 min, reopen; rotate the tablet | No crash; chat/HUD state correct; keyboard behaves | | |
+
 ## J. Background behaviour
 
 Apply the battery settings in [INSTALL.md](INSTALL.md) §2 first (Autostart ON, Battery saver *No restrictions*).
@@ -382,6 +405,7 @@ server engine in section X.
 | M Sync | | | |
 | N Modes (offline / LiveKit) | | | |
 | Y Stage 1 (search, memory, diary) | | | |
+| Z Stage 2 (research, memory, sync, tasks) | | | |
 
 **Acceptance rule:** v1 is accepted when sections A–E, G, H and M pass on both devices, and every FAIL in F, I, J, K
 or L either passes after tuning or is written up as a known limitation that you have agreed to. No new features

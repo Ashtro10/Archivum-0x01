@@ -34,11 +34,22 @@ class AndroidHttp : HttpFetcher {
             headers.forEach { (k, v) -> setRequestProperty(k, v) }
         }
 
-    private fun read(c: HttpURLConnection): HttpResponse {
+    private fun read(c: HttpURLConnection, maxBytes: Int = 2_000_000): HttpResponse {
         val code = c.responseCode
         val stream = if (code in 200..399) c.inputStream else c.errorStream
-        val body = stream?.use { s -> s.readBytes().let { if (it.size > 2_000_000) it.copyOf(2_000_000) else it }.toString(Charsets.UTF_8) } ?: ""
-        return HttpResponse(code, body)
+        // Bounded read: never holds more than maxBytes of a response in memory, however large the page is.
+        val body = stream?.use { s ->
+            val out = java.io.ByteArrayOutputStream(); val buf = ByteArray(16 * 1024)
+            while (out.size() < maxBytes) { val n = s.read(buf, 0, minOf(buf.size, maxBytes - out.size())); if (n < 0) break; out.write(buf, 0, n) }
+            out.toString(Charsets.UTF_8.name())
+        } ?: ""
+        val h = listOf("content-type", "location", "last-modified").mapNotNull { k -> c.getHeaderField(k)?.let { k to it } }.toMap()
+        return HttpResponse(code, body, h)
+    }
+
+    override suspend fun fetchPage(url: String, headers: Map<String, String>, maxBytes: Int, timeoutMs: Int) = withContext(Dispatchers.IO) {
+        val c = open(url, headers).apply { connectTimeout = timeoutMs; readTimeout = timeoutMs; instanceFollowRedirects = false }
+        try { read(c, maxBytes) } finally { c.disconnect() }
     }
 
     override suspend fun get(url: String, headers: Map<String, String>) = withContext(Dispatchers.IO) {

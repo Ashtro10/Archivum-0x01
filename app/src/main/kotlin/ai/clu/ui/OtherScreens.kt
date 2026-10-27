@@ -271,6 +271,36 @@ class DevicesActivity : BaseActivity() {
     }
 
     private var syncStatus: android.widget.TextView? = null
+    private var passphrase: String? = null
+    private var exportDiary = false
+
+    @Deprecated("framework API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data ?: run { passphrase = null; return }
+        if (resultCode != RESULT_OK) { passphrase = null; return }
+        when (requestCode) {
+            REQ_EXPORT -> { val pass = passphrase ?: return; passphrase = null
+                scope.launch {
+                    val r = withContext(Dispatchers.IO) { runCatching {
+                        val out = core.syncFiles.export(pass, exportDiary)
+                        contentResolver.openOutputStream(uri)!!.use { it.write(out.bytes) }; out } }
+                    r.onSuccess { toast("Exported ${it.memories} memories, ${it.settings} settings" + if (exportDiary) ", ${it.diary} diary entries." else ".") }
+                        .onFailure { toast("Export failed: ${it.message}") }
+                } }
+            REQ_IMPORT -> prompt("Passphrase of the sync file", password = true) { pass ->
+                choose("Import the diary too, if the file has it?", listOf("No, only memories and settings", "Yes, include the diary")) { i ->
+                    scope.launch {
+                        val r = withContext(Dispatchers.IO) { runCatching {
+                            val bytes = contentResolver.openInputStream(uri)!!.use { s -> s.readBytes().also { require(it.size < 50_000_000) { "file too large" } } }
+                            core.syncFiles.import(bytes, pass, includeDiary = i == 1) } }
+                        r.onSuccess { toast("Imported: ${it.applied} changes applied, ${it.unchanged} already up to date."); build() }
+                            .onFailure { toast((it as? ai.clu.core.sync.SyncBundle.BundleException)?.message ?: "Import failed: ${it.message}") }
+                    }
+                }
+            }
+        }
+    }
     private fun describe(s: ai.clu.sync.SyncUiState) = "Server: ${if (s.serving) "listening on port ${s.port}" else "off (listens once paired or while pairing is allowed)"}\nThis device: ${s.localAddresses.joinToString().ifEmpty { "no network" }}" +
         "\nDiscovered: ${s.discovered.joinToString().ifEmpty { "none (hotspots often block discovery)" }}\nGateway: ${app.sync.gatewayAddress() ?: "-"}" +
         (s.lastResult?.let { r -> "\nLast: " + if (r.ok) "OK – sent ${r.sent}, received ${r.received}, conflicts ${r.conflicts} (${r.durationMs} ms)" else "failed – ${r.error}" } ?: "") +
@@ -307,10 +337,34 @@ class DevicesActivity : BaseActivity() {
                 }
             }
         }
+        h1("Sync file (no network needed)")
+        p("Export an encrypted file here, move it to the other device any way you like (USB, cloud drive, messenger), and import it there. " +
+            "Newer edits win, nothing is duplicated, and importing twice changes nothing. The diary is included only if you choose.", C.MUTED, 12f)
+        row {
+            smallButton("Export sync file") {
+                choose("Include the diary?", listOf("Memories and settings only", "Memories, settings and diary")) { i ->
+                    exportDiary = i == 1
+                    verifyOwner("Export memories to a file") { ok -> if (ok) prompt("Passphrase for the file (at least 8 characters)", password = true) { p1 ->
+                        prompt("Repeat the passphrase", password = true) { p2 ->
+                            if (p1 != p2) toast("The passphrases don't match.") else if (p1.length < 8) toast("Use at least 8 characters.") else {
+                                passphrase = p1
+                                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/octet-stream")
+                                    .putExtra(Intent.EXTRA_TITLE, "clu-sync-${java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date())}.clusync"), REQ_EXPORT)
+                            }
+                        } } }
+                }
+            }
+            smallButton("Import sync file") {
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQ_IMPORT)
+            }
+        }
         h1("History")
         core.syncEngine.history(20).forEach { h -> p("${fmtTime(h.startedAt)} · ${h.peer} · ↑${h.sent} ↓${h.received} · conflicts ${h.conflicts}${h.error?.let { " · ⚠ $it" } ?: ""}", C.MUTED, 12f) }
     }
 }
+
+private const val REQ_EXPORT = 41
+private const val REQ_IMPORT = 42
 
 class PreferencesActivity : BaseActivity() {
     override fun onResume() { super.onResume(); build() }

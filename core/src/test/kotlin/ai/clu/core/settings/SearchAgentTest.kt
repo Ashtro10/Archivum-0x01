@@ -65,7 +65,7 @@ class SearchAgentTest {
             d.meta.sources.take(2).map { it.url }, "sources are exactly what the provider returned")
         assertEquals("Android 16 is the latest stable version, released in June 2025 [1][2]. Also see.", d.text, "a citation to a non-existent source is removed")
         val sent = engine.prompts.last().last().content
-        assertTrue(sent.startsWith("[Web search results]") && sent.contains("[1] Android 16 release notes (source.android.com)"))
+        assertTrue(sent.startsWith("[Web search results]") && sent.contains("[1] Android 16 release notes (source.android.com; snippet only)"))
         assertFalse(sent.contains("https://"), "the model gets numbered sources and site names, not URLs")
         assertTrue(sent.contains("Cite sources as [1], [2]") && sent.contains("say so plainly"))
         assertEquals(1, http.requests.size, "one request: ${http.requests}"); assertTrue(http.requests.single().contains("q=What+is+the+latest+version+of+Android&"), "only the question is sent: ${http.requests}")
@@ -100,6 +100,7 @@ class SearchAgentTest {
     }
 
     @Test fun searchFailureOfflineDoesNotBreakChat() {
+        core.settings.set(Settings.OFFLINE_BEHAVIOR, "explain") // the default is now "local_answer" (tested below)
         platform.online = false
         val d = done(ask("What is the price of gold today?"))
         assertTrue(d.text.startsWith("I couldn't search the web just now (No internet connection is available right now)"), d.text)

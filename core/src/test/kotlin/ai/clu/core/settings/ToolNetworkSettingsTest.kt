@@ -183,6 +183,8 @@ class NetworkSettingsTest {
     }
 
     @Test fun offlineBehavior(): Unit = runBlocking {
+        assertEquals("local_answer", s.string(Settings.OFFLINE_BEHAVIOR), "default: say it's offline, then answer from local knowledge")
+        s.set(Settings.OFFLINE_BEHAVIOR, "explain")
         platform.online = false
         val conv = core.conversations.create()
         val engine = ScriptedEngine().reply("I'm offline, so this may be outdated: Pune is in Maharashtra.")

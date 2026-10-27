@@ -19,6 +19,17 @@
 4. **Community NDK sysroot and unpinned model hashes** (see SECURITY_REVIEW.md §8): to be replaced or pinned once
    `dl.google.com` / `huggingface.co` are reachable.
 
+## Stage 2 limitations (1.5.0)
+
+* **Nothing in Stage 2 has run on a device.** No Android device or emulator was available (no adb, no KVM). Live search providers and real web pages were not contacted either: every research test uses mocked HTTP responses.
+* **Cross-checking is instruction-based.** Clu counts distinct sites and reads pages from different sites, but whether two sources "agree" is judged by the model; small models may do this poorly.
+* **Prompt-injection defences reduce, not eliminate, risk.** Markup and instruction-like sentences are removed and no action can run after web content is read; a subtly misleading page can still mislead the answer itself.
+* **Model-written queries are blocked if they contain private words** the owner didn't write in the request; topic words from earlier turns of the conversation are allowed.
+* **Memory conflicts are detected heuristically** (same kind, mostly the same words) and limited to two notes per reply; plain facts are not checked.
+* **Task resume is in memory only** (2 hours, same conversation, app still running).
+* **Live sync needs both devices on one network** and a one-time pairing; hotspot client isolation blocks it (use the sync file). Sync files from 1.5.0 can't be read by 1.4.0.
+* **Retrieval cost grows with the database**: ~12 ms at 1,000 and ~59 ms at 5,000 memories on the build machine; phone timings are unmeasured.
+
 ## Stage 1 limitations (1.4.0)
 
 * **No live search was made during development.** All providers were tested against recorded responses in each API's documented format; the build machine cannot reach Brave, SearXNG, Wikipedia or DuckDuckGo. The first real search happens on the device (DEVICE_ACCEPTANCE §Y).
@@ -26,7 +37,7 @@
 * **The Clu server (LiveKit) engine does not search**; automatic search is in the on-device engine.
 * **Personality instructions are followed loosely by small models.** With SmolLM2-135M, response length changed mainly through the token budget, and explanation depth / proactivity had little or no measurable effect (docs/measurements/persona_host.json). Larger models were not available to measure.
 * **"Brief" replies can be cut at the token limit** mid-sentence on small models.
-* **The diary is not synchronised** between phone and tablet in this version.
+* ~~The diary is not synchronised~~ — fixed in 1.5.0 (opt-in *Sync diary*).
 * **Android settings intents are untested on MIUI/HyperOS**; the app reports when a screen doesn't exist, but which ones resolve on the Pad 6 is unknown until §Y15 is run.
 
 ## Functional limitations

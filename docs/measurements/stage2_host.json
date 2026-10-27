@@ -1,0 +1,16 @@
+{
+  "turn_overhead_ms_with_100_memories": 36.22,
+  "retrieval_ms_100_memories": 6.15,
+  "bm25_rank_only_ms_100_memories (Stage 1 baseline step)": 1.99,
+  "turn_overhead_ms_with_1000_memories": 49.36,
+  "retrieval_ms_1000_memories": 12.32,
+  "bm25_rank_only_ms_1000_memories (Stage 1 baseline step)": 3.25,
+  "sync_file_export_ms_1000_memories": 638.05,
+  "sync_file_bytes_1000_memories": 841132,
+  "sync_file_import_ms_1000_memories": 794.00,
+  "turn_overhead_ms_with_5000_memories": 76.54,
+  "retrieval_ms_5000_memories": 58.94,
+  "bm25_rank_only_ms_5000_memories (Stage 1 baseline step)": 7.24,
+  "web_text_clean_ms_30kB": 5.05,
+  "environment": "amd64 JVM, 4 vCPU (build container, not a phone); scripted model"
+}

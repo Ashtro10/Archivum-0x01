@@ -54,7 +54,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     /** The owner's diary: separate from memory; entries reach memory only when promoted. */
     val diary = ai.clu.core.diary.DiaryRepository(store, memories)
     /** Web search through documented provider APIs (key/URL configured on the device; none built in). */
-    val search = ai.clu.core.search.SearchService(settings, platform.http) { platform.secret(BRAVE_SEARCH_KEY) }
+    val search = ai.clu.core.search.SearchService(settings, platform.http, { platform.secret(BRAVE_SEARCH_KEY) }, clock::now)
     val prefs = PreferenceEngine(store, settings)
     val characters = CharacterRepository(store, memories)
     val personas = PersonaManager(settings, characters)
@@ -72,7 +72,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val proactive = ProactivePlanner(store, settings, memories, templates, diag = diag)
     /** Optional LiveKit voice path: room tokens from the owner's token endpoint (no LiveKit secrets in the app). */
     val liveKitTokens = ai.clu.core.livekit.TokenProvisioner(settings, platform.http, { platform.secret(LIVEKIT_DEVICE_KEY) }, clock::now)
-    val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag)
+    val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag, diary)
+    val syncFiles = ai.clu.core.sync.SyncBundle(store, syncEngine)
 
     /** Remote engine provider (set by the app when a paired home device is configured). */
     @Volatile var remoteEngineProvider: (suspend () -> LlmEngine?)? = null

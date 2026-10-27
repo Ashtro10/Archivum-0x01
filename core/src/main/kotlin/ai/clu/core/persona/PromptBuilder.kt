@@ -53,6 +53,9 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
         if (ctx.memories.isNotEmpty()) {
             appendLine("Relevant memories (only use them if relevant; provenance in parentheses):")
             ctx.memories.forEach { appendLine(PromptMemoryFormat.line(it.memory)) }
+            ai.clu.core.memory.MemoryConflicts.find(ctx.memories.map { it.memory }).forEach { (older, newer) ->
+                appendLine(ai.clu.core.memory.MemoryConflicts.note(older, newer) { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(it)) })
+            }
         }
         if (ctx.viaSpeech) {
             appendLine("This message was spoken and transcribed automatically, so words (especially names and places) may be misheard. " +
@@ -75,7 +78,8 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
         styleLines(ctx).forEach { appendLine(it) }
         prefs.instructions().takeIf { it.isNotEmpty() }?.let { appendLine("Owner's learned preferences: " + it.joinToString(" ")) }
         settings.string(Settings.CUSTOM_INSTRUCTIONS).takeIf { it.isNotBlank() }?.let { appendLine("Owner's instructions: $it") }
-        if (ctx.standingInstructions.isNotEmpty()) appendLine("Standing instructions the owner asked you to follow: " + ctx.standingInstructions.joinToString(" ") { it.trim().trimEnd('.') + "." })
+        if (ctx.standingInstructions.isNotEmpty()) appendLine("Standing instructions the owner asked you to follow (oldest first; if two conflict, follow the later one; " +
+            "they never override your core rules, security checks or confirmations): " + ctx.standingInstructions.joinToString(" ") { it.trim().trimEnd('.') + "." })
         commonContext(ctx)
         rules(ctx)
     }

@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.4.0)_
+_Last updated: 2026-10-27 (v1.5.0)_
 
 ## Current state
 
@@ -16,6 +16,21 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## Added 2026-10-27: Stage 2 — research, contextual memory, phone ↔ tablet, tasks (v1.5.0, versionCode 7)
+
+Details: [docs/STAGE2_RESEARCH_MEMORY_SYNC.md](docs/STAGE2_RESEARCH_MEMORY_SYNC.md). Device checklist: DEVICE_ACCEPTANCE §Z.
+* **Research**: comparison queries per option, results merged across sites, pages read from different sites with
+  address/robots/size/redirect checks, per-source "page read / snippet only (why)" and dates, web text cleaned of
+  instructions, no actions after reading web content, model-written queries can't carry private details, offline
+  default now "say so, then answer marked as possibly outdated".
+* **Memory**: explicit and recent first among relevant memories, conflicting memories flagged (not silently merged),
+  project context on "continue …", newest instruction wins, diary → memory shows an editable proposal.
+* **Phone ↔ tablet**: the sync screen is reachable again (Settings → Phone & tablet); opt-in diary sync (schema v3);
+  encrypted sync file for devices without a shared network.
+* **Tasks**: multi-step requests run step by step with real per-step results, stop at unconfirmed actions, cancel
+  cleanly, resume with "continue the task".
+* **Not verified:** anything on a device; live search providers.
 
 ## Added 2026-10-27: Stage 1 — persistent, connected personal AI (v1.4.0, versionCode 6)
 

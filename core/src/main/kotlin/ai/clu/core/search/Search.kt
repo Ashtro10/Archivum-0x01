@@ -10,18 +10,31 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import java.net.URI
 import java.net.URLEncoder
 
-/** One search result as the provider returned it; [pageText] is an excerpt of the page itself, when it could be read. */
+/**
+ * One search result as the provider returned it. [pageText] is an excerpt of the page itself when it was opened;
+ * [pageNote] says why it wasn't (robots.txt, timeout, not HTML…) when Clu tried. [published] is a date only when the
+ * provider or the page states one.
+ */
 @Serializable
-data class SearchHit(val title: String, val url: String, val snippet: String, val provider: String, val pageText: String? = null)
+data class SearchHit(val title: String, val url: String, val snippet: String, val provider: String, val pageText: String? = null,
+                     val pageNote: String? = null, val published: String? = null)
 
 /** What a search produced. [error] is set when nothing usable came back (the hits are then empty). */
-data class SearchOutcome(val query: String, val provider: String, val hits: List<SearchHit>, val error: String? = null)
+data class SearchOutcome(val query: String, val provider: String, val hits: List<SearchHit>, val error: String? = null,
+                         val queries: List<String> = listOf(query), val retrievedAt: Long = 0) {
+    /** Different websites among the results (several results from one site are not independent confirmation). */
+    val independentSites get() = hits.mapNotNull { hostOf(it.url) }.distinct().size
+}
+
+/** Host without "www.", or null for a malformed URL. */
+fun hostOf(url: String): String? = runCatching { URI(url).host?.lowercase()?.removePrefix("www.") }.getOrNull()
 
 /**
  * A search back end with a documented API. Only the query text is sent: never memories, diary or conversation.
@@ -75,7 +88,8 @@ class BraveSearch(private val http: HttpFetcher, private val key: () -> String?)
                 val o = e as? JsonObject ?: return@mapNotNull null
                 val url = o.s("url")?.takeIf { it.startsWith("http") } ?: return@mapNotNull null
                 val extra = (o["extra_snippets"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.joinToString(" ").orEmpty()
-                SearchHit(htmlToText(o.s("title") ?: url), url, htmlToText(listOfNotNull(o.s("description"), extra.ifBlank { null }).joinToString(" ")), "Brave Search")
+                SearchHit(htmlToText(o.s("title") ?: url), url, htmlToText(listOfNotNull(o.s("description"), extra.ifBlank { null }).joinToString(" ")), "Brave Search",
+                    published = o.s("page_age")?.let(::isoDay) ?: o.s("age")?.takeIf { it.length <= 40 })
             }
         }
     }
@@ -109,7 +123,8 @@ class SearxngSearch(private val http: HttpFetcher, private val baseUrl: () -> St
             return results.mapNotNull { e ->
                 val o = e as? JsonObject ?: return@mapNotNull null
                 val url = o.s("url")?.takeIf { it.startsWith("http") } ?: return@mapNotNull null
-                SearchHit(htmlToText(o.s("title") ?: url), url, htmlToText(o.s("content").orEmpty()), "SearXNG" + (o.s("engine")?.let { " ($it)" } ?: ""))
+                SearchHit(htmlToText(o.s("title") ?: url), url, htmlToText(o.s("content").orEmpty()), "SearXNG" + (o.s("engine")?.let { " ($it)" } ?: ""),
+                    published = o.s("publishedDate")?.let(::isoDay))
             }.distinctBy { it.url }
         }
     }
@@ -164,13 +179,81 @@ class KeylessSearch(private val http: HttpFetcher, private val includeInstantAns
             return hits.mapNotNull { h ->
                 val o = h as? JsonObject ?: return@mapNotNull null
                 val title = o.s("title") ?: return@mapNotNull null
-                SearchHit(title, "https://en.wikipedia.org/wiki/" + enc(title.replace(' ', '_')).replace("+", "%20"), htmlToText(o.s("snippet").orEmpty()), "Wikipedia")
+                SearchHit(title, "https://en.wikipedia.org/wiki/" + enc(title.replace(' ', '_')).replace("+", "%20"), htmlToText(o.s("snippet").orEmpty()), "Wikipedia",
+                    published = o.s("timestamp")?.let(::isoDay)?.let { "updated $it" })
             }
         }
     }
 }
 
 class SearchException(message: String) : Exception(message)
+
+/** "2025-06-10T14:00:00Z" → "2025-06-10"; anything that doesn't start with a date → null (never guessed). */
+fun isoDay(s: String): String? = Regex("^(\\d{4}-\\d{2}-\\d{2})").find(s.trim())?.groupValues?.get(1)
+
+/**
+ * Addresses Clu will open for reading: http(s) on a public host. Refuses loopback, private, link-local and
+ * single-label hosts, so a search result (or a redirect) can't make the phone fetch pages from the owner's router or
+ * local network. Hosts are checked by name/literal only (no extra DNS lookup).
+ */
+object SafeAddress {
+    fun allowed(url: String): Boolean {
+        val u = runCatching { URI(url) }.getOrNull() ?: return false
+        if (u.scheme?.lowercase() !in setOf("http", "https")) return false
+        if (u.userInfo != null) return false
+        val host = u.host?.lowercase()?.trim('[', ']') ?: return false
+        if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan") || !host.contains('.') && !host.contains(':')) return false
+        val v4 = Regex("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$").find(host)?.groupValues?.drop(1)?.map { it.toInt() }
+        if (v4 != null) {
+            val (a, b) = v4
+            return !(a == 10 || a == 127 || a == 0 || a >= 224 || (a == 169 && b == 254) || (a == 172 && b in 16..31) || (a == 192 && b == 168) || (a == 100 && b in 64..127))
+        }
+        if (host.contains(':')) return !(host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80") || host == "::")
+        return true
+    }
+}
+
+/**
+ * Plans the searches for one request: one focused query, or for a comparison ("compare A and B", "A vs B") the
+ * comparison plus one query per option. Never more than 3 queries, so research stays cheap and bounded.
+ */
+object ResearchPlan {
+    private val compare = Regex("(?i)^(?:compare|comparison of|difference between|differences between)\\s+(.+?)\\s+(?:and|with|vs\\.?|versus)\\s+(.+?)(?:\\s+((?:for|in|on|when|as)\\s+.+?))?[?.!]*$")
+    private val versus = Regex("(?i)^(?:which is better[,:]?\\s+|should i (?:buy|get|use|choose)\\s+)?(.+?)\\s+(?:vs\\.?|versus|or)\\s+(.+?)(?:\\s+((?:for|in|on|when|as)\\s+.+?))?[?.!]*$")
+
+    fun queries(query: String): List<String> {
+        val q = query.trim()
+        val m = compare.find(q) ?: versus.find(q)?.takeIf { Regex("(?i)\\b(vs\\.?|versus|which is better|should i (?:buy|get|use|choose))\\b").containsMatchIn(q) }
+            ?: return listOf(q)
+        val a = m.groupValues[1].trim(); val b = m.groupValues[2].trim(); val ctx = m.groupValues.getOrNull(3)?.trim().orEmpty()
+        if (a.isEmpty() || b.isEmpty() || a.split(' ').size > 6 || b.split(' ').size > 6) return listOf(q)
+        val suffix = if (ctx.isNotEmpty()) " $ctx" else ""
+        return listOf("$a vs $b$suffix", "$a$suffix", "$b$suffix").distinct()
+    }
+}
+
+/**
+ * Web text is untrusted data. Before it reaches the model: markup the agent or the chat template treats specially is
+ * neutralised (so a page can't fake a tool call or a new turn), and sentences addressed to an AI ("ignore previous
+ * instructions…") are removed and marked.
+ */
+object WebContent {
+    private val markers = Regex("(?i)</?tool>|<\\|[a-z_]+\\|>|\\[/?(?:context|web search results|tool result[^\\]]*|system|inst)\\]|</?(?:system|assistant|user)>")
+    private val injection = Regex("(?i)(ignore|disregard|forget|override)\\s+(all\\s+|any\\s+|the\\s+|your\\s+)?(previous|prior|above|earlier|system|original)\\s+(instructions?|prompts?|rules?|messages?)|" +
+        "\\b(you are now|act as|pretend to be|new instructions?|system prompt|developer mode|jailbreak)\\b|" +
+        "\\b(reveal|print|repeat|send|share|output)\\b.{0,40}\\b(memor(y|ies)|diary|system prompt|instructions|password|secret|api key)\\b|" +
+        "\\b(call|use|run|execute|invoke)\\b.{0,20}\\b(tool|function|command)\\b")
+
+    fun clean(text: String): String {
+        val noMarkup = markers.replace(text, " ")
+        var removed = false
+        val kept = noMarkup.split(Regex("(?<=[.!?])\\s+")).filter { sentence -> !injection.containsMatchIn(sentence).also { if (it) removed = true } }
+        val out = kept.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+        return if (removed) "$out [text that addressed an AI was removed]".trim() else out
+    }
+
+    fun suspicious(text: String) = injection.containsMatchIn(text) || markers.containsMatchIn(text)
+}
 
 /**
  * robots.txt rules for fetching result pages (RFC 9309, the subset that matters here): groups for `Clu` or `*`,
@@ -232,22 +315,56 @@ class RobotsPolicy(private val http: HttpFetcher, private val now: () -> Long = 
     }
 }
 
+/** The outcome of trying to read one result page: [text] when it was read, otherwise [note] says why not. */
+data class PageResult(val text: String?, val note: String?, val published: String? = null)
+
 /**
  * Reads a small excerpt of a result page when robots.txt permits: the paragraphs that mention the query, up to
- * [maxChars]. Only HTML/text, at most 2 MB (the HTTP client's cap), within a few seconds; scripts, styles and
- * navigation are removed.
+ * [maxChars]. Only public http(s) addresses, HTML/text only, at most [MAX_BYTES] read, [TIMEOUT_MS] per connect/read,
+ * at most [MAX_REDIRECTS] redirects (each target re-checked for address and robots.txt). Scripts, styles and
+ * navigation are removed. Failures are reported, never thrown.
  */
 class PageReader(private val http: HttpFetcher, private val robots: RobotsPolicy) {
-    suspend fun excerpt(url: String, query: String, maxChars: Int = 1200): String? {
-        if (!robots.allowed(url)) return null
-        val r = withTimeoutOrNull(6000) { runCatching { http.get(url, mapOf("User-Agent" to USER_AGENT, "Accept" to "text/html,text/plain")) }.getOrNull() } ?: return null
-        if (r.code != 200) return null
-        val head = r.body.take(512).lowercase().trimStart()
-        if (head.startsWith("{") || head.startsWith("[") || head.startsWith("%pdf") || !(head.contains("<html") || head.contains("<!doctype") || head.contains("<p") || head.none { it.code < 9 })) return null
-        return extract(r.body, query, maxChars)
+    suspend fun excerpt(url: String, query: String, maxChars: Int = 1200): String? = read(url, query, maxChars).text
+
+    suspend fun read(url: String, query: String, maxChars: Int = 1200): PageResult {
+        var current = url
+        repeat(MAX_REDIRECTS + 1) {
+            if (!SafeAddress.allowed(current)) return PageResult(null, "not a public web address")
+            if (!robots.allowed(current)) return PageResult(null, "the site's robots.txt doesn't allow reading it")
+            val r = withTimeoutOrNull(TIMEOUT_MS + 1000L) {
+                runCatching { http.fetchPage(current, mapOf("User-Agent" to USER_AGENT, "Accept" to "text/html,text/plain"), MAX_BYTES, TIMEOUT_MS) }
+            } ?: return PageResult(null, "the page took too long to load")
+            val resp = r.getOrElse { return PageResult(null, "the page could not be loaded") }
+            if (resp.code in 300..399) {
+                val loc = resp.headers["location"] ?: return PageResult(null, "the page redirected without a target")
+                current = runCatching { URI(current).resolve(loc.trim()).toString() }.getOrElse { return PageResult(null, "the page redirected to an invalid address") }
+                return@repeat
+            }
+            if (resp.code != 200) return PageResult(null, "the site answered HTTP ${resp.code}")
+            val type = resp.headers["content-type"]?.lowercase()
+            if (type != null && !type.startsWith("text/html") && !type.startsWith("text/plain") && !type.startsWith("application/xhtml")) return PageResult(null, "not a web page ($type)")
+            val head = resp.body.take(512).lowercase().trimStart()
+            if (head.startsWith("{") || head.startsWith("[") || head.startsWith("%pdf") || !(head.contains("<html") || head.contains("<!doctype") || head.contains("<p") || head.none { it.code < 9 }))
+                return PageResult(null, "not a web page")
+            val text = runCatching { extract(resp.body, query, maxChars) }.getOrNull() ?: return PageResult(null, "no readable text on the page")
+            return PageResult(WebContent.clean(text), null, published(resp.body))
+        }
+        return PageResult(null, "too many redirects")
     }
 
     companion object {
+        const val MAX_BYTES = 1_000_000
+        const val TIMEOUT_MS = 6000
+        const val MAX_REDIRECTS = 3
+
+        /** A publication date the page itself declares (article:published_time, datePublished, or a <time datetime>). */
+        fun published(html: String): String? = listOf(
+            Regex("(?i)<meta[^>]+(?:property|name)=[\"'](?:article:published_time|og:published_time|date|pubdate|publish-date|dc\\.date)[\"'][^>]*content=[\"']([^\"']+)"),
+            Regex("(?i)\"datePublished\"\\s*:\\s*\"([^\"]+)\""),
+            Regex("(?i)<time[^>]+datetime=[\"']([^\"']+)"),
+        ).firstNotNullOfOrNull { it.find(html)?.groupValues?.get(1)?.let(::isoDay) }
+
         fun extract(html: String, query: String, maxChars: Int): String? {
             val body = html.replace(Regex("(?is)<(script|style|noscript|nav|header|footer|aside|form|svg)[^>]*>.*?</\\1>"), " ")
             val paragraphs = Regex("(?is)<(p|li|h[1-4]|td)[^>]*>(.*?)</\\1>").findAll(body).map { htmlToText(it.groupValues[2]) }.filter { it.length >= 40 }.toList()
@@ -264,16 +381,19 @@ class PageReader(private val http: HttpFetcher, private val robots: RobotsPolicy
 }
 
 /**
- * Picks the configured provider, runs one search (3–5 results) and, if enabled, reads excerpts of the top two pages in
- * parallel. All network work runs on the IO dispatcher; nothing runs in the background between requests.
+ * Research with the configured provider: plans 1–3 queries ([ResearchPlan]), runs them in parallel, merges the results
+ * (no duplicate URLs, at most two per site so one site can't dominate), then reads short excerpts of the best pages
+ * from *different* sites when enabled, recording for each page whether it was read and, if not, why. Everything runs
+ * on the IO dispatcher with bounded time; nothing runs between requests. Snippets and page text are cleaned of
+ * instruction-like content ([WebContent]) before anything else sees them.
  */
-class SearchService(private val settings: SettingsStore, http: HttpFetcher, braveKey: () -> String?) {
+class SearchService(private val settings: SettingsStore, http: HttpFetcher, braveKey: () -> String?, private val now: () -> Long = System::currentTimeMillis) {
     private val providers: Map<String, SearchProvider> = listOf(
         BraveSearch(http, braveKey),
         SearxngSearch(http) { settings.string(Settings.SEARXNG_URL) },
         KeylessSearch(http) { settings.string(Settings.SEARCH_PROVIDER) != "wikipedia" },
     ).associateBy { it.id }
-    private val reader = PageReader(http, RobotsPolicy(http))
+    private val reader = PageReader(http, RobotsPolicy(http, now))
 
     fun provider(): SearchProvider = when (settings.string(Settings.SEARCH_PROVIDER)) {
         "brave" -> providers.getValue("brave"); "searxng" -> providers.getValue("searxng"); else -> providers.getValue("keyless")
@@ -281,17 +401,58 @@ class SearchService(private val settings: SettingsStore, http: HttpFetcher, brav
 
     suspend fun search(query: String): SearchOutcome = withContext(Dispatchers.IO) {
         val p = provider()
-        p.unavailable()?.let { return@withContext SearchOutcome(query, p.label, emptyList(), it) }
+        val started = now()
+        p.unavailable()?.let { return@withContext SearchOutcome(query, p.label, emptyList(), it, retrievedAt = started) }
         val count = settings.int(Settings.SEARCH_RESULTS)
-        val hits = try { p.search(query, count) } catch (e: SearchException) {
-            return@withContext SearchOutcome(query, p.label, emptyList(), e.message)
-        } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
-            return@withContext SearchOutcome(query, p.label, emptyList(), "${p.label} could not be reached (${e.message ?: e::class.simpleName}).")
+        val queries = ResearchPlan.queries(query)
+        // Comparison queries each get a few results; the merged list is capped so the prompt stays small.
+        val per = if (queries.size == 1) count else 3
+        val results = coroutineScope {
+            queries.map { q -> async { runOne(p, q, per) } }.awaitAll()
         }
-        if (hits.isEmpty()) return@withContext SearchOutcome(query, p.label, emptyList(), "${p.label} returned no results.")
-        val read = if (settings.bool(Settings.SEARCH_READ_PAGES)) coroutineScope {
-            hits.take(2).map { h -> async { h.url to runCatching { reader.excerpt(h.url, query) }.getOrNull() } }.awaitAll().toMap()
-        } else emptyMap()
-        SearchOutcome(query, p.label, hits.map { h -> read[h.url]?.let { h.copy(pageText = it) } ?: h })
+        val errors = results.mapNotNull { it.exceptionOrNull() }
+        val merged = merge(results.mapNotNull { it.getOrNull() }, if (queries.size == 1) count else count + 2)
+        if (merged.isEmpty()) {
+            val e = errors.firstOrNull()
+            val msg = when (e) {
+                null -> "${p.label} returned no results."
+                is SearchException -> e.message
+                is kotlinx.coroutines.TimeoutCancellationException -> "${p.label} did not answer in time."
+                else -> "${p.label} could not be reached (${e.message ?: e::class.simpleName})."
+            }
+            return@withContext SearchOutcome(query, p.label, emptyList(), msg, queries, started)
+        }
+        val toRead = if (!settings.bool(Settings.SEARCH_READ_PAGES)) emptyList()
+            else merged.distinctBy { hostOf(it.url) }.take(if (queries.size > 1) 3 else 2)
+        val read = coroutineScope {
+            toRead.map { h -> async { h.url to runCatching { reader.read(h.url, query) }.getOrElse { PageResult(null, "the page could not be loaded") } } }.awaitAll().toMap()
+        }
+        SearchOutcome(query, p.label, merged.map { h ->
+            val clean = h.copy(title = WebContent.clean(h.title), snippet = WebContent.clean(h.snippet))
+            read[h.url]?.let { r -> clean.copy(pageText = r.text, pageNote = r.note, published = clean.published ?: r.published) } ?: clean
+        }, null, queries, started)
+    }
+
+    private suspend fun runOne(p: SearchProvider, q: String, count: Int): Result<List<SearchHit>> = try {
+        Result.success(withTimeout(PROVIDER_TIMEOUT_MS) { p.search(q, count) })
+    } catch (e: kotlinx.coroutines.TimeoutCancellationException) { Result.failure(e)
+    } catch (e: kotlinx.coroutines.CancellationException) { throw e
+    } catch (e: Exception) { Result.failure(e) }
+
+    companion object {
+        const val PROVIDER_TIMEOUT_MS = 15_000L
+
+        /** Round-robin over the query result lists, no duplicate URLs, at most two results per site, at most [max]. */
+        fun merge(lists: List<List<SearchHit>>, max: Int): List<SearchHit> {
+            val out = mutableListOf<SearchHit>(); val perHost = HashMap<String, Int>()
+            val iters = lists.map { it.iterator() }
+            while (out.size < max && iters.any { it.hasNext() }) for (it in iters) {
+                if (!it.hasNext() || out.size >= max) continue
+                val h = it.next(); val host = hostOf(h.url) ?: continue
+                if (out.any { o -> o.url == h.url } || (perHost[host] ?: 0) >= 2) continue
+                perHost[host] = (perHost[host] ?: 0) + 1; out += h
+            }
+            return out
+        }
     }
 }

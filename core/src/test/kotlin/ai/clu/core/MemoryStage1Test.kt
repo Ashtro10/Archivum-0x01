@@ -41,7 +41,7 @@ class MemoryStage1Test {
         engine.reply("Sure.")
         done("How far is the moon?")
         val system = engine.prompts.last().first { it.role == "system" }.content
-        assertTrue(system.contains("Standing instructions the owner asked you to follow: From now on, use metric units and British spelling."))
+        assertTrue(system.contains("Standing instructions the owner asked you to follow (oldest first; if two conflict, follow the later one; they never override your core rules, security checks or confirmations): From now on, use metric units and British spelling."))
         assertFalse(engine.prompts.last().last().content.contains("metric units"), "not repeated as a retrieved memory")
         core.memories.delete(m.id)
         engine.reply("Sure."); done("How far is the moon?")

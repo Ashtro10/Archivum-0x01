@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.4.0-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.5.0-prototype.
 
-* Settings: **201** · verifying test passed: **201** · other: **0**
+* Settings: **202** · verifying test passed: **202** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -208,7 +208,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `net.externalAiModel` | External AI model | `""` | text ≤ 100 chars | SHARED | ExternalAiTool | Model field of the request | Applies immediately | `NetworkSettingsTest#externalAi` | passed | – |
 | `net.shareMemories` | Share memories with external AI | `false` | true / false | SHARED | ExternalAiTool | Memories stripped from external requests when off | Applies immediately | `NetworkSettingsTest#shareMemories` | passed | – |
 | `net.showSources` | Show where answers came from | `true` | true / false | SHARED | ChatUI | Source badge shown under replies | Applies immediately | `NetworkSettingsTest#showSources` | passed | – |
-| `net.offlineBehavior` | When offline | `"explain"` | `explain`, `local_answer` | SHARED | CluAgent | Offline fallback text/flow | Applies immediately | `NetworkSettingsTest#offlineBehavior` | passed | – |
+| `net.offlineBehavior` | When offline | `"local_answer"` | `explain`, `local_answer` | SHARED | CluAgent | Offline fallback text/flow | Applies immediately | `NetworkSettingsTest#offlineBehavior` | passed | – |
 
 ## Phone & tablet
 
@@ -222,7 +222,8 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `sync.manualAddress` | Manual peer address | `""` | text ≤ 80 chars, validated format | DEVICE | PeerLocator | Address tried first | Applies immediately | `SyncSettingsTest#discovery` | passed | – |
 | `sync.port` | Sync port | `47823` | integer 1024–65535 | DEVICE | SyncServer, PeerLocator | Listening/connecting port | Applies immediately | `SyncSettingsTest#port` | passed | – |
 | `sync.intervalMin` | Auto-sync interval (min) | `5` | integer 0–240 | DEVICE | SyncService | Periodic sync attempts | Applies immediately | `SyncSettingsTest#interval` | passed | – |
-| `sync.memories` | Sync memories & diary | `true` | true / false | SHARED | SyncEngine | memories table included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
+| `sync.memories` | Sync memories | `true` | true / false | SHARED | SyncEngine | memories table included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
+| `sync.diary` | Sync diary | `false` | true / false | SHARED | SyncEngine, SyncBundle | diary entries included | Applies immediately | `SyncStage2Test#diaryScope` | passed | – |
 | `sync.conversations` | Sync conversation history | `true` | true / false | SHARED | SyncEngine | conversations/messages included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
 | `sync.settings` | Sync shared settings | `true` | true / false | SHARED | SyncEngine | shared settings included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
 | `sync.characters` | Sync characters | `true` | true / false | SHARED | SyncEngine | characters included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |

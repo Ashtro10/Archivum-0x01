@@ -190,3 +190,30 @@ reached Brave, SearXNG, Wikipedia or DuckDuckGo** (the build machine cannot reac
 Totals 1.4.0: core 315 tests (7 skipped by default: opt-in benchmarks/measurements and the namespace-only offline
 test, which passed separately), app 51 tests, 0 failures; `:app:verifyApk` (376 JNI symbols) and `:app:apiCheck`
 pass on the release APK.
+
+## Stage 2: research, contextual memory, phone ↔ tablet, task planning (1.5.0, 2026-10-27)
+
+**No Android device or emulator was available** (no adb, no KVM): every result below is from the build machine.
+"Mocked" = recorded/fake HTTP responses; no real search provider or website was contacted.
+
+| Suite | Kind | What it covers | Result |
+|---|---|---|---|
+| `ResearchTest` (9) | JVM, **mocked HTTP** | comparison queries + merge across sites; public-address/redirect/robots/type checks; page status and dates in answers; prompt injection removed and no actions after web content; model-written queries can't carry private words; ≤2 model searches per reply; offline default; no internal text without a model; trigger phrases | pass |
+| `ContextMemoryTest` (5) | JVM | explicit/recent ordering, conflicts flagged, project context on resume, deleted/updated memories and instruction precedence, diary → memory with reviewed text | pass |
+| `SyncStage2Test` (4) | JVM, two installations over **real localhost TCP** with production pairing/encryption | diary scope (off by default, requeued when enabled), offline edits merge, newer edit wins on both, late older version ignored, keep-both copy, encrypted sync file (wrong passphrase, tampering, re-import, diary only when chosen), v2→v3 migration | pass |
+| `TaskPlanTest` (5) | JVM, fake Android tools | detection (and non-detection), real per-step results, lookups with sources, unconfirmed action stops the plan and resume, cancellation skips remaining steps | pass |
+| `Stage2UiTest` (2) | Robolectric | source cards show page status/retrieval time; Phone & tablet reachable with sync-file controls | pass |
+| Updated: `SearchTest`, `SearchAgentTest`, `NetworkSettingsTest`, `MemoryStage1Test` | JVM | new behaviour (distinct-site page reading, status in prompts, offline default) | pass |
+| `Stage2Benchmark` (opt-in) | JVM | per-turn overhead, retrieval at 100/1,000/5,000 memories, sync file, web-text cleaning — docs/measurements/stage2_host.json | measured |
+| `OfflineConversationTest` in a loopback-only network namespace | real llama.cpp, random-weight test model | offline conversation completes | pass |
+
+Commands:
+* `./gradlew test check :app:assembleRelease -Pclu.verify=release -Dclu.serverPython=<venv>/bin/python` → BUILD SUCCESSFUL.
+* `scripts/test_offline.sh <venv>/bin/python <models>` → pass.
+* `./gradlew :core:test --tests '*Stage2Benchmark' -Dclu.bench=true` → measurements.
+
+Totals 1.5.0: core 338 tests, 0 failures, 8 skipped by default (opt-in: HostBenchmark, PersonaMeasurement, Stage2Benchmark,
+LlmLatencyBenchmark, StreamingSpeechTest#benchmarkPipelineOverhead, 2 Whisper model tests needing model files, and
+OfflineConversationTest which runs only inside the network namespace and passed there); app 53 tests, 0 failures.
+`:app:apiCheck` 902 classes on API 33, `:app:icuRegexCheck` 192 patterns 0 rejected, `:app:verifyApk` 376 JNI symbols — all pass.
+**Not run:** anything on a phone or tablet; live search providers; two physical devices syncing.

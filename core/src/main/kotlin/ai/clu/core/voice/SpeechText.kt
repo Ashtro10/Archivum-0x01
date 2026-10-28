@@ -45,6 +45,8 @@ object SpeechText {
         s = s.replace(Regex("(?m)^\\s*CALL\\s+\\S+.*$"), " ")
         s = MD_LINK.replace(s) { it.groupValues[1] }
         s = URL.replace(s, " ")
+        // Sources are for the screen, never for the voice: no "[2]", "according to Wikipedia", "(source: …)".
+        s = ai.clu.core.agent.AnswerStyle.withoutSourceTalk(s)
         s = s.replace(Regex("`([^`]*)`"), "$1")
         s = s.replace(Regex("(?m)^\\s{0,3}#{1,6}\\s*"), "")                 // headings
         s = s.replace(Regex("(?m)^\\s*(?:[-*+•]|\\d{1,2}[.)])\\s+"), "")    // list bullets / numbers
@@ -111,8 +113,32 @@ object SpeechText {
         return (x.size - 1 - i) * 1000 / rate
     }
 
+    /**
+     * The chunk's audio with its silences set exactly: at most [LEAD_MS] before the first sound and, after the last
+     * sound, the pause its ending calls for ([targetGapMs] − [LEAD_MS], so with the next chunk's lead the gap is the
+     * target). Voices add their own silence around every chunk they synthesise as if it were a whole utterance
+     * (Kokoro ~190 ms after a comma as after a full stop, plus a lead-in), and only padding (never trimming) made a
+     * comma between two chunks nearly as long as a full stop while a full stop stood out little. Only near-silent
+     * samples (below [SILENCE] of the chunk's peak) are ever removed; every audible sample is kept, in order.
+     */
     fun withPause(rawChunk: String, samples: FloatArray, rate: Int): FloatArray {
-        val pad = padMs(rawChunk, samples, rate)
-        return if (pad == 0) samples else samples.copyOf(samples.size + pad * rate / 1000)
+        if (samples.isEmpty() || rate <= 0) return samples
+        var peak = 0f
+        for (v in samples) { val a = kotlin.math.abs(v); if (a > peak) peak = a }
+        if (peak <= 0f) return samples
+        val th = peak * SILENCE
+        var first = 0; while (first < samples.size && kotlin.math.abs(samples[first]) < th) first++
+        var last = samples.size - 1; while (last > first && kotlin.math.abs(samples[last]) < th) last--
+        val start = maxOf(0, first - LEAD_MS * rate / 1000)
+        val tail = (targetGapMs(rawChunk) - LEAD_MS).coerceAtLeast(0) * rate / 1000
+        val keptTail = minOf(tail, samples.size - 1 - last) // the voice's own decay first, then digital silence
+        val out = FloatArray(last + 1 - start + tail)
+        System.arraycopy(samples, start, out, 0, last + 1 - start + keptTail)
+        return out
     }
+
+    /** Silence before a chunk's first sound (ms) kept by [withPause]. */
+    const val LEAD_MS = 40
+    /** Below this share of the chunk's peak a sample counts as silence (about −34 dB): soft consonants stay. */
+    private const val SILENCE = 0.02f
 }

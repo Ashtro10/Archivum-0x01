@@ -26,8 +26,8 @@ class AdaptiveChunkerTest {
         val long = "I looked into the maintenance schedule and found that the next inspection is due on Monday morning at nine."
         val chunks = stream(long)
         val (first, at) = chunks.first()
-        assertTrue(AdaptiveChunker.wordCount(first) in 3..10, "short first chunk: '$first'")
-        assertTrue(at < long.length / 2, "available after ${at} of ${long.length} chars")
+        assertTrue(AdaptiveChunker.wordCount(first) in 3..12, "short first chunk: '$first'")
+        assertTrue(at < long.length * 2 / 3, "available after ${at} of ${long.length} chars")
         assertFalse(first.split(" ").last().lowercase() in setOf("the", "to", "for", "a", "and", "of"), "does not end on a function word: '$first'")
         assertEquals(long, chunks.joinToString(" ") { it.first }, "nothing lost or duplicated")
     }
@@ -57,7 +57,9 @@ class AdaptiveChunkerTest {
             "and then yet another part follows without any full stop for quite a while longer than usual."
         val chunks = stream(text).map { it.first }
         assertTrue(chunks.drop(1).all { it.length <= 220 }, "bounded: ${chunks.map { it.length }}")
-        assertTrue(chunks.size >= 3)
+        assertTrue(chunks.size >= 2)
+        // Stage 3 (final): a later chunk ends at a comma only once it is long (a cut comma is spoken like a sentence end).
+        assertTrue(chunks.drop(1).filter { it.endsWith(",") }.all { it.length >= 110 }, "$chunks")
         assertEquals(text.replace(Regex("\\s+"), " ").trim(), chunks.joinToString(" "))
     }
 

@@ -45,6 +45,6 @@ tasks.test {
 val prepareNativeTest by tasks.registering(Exec::class) {
     description = "Builds the host llama.cpp JNI library and tiny test models"
     commandLine(rootProject.file("scripts/prepare_native_test.sh").absolutePath)
-    outputs.files(rootProject.file("native/build/host/libclu_llama.so"), rootProject.file("native/build/test/tiny.gguf"), rootProject.file("native/build/test/tiny2.gguf"))
+    outputs.files(rootProject.file("native/build/host/libclu_llama.so"), rootProject.file("native/build/test/tiny.gguf"), rootProject.file("native/build/test/tiny2.gguf"), rootProject.file("native/build/test/tiny-llama3.gguf"))
 }
 tasks.test { dependsOn(prepareNativeTest) }

@@ -16,7 +16,7 @@ class SpeechTextTest {
         assertEquals("Open the app.", say("1. Open the app."))
         assertEquals("This is important.", say("This is **important**."))
         assertEquals("See the guide for details.", say("See the [guide](https://example.com/a?b=c) for details."))
-        assertEquals("Source:", say("Source: https://en.wikipedia.org/wiki/Queens"))
+        assertEquals("", say("Source: https://en.wikipedia.org/wiki/Queens"), "a sources line is for the screen, never spoken")
         assertEquals("Run ls -la now.", say("Run `ls -la` now."))
         assertEquals("Done.", say("Done. <tool>{\"name\":\"calc\",\"args\":{}}</tool>"))
         assertEquals("Great.", say("Great 👍."))

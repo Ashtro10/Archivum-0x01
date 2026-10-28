@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-28 (v1.5.5)_
+_Last updated: 2026-10-28 (v1.6.0)_
 
 ## Current state
 
@@ -16,6 +16,16 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-28: Final Stage 3 — agent controller, automatic research, model fallback, natural speech (v1.6.0, versionCode 13)
+
+Details: [docs/FINAL_STAGE3_AGENT.md](docs/FINAL_STAGE3_AGENT.md). A lightweight agent controller (application code)
+decides when to research (people, characters, named subjects and follow-ups — without being asked), validates the
+model's proposed actions, retries empty searches with evidence-based alternatives (provider spelling suggestion,
+similar names from the conversation), never reports a failed or empty search as a success, asks one question when a
+name is ambiguous, and answers conversationally without reading out sources. Model: replaceable GGUF (any llama.cpp
+architecture), now with fallback to the last working model. Speech: comma ≈ 170 ms, full stop ≈ 360 ms, fewer comma
+cuts. Host-verified only; **not yet tested on a device**.
 
 ## 2026-10-28: Stage 3.4 — latency root cause: interrupted replies erased the prompt cache (v1.5.5, versionCode 12)
 

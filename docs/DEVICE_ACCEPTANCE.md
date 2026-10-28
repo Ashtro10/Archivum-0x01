@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.5.5-prototype
+# Device acceptance checklist — Clu 1.6.0-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -21,6 +21,11 @@ check below on a real device, that behaviour is *unverified*.
 
 | # | What to do | Success looks like | If it fails, collect |
 |---|---|---|---|
+| 1a ★ | **(1.6.0) Clu researches on its own.** Online, voice chat (⬡): ask "Who is Leman Russ?" (don't say "search"). Then ask "Which legion did he lead?" | A direct, natural answer (e.g. "Leman Russ is the Primarch of the Space Wolves…") without reading out websites, links or "[1]". The follow-up answers about Leman Russ. Source cards are visible in the chat. | What Clu said; performance report. |
+| 1b ★ | **(1.6.0) Misheard names.** Voice: say a name the way it might be misheard (e.g. "Who is Lehman Ross?" right after 1a). | Clu answers about the intended person by name, or asks you to repeat/spell it — never an unrelated refusal. | What Clu heard (shown on screen) and said. |
+| 1c | **(1.6.0) No needless searching.** Ask "How are you?", "What is two plus two?", "Write a two-line poem about rain". | Normal answers; no "Searching the web…" status. | Which one searched. |
+| 1d | **(1.6.0) Offline honesty.** Airplane mode, ask "Who is Leman Russ?" | Clu says it's offline/can't check and answers from memory only if it can; it never claims it looked anything up. | What Clu said. |
+| 1e ★ | **(1.6.0) Pauses.** Ask for something with several sentences and commas, e.g. "Explain how a bicycle gear works in a few sentences." Listen. | Short pauses at commas, clearly longer ones at full stops; no long gaps in the middle of a sentence; no words skipped or repeated. | Which sentence sounded wrong (screen recording with sound if possible). |
 | 0u ★ | **(1.5.5) Speed after interruptions.** Neo 9 Pro. ☰ → Settings → Diagnostics → **Clear measurements**. Voice chat (⬡): ~15 short exchanges; interrupt Clu 3 times (speak over it) and press Stop once; after each interruption ask one more short question. Then **Share performance report**. | The answer right after an interruption comes about as fast as the others. In the report's *Recent voice turns*, the turn after an interruption shows `steady` (not a "new" count close to the whole prompt). | The performance report (always). |
 | 0v ★ | **(1.5.4) Voice speed, fresh numbers.** Neo 9 Pro first. ☰ → Settings → Diagnostics → **Clear measurements**. Then: open ⬡ voice chat; have **one conversation of at least 15 exchanges** (short questions, wait for each answer); include 3 interruptions (speak over Clu early in an answer, mid-answer, and between two sentences); press Stop once; leave Clu for a minute (home screen) and come back for 3 more exchanges. Then **Share performance report**. | The report lists `endpoint_to_first_audio_ms`, `first_tts_to_first_audio_ms`, `turn_first_token_ms`, `prompt_new_tokens`, `prefill_tok_per_s`, `tokens_per_s`. Clu's answers start sooner and play without long pauses compared with 1.5.3. | The performance report (always send it, good or bad); which question felt slow. |
 | 0w | **(1.5.4) Interruptions still work, and only you interrupt.** During 0v: let at least two full answers play without speaking. | Clu never stops itself in the middle of its own answer; your interruptions stop it within about a second. | Which answer stopped by itself; performance report. |

@@ -6,7 +6,10 @@ from llama.cpp's vocab-only test file for Qwen2. The weights are random, so gene
 is meaningless. This model verifies plumbing (load, template, tokenize, decode, sample,
 KV-cache reuse, grammar, cancellation) - NOT response quality.
 
-usage: make_test_gguf.py <llama.cpp dir> <output.gguf> [seed] [--shape tiny|1b]
+usage: make_test_gguf.py <llama.cpp dir> <output.gguf> [seed] [--shape tiny|1b] [--vocab qwen2|llama-bpe]
+
+--vocab llama-bpe uses the Llama 3 tokenizer and chat template instead of Qwen2's (ChatML): a second, differently
+tokenised model for checking that Clu's model layer doesn't depend on one model family.
 
 --shape 1b writes F16 weights with the dimensions of Llama 3.2 1B (2048 embd, 16 layers, 32/8 heads, 8192 ffn,
 tied embeddings) for latency measurements: compute cost matches a real 1B model, output is still meaningless.
@@ -18,13 +21,14 @@ from pathlib import Path
 import numpy as np
 
 shape = sys.argv[sys.argv.index("--shape") + 1] if "--shape" in sys.argv else "tiny"
-args = [a for i, a in enumerate(sys.argv) if a != "--shape" and (i == 0 or sys.argv[i - 1] != "--shape")]
+vocab_name = sys.argv[sys.argv.index("--vocab") + 1] if "--vocab" in sys.argv else "qwen2"
+args = [a for i, a in enumerate(sys.argv) if a not in ("--shape", "--vocab") and (i == 0 or sys.argv[i - 1] not in ("--shape", "--vocab"))]
 llama_dir = Path(args[1])
 out = Path(args[2])
 sys.path.insert(0, str(llama_dir / "gguf-py"))
 import gguf  # noqa: E402
 
-vocab = gguf.GGUFReader(str(llama_dir / "models" / "ggml-vocab-qwen2.gguf"))
+vocab = gguf.GGUFReader(str(llama_dir / "models" / f"ggml-vocab-{vocab_name}.gguf"))
 
 ARCH = "llama"
 big = shape == "1b"
@@ -33,7 +37,7 @@ if big:
 else:
     n_embd, n_layer, n_head, n_head_kv, n_ff, n_ctx = 64, 2, 4, 2, 128, 2048
 w = gguf.GGUFWriter(str(out), ARCH)
-w.add_name("clu-test-1b-shape-random" if big else "clu-test-tiny-random")
+w.add_name("clu-test-1b-shape-random" if big else f"clu-test-tiny-random-{vocab_name}")
 w.add_context_length(n_ctx)
 w.add_embedding_length(n_embd)
 w.add_block_count(n_layer)
@@ -64,11 +68,18 @@ for field in vocab.fields.values():
     else:
         w.add_key_value(name, field.parts[field.data[0]].tolist()[0], vtype)
 
-# ChatML-style template, as used by Qwen2.5 instruct models.
-w.add_chat_template(
-    "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
-    "{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-)
+if vocab_name == "llama-bpe":
+    # Llama 3 instruct template (header tokens, <|eot_id|>).
+    w.add_chat_template(
+        "{{ bos_token }}{% for message in messages %}{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' + message['content'] + '<|eot_id|>' }}"
+        "{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}{% endif %}"
+    )
+else:
+    # ChatML-style template, as used by Qwen2.5 instruct models.
+    w.add_chat_template(
+        "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
+        "{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
+    )
 
 rng = np.random.default_rng(int(args[3]) if len(args) > 3 else 42)
 def t(*shape):

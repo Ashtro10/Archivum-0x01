@@ -114,6 +114,7 @@ class ToolExecutor(
     private val db = store.db
 
     fun has(name: String) = registry[name] != null
+    fun tool(name: String): Tool? = registry[name]
     fun networkCategory(name: String) = registry[name]?.network
 
     fun isEnabled(name: String) = runCatching { settings.bool("tool.$name.enabled") }.getOrDefault(true)

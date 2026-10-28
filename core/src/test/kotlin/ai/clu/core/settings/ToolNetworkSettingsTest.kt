@@ -51,9 +51,10 @@ class ToolSettingsTest {
 
     @Test fun maxSteps(): Unit = runBlocking {
         val t = RecordingTool(); core.toolRegistry.register(t)
-        val call = "<tool>{\"name\": \"test.action\", \"args\": {}}</tool>"
+        // Distinct calls: an exact repeat is refused by the agent controller anyway (see AgentAcceptanceTest).
+        fun call(n: Int) = "<tool>{\"name\": \"test.action\", \"args\": {\"n\": $n}}</tool>"
         s.set(Settings.AGENT_MAX_STEPS, 2)
-        core.useEngine(ScriptedEngine().reply(call, call, call, call, "Finished."))
+        core.useEngine(ScriptedEngine().reply(call(1), call(2), call(3), call(4), "Finished."))
         val conv = core.conversations.create()
         core.agent.handle(TurnRequest(conv.id, "do the thing repeatedly", Actor.ownerInApp())) {}
         assertEquals(2, t.runs, "agent must stop calling tools after the configured number of steps")

@@ -3,11 +3,15 @@ package ai.clu.core.voice
 /**
  * Splits streamed LLM text into speakable chunks for incremental synthesis.
  *
- * The first chunk is short so that speech can start early: the first sentence end after 2 words, the first clause
- * boundary (comma, dash) after 3 words, or - if the model has produced [firstMaxWords] words without either - the
- * latest clause boundary or word boundary, never ending on a dangling function word ("the", "to", "for"...).
- * Later chunks follow sentence boundaries, use clause boundaries once a chunk is long enough, and are force-cut
- * at a word boundary beyond [laterMaxChars].
+ * The first chunk is short so that speech can start early: the first sentence end after 2 words, a clause boundary
+ * (comma, dash) only after [firstMinWordsClause] words, or - if the model has produced [firstMaxWords] words without
+ * either - the latest clause boundary or word boundary, never ending on a dangling function word ("the", "to", "for"...).
+ * Later chunks follow sentence boundaries, use a comma only once a chunk is long ([laterClauseChars]), and are
+ * force-cut at a word boundary beyond [laterMaxChars].
+ *
+ * Commas are cut sparingly on purpose: every chunk is synthesised as a separate utterance, so a cut comma used to get
+ * a sentence-like pause (and any wait for the next chunk), while a comma inside a chunk keeps the voice's natural
+ * short pause. SpeechText.withPause then sets each boundary's pause by its punctuation.
  *
  * A boundary only counts once the next character has arrived and is whitespace, so decimals ("3.5"), abbreviations
  * ("Dr.", "e.g.") and partial words are never split. Code blocks and tool-call markup are not spoken.
@@ -15,11 +19,11 @@ package ai.clu.core.voice
  */
 class AdaptiveChunker(
     private val firstMinWordsSentence: Int = 2,
-    private val firstMinWordsClause: Int = 3,
-    private val firstMaxWords: Int = 8,
+    private val firstMinWordsClause: Int = 5,
+    private val firstMaxWords: Int = 10,
     private val laterMinWords: Int = 3,
-    private val laterClauseChars: Int = 60,
-    private val laterMaxChars: Int = 180,
+    private val laterClauseChars: Int = 110,
+    private val laterMaxChars: Int = 200,
 ) {
     private val buf = StringBuilder()
     private var inCode = false

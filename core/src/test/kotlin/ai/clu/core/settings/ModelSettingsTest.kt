@@ -36,12 +36,13 @@ class ModelSettingsTest {
         assertEquals(b.id, core.llm.state.value.modelId)
         val textB = greedy()
         assertNotEquals(textA, textB, "different weights must produce different greedy output")
-        // Missing file is reported, not crashed on.
+        // Missing file is reported, not crashed on; Clu falls back to the last model that worked (final Stage 3).
         val tmp = File.createTempFile("gone", ".gguf"); modelA.copyTo(tmp, overwrite = true)
         val c = core.models.register(tmp, "temp"); tmp.delete()
         s.set(Settings.MODEL_ACTIVE, c.id); core.llm.reload()
-        assertEquals(LlmStatus.ERROR, core.llm.state.value.status)
-        assertTrue(core.llm.state.value.message.contains("missing"))
+        assertEquals(LlmStatus.READY, core.llm.state.value.status)
+        assertTrue(core.llm.state.value.message.contains("missing"), core.llm.state.value.message)
+        assertEquals(b.id, core.llm.state.value.modelId, "back on the last working model")
         assertEquals(ModelStatus.MISSING, core.models.get(c.id)!!.status)
     }
 

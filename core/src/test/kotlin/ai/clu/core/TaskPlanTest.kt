@@ -73,7 +73,7 @@ class TaskPlanTest {
         platform.fakeHttp.routes["searx.example.org"] = HttpResponse(200, """{"results":[{"url":"https://imd.example/pune","title":"Pune forecast","content":"Rain likely today"}]}""")
         engine.reply("Rain is likely in Pune today [1].")
         val r = done(ask("Set a timer for 10 minutes and then look up the weather in Pune today"))
-        assertTrue(r.text.contains("✓ 2. Look up the weather in Pune today — searched, 1 source — answer below") && r.text.endsWith("Rain is likely in Pune today [1]."), r.text)
+        assertTrue(r.text.contains("✓ 2. Look up the weather in Pune today — searched, 1 source — answer below") && r.text.endsWith("Rain is likely in Pune today."), r.text)
         assertEquals("https://imd.example/pune", r.meta.sources.single().url)
     }
 

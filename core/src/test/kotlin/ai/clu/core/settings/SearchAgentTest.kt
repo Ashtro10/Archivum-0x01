@@ -63,11 +63,12 @@ class SearchAgentTest {
         val d = done(ev)
         assertEquals(listOf("https://source.android.com/docs/whatsnew/android-16-release", "https://en.wikipedia.org/wiki/Android_version_history"),
             d.meta.sources.take(2).map { it.url }, "sources are exactly what the provider returned")
-        assertEquals("Android 16 is the latest stable version, released in June 2025 [1][2]. Also see.", d.text, "a citation to a non-existent source is removed")
+        // Final Stage 3: a conversational answer has no citation markers at all (the sources stay on the message's cards).
+        assertEquals("Android 16 is the latest stable version, released in June 2025. Also see.", d.text, "no citation numbers in the answer")
         val sent = engine.prompts.last().last().content
-        assertTrue(sent.startsWith("[Web search results]") && sent.contains("[1] Android 16 release notes (source.android.com; snippet only)"))
+        assertTrue(sent.startsWith("[Information found]") && sent.contains("[1] Android 16 release notes (source.android.com; snippet only)"))
         assertFalse(sent.contains("https://"), "the model gets numbered sources and site names, not URLs")
-        assertTrue(sent.contains("Cite sources as [1], [2]") && sent.contains("say so plainly"))
+        assertTrue(sent.contains("Do not mention searching, websites, sources, links, citation numbers") && sent.contains("say plainly"))
         assertEquals(1, http.requests.size, "one request: ${http.requests}"); assertTrue(http.requests.single().contains("q=What+is+the+latest+version+of+Android&"), "only the question is sent: ${http.requests}")
         // On request only: the same question is answered without searching.
         core.settings.set(Settings.SEARCH_AUTO, "explicit"); http.requests.clear()
@@ -124,14 +125,14 @@ class SearchAgentTest {
         engine.reply("<tool>{\"name\": \"web.search\", \"args\": {\"query\": \"kotlin coroutines guide\"}}</tool>", "Coroutines are lightweight threads [1].")
         val d = done(ask("Find me a good explanation of Kotlin coroutines"))
         assertEquals("https://source.android.com/docs/whatsnew/android-16-release", d.meta.sources.first().url)
-        assertTrue(engine.prompts.last().last().content.startsWith("[Web search results]"))
+        assertTrue(engine.prompts.last().last().content.startsWith("[Information found]"))
     }
 
     @Test fun spokenAnswersHaveNoCitationNumbers() {
         engine.reply("Android 16 is the latest [1].")
         val d = done(ask("What is the latest version of Android?", voice = true))
         assertEquals("Android 16 is the latest.", d.text)
-        assertTrue(engine.prompts.last().last().content.contains("do not read out numbers or links"))
+        assertTrue(engine.prompts.last().last().content.contains("Do not mention searching, websites, sources, links, citation numbers"))
         assertEquals("A [1] b.", Citations.clean("A [1] b [3].", 2, spoken = false))
     }
 

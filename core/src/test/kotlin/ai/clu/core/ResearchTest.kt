@@ -120,7 +120,7 @@ class ResearchTest {
         assertTrue(ev.none { it is AgentEvent.ToolStarted && it.tool == "memory.remember" }, "no action after reading web content")
         assertEquals(0, core.memories.count())
         assertTrue(engine.prompts.last().last().content.contains("Not run: actions can't be started after reading web content"))
-        assertEquals("Android 16 came out in June 2025 [1].", done(ev).text)
+        assertEquals("Android 16 came out in June 2025.", done(ev).text)
     }
 
     @Test fun modelWrittenQueriesCannotCarryPrivateDetails() {

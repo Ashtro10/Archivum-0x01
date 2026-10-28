@@ -29,7 +29,11 @@ data class SearchHit(val title: String, val url: String, val snippet: String, va
 
 /** What a search produced. [error] is set when nothing usable came back (the hits are then empty). */
 data class SearchOutcome(val query: String, val provider: String, val hits: List<SearchHit>, val error: String? = null,
-                         val queries: List<String> = listOf(query), val retrievedAt: Long = 0) {
+                         val queries: List<String> = listOf(query), val retrievedAt: Long = 0,
+                         /** The search ran and found nothing (as opposed to failing to run). */
+                         val empty: Boolean = false,
+                         /** The provider's spelling suggestion for the query (e.g. Wikipedia's "did you mean"), if any. */
+                         val suggestion: String? = null) {
     /** Different websites among the results (several results from one site are not independent confirmation). */
     val independentSites get() = hits.mapNotNull { hostOf(it.url) }.distinct().size
 }
@@ -47,6 +51,8 @@ interface SearchProvider {
     /** Why this provider can't be used right now (missing key or URL), or null when it can. */
     fun unavailable(): String? = null
     suspend fun search(query: String, count: Int): List<SearchHit>
+    /** Results plus the provider's spelling suggestion for the query, when it offers one. */
+    suspend fun searchWithSuggestion(query: String, count: Int): Pair<List<SearchHit>, String?> = search(query, count) to null
 }
 
 private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
@@ -140,14 +146,16 @@ class KeylessSearch(private val http: HttpFetcher, private val includeInstantAns
     override val id = "keyless"
     override val label get() = if (includeInstantAnswers()) "Wikipedia + DuckDuckGo Instant Answers" else "Wikipedia"
 
-    override suspend fun search(query: String, count: Int): List<SearchHit> = coroutineScope {
+    override suspend fun search(query: String, count: Int): List<SearchHit> = searchWithSuggestion(query, count).first
+
+    override suspend fun searchWithSuggestion(query: String, count: Int): Pair<List<SearchHit>, String?> = coroutineScope {
         val ia: kotlinx.coroutines.Deferred<List<SearchHit>>? = if (includeInstantAnswers()) async { runCatching { instantAnswer(query) }.getOrDefault(emptyList()) } else null
         val wiki = async { runCatching { wikipedia(query, count) } }
         val w = wiki.await()
-        val hits = (ia?.await().orEmpty() + w.getOrDefault(emptyList())).distinctBy { it.url }
+        val hits = (ia?.await().orEmpty() + w.getOrNull()?.first.orEmpty()).distinctBy { it.url }
         // One source failing doesn't discard the other's results; only report the failure when nothing came back.
         if (hits.isEmpty()) w.exceptionOrNull()?.let { throw it }
-        hits.take(count)
+        hits.take(count) to w.getOrNull()?.second
     }
 
     private suspend fun instantAnswer(q: String): List<SearchHit> {
@@ -156,11 +164,11 @@ class KeylessSearch(private val http: HttpFetcher, private val includeInstantAns
         return parseInstantAnswer(r.body)
     }
 
-    private suspend fun wikipedia(q: String, count: Int): List<SearchHit> {
-        val r = http.get("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&format=json&srlimit=$count&utf8=1",
+    private suspend fun wikipedia(q: String, count: Int): Pair<List<SearchHit>, String?> {
+        val r = http.get("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${enc(q)}&format=json&srlimit=$count&srinfo=suggestion&utf8=1",
             mapOf("User-Agent" to USER_AGENT))
         if (r.code != 200) throw SearchException("Wikipedia returned HTTP ${r.code}.")
-        return parseWikipedia(r.body)
+        return parseWikipedia(r.body) to parseWikipediaSuggestion(r.body)
     }
 
     companion object {
@@ -173,6 +181,11 @@ class KeylessSearch(private val http: HttpFetcher, private val includeInstantAns
             if (answer != null) out += SearchHit("Instant answer", "https://duckduckgo.com/?q=${enc(o.s("Heading") ?: answer)}", answer, "DuckDuckGo Instant Answer")
             return out
         }
+
+        /** Wikipedia's "did you mean" for a query it thinks is misspelled (query.searchinfo.suggestion). */
+        fun parseWikipediaSuggestion(body: String): String? = runCatching {
+            (CluJson.parseToJsonElement(body).jsonObject["query"]?.jsonObject?.get("searchinfo") as? JsonObject)?.s("suggestion")
+        }.getOrNull()?.takeIf { it.isNotBlank() }
 
         fun parseWikipedia(body: String): List<SearchHit> {
             val hits = runCatching { CluJson.parseToJsonElement(body).jsonObject["query"]?.jsonObject?.get("search") as? JsonArray }.getOrNull()
@@ -539,7 +552,10 @@ class SearchService(private val settings: SettingsStore, http: HttpFetcher, brav
             queries.map { q -> async { runOne(p, q, per) } }.awaitAll()
         }
         val errors = results.mapNotNull { it.exceptionOrNull() }
-        val merged = merge(results.mapNotNull { it.getOrNull() }, if (queries.size == 1) count else count + 2)
+        val suggestion = results.firstNotNullOfOrNull { it.getOrNull()?.second }?.takeIf { !it.equals(query, ignoreCase = true) }
+        // The two-per-site cap keeps one site from dominating a multi-site provider; the keyless provider is Wikipedia
+        // (one site) by design, where it would leave only two articles.
+        val merged = merge(results.mapNotNull { it.getOrNull()?.first }, if (queries.size == 1) count else count + 2, perSite = if (p.id == "keyless") Int.MAX_VALUE else 2)
         if (merged.isEmpty()) {
             val e = errors.firstOrNull()
             val msg = when (e) {
@@ -548,7 +564,7 @@ class SearchService(private val settings: SettingsStore, http: HttpFetcher, brav
                 is kotlinx.coroutines.TimeoutCancellationException -> "${p.label} did not answer in time."
                 else -> "${p.label} could not be reached (${e.message ?: e::class.simpleName})."
             }
-            return@withContext SearchOutcome(query, p.label, emptyList(), msg, queries, started)
+            return@withContext SearchOutcome(query, p.label, emptyList(), msg, queries, started, empty = e == null, suggestion = suggestion)
         }
         val toRead = if (!settings.bool(Settings.SEARCH_READ_PAGES)) emptyList()
             else merged.distinctBy { hostOf(it.url) }.take(if (queries.size > 1) 3 else 2)
@@ -558,11 +574,11 @@ class SearchService(private val settings: SettingsStore, http: HttpFetcher, brav
         SearchOutcome(query, p.label, merged.map { h ->
             val clean = h.copy(title = WebContent.clean(h.title), snippet = WebContent.clean(h.snippet))
             read[h.url]?.let { r -> clean.copy(pageText = r.text, pageNote = r.note, published = clean.published ?: r.published) } ?: clean
-        }, null, queries, started)
+        }, null, queries, started, suggestion = suggestion)
     }
 
-    private suspend fun runOne(p: SearchProvider, q: String, count: Int): Result<List<SearchHit>> = try {
-        Result.success(withTimeout(PROVIDER_TIMEOUT_MS) { p.search(q, count) })
+    private suspend fun runOne(p: SearchProvider, q: String, count: Int): Result<Pair<List<SearchHit>, String?>> = try {
+        Result.success(withTimeout(PROVIDER_TIMEOUT_MS) { p.searchWithSuggestion(q, count) })
     } catch (e: kotlinx.coroutines.TimeoutCancellationException) { Result.failure(e)
     } catch (e: kotlinx.coroutines.CancellationException) { throw e
     } catch (e: Exception) { Result.failure(e) }
@@ -570,14 +586,14 @@ class SearchService(private val settings: SettingsStore, http: HttpFetcher, brav
     companion object {
         const val PROVIDER_TIMEOUT_MS = 15_000L
 
-        /** Round-robin over the query result lists, no duplicate URLs, at most two results per site, at most [max]. */
-        fun merge(lists: List<List<SearchHit>>, max: Int): List<SearchHit> {
+        /** Round-robin over the query result lists, no duplicate URLs, at most [perSite] results per site, at most [max]. */
+        fun merge(lists: List<List<SearchHit>>, max: Int, perSite: Int = 2): List<SearchHit> {
             val out = mutableListOf<SearchHit>(); val perHost = HashMap<String, Int>()
             val iters = lists.map { it.iterator() }
             while (out.size < max && iters.any { it.hasNext() }) for (it in iters) {
                 if (!it.hasNext() || out.size >= max) continue
                 val h = it.next(); val host = hostOf(h.url) ?: continue
-                if (out.any { o -> o.url == h.url } || (perHost[host] ?: 0) >= 2) continue
+                if (out.any { o -> o.url == h.url } || (perHost[host] ?: 0) >= perSite) continue
                 perHost[host] = (perHost[host] ?: 0) + 1; out += h
             }
             return out

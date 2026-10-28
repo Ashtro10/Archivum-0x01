@@ -82,6 +82,7 @@ class LlmService(
         refreshNoModelState()
         scope.launch {
             settings.observeAny(reloadKeys).drop(1).collect {
+                if (loadedMatchesSettings()) return@collect // e.g. a fallback just loaded exactly this
                 if (engine != null) {
                     diag?.i("llm", "configuration changed – reloading")
                     reload()
@@ -157,17 +158,17 @@ class LlmService(
         if (!File(entry.path).exists()) {
             registry.setStatus(entry.id, ModelStatus.MISSING, "file not found")
             _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, "Model file is missing: ${entry.path}")
-            return null
+            return fallbackFrom(entry, "its file is missing")
         }
         // Integrity before loading: a file whose size changed since it was checked (replaced, truncated, partly
         // overwritten) is validated again instead of being handed to llama.cpp blindly.
         if (File(entry.path).length() != entry.sizeBytes) {
-            val problem = try { GgufReader.read(File(entry.path)); null } catch (e: GgufException) { e.message } catch (e: java.io.IOException) { e.message }
+            val problem = try { GgufReader.read(File(entry.path)); null } catch (e: GgufException) { e.message ?: "invalid GGUF" } catch (e: java.io.IOException) { e.message ?: "the file ends early (${e::class.simpleName})" }
             if (problem != null) {
                 registry.setStatus(entry.id, ModelStatus.INCOMPATIBLE, problem)
                 _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, "Model file is damaged: $problem. Import or download it again.")
                 diag?.w("llm", "integrity check failed for ${entry.name}: $problem")
-                return null
+                return fallbackFrom(entry, "the file is damaged")
             }
             registry.register(File(entry.path), entry.name)
         }
@@ -198,8 +199,30 @@ class LlmService(
             registry.setStatus(entry.id, ModelStatus.INCOMPATIBLE, msg)
             diag?.e("llm", "load failed", t)
             _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, "Could not load model: $msg")
-            null
+            fallbackFrom(entry, msg.lineSequence().first().take(160))
         }
+    }
+
+    /**
+     * A newly chosen model that can't be loaded must not leave Clu without one: switch back to the most recent model
+     * that has loaded and generated on this device (ModelStatus.VERIFIED), select it again, and say so. Memories,
+     * conversations and settings are not touched; they never depend on the model.
+     */
+    private fun fallbackFrom(failed: ModelEntry, why: String): LlamaEngine? {
+        val good = registry.list().lastOrNull { it.status == ModelStatus.VERIFIED && it.id != failed.id && File(it.path).exists() } ?: return null
+        diag?.w("llm", "${failed.name} could not be loaded ($why); falling back to ${good.name}")
+        settings.set(Settings.MODEL_ACTIVE, good.id)
+        val e = loadLocked() ?: return null
+        _state.value = _state.value.copy(message = "Couldn't load ${failed.name} ($why). Using ${good.name} instead.")
+        return e
+    }
+
+    /** The loaded model is exactly what the settings ask for (same file, same configuration). */
+    private fun loadedMatchesSettings(): Boolean {
+        val e = engine ?: return false
+        val entry = registry.get(settings.string(Settings.MODEL_ACTIVE)) ?: return false
+        val want = configFor(entry)
+        return e.id == entry.id && want.copy(contextLength = e.config.contextLength) == e.config && want.contextLength >= e.config.contextLength
     }
 
     suspend fun unload() = withContext(dispatcher) {

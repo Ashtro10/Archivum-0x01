@@ -223,7 +223,12 @@ class WebSearchTool(private val search: SearchService) : Tool {
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val q = args.str("query") ?: return ToolResult.fail("No query given.")
         val out = search.search(q)
-        if (out.error != null) return ToolResult(false, false, "The web search could not be completed: ${out.error}", error = out.error, spoken = null, usedNetwork = true)
+        if (out.error != null) {
+            // "Found nothing" is not "could not search": the agent tries another spelling or query for the first.
+            val data = buildJsonObject { put("empty", out.empty); out.suggestion?.let { put("suggestion", it) } }
+            return ToolResult(false, false, if (out.empty) "The web search ran but found nothing for \"$q\"." else "The web search could not be completed: ${out.error}",
+                error = out.error, data = data, spoken = null, usedNetwork = true)
+        }
         val retrieved = SimpleDateFormat("d MMM yyyy HH:mm", Locale.ENGLISH).format(Date(ctx.now))
         val summary = buildString {
             appendLine("Web search via ${out.provider}, retrieved $retrieved. Queries: ${out.queries.joinToString("; ") { "\"$it\"" }}.")
@@ -245,6 +250,11 @@ class WebSearchTool(private val search: SearchService) : Tool {
     }
 
     companion object {
+        /** A failed web.search that actually ran and found nothing (see [run]). */
+        fun foundNothing(r: ToolResult) = !r.success && ((r.data as? JsonObject)?.get("empty") as? JsonPrimitive)?.booleanOrNull == true
+        /** The provider's spelling suggestion carried by a web.search result that found nothing. */
+        fun suggestion(r: ToolResult): String? = (r.data as? JsonObject)?.str("suggestion")
+
         fun host(url: String) = runCatching { java.net.URI(url).host?.removePrefix("www.") }.getOrNull() ?: url
 
         /** Sources carried by a web.search result (for the message's source links). */

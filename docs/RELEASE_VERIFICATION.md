@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,227,532 bytes | `stat` |
-| SHA-256 | `27ea2e3312cab90e9e169445d231ddcd96d3193f82b31eb5159f6409bd56b5ea` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,248,012 bytes | `stat` |
+| SHA-256 | `bbbf679f72c5e64059c0807142004882ddad2bb19d35ca453bbad083f529e51e` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.5.5-prototype` (versionCode 12; installs as an update over versionCodes 1–11, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.4 in commit `20f564b`, 1.5.3 in `be85d72`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
+| Version | `1.6.0-prototype` (versionCode 13; installs as an update over versionCodes 1–12, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.5 in commit `d67cf84`, 1.5.4 in `20f564b`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |

@@ -47,7 +47,7 @@ class ModelSettingsTest {
     }
 
     @Test fun incompatibleFileIsRejectedBeforeLoading() {
-        val bad = File.createTempFile("bad", ".gguf").apply { writeText("not a model") }
+        val bad = File.createTempFile("bad", ".gguf").apply { deleteOnExit(); writeText("not a model") }
         val e = assertFailsWith<LlmException> { core.models.register(bad) }
         assertTrue(e.message!!.contains("bad magic"))
     }

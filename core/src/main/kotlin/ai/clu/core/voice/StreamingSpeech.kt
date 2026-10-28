@@ -33,7 +33,7 @@ interface SpeechSink {
     fun stop()
 }
 
-/** Timings of one spoken response, all in ms since the epoch of [StreamingSpeech.now] (0 = not reached). */
+/** Timings of one spoken response, in monotonic ms from [StreamingSpeech.now] (0 = not reached). */
 class TurnTimings(val responseId: Long) {
     @Volatile var userSpeechEnd = 0L
     @Volatile var transcriptFinal = 0L
@@ -89,7 +89,8 @@ class StreamingSpeech(
     private val sink: SpeechSink,
     private val synthDispatcher: CoroutineDispatcher,
     private val playDispatcher: CoroutineDispatcher,
-    val now: () -> Long = System::currentTimeMillis,
+    /** Monotonic milliseconds (durations only; VoiceSession times turns on the same clock). */
+    val now: () -> Long = { System.nanoTime() / 1_000_000 },
     private val chunker: () -> AdaptiveChunker = { AdaptiveChunker() },
     private val audioQueue: Int = 2,
     private val stallFlushMs: Long = 350,

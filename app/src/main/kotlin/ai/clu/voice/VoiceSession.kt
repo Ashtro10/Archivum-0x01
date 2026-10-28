@@ -110,7 +110,7 @@ class VoiceSession(private val app: CluApp) {
         if (turn.state == TurnState.SPEAKING || turn.state == TurnState.PROCESSING) {
             turn.onResponseComplete(); publish()
             // The microphone stays open through the reply (barge-in), so listening resumes without restarting capture.
-            if (replyEndedAt > 0 && turn.state == TurnState.LISTENING) core.diag.perf("reply_end_to_listening_ms", (System.currentTimeMillis() - replyEndedAt).toDouble())
+            if (replyEndedAt > 0 && turn.state == TurnState.LISTENING) core.diag.perf("reply_end_to_listening_ms", (mono() - replyEndedAt).toDouble())
             // "One question" listening mode (or hold-to-talk): the microphone closes after the reply.
             val oneShot = core.settings.string(Settings.MIC_MODE) == "tap"
             if ((stopAfterReply || oneShot) && !wakeMode) { stopAfterReply = false; scope.launch { stop() } }
@@ -217,7 +217,7 @@ class VoiceSession(private val app: CluApp) {
         fun finishUtterance(audio: FloatArray) {
             val s = asrStream ?: return
             val asr = engines.asr()
-            val tEnd = System.currentTimeMillis()
+            val tEnd = mono()
             val route = AsrRouting.plan(cfg.sttLanguage, whisperModel != null)
             val whisperLang = route.whisperLanguage
             if (whisperModel != null && whisperLang != null) {
@@ -228,7 +228,7 @@ class VoiceSession(private val app: CluApp) {
                 publish { it.copy(partial = "…") }
                 val padded = audio.copyOf(audio.size + SAMPLE_RATE * 3 / 10)
                 app.whisper.transcribe(whisperModel, padded, whisperLang, threads = 4) { r ->
-                    val ms = (System.currentTimeMillis() - tEnd).toDouble()
+                    val ms = (mono() - tEnd).toDouble()
                     if (r != null) {
                         core.diag.perf("whisper_ms", ms, "${whisperModel.id} ${r.language} ${"%.1f".format(audio.size / 16000.0)}s${if (r.retried) " retried" else ""}")
                         core.diag.perf("whisper_encode_ms", r.encodeMs, whisperModel.id)
@@ -243,7 +243,7 @@ class VoiceSession(private val app: CluApp) {
             while (asr.isReady(s)) asr.decode(s)
             val text = asr.getResult(s).text.trim().lowercase()
             s.release(); asrStream = null
-            val asrMs = (System.currentTimeMillis() - tEnd).toDouble()
+            val asrMs = (mono() - tEnd).toDouble()
             core.diag.perf("asr_finalize_ms", asrMs)
             handleTranscript(text, audio, tEnd, asrMs, "live English (${engines.asrModelName})", "en")
         }
@@ -253,7 +253,7 @@ class VoiceSession(private val app: CluApp) {
                 if (turn.state == TurnState.LISTENING && cfg.asrEngine != "clu") {
                     // Android recognizers own the microphone while they run.
                     capture.stop()
-                    val tStart = System.currentTimeMillis()
+                    val tStart = mono()
                     val r = runBlocking { androidAsr.recognizeOnce(onDevice = cfg.asrEngine == "android_ondevice") }
                     try { capture.start() } catch (e: Exception) { publish { it.copy(error = e.message ?: "microphone error") }; break }
                     when (r) {
@@ -265,7 +265,7 @@ class VoiceSession(private val app: CluApp) {
                         is AndroidAsr.Result.Text -> if (r.text.isNotBlank()) {
                             val text = r.text.lowercase(); publish { it.copy(lastHeard = text, error = "") }
                             for (a in turn.onUtterance(text)) when (a) {
-                                is TurnAction.Process -> runAgent(a.text, null, System.currentTimeMillis(), (System.currentTimeMillis() - tStart).toDouble())
+                                is TurnAction.Process -> runAgent(a.text, null, mono(), (mono() - tStart).toDouble())
                                 TurnAction.EndSession -> endSession(text, null)
                                 else -> {}
                             }
@@ -405,7 +405,7 @@ class VoiceSession(private val app: CluApp) {
                         WakePhraseMatcher.match(heard, cfg.policy.allowedWords(env), cfg.wakeThreshold)?.let { m ->
                             core.diag.d("voice", "wake phrase '${m.word.phrase}' via ASR ('$heard')")
                             onActivated()
-                            if (m.remainder.isNotBlank()) for (a in turn.onUtterance(m.remainder)) if (a is TurnAction.Process) runAgent(a.text, identifySpeaker(seg), System.currentTimeMillis(), 0.0)
+                            if (m.remainder.isNotBlank()) for (a in turn.onUtterance(m.remainder)) if (a is TurnAction.Process) runAgent(a.text, identifySpeaker(seg), mono(), 0.0)
                             else asrStream = newAsrStream(0.0)
                         }
                     }
@@ -459,9 +459,9 @@ class VoiceSession(private val app: CluApp) {
         var stats: Map<String, Double> = emptyMap()
         val turnNo = voiceTurns.incrementAndGet()
         val note = "voice turn $turnNo"
-        val acceptedAt = System.currentTimeMillis()
+        val acceptedAt = mono()
         reply?.completion?.invokeOnCompletion {
-            replyEndedAt = System.currentTimeMillis()
+            replyEndedAt = mono()
             val m = timings.metrics()
             // An interrupted reply's playback figures (gaps, overlap with generation) describe a cut-off reply: kept apart.
             m.forEach { (k, v) -> core.diag.perf(if (reply.cancelled && k in PLAYBACK_METRICS) ai.clu.core.diag.DiagnosticsLog.classified(k, "interrupted") else k, v, note) }
@@ -509,7 +509,7 @@ class VoiceSession(private val app: CluApp) {
 
     private fun endSession(text: String, speakerId: String?) {
         // The agent produces the configured farewell and runs shutdown commands.
-        runAgent(text, speakerId, System.currentTimeMillis(), 0.0)
+        runAgent(text, speakerId, mono(), 0.0)
         core.commands.byKind(ai.clu.core.commands.CommandKind.SHUTDOWN).forEach { cmd ->
             scope.launch { cmd.steps.forEach { s -> core.tools.execute(s.tool, s.args, ai.clu.core.tools.ToolContext(app.ownerActor(), core.personas.active(), app.currentConversation(), System.currentTimeMillis())) } }
         }
@@ -557,6 +557,8 @@ class VoiceSession(private val app: CluApp) {
         const val FRAME_MS = 30
         /** Audio kept from before the VAD fired (VAD onset delay measured at ~0.25-0.45 s; see docs/SPEECH_RECOGNITION.md). */
         const val PRE_ROLL_SEC = 1.0
+        /** Monotonic milliseconds for every turn duration (StreamingSpeech uses the same clock): never jumps with the wall clock. */
+        fun mono() = System.nanoTime() / 1_000_000
         /** Per voice turn: value = end of speech → first audio (-1 = none), detail = the stage timeline. */
         const val VOICE_TIMELINE = ai.clu.core.diag.PerfReport.VOICE_TIMELINE
         private val PLAYBACK_METRICS = setOf("max_chunk_gap_ms", "audio_started_before_generation_end_ms")

@@ -93,7 +93,9 @@ object SpeechText {
             t.endsWith("?") || t.endsWith("!") -> 380
             t.endsWith(".") || t.endsWith("।") -> 360
             t.endsWith(":") || t.endsWith(";") -> 280
-            t.endsWith(",") || t.endsWith("—") || t.endsWith("–") -> 170
+            // Measured on Kokoro "Lewis" and Piper Joe: their own comma pause inside a sentence is 60–100 ms
+            // (docs/measurements/final_voice_pacing_host.json); a comma between two chunks gets a little more.
+            t.endsWith(",") || t.endsWith("—") || t.endsWith("–") -> 120
             else -> 120 // cut without punctuation (stall flush): keep the flow
         }
     }

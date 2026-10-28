@@ -369,7 +369,7 @@ class CluAgent(
     private suspend fun research(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
                                  emit: (AgentEvent) -> Unit, query: String, subject: String?) {
         tools.networkCategory("web.search")?.let { cat -> network.check(cat) }?.let { why ->
-            searchFailed(req, turn, persona, ctx, baseMeta, emit, ToolResult.fail(why)); return
+            searchFailed(req, turn, persona, ctx, baseMeta, emit, ToolResult.fail(why), subject ?: query); return
         }
         val history = conversations.messages(req.conversationId).takeLast(20).map { it.content }
         val runner = ResearchRunner { q ->
@@ -381,7 +381,7 @@ class CluAgent(
         when (val o = runner.research(query, subject, ResearchRunner.namesIn(history))) {
             is ResearchOutcome.Found -> {
                 (o.interpretedAs ?: subject)?.let { researchSubjects[req.conversationId] = it to now() }
-                generateReply(req, turn, persona, ctx, meta, emit, preToolResult = "web.search" to o.result, interpretedAs = o.interpretedAs)
+                generateReply(req, turn, persona, ctx, meta, emit, preToolResult = "web.search" to o.result, interpretedAs = o.interpretedAs, subject = subject)
             }
             is ResearchOutcome.Ambiguous -> finish(req, turn, "Do you mean " + when (o.options.size) { 2 -> "${o.options[0]} or ${o.options[1]}"
                 else -> o.options.dropLast(1).joinToString(", ") + ", or " + o.options.last() } + "?", meta.copy(source = "tool", sources = WebSearchTool.sources(o.result)), emit)
@@ -389,9 +389,9 @@ class CluAgent(
                 val note = ToolResult(false, false, "SEARCHED: the web search ran (${o.attempts.size} ${if (o.attempts.size == 1) "query" else "different queries"}) but found nothing " +
                     "reliable about \"${subject ?: query}\". Say so briefly and naturally. If you genuinely know the answer, you may give it, saying you couldn't confirm it; " +
                     "if you don't, say you don't know rather than guessing. If the name may have been misheard, ask me to repeat or spell it.", error = "nothing found", spoken = null, usedNetwork = true)
-                generateReply(req, turn, persona, ctx, meta.copy(error = "search_empty"), emit, preToolResult = "web.search" to note)
+                generateReply(req, turn, persona, ctx, meta.copy(error = "search_empty"), emit, preToolResult = "web.search" to note, subject = subject ?: query)
             }
-            is ResearchOutcome.Failed -> searchFailed(req, turn, persona, ctx, baseMeta, emit, o.result)
+            is ResearchOutcome.Failed -> searchFailed(req, turn, persona, ctx, baseMeta, emit, o.result, subject ?: query)
             is ResearchOutcome.Cancelled -> finish(req, turn, "", meta.copy(interrupted = true), emit)
         }
     }
@@ -487,13 +487,20 @@ class CluAgent(
      * answer locally, the model may add what it knows, clearly marked as possibly outdated. Ordinary chat is unaffected.
      */
     private suspend fun searchFailed(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
-                                     emit: (AgentEvent) -> Unit, r: ToolResult) {
-        val reason = (r.error ?: r.summary).removePrefix("The web search could not be completed: ").trimEnd('.')
+                                     emit: (AgentEvent) -> Unit, r: ToolResult, subject: String? = null) {
+        // What went wrong, without provider names (a small model repeats them; the owner doesn't need them in the answer).
+        val raw = (r.error ?: r.summary).removePrefix("The web search could not be completed: ").trimEnd('.')
+        val reason = when {
+            raw.contains("internet", true) || raw.contains("turned off", true) -> raw
+            raw.contains("did not answer in time", true) || raw.contains("timed out", true) -> "the search service did not answer in time"
+            raw.contains("key", true) || raw.contains("quota", true) -> "the search service refused the request"
+            else -> "the search service could not be reached"
+        }
         if (settings.string(Settings.OFFLINE_BEHAVIOR) == "local_answer") {
             val note = r.copy(spoken = null, error = reason, summary = "OFFLINE: the web search could not be completed ($reason). Begin with one sentence saying so. " +
                 "Then, if you know the answer from your own knowledge, give it briefly and say it may be outdated; if it depends on current " +
                 "information you don't have, say you can't answer it reliably right now.")
-            generateReply(req, turn, persona, ctx, baseMeta.copy(tools = listOf("web.search"), error = "search_failed"), emit, preToolResult = "web.search" to note)
+            generateReply(req, turn, persona, ctx, baseMeta.copy(tools = listOf("web.search"), error = "search_failed"), emit, preToolResult = "web.search" to note, subject = subject)
         } else finish(req, turn, "I couldn't search the web just now ($reason), so I can't give you current information on that. " +
             "Ordinary questions still work offline.", baseMeta.copy(source = "tool", tools = listOf("web.search"), error = "search_failed"), emit)
     }
@@ -516,7 +523,7 @@ class CluAgent(
 
     private suspend fun generateReply(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit,
                                       preToolResult: Pair<String, ToolResult>?, prefix: String? = null,
-                                      verify: ResearchPolicy.Decision? = null, interpretedAs: String? = null) {
+                                      verify: ResearchPolicy.Decision? = null, interpretedAs: String? = null, subject: String? = null) {
         val online = network.isOnline() && settings.bool(Settings.NET_ENABLED)
         emit(AgentEvent.Status("Thinking…"))
         val tSelect = System.nanoTime()
@@ -581,6 +588,20 @@ class CluAgent(
         var step = 0
         var firstTokenRecorded = false
         var prefill: Map<String, Double> = emptyMap()
+        var groundingFallback = false
+        var evidence: String? = preToolResult?.takeIf { sources.isNotEmpty() }?.let { Grounding.evidenceText(it.second.summary, sources) }
+        // After a search that failed or found nothing, the reply must say so; if its opening doesn't, Clu says it plainly.
+        val honestyFallback: String? = if (preToolResult?.first == "web.search" && !preToolResult.second.success) when {
+            baseMeta.error == "search_empty" -> "I looked that up but couldn't find anything reliable. Could you say or spell the name again?"
+            preToolResult.second.error?.contains("internet", ignoreCase = true) == true || !network.isOnline() -> "I'm offline right now, so I can't look that up."
+            else -> "I couldn't reach the search service just now, so I can't check that."
+        } else null
+        // …and a reply that answers from the model's own knowledge without saying so is kept, after Clu says it plainly.
+        val honestyNote: String? = honestyFallback?.let { when {
+            baseMeta.error == "search_empty" -> "I couldn't find anything reliable online, so this is from memory."
+            it.startsWith("I'm offline") -> "I'm offline, so this is from memory and not checked."
+            else -> "I couldn't check online just now, so this is from memory."
+        } }
         val validator = ActionValidator(tools::tool)
         val actionsRun = mutableSetOf<String>()
         // "Verify if unsure": the first sentence is held back until it is clear the model is answering; a non-answer
@@ -597,21 +618,55 @@ class CluAgent(
             val buf = StringBuilder()
             var streaming = false
             var shown = 0
+            // A reply to researched information is held until its opening is checked against the evidence (Grounding);
+            // one that ignores it is never shown or spoken: what the best result says is used instead.
+            val unusable = CancelSignal() // set once the reply is known to be replaced: stop generating it at once
+            var groundHeld = sources.isNotEmpty() || (honestyFallback != null && step == 0)
+            var ungrounded = false
+            // What the model was told by the app (not the evidence, not the owner's words): copying it is not answering.
+            val instructions = system + "\n" + prompt.turnContext(pctx) + "\n" + AnswerStyle.evidence("", null, "") +
+                (preToolResult?.second?.takeIf { !it.success }?.summary ?: "")
+            var note: String? = null // Clu's own words shown before the reply (see honestyNote)
+            fun holds(t: String): Boolean = when {
+                sources.isNotEmpty() -> Grounding.supported(t, sources, req.text, evidence, instructions, listOfNotNull(subject, interpretedAs))
+                Grounding.acknowledgesFailure(t, instructions) -> true
+                honestyNote != null && Grounding.usableWithoutSearch(t, instructions, subject) -> { note = honestyNote; true }
+                else -> false
+            }
+            // After the opening, each sentence of such a reply is shown only once it checks out; the first that doesn't
+            // ends the reply there (and generation stops), so nothing unsupported is shown, spoken or saved.
+            val checked = sources.isNotEmpty() || honestyFallback != null
+            fun sentenceOk(t: String) = if (sources.isNotEmpty()) Grounding.sentenceSupported(t, sources, req.text, evidence, instructions)
+                else Grounding.sentenceHonest(t, instructions)
+            var accepted = 0 // the reply up to here is checked
+            var cutAt = -1 // where an unsupported sentence began
             val t0 = now()
             if (step == 0) trace.record(turn.trace, TurnEvent.GENERATION_STARTED, "messages=${msgs.size}")
             val result = try {
-                timedGenerate(turn, engine, msgs, params) { delta ->
+                timedGenerate(turn, engine, msgs, params, stop = unusable) { delta ->
                     if (!firstTokenRecorded) { firstTokenRecorded = true; trace.record(turn.trace, TurnEvent.FIRST_TOKEN) }
                     buf.append(delta)
                     val s = buf.toString()
                     if (!streaming && !ToolCallParser.maybeToolPrefix(s)) streaming = true
                     if (streaming && held && step == 0) {
-                        val firstSentence = Regex("[.!?](\\s|$)").find(s)?.range?.last
-                        if (firstSentence != null || s.length >= 160) { held = false; nonAnswer = NonAnswer.matches(s) }
+                        val firstSentence = Regex("[.!?]\\s").find(s)?.range?.last
+                        if (firstSentence != null || s.length >= 160) { held = false; nonAnswer = NonAnswer.matches(s); if (nonAnswer) unusable.cancel("non-answer") }
                     }
-                    if (streaming && !held && !nonAnswer) {
-                        val cut = s.indexOf("<tool>").let { if (it < 0) s.length else it }
-                        if (cut > shown) { emit(AgentEvent.Text(s.substring(shown, cut))); shown = cut }
+                    if (streaming && groundHeld && !s.trimStart().startsWith("<tool>")) {
+                        val opening = s.substringBefore("<tool>")
+                        val end = Regex("[.!?]\\s").findAll(opening).firstOrNull { it.range.last >= 30 }
+                        if (end != null || opening.length >= 200) { groundHeld = false; ungrounded = !holds(opening); if (ungrounded) unusable.cancel("not grounded") }
+                    }
+                    if (streaming && !held && !nonAnswer && !groundHeld && !ungrounded) {
+                        var cut = s.indexOf("<tool>").let { if (it < 0) s.length else it }
+                        if (checked) {
+                            if (cutAt < 0) for (m in Regex("[.!?]\\s").findAll(s.substring(0, cut), accepted)) {
+                                if (sentenceOk(s.substring(accepted, m.range.last))) accepted = m.range.last
+                                else { cutAt = accepted; unusable.cancel("unsupported sentence"); break }
+                            }
+                            cut = accepted
+                        }
+                        if (cut > shown) { if (shown == 0) note?.let { emit(AgentEvent.Text("$it ")) }; emit(AgentEvent.Text(s.substring(shown, cut))); shown = cut }
                     }
                 }
             } catch (e: LlmException) {
@@ -664,9 +719,9 @@ class CluAgent(
                     extra += ChatMessage("assistant", "<tool>{\"name\": \"web.search\", \"args\": ${call.args}}</tool>")
                     when (o) {
                         is ResearchOutcome.Cancelled -> break
-                        is ResearchOutcome.Found -> { webRead = true; sources = WebSearchTool.sources(o.result)
+                        is ResearchOutcome.Found -> { webRead = true; sources = WebSearchTool.sources(o.result); evidence = Grounding.evidenceText(o.result.summary, sources)
                             extra += ChatMessage("user", AnswerStyle.evidence(o.result.summary.take(6000), null, req.text)) }
-                        is ResearchOutcome.Ambiguous -> { webRead = true; sources = WebSearchTool.sources(o.result)
+                        is ResearchOutcome.Ambiguous -> { webRead = true; sources = WebSearchTool.sources(o.result); evidence = Grounding.evidenceText(o.result.summary, sources)
                             extra += ChatMessage("user", AnswerStyle.evidence(o.result.summary.take(6000), null, req.text)) }
                         is ResearchOutcome.NothingFound -> extra += ChatMessage("user", "[Tool result: web.search] The search ran (${o.attempts.size} queries) " +
                             "but found nothing relevant. Do not claim anything was found or verified.")
@@ -705,9 +760,40 @@ class CluAgent(
                 if (cut > shown) { emit(AgentEvent.Text(raw.substring(shown, cut))); shown = cut }
             }
             // Tool markup is never reply text, also when it could not be parsed (malformed call from a small model).
-            finalText = raw.substringBefore("<tool>").trim()
+            var body = raw.substringBefore("<tool>")
+            if (checked && !ungrounded && cutAt < 0) { // sentences not yet checked: the last one, or all of a short reply
+                var from = if (groundHeld) 0 else accepted
+                for (m in Regex("[.!?]\\s").findAll(body, from)) { if (sentenceOk(body.substring(from, m.range.last))) from = m.range.last else { cutAt = from; break } }
+                if (cutAt < 0 && body.substring(from).isNotBlank() && !sentenceOk(body.substring(from))) cutAt = from
+            }
+            if (cutAt >= 0) {
+                diag?.w("agent", "reply cut at an unsupported sentence (${body.length - cutAt} chars dropped)")
+                body = body.substring(0, minOf(cutAt, body.length))
+                if (body.isBlank()) ungrounded = true
+            }
+            val shownText = body.substring(0, minOf(shown, body.length)).trim()
+            finalText = body.trim()
+            val echoed = (sources.isNotEmpty() || honestyFallback != null) && Grounding.echoes(finalText, instructions) // the whole reply
+            finalText = AnswerStyle.withoutInternalMarkup(finalText)
+            if (groundHeld) { groundHeld = false; ungrounded = !holds(finalText) }
+            if (echoed) ungrounded = true // the saved reply never keeps an echo
+            if (ungrounded && !turn.signal.isCancelled) {
+                val extracted = if (sources.isNotEmpty()) Grounding.extract(sources, req.text) else null
+                diag?.w("agent", if (sources.isNotEmpty()) "research answer did not use the evidence" else "reply did not acknowledge the failed search")
+                finalText = extracted ?: honestyFallback ?: "I found results, but I couldn't put together a reliable answer from them."
+                groundingFallback = true
+                if (shown > 0) emit(AgentEvent.ResetText) // part of it was already shown: replace, don't append
+                emit(AgentEvent.Text(finalText)); shown = finalText.length
+            } else if (checked && !turn.signal.isCancelled && finalText.length > shownText.length) { // the checked rest, or a short reply checked only at the end
+                if (shown == 0) note?.let { emit(AgentEvent.Text("$it ")) }
+                if (finalText.startsWith(shownText)) emit(AgentEvent.Text((if (shown == 0) "" else " ".takeIf { body.getOrNull(shown)?.isWhitespace() == true }.orEmpty()) +
+                    finalText.substring(shownText.length).trimStart()))
+                else { emit(AgentEvent.ResetText); note?.let { emit(AgentEvent.Text("$it ")) }; emit(AgentEvent.Text(finalText)) }
+                shown = body.length
+            }
             // A conversational answer: no citation markers or "according to …" (the sources stay on the message's cards).
-            if (sources.isNotEmpty()) finalText = AnswerStyle.withoutSourceTalk(Citations.clean(finalText, sources.size, spoken = true))
+            if (sources.isNotEmpty() || preToolResult?.first == "web.search") finalText = AnswerStyle.withoutSourceTalk(Citations.clean(finalText, sources.size, spoken = true))
+            if (!ungrounded) note?.let { finalText = "$it $finalText" }
             if (prefix != null) finalText = (prefix + "\n\n" + finalText).trim()
             break
         }
@@ -729,6 +815,7 @@ class CluAgent(
                 "prompt_tokens" to stats.promptTokens.toDouble(), "request_id" to turn.trace.id.toDouble())
                 + turn.trace.at(TurnEvent.MODEL_READY).let { if (it != null) mapOf("model_ready_ms" to it.toDouble()) else emptyMap() }
                 + prefill
+                + (if (groundingFallback) mapOf("grounding_fallback" to 1.0) else emptyMap())
                 + (if (usedNetwork) mapOf("network" to 1.0) else emptyMap()))
         val msg = finish(req, turn, finalText, meta, emit, alreadyStreamed = true)
         turnMetrics(turn)
@@ -832,8 +919,13 @@ class CluAgent(
      * first token or the next token takes too long, and cancels it when this coroutine is cancelled (the blocking native
      * call cannot see coroutine cancellation by itself; before this, a cancelled turn kept the model busy to max tokens).
      */
-    private suspend fun timedGenerate(turn: Turn, engine: LlmEngine, msgs: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult =
+    private suspend fun timedGenerate(turn: Turn, engine: LlmEngine, msgs: List<ChatMessage>, params: GenParams,
+                                      stop: CancelSignal? = null, onText: (String) -> Unit): GenResult =
         coroutineScope {
+            // [stop] ends this one generation early (its output is not going to be used) without ending the request;
+            // cancelling the request still stops it.
+            val signal = stop ?: turn.signal
+            val link = stop?.let { s -> turn.signal.onCancel { s.cancel(turn.signal.reason ?: CancelSignal.USER) } }
             val started = System.nanoTime()
             val lastToken = AtomicLong(0)
             val done = AtomicBoolean(false)
@@ -848,8 +940,8 @@ class CluAgent(
                 } finally { if (!done.get()) turn.signal.cancel(CancelSignal.USER) }
             }
             try {
-                withContext(Dispatchers.IO) { engine.generate(msgs, params, turn.signal) { lastToken.set(System.nanoTime()); onText(it) } }
-            } finally { done.set(true); watchdog.cancel() }
+                withContext(Dispatchers.IO) { engine.generate(msgs, params, signal) { lastToken.set(System.nanoTime()); onText(it) } }
+            } finally { done.set(true); watchdog.cancel(); link?.close() }
         }
 
     /** Instruction memories ("from now on…"), Clu only, newest last, at most 12 (they are part of the instructions). */

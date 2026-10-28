@@ -106,9 +106,9 @@ class SpeechOutput(private val context: Context, private val engines: SherpaEngi
         if (clean.isBlank()) return null
         val b = try { backendFor(c, lang) } catch (e: Exception) { report(e.message ?: "speech engine unavailable"); throw e }
             ?: return null // no voice for this language (plan.hindiNote explains it on the Voice screen)
-        val t0 = System.currentTimeMillis()
+        val t0 = System.nanoTime() / 1_000_000
         val pcm = try { b.synthesize(clean, c) } catch (e: Exception) { report("${b.label}: ${e.message}"); throw e }
-        diag?.perf("tts_ms_per_char", (System.currentTimeMillis() - t0).toDouble() / clean.length, b.label)
+        diag?.perf("tts_ms_per_char", (System.nanoTime() / 1_000_000 - t0).toDouble() / clean.length, b.label)
         _status.value = _status.value.copy(lastSpoke = b.label, lastError = null)
         // Pause after the chunk by how it ends (sentence, clause, paragraph), topped up over the voice's own silence.
         return ai.clu.core.voice.SpeechText.withPause(text, VoiceEffect(pcm.rate, c.metallic).process(pcm.samples), pcm.rate) to pcm.rate

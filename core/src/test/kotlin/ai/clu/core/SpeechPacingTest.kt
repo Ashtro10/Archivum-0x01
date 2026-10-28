@@ -41,10 +41,10 @@ class SpeechPacingTest {
         val stop = gap("The inspection is due.")
         val question = gap("Is the inspection due?")
         val paragraph = gap("That is all." + SpeechText.PARAGRAPH)
-        assertTrue(comma in 150..200, "comma ≈ 170 ms, got $comma")
+        assertTrue(comma in 100..150, "comma ≈ 120 ms, got $comma")
         assertTrue(stop in 340..390, "full stop ≈ 360 ms, got $stop")
         assertTrue(question >= stop && paragraph > question, "question $question, paragraph $paragraph")
-        assertTrue(stop - comma >= 150, "a sentence end is clearly longer than a comma ($stop vs $comma)")
+        assertTrue(stop - comma >= 200, "a sentence end is clearly longer than a comma ($stop vs $comma)")
         // The voice's own lead-in is cut to the fixed lead, so it doesn't add to the gap before the next chunk.
         assertTrue(silence(SpeechText.withPause("Next part.", voiced(3, leadMs = 200), rate), false) <= SpeechText.LEAD_MS + 1)
     }
@@ -125,7 +125,7 @@ class SpeechPacingTest {
         assertEquals(words(reply), ear.audio.flatMap { words(it.first) }, "heard in order, complete")
         // Gap after each chunk = its trailing silence + the next chunk's lead.
         val gaps = ear.audio.zipWithNext { (t, a), (_, b) -> t to silence(a, true) + silence(b, false) }
-        gaps.forEach { (t, g) -> if (t.endsWith(".") || t.endsWith("?")) assertTrue(g in 340..400, "sentence gap $g after '$t'") else if (t.endsWith(",")) assertTrue(g in 150..210, "comma gap $g after '$t'") }
+        gaps.forEach { (t, g) -> if (t.endsWith(".") || t.endsWith("?")) assertTrue(g in 340..400, "sentence gap $g after '$t'") else if (t.endsWith(",")) assertTrue(g in 100..160, "comma gap $g after '$t'") }
         speech.shutdown(); pool.close(); play.close()
     }
 

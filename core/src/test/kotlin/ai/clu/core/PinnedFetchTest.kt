@@ -24,7 +24,7 @@ import kotlin.test.*
  */
 class PinnedFetchTest {
     private val servers = mutableListOf<ServerSocket>()
-    @AfterEach fun close() { servers.forEach { runCatching { it.close() } } }
+    @AfterEach fun close() { servers.forEach { runCatching { it.close() } }; dir.deleteRecursively() }
 
     /** A one-shot-per-connection HTTP server answering with [respond] (raw bytes); records the requests it got. */
     private fun server(socket: ServerSocket = ServerSocket(0, 50, InetAddress.getLoopbackAddress()), respond: (String) -> ByteArray): Pair<Int, MutableList<String>> {

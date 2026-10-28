@@ -34,17 +34,26 @@ class OfflineConversationTest {
         assertTrue(runCatching { java.net.InetAddress.getByName("huggingface.co") }.isFailure, "DNS must be unavailable")
 
         val work = Files.createTempDirectory("clu-offline").toFile()
+        try { conversation() } catch (e: Throwable) { File(work, "failure.txt").writeText(e.stackTraceToString()); throw e } // kept for diagnosis
+        work.deleteRecursively()
+    }
+
+    private suspend fun conversation() {
         // 1. Owner speech -> streaming ASR (bundled model) -> transcript.
         val helper = """
 import sys, numpy as np, sherpa_onnx, time
 from pathlib import Path
 M = Path(sys.argv[1]); mode = sys.argv[2]
-def tts(voice):
+def tts(voice, noise=None):
     d = M / voice
+    extra = {} if noise is None else dict(noise_scale=noise, noise_scale_w=noise)
     return sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(vits=sherpa_onnx.OfflineTtsVitsModelConfig(
-        model=str(next(d.glob("*.onnx"))), tokens=str(d/"tokens.txt"), data_dir=str(d/"espeak-ng-data")), num_threads=2)))
+        model=str(next(d.glob("*.onnx"))), tokens=str(d/"tokens.txt"), data_dir=str(d/"espeak-ng-data"), **extra), num_threads=2)))
 if mode == "asr":
-    a = tts("vits-piper-en_GB-alan-medium").generate(sys.argv[3], sid=0, speed=1.0); x = np.asarray(a.samples, dtype=np.float32)
+    # The owner's speech, made without VITS noise so it is the same waveform every run: with Piper's default random noise
+    # about 1 rendition in 10 is decoded as nothing by this small ASR model, deterministically for that waveform
+    # (measured: 11 of 100), which was the intermittent failure of this test.
+    a = tts("vits-piper-en_GB-alan-medium", noise=0.0).generate(sys.argv[3], sid=0, speed=1.0); x = np.asarray(a.samples, dtype=np.float32)
     y = np.interp(np.linspace(0, len(x)-1, int(len(x)*16000/a.sample_rate)), np.arange(len(x)), x).astype(np.float32)
     d = M / "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17"
     rec = sherpa_onnx.OnlineRecognizer.from_transducer(tokens=str(d/"tokens.txt"), encoder=str(next(d.glob("encoder*.int8.onnx"))),
@@ -99,7 +108,6 @@ else:
         assertTrue(samples.toInt() > rate.toInt() / 2 && peak.toDouble() > 0.05, "speech synthesised offline")
         println("offline conversation OK: transcript='$transcript', model reply ${done.text.length} chars in $llmMs ms (tiny model, x86 host), " +
             "TTS ${"%.2f".format(samples.toDouble() / rate.toDouble())} s audio")
-        File(work, "result.txt").writeText("ok")
         core.shutdown()
     }
 }

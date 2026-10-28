@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-28 (v1.6.0)_
+_Last updated: 2026-10-28 (v1.6.1)_
 
 ## Current state
 
@@ -12,10 +12,20 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 442 total (core 380, app 62): 432 passed, 0 failed, 10 skipped by default (opt-in benchmarks and audits / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
+| Automated tests (JVM / Robolectric / host engines) | 484 total (core 422, app 62): 472 passed, 0 failed, 12 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: 5/5 executed and passed); server E2E with a **real** model 13/13, with the mock 13/13 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-28: Final device validation pass — real model, grounding, pacing, timing (v1.6.1, versionCode 14)
+
+Details: [docs/FINAL_DEVICE_VALIDATION.md](docs/FINAL_DEVICE_VALIDATION.md). Evaluated with a real trained model
+(SmolLM2-135M) through the production agent: research decisions were right, but the model ignored or invented evidence,
+so the app now checks every researched answer against what was found (numbers, names, sites, echoes, subject,
+sentence by sentence) and otherwise uses the result's own sentence; after a failed search Clu says itself that an
+answer is unchecked. Comma pause 120 ms (measured on real Kokoro/Piper audio). Voice timings use a monotonic clock.
+The offline test's intermittent failure was its own random test speech (fixed), and the script could pass without
+running (fixed). Host-verified only; **not yet tested on a device**; the LiveKit server engine bypasses these checks.
 
 ## 2026-10-28: Final Stage 3 — agent controller, automatic research, model fallback, natural speech (v1.6.0, versionCode 13)
 

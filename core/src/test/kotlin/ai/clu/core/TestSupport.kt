@@ -169,7 +169,12 @@ class ScriptedEngine(private val replies: ArrayDeque<String> = ArrayDeque(), val
     val lastSystem get() = prompts.last().let { p -> p.first { it.role == "system" }.content + "\n" + (p.lastOrNull { it.role == "user" && it.content.startsWith("[Context]") }?.content?.substringBefore("[/Context]") ?: "") }
 }
 
-fun tempDb(): JdbcDriver = JdbcDriver(Files.createTempFile("clu", ".db").toFile().absolutePath)
+/** A throwaway database; removed (with SQLite's side files) when the test JVM exits. */
+fun tempDb(): JdbcDriver {
+    val f = Files.createTempFile("clu", ".db").toFile()
+    listOf("", "-journal", "-wal", "-shm").forEach { File(f.path + it).deleteOnExit() }
+    return JdbcDriver(f.absolutePath)
+}
 
 fun newCore(db: SqlDriver = tempDb(), platform: TestPlatform = TestPlatform(), clock: ManualClock = ManualClock(1_760_000_000_000L)): CluCore =
     CluCore(db, platform, clock)

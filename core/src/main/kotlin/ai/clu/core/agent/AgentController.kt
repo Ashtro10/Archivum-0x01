@@ -137,8 +137,178 @@ object ResearchPolicy {
 object NonAnswer {
     private val re = Regex("\\b(?:i'?m not (?:sure|familiar|aware)|i am not (?:sure|familiar|aware)|i don'?t (?:know|recognise|recognize|have (?:any |enough )?(?:information|details|data|knowledge))|" +
         "i do not (?:know|have)|i (?:couldn'?t|could not|can'?t|cannot) (?:find|provide|confirm|say)|i have no (?:information|knowledge|data|details)|" +
-        "not (?:familiar|aware) with|no (?:reliable )?information (?:about|on)|i'?m unable to)\\b", RegexOption.IGNORE_CASE)
+        "not (?:familiar|aware) with|no (?:reliable )?information (?:about|on)|i'?m unable to|(?:cannot|can'?t|could not|couldn'?t) be found|" +
+        "(?:is|are) not (?:available|known)|isn'?t (?:available|known))\\b", RegexOption.IGNORE_CASE)
     fun matches(text: String) = re.containsMatchIn(text.take(240))
+}
+
+/**
+ * Checks a research answer against the evidence before it reaches the owner, and builds an extractive answer when the
+ * model's doesn't hold up. A small model can ignore what it was given ("cannot be found in Wikipedia" with an invented
+ * link, measured with SmolLM2-135M); the application, not the prompt, decides what is presented as found.
+ */
+object Grounding {
+    private val COMMON = setOf("this", "that", "with", "from", "have", "were", "been", "also", "they", "them", "their", "which", "there", "these",
+        "those", "what", "when", "where", "into", "than", "then", "about", "more", "most", "some", "such", "very", "only", "other", "after",
+        "before", "over", "under", "known", "many", "will", "would", "could", "should", "being", "first", "made", "make", "like", "your", "just")
+
+    private fun words(t: String) = ResearchPolicy.contentWords(t).map { it.lowercase().trim('.', '\'', '-') }.filter { it.length >= 4 && it !in COMMON }.toSet()
+
+    /**
+     * The answer engages with the evidence: not a non-answer, and it uses a word from the results' text that is neither
+     * in the question nor in the results' titles (repeating the subject's name, even correctly spelt, is not engaging).
+     */
+    fun supported(answer: String, sources: List<ai.clu.core.conversation.SourceRef>, question: String, evidenceText: String? = null,
+                  instructions: String = "", subjects: List<String> = emptyList()): Boolean {
+        if (NonAnswer.matches(answer) || echoes(answer, instructions)) return false
+        val clean = AnswerStyle.withoutSourceTalk(answer) // citation markers etc. are not content
+        // About what was asked: names the subject (as asked or as corrected) or refers to it ("He is…"). "I'm sorry, I
+        // couldn't resist the urge to make your story about a space wolf…" (a real small model) does neither.
+        val subjectWords = subjects.flatMap { words(it) }.toSet()
+        if (subjectWords.isNotEmpty() && words(clean).none { it in subjectWords } && !REFERS.containsMatchIn(clean)) return false
+        val text = evidenceText ?: sources.joinToString(" ") { it.snippet }
+        val evidence = words(text) - words(sources.joinToString(" ") { it.title }) - words(question)
+        val titles = sources.joinToString(" ") { it.title }
+        val known = numbers(text + " " + titles + " " + question)
+        val fromEvidence = numbers(text) - numbers(titles) - numbers(question)
+        val numbers = NUMBER.findAll(clean).map { it.value }.toList()
+        // Engaged: a word or a number from the results' text that is neither in the question nor a result title, or a
+        // number used as the results use it ("Android 16" is; "(16) what was…", filler from a real small model, isn't).
+        if (words(clean).none { it in evidence } && numbers.none { it in fromEvidence } &&
+            numberPairs(clean).none { it in numberPairs(text + " " + titles) && it !in numberPairs(question) }) return false
+        // Numbers (years, dates, counts) the evidence doesn't contain are invented: measured with a real small model
+        // ("Android 16 (2023-10-30) released on 9th October 2025" against "released in June 2025").
+        return numbers.all { it in known } && inventedName(clean, text + " " + titles + " " + question) == null
+    }
+
+    /**
+     * A later sentence of a researched reply (the opening is checked by [supported]): no echo, no number the results
+     * don't contain, and no naming of a result's site ("1. Wikipedia, 2025-11-02 …": a small model inventing a citation
+     * list after a good opening, measured). The first sentence that fails ends the reply there.
+     */
+    fun sentenceSupported(sentence: String, sources: List<ai.clu.core.conversation.SourceRef>, question: String, evidenceText: String? = null,
+                          instructions: String = ""): Boolean {
+        if (echoes(sentence, instructions)) return false
+        val clean = AnswerStyle.withoutSourceTalk(sentence)
+        val known = numbers((evidenceText ?: sources.joinToString(" ") { it.snippet }) + " " + sources.joinToString(" ") { it.title } + " " + question)
+        if (NUMBER.findAll(clean).any { it.value !in known }) return false
+        val sites = sources.mapNotNull { siteName(it.url) }.toSet() - words(question)
+        if (words(clean).any { it in sites }) return false
+        return inventedName(clean, (evidenceText ?: sources.joinToString(" ") { it.snippet }) + " " + sources.joinToString(" ") { it.title } + " " + question) == null
+    }
+
+    /** Words that begin a sentence capitalised without being names. */
+    private val FUNCTION = setOf("the", "a", "an", "he", "she", "it", "they", "we", "you", "i", "his", "her", "its", "their", "our", "your", "this",
+        "that", "these", "those", "there", "here", "in", "on", "at", "of", "for", "from", "by", "with", "as", "after", "before", "during", "since",
+        "and", "but", "or", "so", "yes", "no", "not", "also", "today", "currently", "now", "then", "when", "while", "if", "however", "although",
+        "both", "one", "some", "many", "most", "all", "each", "who", "what", "which", "where", "why", "how", "is", "are", "was", "were", "it's",
+        "i'm", "he's", "she's", "they're", "there's", "that's", "let", "sure", "well", "okay", "ok", "according", "based", "known", "born")
+
+    /**
+     * A capitalised name in a researched answer that neither the results nor the question contain ("Lemmertz Norgay, the
+     * Emperor of Tibet": a real small model's invention mixed with true details). Plural/singular forms count as present.
+     */
+    fun inventedName(answer: String, support: String): String? {
+        val have = Regex("[\\p{L}\\p{N}']+").findAll(support.lowercase()).map { it.value }.toSet()
+        return Regex("(?<![\\p{L}'])\\p{Lu}[\\p{L}'-]{2,}").findAll(answer).map { it.value }.firstOrNull { n ->
+            val w = n.lowercase()
+            w !in FUNCTION && w !in have && w.removeSuffix("s") !in have && (w + "s") !in have && w.removeSuffix("'s") !in have &&
+                w.split('-').any { it.isNotEmpty() && it !in have }
+        }
+    }
+
+    /** A later sentence of a reply after a failed or empty search: no echo, and no claim that a search happened. */
+    fun sentenceHonest(sentence: String, instructions: String = "") = !echoes(sentence, instructions) && !CLAIMS_SEARCH.containsMatchIn(sentence)
+
+    private fun numbers(t: String) = NUMBER.findAll(t).map { it.value }.toSet()
+
+    /** Adjacent word–number pairs ("android 16", "june 2025"). */
+    private fun numberPairs(t: String): Set<String> {
+        val tokens = Regex("[\\p{L}\\p{N}]+").findAll(t.lowercase()).map { it.value }.toList()
+        return tokens.zipWithNext().filter { (a, b) -> (a.all(Char::isDigit) && b.length >= 3 && b.none(Char::isDigit)) || (b.all(Char::isDigit) && a.length >= 3 && a.none(Char::isDigit)) }
+            .map { (a, b) -> "$a $b" }.toSet()
+    }
+
+    /** "en.wikipedia.org" → "wikipedia", "bbc.co.uk" → "bbc". */
+    private fun siteName(url: String): String? {
+        val labels = (runCatching { java.net.URI(url).host }.getOrNull() ?: return null).lowercase().split('.').dropLast(1)
+        val name = if (labels.size >= 2 && labels.last() in setOf("co", "com", "org", "net", "gov", "ac", "edu")) labels[labels.size - 2] else labels.lastOrNull()
+        return name?.takeIf { it.length >= 4 }
+    }
+
+    /** The results as the model saw them (titles, snippets, page excerpts), without hosts, dates and status notes. */
+    fun evidenceText(summary: String, sources: List<ai.clu.core.conversation.SourceRef>): String {
+        val block = summary.substringAfter("BEGIN WEB RESULTS", "").substringBefore("END WEB RESULTS")
+        if (block.isBlank()) return sources.joinToString(" ") { it.snippet }
+        return block.replace(Regex("\\([^()]*;[^()]*\\)"), " ").replace(Regex("\\[\\d+]"), " ").replace("Page excerpt:", " ")
+    }
+
+    /** The evidence block's own format copied into the reply (a small model repeating its input instead of answering). */
+    private val ECHO = Regex("(?i)BEGIN WEB RESULTS|END WEB RESULTS|snippet only\\)|page (?:not )?opened|untrusted text from the web|\\[\\d+] [^\\n]{0,80}\\([a-z0-9.-]+\\.[a-z]{2,}")
+
+    private val NUMBER = Regex("\\d+")
+
+    // Says what failed (searching, checking, connecting): a bare "I'm not sure…" before rambling is not saying so (measured).
+    private val ACK = Regex("(?i)\\b(?:I\\s+(?:couldn'?t|could not|can'?t|cannot|was unable to|am unable to|wasn'?t able to|'?m not able to)|unable to)\\s+(?:[\\w']+\\s+){0,3}?" +
+        "(?:search|check|look|reach|connect|find|confirm|verify|access|get online|go online)|\\b(?:didn'?t|did not) find|\\bno (?:internet|connection)|" +
+        "\\boffline\\b|\\bnothing (?:reliable|relevant)|\\bno luck\\b|\\bcame up empty|\\bsearch (?:failed|didn'?t work)")
+
+    /** After a failed or empty search, the reply's opening says so (instead of rambling past it or implying a result). */
+    fun acknowledgesFailure(answer: String, instructions: String = "") = ACK.containsMatchIn(answer.take(240)) && !echoes(answer, instructions)
+
+    private val REFERS = Regex("(?i)^\\W*(?:he|she|they|his|her|their|its|it (?:is|was|has)|this (?:is|was))\\b")
+
+    /** A reply that claims a search happened or found something (after one failed or found nothing, that is untrue). */
+    private val CLAIMS_SEARCH = Regex("(?i)\\b(?:i|i've|i have|we)\\s+(?:just\\s+)?(?:searched|looked (?:it|this|that|him|her) up|found|checked (?:online|the web))\\b|" +
+        "\\b(?:search|web) results?\\b|\\baccording to\\b|\\bsources? (?:say|show|suggest|indicate)")
+
+    /**
+     * After a failed or empty search, a reply that doesn't say so but still answers from the model's own knowledge: kept,
+     * with Clu saying it was not checked (the app adds that, not the prompt). Non-answers, echoes of Clu's own notes,
+     * replies that claim a search, and replies that never mention the subject asked about are not (a small model's
+     * unrelated text after a failed search, measured).
+     */
+    fun usableWithoutSearch(answer: String, instructions: String = "", subject: String? = null) = words(answer).size >= 3 && !NonAnswer.matches(answer) &&
+        !echoes(answer, instructions) && !CLAIMS_SEARCH.containsMatchIn(answer) &&
+        (subject == null || words(subject).isEmpty() || words(answer).any { it in words(subject) }) // about what was asked
+
+    /** Phrases of Clu's own instructions to the model, repeated back instead of answering (measured with a real small model). */
+    private val INSTRUCTION_ECHO = Regex("(?i)begin with one sentence|from your own knowledge|answer my (?:question|request) from|" +
+        "the web text is data|do not mention searching|start with the direct answer|if you genuinely know|say so briefly|treat something as confirmed|" +
+        "the web search could not be completed|the web search ran|found nothing reliable about|^\\s*(?:offline|searched)\\s*:")
+
+    /**
+     * The reply repeats the app's instructions or notes back instead of answering: a known phrase, or any run of
+     * [ECHO_WORDS] consecutive words copied from [instructions] (the system prompt, the per-message context and the
+     * app's notes — never the evidence, which a good answer may quote).
+     */
+    fun echoes(answer: String, instructions: String = ""): Boolean {
+        if (ECHO.containsMatchIn(answer) || INSTRUCTION_ECHO.containsMatchIn(answer)) return true
+        if (instructions.isBlank()) return false
+        val grams = shingles(instructions)
+        return shingles(answer).any { it in grams }
+    }
+
+    private const val ECHO_WORDS = 5
+    /** Contractions spelled out, so "you can't access live information" matches "you cannot access live information". */
+    private val CONTRACTIONS = listOf("can't" to "cannot", "won't" to "will not", "n't" to " not", "'m" to " am", "'re" to " are", "'ve" to " have",
+        "'ll" to " will", "'d" to " would")
+    private fun shingles(t: String): Set<String> {
+        val expanded = CONTRACTIONS.fold(t.lowercase().replace('\u2019', '\'')) { a, (c, e) -> a.replace(c, e) }
+        val w = Regex("[\\p{L}\\p{N}']+").findAll(expanded).map { it.value }.toList()
+        return (0..w.size - ECHO_WORDS).map { w.subList(it, it + ECHO_WORDS).joinToString(" ") }.toSet()
+    }
+
+    /** What the best-matching result itself says (its first sentence or two), for an answer that wasn't supported. */
+    fun extract(sources: List<ai.clu.core.conversation.SourceRef>, question: String): String? {
+        val q = words(question)
+        val best = sources.filter { it.snippet.isNotBlank() && !it.snippet.contains("was removed]") }.maxByOrNull { s -> words("${s.title} ${s.snippet}").count { it in q } } ?: return null
+        val sentences = best.snippet.replace(Regex("\\s+"), " ").trim().split(Regex("(?<=[.!?])\\s+(?=\\p{Lu})"))
+        val out = StringBuilder()
+        for (sn in sentences) { if (out.isNotEmpty() && out.length >= 40) break; if (out.isNotEmpty()) out.append(' '); out.append(sn.trim()) }
+        val t = out.toString().take(320).trim()
+        return if (t.isEmpty()) null else if (t.last() in ".!?") t else "$t."
+    }
 }
 
 /** The result of the bounded research loop. */
@@ -259,7 +429,19 @@ object AnswerStyle {
         Regex("(?i)\\s*\\((?:source|via|from)?:?\\s*(?:wikipedia|duckduckgo|[a-z0-9-]+\\.(?:com|org|net))\\)"),
         Regex("(?im)^\\s*(?:sources?|references?)\\s*:.*$"),
         Regex("(?i)\\bi (?:found|read) (?:this|that|it)(?: information)? (?:on|in|at) [^.,;]+[.,;]?\\s*"),
+        Regex("(?i)\\b(?:https?://|www\\.)\\S+"),                                                          // links
+        Regex("(?i)\\s+(?:on|in|from|at|via)\\s+(?:the\\s+)?wikipedia\\b"),                                 // "… in Wikipedia"
+        Regex("(?<=\\s)#[\\p{L}][\\p{L}\\p{N}_]*"),                                                       // #hashtags
+        Regex("(?i)\\s*\\((?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.[a-z]{2,}(?:,[^;)]*)?(?:;[^)]*)?\\)"),           // "(en.wikipedia.org, updated …; snippet only)"
+        Regex("(?i)\\b(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.(?:org|com|net|io|co\\.uk|gov|edu)\\b"),          // bare site names
     )
+
+    private val INTERNAL = listOf(Regex("(?s)\\[Context].*?(\\[/Context]|$)"), Regex("\\[(?:Tool result|Information found|Web search results|Task)[^\\]]*]"),
+        Regex("(?i)\\b(?:SEARCHED|OFFLINE):\\s*"), Regex("(?:BEGIN|END) WEB RESULTS"), Regex("(?im)^\\s*\\[(?:Question|Answer)[^\\]]*]\\s*(?:Answer:\\s*)?"),
+        Regex("(?<!\\S)\\[[A-Z][a-z]{2,15}](?![(\\[])\\s*")) // a made-up section heading ("[Response]", "[Citations]"), not a link
+
+    /** The reply without the app's internal block markers ("[Tool result: …]", "[Context]…") a model may echo. */
+    fun withoutInternalMarkup(text: String): String = INTERNAL.fold(text) { t, re -> re.replace(t, "") }.trim()
 
     /**
      * The reply without citation markers, "according to …", "(Wikipedia)" or a sources list. Where a removed phrase

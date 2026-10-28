@@ -85,12 +85,13 @@ that answers only from the evidence it receives):
 ## 5. Speech pacing
 
 Cause: every chunk is synthesised as a separate utterance, and voices add their own silence around each one (Kokoro
-~190 ms after a comma *and* after a full stop, plus a lead-in). The chunker cut at commas early and often, and the pause
+~110–140 ms after a chunk, plus an ~80 ms lead-in, measured in 1.6.1 on real audio; the ~190 ms first given here was an
+estimate). The chunker cut at commas early and often, and the pause
 code only padded short gaps. Result: a comma between chunks ≈ 250–320 ms (more if the next chunk wasn't ready yet), a
 full stop ≈ 360–420 ms — nearly the same.
 
 Fix: `SpeechText.withPause` now sets each boundary exactly — lead-in trimmed to 40 ms, trailing silence trimmed *or*
-padded so comma ≈ 170 ms, full stop ≈ 360 ms, question ≈ 380 ms, paragraph ≈ 650 ms; only samples below 2 % of the
+padded so comma ≈ 170 ms (120 ms since 1.6.1, measured on real speech: see FINAL_DEVICE_VALIDATION.md §6), full stop ≈ 360 ms, question ≈ 380 ms, paragraph ≈ 650 ms; only samples below 2 % of the
 chunk's peak are ever removed. The chunker cuts the first chunk at a comma only after 5+ words (else at the sentence end
 or after 10 words), later chunks at a comma only beyond 110 characters, so most commas stay inside a chunk with the
 voice's natural short pause. Source talk ("[2]", "according to Wikipedia") is also removed before synthesis.
@@ -109,7 +110,8 @@ quality of a real trained model (none available here), phone latency, or how the
   skipped (opt-in benchmarks/audits, model-dependent Whisper tests, the namespace-only offline test); app **62**, 0
   failures. Discovery audit: every declared `@Test` ran or was reported skipped.
 * New suites: `AgentAcceptanceTest` (18 end-to-end scenarios), `SpeechPacingTest` (6), `ModelProviderTest` (3, real JNI).
-* Offline namespace test (`scripts/test_offline.sh`): 3/3 passed, including the first run straight after the full build
+* Offline namespace test (`scripts/test_offline.sh`): 3/3 passed (1.6.1 found that this script could pass without
+  executing the test — a cached Gradle task; these runs may not all have executed, see FINAL_DEVICE_VALIDATION.md §7), including the first run straight after the full build
   (the condition of the earlier intermittent failure; its cause is still unidentified, and the test now reports the
   helper's audio length/peak if it recurs).
 * APK: `dist/clu-release.apk`, 1.6.0-prototype (versionCode 13), 85,248,012 bytes, SHA-256

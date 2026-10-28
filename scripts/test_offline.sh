@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="$1"; MODELS="$2"; WHISPER="${3:-}"; FIXTURES="${4:-}"
-exec unshare -rn bash -c '
+unshare -rn bash -c '
 python3 -I -c "
 import socket, fcntl, struct
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -22,7 +22,10 @@ assert t.connect_ex((\"1.1.1.1\", 443)) != 0, \"network is reachable - not an of
 print(\"network namespace: loopback only, internet unreachable\")
 "
 W=(); [[ -n "$2" ]] && W=(-Dclu.whisperModels="$2" -Dclu.sttFixtures="$3")
-./gradlew --offline --no-daemon -q :core:test --tests "*OfflineConversationTest*" \
+# --rerun: always execute (an up-to-date or cached test task would "pass" without running anything).
+./gradlew --offline --no-daemon -q :core:test --rerun --tests "*OfflineConversationTest*" \
   --tests "*StreamingSpeechTest*" --tests "*AdaptiveChunkerTest*" --tests "*WhisperIntegrationTest*" --tests "*WhisperEngineTest*" \
   -Dclu.offline=true -Dclu.lk.python="$0" -Dclu.lk.models="$1" "${W[@]}"
 ' "$PY" "$MODELS" "$WHISPER" "$FIXTURES"
+# Show that the offline conversation really ran (and wasn't skipped) in this invocation.
+grep -o '<testsuite [^>]*' core/build/test-results/test/TEST-ai.clu.core.OfflineConversationTest.xml | grep -o '\(tests\|skipped\|failures\|errors\|timestamp\)="[^"]*"' | tr '\n' ' '; echo

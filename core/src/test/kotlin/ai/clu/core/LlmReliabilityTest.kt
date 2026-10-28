@@ -314,7 +314,7 @@ class LlmReliabilityTest {
             // Header and tensor table intact, but the last tensor's data is cut off: passes Clu's checks, llama.cpp
             // refuses to load it.
             val min = GgufReader.read(model).minimumBytes
-            val broken = File.createTempFile("broken", ".gguf").apply { writeBytes(model.readBytes().copyOf(min.toInt() + 16)) }
+            val broken = File.createTempFile("broken", ".gguf").apply { deleteOnExit(); writeBytes(model.readBytes().copyOf(min.toInt() + 16)) }
             selectRealModel(broken)
             val ev = events(core, req(core), 30_000)
             val err = ev.filterIsInstance<AgentEvent.Error>().single()
@@ -331,10 +331,10 @@ class LlmReliabilityTest {
 
         @Test fun `10 a missing or corrupted model file is detected`() {
             assumeTrue(model.exists())
-            val garbage = File.createTempFile("garbage", ".gguf").apply { writeText("this is not a model") }
+            val garbage = File.createTempFile("garbage", ".gguf").apply { deleteOnExit(); writeText("this is not a model") }
             val e = assertFailsWith<LlmException> { core.models.register(garbage) }
             assertTrue(e.message!!.contains("Not a compatible model"))
-            val copy = File.createTempFile("gone", ".gguf").also { model.copyTo(it, overwrite = true) }
+            val copy = File.createTempFile("gone", ".gguf").also { it.deleteOnExit(); model.copyTo(it, overwrite = true) }
             selectRealModel(copy)
             copy.delete()
             assertEquals(ModelStatus.MISSING, core.models.list().single().status)
@@ -346,11 +346,11 @@ class LlmReliabilityTest {
         @Test fun `10b an interrupted download or copy is detected before llama_cpp sees it`() {
             assumeTrue(model.exists())
             val bytes = model.readBytes()
-            val partial = File.createTempFile("partial", ".gguf").apply { writeBytes(bytes.copyOf(bytes.size / 2)) }
+            val partial = File.createTempFile("partial", ".gguf").apply { deleteOnExit(); writeBytes(bytes.copyOf(bytes.size / 2)) }
             val e = assertFailsWith<LlmException> { core.models.register(partial) }
             assertTrue(e.message!!.contains("incomplete"), e.message)
             // A registered model truncated later (storage error, partial overwrite) is re-validated at load.
-            val copy = File.createTempFile("later", ".gguf").also { model.copyTo(it, overwrite = true) }
+            val copy = File.createTempFile("later", ".gguf").also { it.deleteOnExit(); model.copyTo(it, overwrite = true) }
             selectRealModel(copy)
             java.io.RandomAccessFile(copy, "rw").use { it.setLength(copy.length() / 2) }
             val err = events(core, req(core)).filterIsInstance<AgentEvent.Error>().single()

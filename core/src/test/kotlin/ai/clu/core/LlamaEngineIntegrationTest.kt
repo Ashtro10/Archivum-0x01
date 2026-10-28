@@ -131,7 +131,7 @@ class LlamaEngineIntegrationTest {
     }
 
     @Test fun corruptModelFailsWithMessage() {
-        val f = File.createTempFile("bad", ".gguf"); f.writeBytes("GGUF".toByteArray() + ByteArray(64) { 7 })
+        val f = File.createTempFile("bad", ".gguf").apply { deleteOnExit() }; f.writeBytes("GGUF".toByteArray() + ByteArray(64) { 7 })
         assertFailsWith<LlmException> { LlamaEngine.load("x", f.absolutePath, LlamaConfig(512, 64, 1, true)) }
     }
 

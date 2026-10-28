@@ -117,7 +117,8 @@ class SearchAgentTest {
         http.routes["api.search.brave.com"] = HttpResponse(429, "{}")
         engine.reply("I couldn't complete the search. From my own knowledge, which may be outdated: gold was around ...")
         val d = done(ask("What is the price of gold today?"))
-        assertTrue(engine.prompts.last().last().content.contains("OFFLINE: the web search could not be completed (Brave Search rate limit or monthly quota reached (HTTP 429))"))
+        // The model is told what went wrong without provider names (a small model repeats them in its answer).
+        assertTrue(engine.prompts.last().last().content.contains("OFFLINE: the web search could not be completed (the search service refused the request)"))
         assertTrue(d.text.startsWith("I couldn't complete the search")); assertTrue(d.meta.sources.isEmpty(), "no sources claimed"); assertEquals("search_failed", d.meta.error, "labelled as answered without the web")
     }
 

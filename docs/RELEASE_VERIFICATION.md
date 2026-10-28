@@ -1,6 +1,6 @@
 # Release verification and provenance
 
-_Verified 2026-10-27 in the build container. These facts were checked by tools, not recalled._
+_Verified 2026-10-28 in the build container (1.6.1-prototype). These facts were checked by tools, not recalled._
 
 ## 1. Where everything is
 
@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,248,012 bytes | `stat` |
-| SHA-256 | `bbbf679f72c5e64059c0807142004882ddad2bb19d35ca453bbad083f529e51e` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,260,303 bytes | `stat` |
+| SHA-256 | `1aaacc3bcfb8f95784943afeb92731c982d032c2ad4a0acda2bde6b3fbab50ae` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.6.0-prototype` (versionCode 13; installs as an update over versionCodes 1–12, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.5 in commit `d67cf84`, 1.5.4 in `20f564b`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
+| Version | `1.6.1-prototype` (versionCode 14; installs as an update over versionCodes 1–13, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.6.0 in commit `6160e52`, 1.5.5 in `d67cf84`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -44,7 +44,7 @@ repository.
 | Static API check | 793 classes (app, core), every platform reference exists at API 33. The prebuilt LiveKit SDK is not part of this check: it is built by LiveKit for minSdk 21 | `:app:apiCheck` |
 | APK structure check | 27 manifest components exist; 377 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 85,100,556 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 85,260,303 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 

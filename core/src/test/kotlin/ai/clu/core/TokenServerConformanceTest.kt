@@ -43,11 +43,12 @@ class TokenServerConformanceTest {
         }
     }
 
-    @AfterEach fun stop() { proc?.destroy(); proc?.waitFor() }
+    @AfterEach fun stop() { proc?.destroy(); proc?.waitFor(); work?.deleteRecursively() }
+    private var work: File? = null
 
     @Test fun appTokenClientAgreesWithTheRealTokenServer(): Unit = runBlocking {
         assumeTrue(python != null, "set -Dclu.serverPython to run against the real token server")
-        val work = Files.createTempDirectory("clu-token").toFile()
+        val work = Files.createTempDirectory("clu-token").toFile().also { this@TokenServerConformanceTest.work = it }
         val port = ServerSocket(0).use { it.localPort }
         fun env(pb: ProcessBuilder) = pb.apply {
             environment().apply {

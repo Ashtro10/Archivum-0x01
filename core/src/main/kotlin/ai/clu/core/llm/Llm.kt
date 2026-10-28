@@ -27,6 +27,10 @@ data class GenParams(
 data class GenStats(
     val promptTokens: Int = 0,
     val reusedTokens: Int = 0,
+    /** Tokens in the cache before this call (0 = nothing cached: just loaded, or the cache was lost). */
+    val cachedTokens: Int = 0,
+    /** Time spent waiting for the model thread before this call started (another generation, a load). Set by LlmService. */
+    val queueMs: Double = 0.0,
     val generatedTokens: Int = 0,
     val promptMs: Double = 0.0,
     val generateMs: Double = 0.0,

@@ -1,0 +1,28 @@
+{
+  "model": "1b-q4km.gguf",
+  "context": 2048,
+  "max_tokens": 64,
+  "turns": [
+    {"turn": 0, "prompt_tokens": 889, "reused_tokens": 740, "new_tokens": 149, "prompt_ms": 1407, "interrupted": 0},
+    {"turn": 1, "prompt_tokens": 978, "reused_tokens": 742, "new_tokens": 236, "prompt_ms": 1736, "interrupted": 0},
+    {"turn": 2, "prompt_tokens": 1070, "reused_tokens": 831, "new_tokens": 239, "prompt_ms": 1757, "interrupted": 0},
+    {"turn": 3, "prompt_tokens": 1162, "reused_tokens": 923, "new_tokens": 239, "prompt_ms": 1782, "interrupted": 0},
+    {"turn": 4, "prompt_tokens": 1250, "reused_tokens": 1015, "new_tokens": 235, "prompt_ms": 1858, "interrupted": 1},
+    {"turn": 5, "prompt_tokens": 1274, "reused_tokens": 1103, "new_tokens": 171, "prompt_ms": 1285, "interrupted": 0},
+    {"turn": 6, "prompt_tokens": 1366, "reused_tokens": 1127, "new_tokens": 239, "prompt_ms": 1832, "interrupted": 0},
+    {"turn": 7, "prompt_tokens": 1453, "reused_tokens": 1219, "new_tokens": 234, "prompt_ms": 1712, "interrupted": 0},
+    {"turn": 8, "prompt_tokens": 1544, "reused_tokens": 1306, "new_tokens": 238, "prompt_ms": 1765, "interrupted": 1},
+    {"turn": 9, "prompt_tokens": 1568, "reused_tokens": 1397, "new_tokens": 171, "prompt_ms": 1327, "interrupted": 0},
+    {"turn": 10, "prompt_tokens": 1658, "reused_tokens": 1421, "new_tokens": 237, "prompt_ms": 1998, "interrupted": 0},
+    {"turn": 11, "prompt_tokens": 1749, "reused_tokens": 1510, "new_tokens": 239, "prompt_ms": 1950, "interrupted": 0},
+    {"turn": 12, "prompt_tokens": 1837, "reused_tokens": 1601, "new_tokens": 236, "prompt_ms": 1937, "interrupted": 1},
+    {"turn": 13, "prompt_tokens": 1862, "reused_tokens": 1689, "new_tokens": 173, "prompt_ms": 1417, "interrupted": 0},
+    {"turn": 14, "prompt_tokens": 1952, "reused_tokens": 1714, "new_tokens": 238, "prompt_ms": 2057, "interrupted": 0},
+    {"turn": 15, "prompt_tokens": 1481, "reused_tokens": 745, "new_tokens": 736, "prompt_ms": 5264, "interrupted": 0},
+    {"turn": 16, "prompt_tokens": 1570, "reused_tokens": 1333, "new_tokens": 237, "prompt_ms": 1888, "interrupted": 1},
+    {"turn": 17, "prompt_tokens": 1595, "reused_tokens": 1422, "new_tokens": 173, "prompt_ms": 1496, "interrupted": 0},
+    {"turn": 18, "prompt_tokens": 1683, "reused_tokens": 1447, "new_tokens": 236, "prompt_ms": 1867, "interrupted": 0},
+    {"turn": 19, "prompt_tokens": 1776, "reused_tokens": 1535, "new_tokens": 241, "prompt_ms": 1894, "interrupted": 0}
+  ],
+  "environment": "amd64 JVM, 4 vCPU (build container, not a phone)"
+}

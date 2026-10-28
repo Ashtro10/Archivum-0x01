@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,219,343 bytes | `stat` |
-| SHA-256 | `a7ad52af775aa2c8edd87435a5e08d8ab2bf988cfc3051a4f150066b365d4cf8` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,227,532 bytes | `stat` |
+| SHA-256 | `27ea2e3312cab90e9e169445d231ddcd96d3193f82b31eb5159f6409bd56b5ea` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.5.4-prototype` (versionCode 11; installs as an update over versionCodes 1–10, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.3 in commit `be85d72`, 1.5.2 in `d3804d4`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
+| Version | `1.5.5-prototype` (versionCode 12; installs as an update over versionCodes 1–11, same package and signer; no database change since 1.5.0 — schema v3. Previous APKs: 1.5.4 in commit `20f564b`, 1.5.3 in `be85d72`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -55,7 +55,7 @@ value above.
 
 | Library | Size | SHA-256 | Dynamic dependencies (`readelf -d` NEEDED) | LOAD alignment |
 |---|---|---|---|---|
-| `libclu_llama.so` (llama.cpp + JNI, built here) | 6.3 MB | `5334a89a057d1c9aef84070006c550db643aa689d75d153c3761950ac7d759a6` | liblog, libdl, libm, libc | 16 KB |
+| `libclu_llama.so` (llama.cpp + JNI, built here) | 6.3 MB | `98848873a962ab6e9b9ef0f2c55941a32e3bdb7cc814aded2fba5649c6664717` | liblog, libdl, libm, libc | 16 KB |
 | `libclu_whisper.so` (whisper.cpp 231638a0 + JNI, built here; only JNI symbols exported) | 1.6 MB | `70a65e42a1dfd8bd2c526c16de6a4250a58d8cae727cf0fbf68bfd16a32a7ad6` | liblog, libdl, libm, libc | 16 KB |
 | `libsherpa-onnx-jni.so` (prebuilt, sherpa-onnx 1.13.8) | 4.8 MB | `3c6492ea91ea68fd3b72b9495efdde6dd913f6b58c387e3b07389cf335f4d26f` | libandroid, liblog, libonnxruntime, libm, libdl, libc | 16 KB |
 | `libonnxruntime.so` (prebuilt, from the same archive) | 22.2 MB | `33847ad43bffe204699fd4a27f7f3603452a8cdaf2f9a44983a0bc31ffcf2da1` | libdl, liblog, libm, libc | 16 KB |

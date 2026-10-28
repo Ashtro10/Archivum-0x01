@@ -251,6 +251,16 @@ JNIEXPORT jint JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeContextSize(JNIEnv
     return static_cast<jint>(llama_n_ctx(s->ctx));
 }
 
+// After a failed llama_decode. An abort (rc 2: Stop, barge-in, a newer request) leaves every completed step in the
+// cache, so only what was not confirmed (s->cached is extended only after a successful step) is removed and the
+// conversation stays cached for the next reply. Clearing everything here made the next reply re-read the whole
+// conversation. Any other failure clears the cache as before.
+static void forget_uncommitted(Session* s, llama_memory_t mem, int rc) {
+    if (rc == 2 && llama_memory_seq_rm(mem, 0, static_cast<llama_pos>(s->cached.size()), -1)) return;
+    llama_memory_clear(mem, true);
+    s->cached.clear();
+}
+
 // Generates a completion for `prompt`. For each decoded piece, calls callback.onBytes(byte[]) -> boolean
 // (false = stop). Returns a JSON stats string, or null on error (see nativeLastError).
 JNIEXPORT jstring JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeGenerate(
@@ -273,6 +283,7 @@ JNIEXPORT jstring JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeGenerate(
     }
 
     // Reuse the longest common prefix already in the KV cache.
+    const size_t cached_before = s->cached.size();
     size_t keep = 0;
     while (keep < s->cached.size() && keep < toks.size() && s->cached[keep] == toks[keep]) keep++;
     if (keep == toks.size()) keep--;  // must decode at least one token to get logits
@@ -289,9 +300,8 @@ JNIEXPORT jstring JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeGenerate(
         llama_batch batch = llama_batch_get_one(toks.data() + i, n);
         int rc = llama_decode(s->ctx, batch);
         if (rc != 0) {
-            llama_memory_clear(mem, true);
-            s->cached.clear();
-            t_last_error = s->cancel.load() ? "cancelled" : "llama_decode failed during prompt (rc=" + std::to_string(rc) + ")";
+            forget_uncommitted(s, mem, rc);
+            t_last_error = rc == 2 ? "cancelled" : "llama_decode failed during prompt (rc=" + std::to_string(rc) + ")";
             return nullptr;
         }
         s->cached.insert(s->cached.end(), toks.begin() + static_cast<long>(i), toks.begin() + static_cast<long>(i) + n);
@@ -335,10 +345,10 @@ JNIEXPORT jstring JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeGenerate(
         env->DeleteLocalRef(arr);
         if (env->ExceptionCheck()) { stop_reason = "callback_exception"; break; }
         llama_batch batch = llama_batch_get_one(&id, 1);
-        if (llama_decode(s->ctx, batch) != 0) {
-            stop_reason = s->cancel.load() ? "cancelled" : "decode_error";
-            llama_memory_clear(mem, true);
-            s->cached.clear();
+        int rc = llama_decode(s->ctx, batch);
+        if (rc != 0) {
+            stop_reason = rc == 2 ? "cancelled" : "decode_error";
+            forget_uncommitted(s, mem, rc);
             break;
         }
         s->cached.push_back(id);
@@ -350,6 +360,7 @@ JNIEXPORT jstring JNICALL Java_ai_clu_core_llm_LlamaBridge_nativeGenerate(
     double gen_ms = std::chrono::duration<double, std::milli>(t_end - t_prompt).count();
     std::string json = "{\"promptTokens\":" + std::to_string(toks.size()) +
         ",\"reusedTokens\":" + std::to_string(keep) +
+        ",\"cachedTokens\":" + std::to_string(cached_before) +
         ",\"generatedTokens\":" + std::to_string(generated) +
         ",\"promptMs\":" + std::to_string(prompt_ms) +
         ",\"generateMs\":" + std::to_string(gen_ms) +

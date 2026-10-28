@@ -30,7 +30,11 @@ object PerfReport {
         "prompt_tokens" to "tokens", "prompt_new_tokens" to "tokens", "bench_tok_per_s" to "tokens/s", "tts_rtf" to "× real time",
         "tts_ms_per_char" to "ms/char", "tts_errors" to "count")
 
-    fun unitOf(metric: String) = KEY_METRICS.firstOrNull { it.key == metric }?.unit ?: units[metric] ?: if (metric.endsWith("_ms")) "ms" else ""
+    /** One sample per voice turn; its detail is the turn's stage timeline (VoiceTurnTimeline), listed separately. */
+    const val VOICE_TIMELINE = "voice_turn_timeline"
+
+    fun unitOf(metric: String) = KEY_METRICS.firstOrNull { it.key == metric }?.unit ?: units[metric]
+        ?: if (metric.endsWith("_ms")) "ms" else if (metric.startsWith("turn_new_tokens")) "tokens" else ""
 
     private fun n(v: Double) = if (v >= 100) "%.0f".format(Locale.US, v) else "%.1f".format(Locale.US, v)
 
@@ -43,10 +47,11 @@ object PerfReport {
     fun rows(perf: List<DiagnosticsLog.PerfSummary>): List<Pair<String, String>> {
         val byKey = perf.associateBy { it.metric }
         return KEY_METRICS.map { m -> "${m.label} (${m.key})" to (byKey[m.key]?.let(::line) ?: "not measured yet") } +
-            perf.filter { p -> KEY_METRICS.none { it.key == p.metric } }.map { it.metric to line(it) }
+            perf.filter { p -> p.metric != VOICE_TIMELINE && KEY_METRICS.none { it.key == p.metric } }.map { it.metric to line(it) }
     }
 
-    fun build(app: String, device: String, conditions: Map<String, String>, memory: String?, perf: List<DiagnosticsLog.PerfSummary>, now: Long): String = buildString {
+    fun build(app: String, device: String, conditions: Map<String, String>, memory: String?, perf: List<DiagnosticsLog.PerfSummary>, now: Long,
+              recentTurns: List<String> = emptyList()): String = buildString {
         appendLine("Clu performance report")
         appendLine("Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date(now))}")
         appendLine("App: $app")
@@ -58,6 +63,8 @@ object PerfReport {
             "stopped, timed-out, failed or interrupted requests. Kept apart from the normal timings, not deleted.)")
         rows(perf).forEach { (k, v) -> appendLine("- $k: $v") }
         appendLine("- Battery: not measured by Clu (see Android Settings → Battery for Clu's share)")
+        appendLine("Recent voice turns, newest first (ms; each stage from the end of the previous one; prefill cause and new/total prompt tokens):")
+        if (recentTurns.isEmpty()) appendLine("- none recorded yet") else recentTurns.forEach { appendLine("- $it") }
         append("This report contains no messages, memories, diary entries, logs or keys.")
     }
 }

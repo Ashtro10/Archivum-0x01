@@ -56,19 +56,22 @@ if mode == "asr":
         while rec.is_ready(s): rec.decode_stream(s)
     s.accept_waveform(16000, np.zeros(8000, dtype=np.float32)); s.input_finished()
     while rec.is_ready(s): rec.decode_stream(s)
+    print("audio", len(x), a.sample_rate, float(np.abs(x).max()) if len(x) else 0.0, len(y), file=sys.stderr)
     print(rec.get_result(s).strip().lower())
 else:
     a = tts("vits-piper-en_US-ryan-medium").generate(sys.argv[3], sid=0, speed=1.0)
     x = np.asarray(a.samples, dtype=np.float32)
     print(len(x), a.sample_rate, float(np.abs(x).max()) if len(x) else 0.0)
 """
+        var lastErr = ""
         fun py(vararg args: String): String {
             val p = ProcessBuilder(listOf(python, "-I", "-c", helper, models) + args).redirectErrorStream(false).start()
             val out = p.inputStream.bufferedReader().readText().trim(); val err = p.errorStream.bufferedReader().readText()
+            lastErr = err
             assertEquals(0, p.waitFor(), err.takeLast(800)); return out
         }
         val transcript = py("asr", "How are you doing today?")
-        assertTrue("how are you" in transcript, "offline ASR transcript: '$transcript'")
+        assertTrue("how are you" in transcript, "offline ASR transcript: '$transcript' (helper: ${lastErr.takeLast(600)})")
 
         // 2. The on-device engine is selected (the default) and the platform reports no network.
         val platform = TestPlatform().apply { online = false }

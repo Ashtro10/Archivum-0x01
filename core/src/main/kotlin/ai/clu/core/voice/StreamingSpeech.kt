@@ -48,6 +48,8 @@ class TurnTimings(val responseId: Long) {
     val chunkSynthMs = java.util.Collections.synchronizedList(mutableListOf<Long>())
     val errors = AtomicInteger()
     @Volatile var chunks = 0
+    /** Length of the first text chunk sent to the synthesiser (characters). */
+    @Volatile var firstChunkChars = 0
 
     private fun d(a: Long, b: Long) = if (a > 0 && b > 0 && b >= a) (b - a).toDouble() else null
 
@@ -63,6 +65,12 @@ class TurnTimings(val responseId: Long) {
         d(interruptedAt, cancelDoneAt)?.let { put("cancel_complete_ms", it) }
         if (chunkGapsMs.isNotEmpty()) put("max_chunk_gap_ms", chunkGapsMs.max().toDouble())
         if (firstAudio > 0 && lastTokenAt > 0) put("audio_started_before_generation_end_ms", (lastTokenAt - firstAudio).toDouble())
+        // First TTS request -> first audio, split: synthesising the first chunk, then the time until it was heard.
+        chunkSynthMs.firstOrNull()?.let { synth ->
+            put("first_chunk_synth_ms", synth.toDouble())
+            if (firstChunkChars > 0) put("first_chunk_chars", firstChunkChars.toDouble())
+            d(firstTtsRequest + synth, firstAudio)?.let { put("first_audio_after_synth_ms", it) }
+        }
     }
 }
 
@@ -204,7 +212,7 @@ class StreamingSpeech(
                     if (item is Clip) { audio.send(AudioChunk(id, seq.getAndIncrement(), "", item.samples, item.rate)); continue }
                     val chunk = item as String
                     val t0 = now()
-                    if (timings.firstTtsRequest == 0L) timings.firstTtsRequest = t0
+                    if (timings.firstTtsRequest == 0L) { timings.firstTtsRequest = t0; timings.firstChunkChars = chunk.length }
                     val lang = AdaptiveChunker.script(chunk)
                     val pcm = try { synth.synthesize(chunk, lang) } catch (e: Throwable) {
                         if (e is CancellationException) throw e
@@ -269,4 +277,39 @@ class BargeInDetector(private val minSpeechMs: Int = 200, private val marginDb: 
     }
 
     val echoFloorDb get() = echoDb
+}
+
+/**
+ * One voice turn as a privacy-safe line of stage durations (Diagnostics → Performance → recent voice turns). Numbers and
+ * stage names only, never text. Stages, each measured from the end of the previous one:
+ * end of speech (VAD endpoint) → recognised text → request accepted → model ready (from request start) → prompt built →
+ * waiting for the model thread → prompt processed → first word → first chunk sent to the synthesiser → first chunk
+ * synthesised → audible. [stats] are the reply's agent statistics (see CluAgent: request_id, model_ready_ms,
+ * prompt_build_ms, queue_ms, prompt_ms, prefill_cause, reused/prompt tokens).
+ */
+object VoiceTurnTimeline {
+    fun line(voiceTurn: Long, endpoint: Long, accepted: Long, t: TurnTimings, stats: Map<String, Double>, causes: List<String>, outcome: String): String {
+        fun ms(v: Long?) = if (v == null || v < 0) "–" else v.toString()
+        fun d(a: Long, b: Long) = if (a > 0 && b > 0 && b >= a) b - a else null
+        fun st(k: String) = stats[k]?.toLong()
+        val synth = t.chunkSynthMs.firstOrNull()
+        val cause = stats["prefill_cause"]?.toInt()?.let { causes.getOrNull(it) } ?: "–"
+        val fresh = st("prompt_tokens")?.let { p -> st("reused_tokens")?.let { p - it } }
+        return buildString {
+            append("voice turn $voiceTurn")
+            st("request_id")?.let { append(" · request #$it") }
+            append(" · $outcome")
+            append(" | asr ${ms(d(endpoint, t.transcriptFinal))}")
+            append(" · accept ${ms(d(t.transcriptFinal, accepted))}")
+            append(" · model ready ${ms(st("model_ready_ms"))}")
+            append(" · build ${ms(st("prompt_build_ms"))}")
+            append(" · queue ${ms(st("queue_ms"))}")
+            append(" · prefill ${ms(st("prompt_ms"))} ($cause, new ${fresh ?: "–"} of ${st("prompt_tokens") ?: "–"})")
+            append(" · first word ${ms(d(t.transcriptFinal, t.firstToken))}")
+            append(" · tts request ${ms(d(t.firstToken, t.firstTtsRequest))}")
+            append(" · synth ${ms(synth)}${if (t.firstChunkChars > 0) " (${t.firstChunkChars} chars)" else ""}")
+            append(" · audible ${ms(if (synth != null) d(t.firstTtsRequest + synth, t.firstAudio) else null)}")
+            append(" | end of speech → audio ${ms(d(endpoint, t.firstAudio))}")
+        }
+    }
 }

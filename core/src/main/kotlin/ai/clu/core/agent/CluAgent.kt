@@ -81,6 +81,24 @@ class Turn internal constructor(val origin: TurnOrigin, val signal: CancelSignal
         internal set
 }
 
+/** Why a reply's prompt needed the processing it got (Diagnostics; see CluAgent.recordPrefill). */
+enum class PrefillCause(val key: String) {
+    /** Normal turn: only the new message, its context and the previous reply. */
+    STEADY("steady"),
+    /** The history was cut to fit the window this turn, so everything after the instructions was read again. */
+    RETRIM("retrim"),
+    /** A later step of the same request: the tool or search result is new text. */
+    TOOL_RESULT("tool_result"),
+    /** First request after the model loaded (only the instructions were prepared). */
+    AFTER_LOAD("after_load"),
+    /** Something else used the model since the last request (another reply style, diary summary, a test). */
+    CACHE_REPLACED("cache_replaced"),
+    /** The instructions changed (e.g. tools available online vs offline, a new standing instruction). */
+    SYSTEM_CHANGED("system_changed"),
+    /** Nothing was cached at all. */
+    COLD("cold"),
+}
+
 /** Chooses the engine for a reply: local model or the paired home device's model. */
 interface InferenceRouter {
     suspend fun select(): LlmEngine?
@@ -522,10 +540,14 @@ class CluAgent(
         var stats = GenStats()
         var step = 0
         var firstTokenRecorded = false
+        var prefill: Map<String, Double> = emptyMap()
         while (true) {
             val system = prompt.staticSystem(pctx)
             val convo = if (preToolResult == null) listOf(ChatMessage("user", withContext + req.text)) + extra else extra
-            val msgs = fitToContext(engine, system, history, convo, params.maxTokens, req.conversationId)
+            val tBuild = System.nanoTime()
+            var trimmed = false
+            val msgs = fitToContext(engine, system, history, convo, params.maxTokens, req.conversationId) { trimmed = true }
+            val buildMs = (System.nanoTime() - tBuild) / 1e6
             val buf = StringBuilder()
             var streaming = false
             var shown = 0
@@ -551,6 +573,7 @@ class CluAgent(
                 return
             }
             stats = result.stats
+            if (engine.source == "local") prefill = recordPrefill(turn, step, system, trimmed, buildMs, result.stats) ?: prefill
             diag?.d("agent", "gen ${now() - t0}ms tokens=${result.stats.generatedTokens} stop=${result.stats.stopReason}")
             val raw = buf.toString()
             val call = if (raw.contains("<tool>")) ToolCallParser.find(raw + if (raw.contains("</tool>")) "" else "</tool>") else null
@@ -620,7 +643,9 @@ class CluAgent(
             error = when { timedOut -> "timeout"; emptyOutput -> "empty_output"; else -> baseMeta.error },
             stats = baseMeta.stats + mapOf("prompt_ms" to stats.promptMs, "first_token_ms" to stats.firstTokenMs, "gen_ms" to stats.generateMs,
                 "tokens" to stats.generatedTokens.toDouble(), "tok_per_s" to stats.tokensPerSecond, "reused_tokens" to stats.reusedTokens.toDouble(),
-                "prompt_tokens" to stats.promptTokens.toDouble())
+                "prompt_tokens" to stats.promptTokens.toDouble(), "request_id" to turn.trace.id.toDouble())
+                + turn.trace.at(TurnEvent.MODEL_READY).let { if (it != null) mapOf("model_ready_ms" to it.toDouble()) else emptyMap() }
+                + prefill
                 + (if (usedNetwork) mapOf("network" to 1.0) else emptyMap()))
         val msg = finish(req, turn, finalText, meta, emit, alreadyStreamed = true)
         turnMetrics(turn)
@@ -673,6 +698,41 @@ class CluAgent(
     private fun privateContext(mems: List<ai.clu.core.memory.ScoredMemory>, pctx: PromptContext): List<String> =
         mems.map { it.memory.bodyForPrompt() + " " + it.memory.title + " " + it.memory.people.joinToString(" ") } + pctx.standingInstructions +
             listOf(settings.string(Settings.OWNER_NAME), settings.string(Settings.OWNER_ADDRESS))
+
+    /** Tokens the model's cache should hold now if nothing else used the model since this agent's last call (-1: unknown). */
+    private val expectedCache = java.util.concurrent.atomic.AtomicInteger(-1)
+    @Volatile private var afterLoad = false
+    @Volatile private var lastSystemHash = 0
+
+    /**
+     * Why one generation had to process the prompt tokens it did ([PrefillCause]), recorded per request as
+     * "turn_prefill_<cause>_ms" and "turn_new_tokens_<cause>" (numbers only). Returns the values for the reply's stats.
+     */
+    private fun recordPrefill(turn: Turn, step: Int, system: String, trimmed: Boolean, buildMs: Double, st: GenStats): Map<String, Double>? {
+        val systemChanged = system.hashCode().let { h -> (lastSystemHash != 0 && h != lastSystemHash).also { lastSystemHash = h } }
+        val expected = expectedCache.getAndSet(if (st.stopReason == "cancelled" && st.promptTokens == 0) -1 else st.promptTokens + st.generatedTokens)
+        val cause = when {
+            st.promptTokens == 0 -> return null // stopped before the prompt was processed: nothing measured
+            step > 0 -> PrefillCause.TOOL_RESULT
+            st.cachedTokens == 0 -> PrefillCause.COLD
+            afterLoad -> PrefillCause.AFTER_LOAD
+            expected >= 0 && st.cachedTokens != expected -> PrefillCause.CACHE_REPLACED
+            systemChanged -> PrefillCause.SYSTEM_CHANGED
+            trimmed -> PrefillCause.RETRIM
+            else -> PrefillCause.STEADY
+        }
+        afterLoad = false
+        val d = diag
+        val fresh = st.promptTokens - st.reusedTokens
+        if (d != null) {
+            val note = "request #${turn.trace.id} ${cause.key} new $fresh of ${st.promptTokens} cached ${st.cachedTokens} queue ${st.queueMs.toLong()} build ${buildMs.toLong()}"
+            val outcome = if (st.stopReason == "cancelled") "_cancelled" else ""
+            d.perfSpan("turn_prefill_${cause.key}${outcome}_ms", st.promptMs, turn.visible, note)
+            d.perf("turn_new_tokens_${cause.key}$outcome", fresh.toDouble(), note)
+        }
+        return if (step > 0) null else mapOf("prefill_cause" to cause.ordinal.toDouble(), "cached_tokens" to st.cachedTokens.toDouble(),
+            "queue_ms" to st.queueMs, "prompt_build_ms" to buildMs)
+    }
 
     /**
      * Submit → model ready / first token / end, per request (Diagnostics → Performance), noted with the request number.
@@ -741,7 +801,7 @@ class CluAgent(
         val system = ChatMessage("system", prompt.staticSystem(pctx))
         return try {
             withContext(Dispatchers.IO) { engine.generate(listOf(system), GenParams(maxTokens = 0), CancelSignal()) {} }.stats
-                .also { diag?.i("llm", "warm-up: ${it.promptTokens} instruction tokens in ${it.promptMs.toLong()}ms") }
+                .also { diag?.i("llm", "warm-up: ${it.promptTokens} instruction tokens in ${it.promptMs.toLong()}ms"); expectedCache.set(it.promptTokens); afterLoad = true }
         } catch (e: LlmException) { diag?.w("llm", "warm-up failed: ${e.message?.lineSequence()?.firstOrNull()}"); null }
     }
 
@@ -758,7 +818,8 @@ class CluAgent(
      * message per turn instead moved the start of the history every turn, so llama.cpp could reuse only the system
      * prompt from its cache and re-read the whole history before every reply of a long conversation.
      */
-    fun fitToContext(engine: LlmEngine, system: String, history: List<Message>, tail: List<ChatMessage>, maxTokens: Int, conversationId: String? = null): List<ChatMessage> {
+    fun fitToContext(engine: LlmEngine, system: String, history: List<Message>, tail: List<ChatMessage>, maxTokens: Int, conversationId: String? = null,
+                     onTrim: () -> Unit = {}): List<ChatMessage> {
         val ctxSize = engine.contextSize().takeIf { it > 0 } ?: 2048
         val budget = ctxSize - maxTokens - 32
         var hist = history
@@ -780,6 +841,7 @@ class CluAgent(
             msgs = build(h); exact = engine.countTokens(msgs)
             hist = h
             conversationId?.let { id -> h.firstOrNull()?.let { historyStart[id] = it.id } ?: historyStart.remove(id) }
+            onTrim()
         }
         if (exact > budget) {
             // Still too large: shrink the per-message context (memories) first, then the instructions, as a last resort.

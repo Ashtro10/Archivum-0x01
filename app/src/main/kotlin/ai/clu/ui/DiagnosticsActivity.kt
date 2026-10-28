@@ -94,8 +94,10 @@ class DiagnosticsActivity : BaseActivity() {
             "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server" else "on-device",
             "model loaded" to core.llm.state.value.status.let { st -> if (st == ai.clu.core.llm.LlmStatus.READY || st == ai.clu.core.llm.LlmStatus.GENERATING) "yes" else st.name.lowercase() },
             "uptime" to "${(System.currentTimeMillis() - app.startedAt) / 1000} s")
+        core.llm.loadedSummary()?.let { conditions.putAll(it) }
         val memory = "PSS ${mi.totalPss / 1024} MB (native ${mi.nativePss / 1024} MB), Java heap ${(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1_048_576} MB"
-        val report = ai.clu.core.diag.PerfReport.build(version, device, conditions, memory, core.diag.perfSummary(), System.currentTimeMillis())
+        val report = ai.clu.core.diag.PerfReport.build(version, device, conditions, memory, core.diag.perfSummary(), System.currentTimeMillis(),
+            core.diag.perfDetails(ai.clu.core.diag.PerfReport.VOICE_TIMELINE, 15))
         (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("Clu performance report", report))
         runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, report)
             .putExtra(Intent.EXTRA_SUBJECT, "Clu performance report"), "Share performance report")) }

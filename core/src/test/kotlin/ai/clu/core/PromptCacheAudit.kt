@@ -4,6 +4,7 @@ import ai.clu.core.agent.AgentEvent
 import ai.clu.core.agent.TurnRequest
 import ai.clu.core.config.Settings
 import ai.clu.core.security.Actor
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -14,7 +15,7 @@ import java.io.File
  * Stage 3.3: how much of each voice turn's prompt llama.cpp can reuse from its cache in a conversation that grows past
  * the context window (the voice screen keeps one conversation, so this is the normal case after a while). Token counts
  * depend only on the prompt layout and the tokenizer, not on the CPU, so they carry over to the phone; the times do not.
- * Opt-in: -Dclu.llmBenchModel=<gguf> [-Dclu.cacheAuditOut=<json> -Dclu.cacheAuditCtx=<tokens> -Dclu.cacheAuditTurns=<n>].
+ * Opt-in: -Dclu.llmBenchModel=<gguf> [-Dclu.cacheAuditOut=<json> -Dclu.cacheAuditCtx=<tokens> -Dclu.cacheAuditTurns=<n> -Dclu.cacheAuditCancelEvery=<n>].
  */
 class PromptCacheAudit {
     @Test fun voiceTurnsInALongConversation(): Unit = runBlocking {
@@ -30,14 +31,18 @@ class PromptCacheAudit {
         core.agent.warmUp()
         val conv = core.conversations.create("audit").id
         val rows = mutableListOf<Map<String, Double>>()
+        val cancelEvery = System.getProperty("clu.cacheAuditCancelEvery")?.toInt() ?: 0
         repeat(System.getProperty("clu.cacheAuditTurns")?.toInt() ?: 18) { i ->
             clock.advance(20_000)
+            // -Dclu.cacheAuditCancelEvery=N: every Nth turn is interrupted at its first word (barge-in / Stop).
+            val cancelHere = cancelEvery > 0 && i > 0 && i % cancelEvery == 0
             val done = core.agent.respond(TurnRequest(conv, "question number $i about my plans for the weekend and the weather", Actor.ownerInApp(), viaVoice = true))
+                .onEach { if (cancelHere && it is AgentEvent.Text) core.agent.cancel(null) }
                 .toList().filterIsInstance<AgentEvent.Done>().last()
             val st = done.meta.stats
             val prompt = st["prompt_tokens"] ?: -1.0; val reused = st["reused_tokens"] ?: -1.0
             rows += mapOf("turn" to i.toDouble(), "prompt_tokens" to prompt, "reused_tokens" to reused, "new_tokens" to prompt - reused,
-                "prompt_ms" to (st["prompt_ms"] ?: -1.0))
+                "prompt_ms" to (st["prompt_ms"] ?: -1.0), "interrupted" to if (done.meta.interrupted) 1.0 else 0.0)
             println("cache-audit: " + rows.last())
         }
         core.shutdown()

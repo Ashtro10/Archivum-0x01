@@ -225,43 +225,63 @@ class LlmService(
             override fun contextSize() = engine?.contextSize() ?: 0
             override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult =
                 generate(messages, params, CancelSignal(), onText)
-            override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult =
-                runOnLlm(signal, cancelled = { cancelledResult(source) }) {
+            override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult {
+                val submitted = System.nanoTime()
+                val visible = diag?.visibilityMark() ?: 0
+                return runOnLlm(signal, cancelled = { cancelledResult(source) }) {
+                    val queueMs = (System.nanoTime() - submitted) / 1e6
                     // Queued behind another request and cancelled meanwhile: never start.
                     if (signal.isCancelled) return@runOnLlm cancelledResult(source)
                     val e = engine ?: throw LlmException("model unloaded")
                     _state.value = _state.value.copy(status = LlmStatus.GENERATING)
                     try {
-                        val r = e.generate(messages, params, signal, onText)
+                        val r = e.generate(messages, params, signal, onText).let { it.copy(stats = it.stats.copy(queueMs = queueMs)) }
                         lastUsed = now()
                         registry.get(e.id)?.takeIf { it.status != ModelStatus.VERIFIED && r.stats.generatedTokens > 0 }
                             ?.let { registry.setStatus(it.id, ModelStatus.VERIFIED) }
-                        if (r.stats.stopReason != "cancelled" && params.maxTokens > 0) recordGeneration(r.stats)
+                        if (params.maxTokens > 0) recordGeneration(r.stats, visible)
                         r
                     } finally {
                         if (_state.value.status == LlmStatus.GENERATING) _state.value = _state.value.copy(status = LlmStatus.READY)
                     }
                 }
+            }
             override fun cancel() { engine?.cancel() }
         }
     }
 
     fun cancel() { engine?.cancel() }
 
+    /** Settings of the loaded model for the performance report: context, threads, batch, size and type (no file name). */
+    fun loadedSummary(): Map<String, String>? = engine?.let { e ->
+        mapOf("context" to "${e.config.contextLength} tokens", "threads" to "${e.config.threads} (prompt) / ${LlamaEngine.decodeThreadsFor(e.config.threads, 2)} (generation while speaking)",
+            "batch" to "${e.config.batchSize}", "max reply" to "${GenerationParams.from(settings, null, false).maxTokens} tokens",
+            "model" to "${e.info.desc.ifBlank { "?" }}, ${e.info.sizeBytes / 1_048_576} MB")
+    }
+
     /**
      * Per generation: prompt processing (with how many tokens were new, i.e. not reused from the cache, which decides
      * its cost) and generation speed. Speeds over fewer than [MIN_RATE_TOKENS] tokens are kept apart ("…_short"):
      * a 3-token reply's rate is mostly noise.
      */
-    private fun recordGeneration(st: GenStats) {
+    private fun recordGeneration(st: GenStats, visible: Long) {
         val d = diag ?: return
+        // All from one native call: promptMs covers tokenising the prompt and processing exactly promptTokens -
+        // reusedTokens new tokens (no model load, no queue wait: that is queueMs, measured here before the call).
         val fresh = st.promptTokens - st.reusedTokens
-        val detail = "prompt ${st.promptTokens} reused ${st.reusedTokens} generated ${st.generatedTokens}"
-        d.perf("prompt_ms", st.promptMs, detail)
-        d.perf("first_token_ms", st.firstTokenMs, detail)
-        d.perf("prompt_tokens", st.promptTokens.toDouble())
-        d.perf("prompt_new_tokens", fresh.toDouble())
-        if (fresh >= MIN_RATE_TOKENS && st.promptMs > 0) d.perf("prefill_tok_per_s", fresh * 1000.0 / st.promptMs)
+        val detail = "prompt ${st.promptTokens} reused ${st.reusedTokens} cached ${st.cachedTokens} generated ${st.generatedTokens} queue ${st.queueMs.toLong()}"
+        d.perfSpan("llm_queue_ms", st.queueMs, visible, detail)
+        if (st.stopReason == "cancelled") {
+            // Stopped requests are kept apart; a request stopped during its prompt has no statistics at all.
+            if (st.promptTokens > 0) d.perf(DiagnosticsLog.classified("prompt_ms", "cancelled"), st.promptMs, detail)
+            return
+        }
+        d.perfSpan("prompt_ms", st.promptMs, visible, detail)
+        // First token: -1 when the model ended without any token (an empty reply); that is not a time.
+        if (st.firstTokenMs >= 0) d.perfSpan("first_token_ms", st.firstTokenMs, visible, detail) else d.perf("first_token_none", 1.0, detail)
+        d.perf("prompt_tokens", st.promptTokens.toDouble(), detail)
+        d.perf("prompt_new_tokens", fresh.toDouble(), detail)
+        if (fresh >= MIN_RATE_TOKENS && st.promptMs > 0) d.perf("prefill_tok_per_s", fresh * 1000.0 / st.promptMs, detail)
         d.perf(if (st.generatedTokens >= MIN_RATE_TOKENS) "tokens_per_s" else "tokens_per_s_short", st.tokensPerSecond, detail)
     }
 

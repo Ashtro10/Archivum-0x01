@@ -457,7 +457,9 @@ class VoiceSession(private val app: CluApp) {
         val reply = if (speak) out.reply(c, timings) { core.agent.cancel(TurnOrigin.VOICE) } else null
         reply?.onFirstAudio = { turn.onSpeakingStarted(); publish() }
         var stats: Map<String, Double> = emptyMap()
-        val note = "voice turn ${voiceTurns.incrementAndGet()}"
+        val turnNo = voiceTurns.incrementAndGet()
+        val note = "voice turn $turnNo"
+        val acceptedAt = System.currentTimeMillis()
         reply?.completion?.invokeOnCompletion {
             replyEndedAt = System.currentTimeMillis()
             val m = timings.metrics()
@@ -465,6 +467,10 @@ class VoiceSession(private val app: CluApp) {
             m.forEach { (k, v) -> core.diag.perf(if (reply.cancelled && k in PLAYBACK_METRICS) ai.clu.core.diag.DiagnosticsLog.classified(k, "interrupted") else k, v, note) }
             if (timings.firstAudio > 0) core.diag.perf("endpoint_to_first_audio_ms", (timings.firstAudio - tEndOfSpeech).toDouble(), note)
             core.diag.perf("tts_errors", timings.errors.get().toDouble(), note)
+            // The whole turn, stage by stage, linked to its request number (numbers only; shown in the shared report).
+            val outcome = if (reply.cancelled) "interrupted" else if (timings.firstAudio > 0) "completed" else "no audio"
+            core.diag.perf(VOICE_TIMELINE, (if (timings.firstAudio > 0) timings.firstAudio - tEndOfSpeech else -1).toDouble(),
+                VoiceTurnTimeline.line(turnNo, tEndOfSpeech, acceptedAt, timings, stats, ai.clu.core.agent.PrefillCause.entries.map { it.key }, outcome))
             publish { it.copy(lastLatency = stats + m) }
             if (!reply.cancelled) onReplyPlayed()
         }
@@ -551,6 +557,8 @@ class VoiceSession(private val app: CluApp) {
         const val FRAME_MS = 30
         /** Audio kept from before the VAD fired (VAD onset delay measured at ~0.25-0.45 s; see docs/SPEECH_RECOGNITION.md). */
         const val PRE_ROLL_SEC = 1.0
+        /** Per voice turn: value = end of speech → first audio (-1 = none), detail = the stage timeline. */
+        const val VOICE_TIMELINE = ai.clu.core.diag.PerfReport.VOICE_TIMELINE
         private val PLAYBACK_METRICS = setOf("max_chunk_gap_ms", "audio_started_before_generation_end_ms")
 
     }

@@ -74,6 +74,32 @@ class LlamaEngineIntegrationTest {
         assertEquals(r1.text, r3.text)
     }
 
+    /**
+     * Stage 3.4: stopping a reply (barge-in, Stop, a newer request) must not throw away the prompt cache. The cancel flag
+     * aborts the decode step in progress; the native code used to clear the whole cache on any abort, so the next
+     * reply re-read the entire conversation (seconds per hundred tokens on the phone).
+     */
+    @Test fun aCancelledReplyKeepsThePromptCache() {
+        val long = listOf(ChatMessage("system", "You are Clu. " + "Keep answers short and precise. ".repeat(20)), ChatMessage("user", "Tell me a story."))
+        engine.resetCache()
+        val first = engine.generate(long, GenParams(maxTokens = 4, temperature = 0f)) {}
+        val signal = CancelSignal(); var n = 0
+        val cut = engine.generate(long, GenParams(maxTokens = 64, temperature = 0f), signal) { if (++n == 3) signal.cancel() }
+        assertEquals("cancelled", cut.stats.stopReason)
+        val next = engine.generate(long + ChatMessage("assistant", cut.text) + ChatMessage("user", "Stop. Something else."), GenParams(maxTokens = 2, temperature = 0f)) {}
+        assertTrue(next.stats.reusedTokens >= first.stats.promptTokens - 1,
+            "the conversation so far stays cached after a cancel: reused=${next.stats.reusedTokens} of ${next.stats.promptTokens} (prompt before: ${first.stats.promptTokens})")
+        // What stays cached is exact: cancel during the prompt this time, then the same greedy reply as from an empty cache.
+        val follow = long + ChatMessage("assistant", "Once upon a time") + ChatMessage("user", "Go on, but briefly please.")
+        val s2 = CancelSignal()
+        Thread { Thread.sleep(2); s2.cancel() }.start()
+        engine.generate(follow, GenParams(maxTokens = 32, temperature = 0f), s2) {}
+        val fromCache = engine.generate(follow, GenParams(maxTokens = 12, temperature = 0f)) {}
+        engine.resetCache()
+        val fresh = engine.generate(follow, GenParams(maxTokens = 12, temperature = 0f)) {}
+        assertEquals(fresh.text, fromCache.text, "reply from the kept cache equals the reply from a fresh prompt")
+    }
+
     @Test fun grammarConstrainsOutput() {
         val r = engine.generate(chat, GenParams(maxTokens = 20, temperature = 0.8f, grammar = "root ::= (\"yes\" | \"no\")")) {}
         assertTrue(r.text == "yes" || r.text == "no", "got '${r.text}'")

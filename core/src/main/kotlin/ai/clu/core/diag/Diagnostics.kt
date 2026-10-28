@@ -68,6 +68,10 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
     fun perfSpan(metric: String, value: Double, mark: Long, detail: String = "") =
         perf(if (mark >= 0 && foreground && mark == hidden) metric else classified(metric, "background"), value, detail)
 
+    /** The details of the newest [limit] samples of [metric], newest first. */
+    fun perfDetails(metric: String, limit: Int): List<String> =
+        db.query("SELECT detail FROM perf_samples WHERE metric = ? ORDER BY id DESC LIMIT $limit", listOf(metric)) { it.str(0) }
+
     data class PerfSummary(val metric: String, val count: Long, val avg: Double, val min: Double, val max: Double, val last: Double,
                            val p50: Double = 0.0, val p90: Double = 0.0, val p95: Double = 0.0)
 

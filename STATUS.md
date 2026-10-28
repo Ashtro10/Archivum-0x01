@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-27 (v1.5.4)_
+_Last updated: 2026-10-28 (v1.5.5)_
 
 ## Current state
 
@@ -12,10 +12,18 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 437 total (core 375, app 62): 427 passed, 0 failed, 10 skipped by default (opt-in benchmarks and audits / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
+| Automated tests (JVM / Robolectric / host engines) | 442 total (core 380, app 62): 432 passed, 0 failed, 10 skipped by default (opt-in benchmarks and audits / model-dependent measurements / namespace-only offline test, run separately: pass); server E2E with a **real** model 13/13, with the mock 13/13 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-28: Stage 3.4 — latency root cause: interrupted replies erased the prompt cache (v1.5.5, versionCode 12)
+
+Details: [docs/STAGE3_4_LATENCY_ROOT_CAUSE.md](docs/STAGE3_4_LATENCY_ROOT_CAUSE.md). Stopping a reply (barge-in, Stop,
+newer request) aborted the model's current step and the native code then cleared the whole prompt cache, so the next
+reply re-read the entire conversation (host, 1B model: 1,277–1,873 tokens instead of ~172 after each interruption).
+Fixed in the JNI bridge; per-turn prefill causes, queue time, TTS split and a numbers-only voice-turn timeline added to
+the performance report. Host-verified only; **device improvement unverified**.
 
 ## 2026-10-27: Stage 3.3 — voice latency audit and targeted fixes (v1.5.4, versionCode 11)
 

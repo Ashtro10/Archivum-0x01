@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.6.1-prototype
+# Device acceptance checklist — Clu 1.6.2-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -21,7 +21,7 @@ check below on a real device, that behaviour is *unverified*.
 
 | # | What to do | Success looks like | If it fails, collect |
 |---|---|---|---|
-| 1a ★ | **(1.6.0) Clu researches on its own.** Online, voice chat (⬡): ask "Who is Leman Russ?" (don't say "search"). Then ask "Which legion did he lead?" | A direct, natural answer (e.g. "Leman Russ is the Primarch of the Space Wolves…") without reading out websites, links or "[1]", and nothing invented (since 1.6.1 Clu replaces an answer that doesn't match what it found with the found sentence itself — note if answers sound copied rather than spoken). The follow-up answers about Leman Russ. Source cards are visible in the chat. | What Clu said; performance report. |
+| 1a ★ | **(1.6.0) Clu researches on its own.** Online, voice chat (⬡): ask "Who is Leman Russ?" (don't say "search"). Then ask "Which legion did he lead?" | A direct, natural answer (e.g. "Leman Russ is the Primarch of the Space Wolves…") without reading out websites, links or "[1]", and nothing invented. Since 1.6.2, if the model's answer doesn't match what was found, Clu asks it once more and, failing that, says "I couldn't put that into my own words reliably. The top result says: …" — note how often you hear that (it means the model is too weak). The follow-up answers about Leman Russ. Source cards are visible in the chat. | What Clu said; performance report; **the model's name** (☰ → Settings → AI models). |
 | 1b ★ | **(1.6.0) Misheard names.** Voice: say a name the way it might be misheard (e.g. "Who is Lehman Ross?" right after 1a). | Clu answers about the intended person by name, or asks you to repeat/spell it — never an unrelated refusal. | What Clu heard (shown on screen) and said. |
 | 1c | **(1.6.0) No needless searching.** Ask "How are you?", "What is two plus two?", "Write a two-line poem about rain". | Normal answers; no "Searching the web…" status. | Which one searched. |
 | 1d | **(1.6.0) Offline honesty.** Airplane mode, ask "Who is Leman Russ?" | Clu either says "I'm offline right now, so I can't look that up." or starts with "I'm offline, so this is from memory and not checked." before answering; it never claims it looked anything up. | What Clu said. |

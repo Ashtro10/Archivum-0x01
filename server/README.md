@@ -8,10 +8,12 @@ that lets your phone join. The full guide (architecture, LiveKit Cloud vs. self-
 |---|---|
 | `clu_agent.py` | LiveKit Agents worker: VAD, turn detection, STT → streaming LLM → streaming TTS, interruption, transcripts, three small RPCs for the app |
 | `clu_voice_server.py` | Token endpoint (device key → 10-minute room token), dispatches the agent, runs `clu_agent.py` as a child |
+| `clu_controller.py` | The agent controller shared in behaviour with the on-device engine: decides when to research, keyless Wikipedia search, evidence for the model, answers checked before they are spoken, honest failures. Standard library only |
 | `local_speech.py` | sherpa-onnx STT/TTS plugins for the fully local stack (`CLU_STACK=local`) |
 | `fetch_models.sh` | Downloads the local stack's speech models (~124 MB, SHA-256 checked). The cloud stack needs none |
 | `livekit.yaml.example` | Starting point for a self-hosted `livekit-server` |
 | `tests/e2e_agents.py` | End-to-end test: real livekit-server + worker + local speech, mock LLM, Python stand-in phone |
+| `tests/test_contract.py` | The behavioural contract shared with the device (`../contract/agent_contract.json`): `python -m unittest tests/test_contract.py` |
 
 ## Quick start (LiveKit Cloud)
 
@@ -49,6 +51,8 @@ OpenAI-compatible LLM).
 | `CLU_PROCESS_INIT_TIMEOUT` | `60` | Seconds a process may take to load its models (framework default 10) |
 | `CLU_LOAD_THRESHOLD` | `0.95` | The framework's 0.7 marks the worker "full" whenever the computer is busy, e.g. while a local model is generating, and no agent gets dispatched |
 | `CLU_MIN_SILENCE` | `0.45` | Silence (s) that ends an utterance. The largest share of the local stack's reply delay; lower is faster but can cut you off mid-pause |
+| `CLU_SEARCH` | `wikipedia` | Automatic research (people, named subjects, follow-ups, current information) through Wikipedia's free API, as on the device. Only the subject of your own question is sent. `off` disables it (Clu then says it can't check) |
+| `CLU_SEARCH_URL` | Wikipedia's API | Another MediaWiki-compatible search endpoint (the end-to-end test uses a local one) |
 | `CLU_TURN` | `model` | `model` = LiveKit turn detector if its files were downloaded (`python clu_agent.py download-files`), otherwise VAD with a warning in the log; `vad` forces VAD |
 
 ## Test
@@ -63,7 +67,8 @@ python tests/e2e_agents.py ... --mock-llm
 ```
 
 The test plays the owner's questions (synthesised with a second Piper voice) into a real WebRTC microphone track and
-checks the four input/output paths, that earlier turns reach the model, interruption by speech, the stop button, a
+checks the four input/output paths, that earlier turns reach the model, research through the shared agent contract
+(evidence reaches the model, follow-up, injected instruction ignored, provider outage, no needless search), interruption by speech, the stop button, a
 short reconnect, rejoining after the room closed, a LiveKit server outage, and short and prolonged model outages.
 It measures connection, agent start, speech → first audio, text → first text and first audio, and recognition errors.
 Note: if your shell has an HTTP(S) proxy set, unset it for this test; the worker's local `ws://` connection must not

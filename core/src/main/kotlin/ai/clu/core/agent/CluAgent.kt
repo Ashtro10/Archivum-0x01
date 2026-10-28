@@ -123,6 +123,12 @@ private const val HISTORY_TRIM_TARGET = 0.6
 private const val SPEECH_RESERVED_THREADS = 2
 /** How long a researched subject is remembered for follow-up questions in the same conversation. */
 private const val SUBJECT_MEMORY_MS = 15 * 60_000L
+
+/** Correction attempts for a research answer that didn't hold up (each costs one more generation). */
+private const val MAX_REPAIRS = 1
+
+/** How a quoted result is introduced, so it is never mistaken for Clu's own explanation. */
+internal const val EXTRACT_PREFIX = "I couldn't put that into my own words reliably. The top result says: "
 private val LOOKUP = Regex("(?i)^(?:search|look up|look into|find|research|check|compare)\\b")
 
 class MemoryRetriever(private val settings: SettingsStore, private val memories: MemoryRepository, private val now: () -> Long = System::currentTimeMillis) {
@@ -575,7 +581,7 @@ class CluAgent(
         if (preToolResult != null) {
             extra += ChatMessage("user", withContext + req.text)
             extra += ChatMessage("user", when {
-                sources.isNotEmpty() -> AnswerStyle.evidence(preToolResult.second.summary, interpretedAs, req.text)
+                sources.isNotEmpty() -> AnswerStyle.evidence(Evidence.condense(preToolResult.second.summary, req.text, listOfNotNull(subject, interpretedAs)), interpretedAs, req.text)
                 preToolResult.first == TASK_TOOL -> "[Task]\n${preToolResult.second.summary}"
                 else -> "[Tool result: ${preToolResult.first}]\n${preToolResult.second.summary}\nAnswer my request from this result, naturally and directly; " +
                     "mention any uncertainty, but not tools or sources."
@@ -589,19 +595,24 @@ class CluAgent(
         var firstTokenRecorded = false
         var prefill: Map<String, Double> = emptyMap()
         var groundingFallback = false
-        var evidence: String? = preToolResult?.takeIf { sources.isNotEmpty() }?.let { Grounding.evidenceText(it.second.summary, sources) }
+        // What an answer is checked against: the results' sentences, per result (Claims).
+        var units: List<List<String>> = preToolResult?.takeIf { sources.isNotEmpty() }?.let { Evidence.units(it.second.summary, sources, listOfNotNull(subject, interpretedAs)) }.orEmpty()
+        // A research answer whose opening doesn't hold up gets one correction attempt before Clu falls back to quoting
+        // the best result (clearly attributed); repairs and quotes are recorded in the reply's stats.
+        var repairs = 0
+        var extractive = false
         // After a search that failed or found nothing, the reply must say so; if its opening doesn't, Clu says it plainly.
         val honestyFallback: String? = if (preToolResult?.first == "web.search" && !preToolResult.second.success) when {
             baseMeta.error == "search_empty" -> "I looked that up but couldn't find anything reliable. Could you say or spell the name again?"
             preToolResult.second.error?.contains("internet", ignoreCase = true) == true || !network.isOnline() -> "I'm offline right now, so I can't look that up."
             else -> "I couldn't reach the search service just now, so I can't check that."
         } else null
-        // …and a reply that answers from the model's own knowledge without saying so is kept, after Clu says it plainly.
-        val honestyNote: String? = honestyFallback?.let { when {
-            baseMeta.error == "search_empty" -> "I couldn't find anything reliable online, so this is from memory."
-            it.startsWith("I'm offline") -> "I'm offline, so this is from memory and not checked."
-            else -> "I couldn't check online just now, so this is from memory."
-        } }
+        // …and when the search could not run, a reply from the model's own knowledge is kept after Clu says plainly that
+        // it is unchecked. Not after a search that ran and found nothing: that is evidence the model doesn't know either
+        // (a small model's "from memory" answers there were inventions, measured).
+        val honestyNote: String? = honestyFallback?.takeIf { baseMeta.error != "search_empty" }?.let {
+            if (it.startsWith("I'm offline")) "I'm offline, so this is from memory and not checked." else "I couldn't check online just now, so this is from memory."
+        }
         val validator = ActionValidator(tools::tool)
         val actionsRun = mutableSetOf<String>()
         // "Verify if unsure": the first sentence is held back until it is clear the model is answering; a non-answer
@@ -627,16 +638,18 @@ class CluAgent(
             val instructions = system + "\n" + prompt.turnContext(pctx) + "\n" + AnswerStyle.evidence("", null, "") +
                 (preToolResult?.second?.takeIf { !it.success }?.summary ?: "")
             var note: String? = null // Clu's own words shown before the reply (see honestyNote)
+            var problem: String? = null // why the opening was rejected (for the correction attempt)
+            val subjects = listOfNotNull(subject, interpretedAs)
             fun holds(t: String): Boolean = when {
-                sources.isNotEmpty() -> Grounding.supported(t, sources, req.text, evidence, instructions, listOfNotNull(subject, interpretedAs))
+                sources.isNotEmpty() -> Claims.opening(t, units, req.text, subjects, sources, instructions).let { problem = it.problem; it.verdict == Claims.Verdict.SUPPORTED }
                 Grounding.acknowledgesFailure(t, instructions) -> true
-                honestyNote != null && Grounding.usableWithoutSearch(t, instructions, subject) -> { note = honestyNote; true }
+                honestyNote != null && Grounding.usableWithoutSearch(AnswerStyle.withoutInternalMarkup(t), instructions, subject) -> { note = honestyNote; true }
                 else -> false
             }
             // After the opening, each sentence of such a reply is shown only once it checks out; the first that doesn't
             // ends the reply there (and generation stops), so nothing unsupported is shown, spoken or saved.
             val checked = sources.isNotEmpty() || honestyFallback != null
-            fun sentenceOk(t: String) = if (sources.isNotEmpty()) Grounding.sentenceSupported(t, sources, req.text, evidence, instructions)
+            fun sentenceOk(t: String) = if (sources.isNotEmpty()) Claims.check(t, units, req.text, subjects, sources, instructions).verdict != Claims.Verdict.UNSUPPORTED
                 else Grounding.sentenceHonest(t, instructions)
             var accepted = 0 // the reply up to here is checked
             var cutAt = -1 // where an unsupported sentence began
@@ -719,10 +732,10 @@ class CluAgent(
                     extra += ChatMessage("assistant", "<tool>{\"name\": \"web.search\", \"args\": ${call.args}}</tool>")
                     when (o) {
                         is ResearchOutcome.Cancelled -> break
-                        is ResearchOutcome.Found -> { webRead = true; sources = WebSearchTool.sources(o.result); evidence = Grounding.evidenceText(o.result.summary, sources)
-                            extra += ChatMessage("user", AnswerStyle.evidence(o.result.summary.take(6000), null, req.text)) }
-                        is ResearchOutcome.Ambiguous -> { webRead = true; sources = WebSearchTool.sources(o.result); evidence = Grounding.evidenceText(o.result.summary, sources)
-                            extra += ChatMessage("user", AnswerStyle.evidence(o.result.summary.take(6000), null, req.text)) }
+                        is ResearchOutcome.Found -> { webRead = true; sources = WebSearchTool.sources(o.result); units = Evidence.units(o.result.summary, sources)
+                            extra += ChatMessage("user", AnswerStyle.evidence(Evidence.condense(o.result.summary, req.text, emptyList()).take(6000), null, req.text)) }
+                        is ResearchOutcome.Ambiguous -> { webRead = true; sources = WebSearchTool.sources(o.result); units = Evidence.units(o.result.summary, sources)
+                            extra += ChatMessage("user", AnswerStyle.evidence(Evidence.condense(o.result.summary, req.text, emptyList()).take(6000), null, req.text)) }
                         is ResearchOutcome.NothingFound -> extra += ChatMessage("user", "[Tool result: web.search] The search ran (${o.attempts.size} queries) " +
                             "but found nothing relevant. Do not claim anything was found or verified.")
                         is ResearchOutcome.Failed -> extra += ChatMessage("user", "[Tool result: web.search] FAILED: the search could not run (${o.reason}). " +
@@ -749,15 +762,14 @@ class CluAgent(
                 emit(AgentEvent.Status("Using ${call.name}…"))
                 continue
             }
+            // A short reply that never reached a sentence end while held is checked whole ("I'm not familiar with that.").
+            if (held && step == 0) { held = false; nonAnswer = NonAnswer.matches(raw)
+                if (!nonAnswer) raw.indexOf("<tool>").let { if (it < 0) raw.length else it }.let { cut -> if (cut > shown) { emit(AgentEvent.Text(raw.substring(shown, cut))); shown = cut } } }
             // OBSERVE the answer: a non-answer to a factual question → research once, then answer from the evidence.
             if (nonAnswer && verify != null && step == 0 && !turn.signal.isCancelled) {
                 diag?.d("agent", "model could not answer a factual question; researching")
                 research(req, turn, persona, ctx, baseMeta, emit, verify.query, verify.subject)
                 return
-            }
-            if (held && !nonAnswer && step == 0) { // short reply that never reached a sentence end while held
-                val cut = raw.indexOf("<tool>").let { if (it < 0) raw.length else it }
-                if (cut > shown) { emit(AgentEvent.Text(raw.substring(shown, cut))); shown = cut }
             }
             // Tool markup is never reply text, also when it could not be parsed (malformed call from a small model).
             var body = raw.substringBefore("<tool>")
@@ -777,10 +789,21 @@ class CluAgent(
             finalText = AnswerStyle.withoutInternalMarkup(finalText)
             if (groundHeld) { groundHeld = false; ungrounded = !holds(finalText) }
             if (echoed) ungrounded = true // the saved reply never keeps an echo
+            // REPAIR (once): nothing has been shown yet, so the model can answer again with the problem named.
+            if (ungrounded && sources.isNotEmpty() && repairs < MAX_REPAIRS && shown == 0 && !turn.signal.isCancelled) {
+                repairs++
+                diag?.w("agent", "research answer rejected (${problem ?: "unsupported"}); one correction attempt")
+                extra += ChatMessage("user", "[Correction] That answer can't be used: ${problem ?: "it wasn't supported by the information"}. Using only the " +
+                    "information above, answer my question again in one or two short sentences. Start with the direct answer.")
+                emit(AgentEvent.Status("Checking…"))
+                continue
+            }
             if (ungrounded && !turn.signal.isCancelled) {
                 val extracted = if (sources.isNotEmpty()) Grounding.extract(sources, req.text) else null
                 diag?.w("agent", if (sources.isNotEmpty()) "research answer did not use the evidence" else "reply did not acknowledge the failed search")
-                finalText = extracted ?: honestyFallback ?: "I found results, but I couldn't put together a reliable answer from them."
+                // A quote is said to be one: never presented as Clu's own explanation.
+                extractive = extracted != null
+                finalText = extracted?.let { "$EXTRACT_PREFIX$it" } ?: honestyFallback ?: "I found results, but I couldn't put together a reliable answer from them."
                 groundingFallback = true
                 if (shown > 0) emit(AgentEvent.ResetText) // part of it was already shown: replace, don't append
                 emit(AgentEvent.Text(finalText)); shown = finalText.length
@@ -816,6 +839,8 @@ class CluAgent(
                 + turn.trace.at(TurnEvent.MODEL_READY).let { if (it != null) mapOf("model_ready_ms" to it.toDouble()) else emptyMap() }
                 + prefill
                 + (if (groundingFallback) mapOf("grounding_fallback" to 1.0) else emptyMap())
+                + (if (repairs > 0) mapOf("answer_repairs" to repairs.toDouble()) else emptyMap())
+                + (if (extractive) mapOf("answer_extractive" to 1.0) else emptyMap())
                 + (if (usedNetwork) mapOf("network" to 1.0) else emptyMap()))
         val msg = finish(req, turn, finalText, meta, emit, alreadyStreamed = true)
         turnMetrics(turn)
@@ -828,8 +853,11 @@ class CluAgent(
             if (alt != null) {
                 turn.followUp = true
                 try {
-                    val altMsgs = fitToContext(engine, prompt.staticSystem(pctx.copy(styleOverride = alt.styleB)), history,
-                        listOf(ChatMessage("user", withContext + req.text)), params.maxTokens)
+                    prefs.markAlternativeOffered()
+                    // Same system prompt and history as the reply (the style goes at the end of the message), so the
+                    // model's prompt cache still matches the conversation for the next turn.
+                    val altMsgs = fitToContext(engine, prompt.staticSystem(pctx), history,
+                        listOf(ChatMessage("user", withContext + req.text + "\n\n(For this reply only: ${alt.styleB})")), params.maxTokens)
                     val b = timedGenerate(turn, engine, altMsgs, params) {}
                     val bText = b.text.substringBefore("<tool>").trim()
                     if (bText.isNotEmpty() && b.stats.stopReason != "cancelled") emit(AgentEvent.Alternatives(msg.id, alt, finalText, bText))
@@ -992,7 +1020,10 @@ class CluAgent(
         var chars = hist.sumOf { it.content.length.toLong() }
         while (hist.size > 1 && chars / 8 > ctxSize) { chars -= hist[0].content.length; hist = hist.drop(1) }
         conversationId?.let { historyStart[it] }?.let { anchor -> hist.indexOfFirst { it.id == anchor }.takeIf { it > 0 }?.let { hist = hist.drop(it) } }
-        fun build(h: List<Message>) = listOf(ChatMessage("system", system)) + h.map { ChatMessage(if (it.role == Role.USER) "user" else "assistant", it.content) } + tail
+        // Earlier quotes go back to the model as what was said, without Clu's "the top result says" framing: a weak model
+        // otherwise imitates it in turns where nothing was searched (a fabricated attribution, measured with SmolLM2-135M).
+        fun build(h: List<Message>) = listOf(ChatMessage("system", system)) +
+            h.map { ChatMessage(if (it.role == Role.USER) "user" else "assistant", if (it.role == Role.USER) it.content else it.content.removePrefix(EXTRACT_PREFIX)) } + tail
         var msgs = build(hist)
         var exact = engine.countTokens(msgs)
         if (exact > budget && hist.isNotEmpty()) {

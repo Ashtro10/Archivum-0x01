@@ -44,6 +44,11 @@ LiveKit Agents worker (`server/clu_agent.py`). The custom client of 1.1–1.2 is
   on-device model, recogniser and voice from earlier builds, unchanged). Clu never switches silently. If the server
   is unreachable, the screens say so and retry with backoff (1, 2, 4, 8, 16, then every 30 s). The device engine
   stays in the app, so offline support remains possible later.
+* **Same agent behaviour as the device (since 1.6.2).** Every reply goes through `server/clu_controller.py` (via
+  `Agent.llm_node`): the same research decisions, bounded keyless Wikipedia searches, evidence for the model, answer
+  checks with one correction attempt and an attributed quote as last resort, and honesty when a search fails or finds
+  nothing — one behavioural contract (`contract/agent_contract.json`) tested on both engines. `CLU_SEARCH=off` turns
+  research off. See docs/MODEL_AND_ANSWER_QUALITY.md §4.
 * **Feature freeze.** In server mode the agent does not use the phone's memories, tools, characters or on-device
   model; those belong to the device engine. Background wake-word listening is off while the server engine is
   selected, because it belongs to the device engine and would otherwise answer offline without saying so.

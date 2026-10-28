@@ -30,6 +30,10 @@ Protocol with the Clu app (all standard LiveKit Agents conventions plus three sm
   * data topic "clu.events" (agent -> app): {"type": "error", "component": "stt"|"llm"|"tts"|..., "recoverable": bool,
     "message": str} and {"type": "session_closed", "reason": str}. Messages carry no conversation content.
   * participant attributes "clu.stack", "clu.stt", "clu.llm", "clu.tts", "clu.turn": which providers this agent runs
+
+Answers follow the same agent contract as the on-device engine (clu_controller.py): automatic research of people,
+named subjects, follow-ups and current information through keyless Wikipedia search, answers checked against the
+evidence before they are spoken, and honesty when the search fails or finds nothing (CLU_SEARCH=off disables it).
 """
 from __future__ import annotations
 
@@ -135,9 +139,50 @@ def providers(stack: str, turn) -> dict[str, str]:
 
 
 # ------------------------------------------------------------------------------------------------ agent
+def search_provider():
+    """Keyless Wikipedia search, as on the device (CLU_SEARCH=off turns research off; CLU_SEARCH_URL points elsewhere,
+    e.g. a test server). Only the subject of the owner's own question is ever sent."""
+    from clu_controller import WikipediaSearch
+    if os.environ.get("CLU_SEARCH", "wikipedia") == "off":
+        return None
+    return WikipediaSearch(os.environ.get("CLU_SEARCH_URL", "https://en.wikipedia.org/w/api.php"))
+
+
 class Clu(Agent):
+    """The same agent behaviour as the on-device engine (clu_controller.py, contract/agent_contract.json): decides when
+    to research, runs bounded searches, gives the model the evidence, checks the answer before it is spoken (one
+    correction attempt, then a clearly attributed quote) and is honest when a search fails or finds nothing."""
+
     def __init__(self) -> None:
         super().__init__(instructions=INSTRUCTIONS)
+        from clu_controller import Controller
+        self.controller = Controller(search_provider(), instructions=INSTRUCTIONS)
+
+    async def llm_node(self, chat_ctx: llm.ChatContext, tools, model_settings):
+        msgs = [i for i in chat_ctx.items if getattr(i, "type", "message") == "message" and i.role in ("user", "assistant")]
+        text = next((m.text_content or "" for m in reversed(msgs) if m.role == "user"), "")
+        history = [m.text_content or "" for m in msgs[:-1]]
+
+        from clu_controller import EXTRACT_PREFIX, for_prompt
+        base = chat_ctx.copy()
+        for n, i in enumerate(base.items):  # earlier quotes go back to the model without Clu's attribution framing
+            if getattr(i, "type", "message") == "message" and i.role == "assistant" and (i.text_content or "").startswith(EXTRACT_PREFIX):
+                base.items[n] = i.model_copy(update={"content": [for_prompt(i.text_content)]})  # (the session's own history is untouched)
+
+        async def generate(extra: list[dict]):
+            ctx = base.copy()
+            for m in extra:
+                ctx.add_message(role=m["role"], content=m["content"])
+            async for chunk in Agent.default.llm_node(self, ctx, tools, model_settings):
+                t = chunk if isinstance(chunk, str) else (chunk.delta.content if getattr(chunk, "delta", None) else None)
+                if t:
+                    yield t
+
+        async for piece in self.controller.respond(text, history, generate):
+            yield piece
+        t = self.controller.last
+        if t is not None:  # no conversation content in the log
+            log.info("turn: decision=%s queries=%d answer=%s corrections=%d", t.decision.kind, len(t.queries), t.kind, t.repairs)
 
 
 def prewarm(proc) -> None:

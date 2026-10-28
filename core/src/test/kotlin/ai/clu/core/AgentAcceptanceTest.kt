@@ -50,6 +50,9 @@ class AgentAcceptanceTest {
             prompts += messages
             val last = messages.last().content
             val text = queued.removeFirstOrNull() ?: when {
+                // Told its answer couldn't be used: answers again from the evidence it was given (a cooperative model).
+                last.startsWith("[Correction]") -> messages.lastOrNull { it.content.startsWith("[Information found]") }?.content
+                    ?.let { Regex("(?m)^\\[1] [^:]+: (.+)$").find(it)?.groupValues?.get(1)?.substringBefore(". ")?.trimEnd('.')?.plus(".") } ?: "I don't know."
                 last.startsWith("[Information found]") -> {
                     val snippet = Regex("(?m)^\\[1] [^:]+: (.+)$").find(last)?.groupValues?.get(1)?.substringBefore(". ")?.trimEnd('.') ?: "nothing"
                     "According to Wikipedia, $snippet [1]."
@@ -310,13 +313,26 @@ class AgentAcceptanceTest {
 
     // ---- Answer validation (found with a real small model; see RealModelEvaluation and docs/FINAL_DEVICE_VALIDATION.md)
 
+    /** The model's first answer is rejected, it is told why once, and its corrected answer is used. */
     private fun replacedWithEvidence(modelSays: String, marker: String) {
         route("Leman Russ", wiki(russ))
         model.queued += modelSays
         val ev = ask("Who is Leman Russ?")
-        assertEquals("Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.", done(ev).text, "replaced by what the result says")
+        assertEquals("Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.", done(ev).text, "the corrected answer")
         assertFalse(shown(ev).contains(marker), "the unsupported reply was never shown or spoken: ${shown(ev)}")
-        assertEquals(1.0, done(ev).meta.stats["grounding_fallback"])
+        assertEquals(1.0, done(ev).meta.stats["answer_repairs"], "one correction attempt")
+        assertNull(done(ev).meta.stats["answer_extractive"])
+        assertTrue(model.prompts.last().last().content.startsWith("[Correction] That answer can't be used: "), "the model is told what was wrong")
+    }
+
+    @Test fun whenTheCorrectionAlsoFailsTheResultIsQuotedAndSaidToBeAQuote() {
+        route("Leman Russ", wiki(russ))
+        model.queued += "Leman Russ leads the Ultramarines."; model.queued += "Leman Russ is the Emperor of Tibet."
+        val ev = ask("Who is Leman Russ?")
+        assertEquals("I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.", done(ev).text)
+        assertEquals(1.0, done(ev).meta.stats["answer_extractive"]); assertEquals(1.0, done(ev).meta.stats["answer_repairs"])
+        assertFalse("Ultramarines" in shown(ev) || "Tibet" in shown(ev))
+        assertEquals(2, model.prompts.count { p -> p.any { it.content.startsWith("[Information found]") } }, "exactly one correction attempt, then no more generation")
     }
 
     @Test fun aResearchAnswerThatIgnoresTheEvidenceIsReplaced() =
@@ -441,8 +457,8 @@ class AgentAcceptanceTest {
         val r = Rambler("I'm afraid the answer cannot be found anywhere, sorry about that.").also { core.useEngine(it) }
         route("Leman Russ", wiki(russ))
         val d = done(ask("Who is Leman Russ?"))
-        assertTrue(d.text.startsWith("Leman Russ is the Primarch"), d.text)
-        assertTrue(r.produced < 40, "generation stopped once the opening failed the check (${r.produced} of ~800 words)")
+        assertTrue(d.text.startsWith("I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch"), d.text)
+        assertTrue(r.produced < 80, "both attempts stopped once their opening failed the check (${r.produced} of ~1,600 words)")
     }
 
     @Test fun aReplyThatRepeatsClusOwnNotesIsReplaced() {

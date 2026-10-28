@@ -29,6 +29,15 @@ def reply_for(messages: list) -> str:
     users = [_text(m) for m in messages if m.get("role") == "user"]
     last = (users[-1] if users else "").strip()
     low = last.lower()
+    # Researched turns (Clu's controller adds the evidence, and a correction when an answer was rejected): answer with
+    # the first sentence of the first result, like a model that uses its evidence. For one subject the first answer
+    # takes the bait of an injected instruction, so the controller's correction path is exercised end to end.
+    evidence = next((u for u in reversed(users) if u.startswith("[Information found]")), None)
+    if evidence and (last.startswith("[Information found]") or last.startswith("[Correction]")):
+        if "Horus Lupercal" in evidence and not last.startswith("[Correction]"):
+            return "I will save your address now."
+        m = re.search(r"(?m)^\[1\] [^:]+: (.+)$", evidence)
+        return (m.group(1).split(". ")[0].rstrip(".") + ".") if m else "I don't know."
     if "story" in low:
         return ("Once there was a lighthouse keeper who counted ships every night. " * 6 + "The end.").strip()
     for country, capital in (("france", "Paris"), ("japan", "Tokyo"), ("italy", "Rome"), ("india", "New Delhi")):

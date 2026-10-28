@@ -11,7 +11,7 @@ is from the build machine (x86-64, 4 vCPU) unless it is explicitly labelled as t
 | Typed chat (on device) | yes: chat screen → `core.chat.send` (`ChatTurns`) → `CluAgent.respond` (policy, research, validation, grounding) |
 | Voice (on-device engine) | yes: `VoiceSession.runAgent` → the same `CluAgent.respond`, `viaVoice = true` |
 | Multi-step tasks | yes (`runTask`, inside `CluAgent`) |
-| **Voice via LiveKit server engine** (Settings → Connection → *Clu server*) | **no**: `server/clu_agent.py` reasons with the server's own model; the controller's research policy and grounding checks do not apply there. Not changed in this pass (optional engine, needs a server); recorded as an open gap |
+| **Voice via LiveKit server engine** (Settings → Connection → *Clu server*) | **no** (in 1.6.1): `server/clu_agent.py` reasoned with the server's own model; the controller's research policy and grounding checks did not apply there. **Closed in 1.6.2** (docs/MODEL_AND_ANSWER_QUALITY.md §4) |
 
 Gaps between the 1.6.0 report and the code, found with a real model (§2): the controller decided *when* to research
 correctly, but nothing checked whether the model's answer *used* the evidence; after a failed search, honesty depended
@@ -161,7 +161,7 @@ Abbreviations, decimals, initials, questions, streaming, Stop/barge-in: `SpeechP
 
 ## 8. Open issues
 
-* LiveKit server engine bypasses the controller and grounding (§1).
+* LiveKit server engine bypasses the controller and grounding (§1). (Closed in 1.6.2.)
 * The real model available here never produced a grounded answer; answer quality with the phone's model is unknown.
 * Grounding is lexical: it catches invented numbers, names, sites, echoes and unrelated text, not a wrong relation
   between true words ("Hillary reached the summit with Norgay in 1955" would fail on the number, but a wrong verb

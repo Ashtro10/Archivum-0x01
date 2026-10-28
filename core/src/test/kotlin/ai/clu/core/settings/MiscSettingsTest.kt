@@ -112,7 +112,9 @@ class LearningSettingsTest {
         core.agent.handle(TurnRequest(conv.id, "Explain inflation", Actor.ownerInApp())) { if (it is AgentEvent.Alternatives) alt = it }
         assertNotNull(alt)
         assertEquals(offer.dimension, alt!!.offer.dimension)
-        assertTrue(engine.prompts[1].first().content.contains(alt!!.offer.styleB), "second reply generated with the alternative style")
+        assertTrue(engine.prompts[1].last().content.endsWith("(For this reply only: ${alt!!.offer.styleB})"), "second reply generated with the alternative style")
+        assertEquals(engine.prompts[0].first().content, engine.prompts[1].first().content, "same system prompt: the prompt cache survives the alternative")
+        assertNull(core.prefs.nextAlternative(), "the cooldown starts when an alternative is offered, chosen or not")
         core.agent.chooseAlternative(alt!!.messageId, alt!!.offer, chosenA = false, textChosen = alt!!.textB, persist = true)
         assertEquals(alt!!.offer.optionB, core.prefs.get(offer.dimension)!!.value)
         assertEquals("A much longer, comprehensive answer.", core.conversations.message(alt!!.messageId)!!.content)

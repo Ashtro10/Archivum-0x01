@@ -20,7 +20,6 @@ data class PromptContext(
     val speakerName: String? = null,
     val speakerIsOwner: Boolean = true,
     /** Extra one-off style instruction (used for alternative-response generation). */
-    val styleOverride: String? = null,
     /** The message was spoken and transcribed by speech recognition; the reply will be spoken aloud. */
     val viaSpeech: Boolean = false,
     /** The owner's standing instructions saved in memory ("from now on…"): part of Clu's rules, not per-message context. */
@@ -119,7 +118,6 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
             "active" -> "Point out risks, better options and relevant related points even when not asked, briefly."
             else -> "Add an unrequested observation only when it clearly matters (a real risk or a much better option), in one sentence." })
         langLine()?.let { add(it) }
-        ctx.styleOverride?.let { add("For this reply only: $it") }
     }
 
     private fun lengthLine(): String? = when (settings.string(Settings.RESPONSE_LENGTH)) {

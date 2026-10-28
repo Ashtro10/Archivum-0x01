@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-28 (v1.6.1)_
+_Last updated: 2026-10-28 (v1.6.2)_
 
 ## Current state
 
@@ -12,10 +12,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 484 total (core 422, app 62): 472 passed, 0 failed, 12 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: 5/5 executed and passed); server E2E with a **real** model 13/13, with the mock 13/13 |
+| Automated tests (JVM / Robolectric / host engines) | 490 total (core 428, app 62): 478 passed, 0 failed, 12 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: 3/3 executed and passed). Server: shared agent contract + cancellation 6/6 (also run by the core suite); LiveKit end-to-end 18/18 with the scripted mock and 18/18 with a real model (SmolLM2-135M) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-28: Real model, unified agent path, answer quality (v1.6.2, versionCode 15)
+
+Details: [docs/MODEL_AND_ANSWER_QUALITY.md](docs/MODEL_AND_ANSWER_QUALITY.md). No trained model larger than
+SmolLM2-135M could be obtained here (model hubs blocked by the environment's network policy); a comparison harness on
+the production path (raw model answer kept apart from Clu's final answer) showed the 135M model is inadequate
+(arithmetic 9/20, instruction following 2/12, no usable grounded answer). Research answers are now checked claim by
+claim against the evidence, get one correction attempt, and otherwise become a clearly attributed quote; empty searches
+never get answers "from memory". The LiveKit server engine now follows the same agent contract (shared test file run
+by both engines; LiveKit end-to-end 18/18 with a scripted model). Fixed a prompt-cache defect: ignored "alternative
+style" offers regenerated after every typed reply with a different system prompt (host: first text 0.12 → 1.73 s).
+Host-verified only; **not yet tested on a device**.
 
 ## 2026-10-28: Final device validation pass — real model, grounding, pacing, timing (v1.6.1, versionCode 14)
 

@@ -1,0 +1,369 @@
+{
+ "llm": "MOCK (scripted replies, 300 ms first token) - not a language model",
+ "note": "build machine (x86, no GPU), everything on 127.0.0.1; owner speech is synthesised (Piper) and played into the WebRTC microphone track; STT (sherpa-onnx Kroko), TTS (Piper Joe), VAD (Silero), LiveKit server and agent are real",
+ "checks": {
+  "agent dispatched, listening, providers reported": true,
+  "1 voice -> spoken reply": true,
+  "3 voice -> displayed text (no audio)": true,
+  "2 text -> displayed text (no audio)": true,
+  "4 text -> spoken reply": true,
+  "follow-up: earlier turns reach the model (context kept)": true,
+  "research: decided by Clu, evidence reaches the model, natural answer spoken": true,
+  "research: follow-up resolves the previous subject": true,
+  "research: injected instruction ignored, answer corrected once": true,
+  "research: provider down -> honest, no invented answer": true,
+  "research: stable fact answered without a search": true,
+  "interruption stops the reply and answers the new question": true,
+  "stop button stops speech": true,
+  "short reconnect keeps the session (no duplicate history)": true,
+  "rejoin after the room closed: new agent, history reloaded": true,
+  "recovers after a LiveKit server outage": true,
+  "model outage reported to the app, then recovers": true,
+  "prolonged model outage: session closed, agent leaves, fresh agent in the same room gets the history and answers": true
+ },
+ "measurements": {
+  "token_ms": 17,
+  "join_ms": 144,
+  "first_connect_to_agent_listening_ms": 1381,
+  "short_reconnect_to_listening_ms": 144,
+  "rejoin_after_room_closed_to_listening_ms": 1394,
+  "outage_detected_ms": 37321,
+  "livekit_restart_to_agent_listening_ms": 27852,
+  "llm_restart_to_first_reply_text_ms": 2568,
+  "speech_end_to_first_audio_ms": [
+   2021,
+   1725
+  ],
+  "text_to_first_text_ms": [
+   331,
+   753,
+   873
+  ],
+  "text_to_first_audio_ms": [
+   742,
+   850
+  ]
+ },
+ "quality": {
+  "answers_with_expected_fact": 4,
+  "answers_checked": 4
+ },
+ "providers": {
+  "clu.stack": "local",
+  "clu.stt": "sherpa-onnx kroko-en",
+  "clu.llm": "mock (OpenAI-compatible server)",
+  "clu.tts": "sherpa-onnx voice",
+  "clu.turn": "vad"
+ },
+ "voice_to_spoken": {
+  "asked": "What is the capital of France?",
+  "recognised": "what is the capital of france?",
+  "wer": 0.0,
+  "reply": "The capital of France is Paris.",
+  "answer_contains_expected": true,
+  "speech_end_to_first_audio_ms": 2021,
+  "speech_end_to_first_text_ms": 2063,
+  "audio_received": true
+ },
+ "voice_to_text": {
+  "asked": "What is the capital of Italy?",
+  "recognised": "what is the capital of italy?",
+  "wer": 0.0,
+  "reply": "The capital of Italy is Rome.",
+  "answer_contains_expected": true,
+  "speech_end_to_first_audio_ms": null,
+  "speech_end_to_first_text_ms": 1067,
+  "audio_received": false
+ },
+ "follow_up": {
+  "model_request_messages": 10,
+  "earlier_turn_in_model_context": true,
+  "name_recalled_by_model": true
+ },
+ "text_turns": [
+  {
+   "sent": "My name is Ashwin. Please remember it.",
+   "reply": "Nice to meet you, Ashwin.",
+   "spoken": false,
+   "text_to_first_text_ms": 331,
+   "audio_received": false
+  },
+  {
+   "sent": "What is my name?",
+   "reply": "Your name is Ashwin.",
+   "spoken": true,
+   "text_to_first_text_ms": 753,
+   "text_to_first_audio_ms": 742,
+   "audio_received": true
+  },
+  {
+   "sent": "What is the capital of India?",
+   "reply": "The capital of India is New Delhi.",
+   "spoken": true,
+   "text_to_first_text_ms": 873,
+   "text_to_first_audio_ms": 850,
+   "answer_contains_expected": true
+  }
+ ],
+ "research_turns": [
+  {
+   "sent": "Who is Leman Russ?",
+   "reply": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.",
+   "searched": [
+    "Leman Russ"
+   ],
+   "model_requests": 1,
+   "evidence_in_model_request": true,
+   "text_to_first_text_ms": 1746,
+   "text_to_first_audio_ms": 1589,
+   "ok": true
+  },
+  {
+   "sent": "Which legion did he lead?",
+   "reply": "Leman Russ leads the VI Legion, the Space Wolves, from their home world Fenris.",
+   "searched": [
+    "Leman Russ legion lead"
+   ],
+   "model_requests": 1,
+   "evidence_in_model_request": true,
+   "text_to_first_text_ms": 1587,
+   "text_to_first_audio_ms": 1426,
+   "ok": true
+  },
+  {
+   "sent": "Who is Horus Lupercal?",
+   "reply": "Horus Lupercal is the Primarch of the Luna Wolves.",
+   "searched": [
+    "Horus Lupercal"
+   ],
+   "model_requests": 2,
+   "evidence_in_model_request": true,
+   "text_to_first_text_ms": 1610,
+   "text_to_first_audio_ms": 1469,
+   "ok": true
+  },
+  {
+   "sent": "Who was Tenzing Norgay?",
+   "reply": "I couldn't reach the search service just now, so I can't check that.",
+   "searched": [
+    "Tenzing Norgay"
+   ],
+   "model_requests": 1,
+   "evidence_in_model_request": false,
+   "text_to_first_text_ms": 1380,
+   "text_to_first_audio_ms": 1341,
+   "ok": true
+  },
+  {
+   "sent": "What is the capital of India?",
+   "reply": "The capital of India is New Delhi.",
+   "searched": [],
+   "model_requests": 1,
+   "evidence_in_model_request": false,
+   "text_to_first_text_ms": 867,
+   "text_to_first_audio_ms": 839,
+   "ok": true
+  }
+ ],
+ "interruption": {
+  "tries": [
+   "barged in while speaking"
+  ],
+  "agent_was_speaking_at_barge_in": true,
+  "agent_stopped": true,
+  "owner_starts_talking_to_agent_silent_ms": 642,
+  "recognised": "sup was two plus two",
+  "reply_to_new_question": "Two plus two is four.",
+  "answer_contains_expected": true
+ },
+ "stop_button": {
+  "agent_was_speaking": true,
+  "stopped": true,
+  "stop_to_agent_silent_ms": 88,
+  "state_after": "listening"
+ },
+ "short_reconnect": {
+  "history_reload": {
+   "loaded": 0,
+   "reason": "session already has history"
+  },
+  "reply": "Your name is Ashwin.",
+  "typed_resends": 0
+ },
+ "rejoin_after_room_closed": {
+  "room_closed_seen": true,
+  "history_reload": {
+   "loaded": 2
+  },
+  "reply": "Your name is Ashwin.",
+  "name_recalled_from_reloaded_history": true
+ },
+ "llm_outage": {
+  "error_event": {
+   "type": "error",
+   "component": "llm",
+   "recoverable": true,
+   "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+  },
+  "send_to_error_ms": 28,
+  "events": [
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": true,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "error",
+    "component": "llm",
+    "recoverable": false,
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   },
+   {
+    "type": "session_closed",
+    "reason": "error",
+    "component": "llm",
+    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
+   }
+  ],
+  "session_closed_event": true,
+  "agent_left": true,
+  "history_to_new_agent": {
+   "loaded": 2
+  },
+  "reply_after_recovery": "Your name is Ashwin.",
+  "history_in_new_agent_context": true
+ },
+ "voice_turns": [
+  {
+   "asked": "What is the capital of France?",
+   "recognised": "what is the capital of france?",
+   "wer": 0.0,
+   "reply": "The capital of France is Paris.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": 2021,
+   "speech_end_to_first_text_ms": 2063,
+   "audio_received": true
+  },
+  {
+   "asked": "What is the capital of Japan?",
+   "recognised": "what is the capital of japan?",
+   "wer": 0.0,
+   "reply": "The capital of Japan is Tokyo.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": 1725,
+   "speech_end_to_first_text_ms": 1732,
+   "audio_received": true
+  },
+  {
+   "asked": "What is the capital of Italy?",
+   "recognised": "what is the capital of italy?",
+   "wer": 0.0,
+   "reply": "The capital of Italy is Rome.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": null,
+   "speech_end_to_first_text_ms": 1067,
+   "audio_received": false
+  }
+ ],
+ "asr": {
+  "utterances": 3,
+  "mean_wer": 0.0,
+  "failures_wer_over_0.3": 0
+ },
+ "metrics_from_agent": [
+  {
+   "llm_ttft_ms": 357,
+   "tts_ttfb_ms": 432
+  },
+  {
+   "llm_ttft_ms": 356,
+   "tts_ttfb_ms": 286
+  }
+ ],
+ "passed": true
+}

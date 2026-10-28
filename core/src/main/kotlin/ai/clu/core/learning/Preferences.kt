@@ -145,6 +145,12 @@ class PreferenceEngine(private val store: CluStore, private val settings: Settin
         return AlternativeOffer(dim, a, b, d.instructions.getValue(a), d.instructions.getValue(b))
     }
 
+    /**
+     * An alternative was generated and offered: the cooldown starts now, chosen or not. (Before 1.6.2 it restarted only
+     * on a choice, so an owner who ignored the offer got a second generation after every reply from then on.)
+     */
+    fun markAlternativeOffered() = resetCounter("replies_since_alternative")
+
     fun chooseAlternative(offer: AlternativeOffer, chosen: String, persist: Boolean) {
         require(chosen == offer.optionA || chosen == offer.optionB)
         log("alternative", offer.dimension, chosen)

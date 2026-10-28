@@ -84,11 +84,11 @@ class SearchAgentTest {
         engine.reply("ok [1]")
         ask("What is the latest version of Android?")
         assertTrue(http.requests.last().contains("count=4"), "default 4")
-        assertEquals(4, engine.prompts.last().last().content.lines().count { Regex("^\\[\\d] ").containsMatchIn(it) })
+        assertEquals(4, evidenceSent().lines().count { Regex("^\\[\\d] ").containsMatchIn(it) })
         core.settings.set(Settings.SEARCH_RESULTS, 3); engine.reply("ok")
         ask("What is the latest version of Android?")
         assertTrue(http.requests.last().contains("count=3"))
-        assertEquals(3, engine.prompts.last().last().content.lines().count { Regex("^\\[\\d] ").containsMatchIn(it) })
+        assertEquals(3, evidenceSent().lines().count { Regex("^\\[\\d] ").containsMatchIn(it) })
         assertIs<ai.clu.core.config.SettingResult.Invalid>(core.settings.set(Settings.SEARCH_RESULTS, 9))
     }
 
@@ -126,8 +126,11 @@ class SearchAgentTest {
         engine.reply("<tool>{\"name\": \"web.search\", \"args\": {\"query\": \"kotlin coroutines guide\"}}</tool>", "Coroutines are lightweight threads [1].")
         val d = done(ask("Find me a good explanation of Kotlin coroutines"))
         assertEquals("https://source.android.com/docs/whatsnew/android-16-release", d.meta.sources.first().url)
-        assertTrue(engine.prompts.last().last().content.startsWith("[Information found]"))
+        assertTrue(evidenceSent().startsWith("[Information found]"))
     }
+
+    /** The results block the model was given in the latest prompt (followed by a correction when its answer was rejected). */
+    private fun evidenceSent() = engine.prompts.last().last { it.content.startsWith("[Information found]") }.content
 
     @Test fun spokenAnswersHaveNoCitationNumbers() {
         engine.reply("Android 16 is the latest [1].")

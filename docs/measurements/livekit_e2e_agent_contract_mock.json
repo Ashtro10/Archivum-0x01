@@ -22,26 +22,26 @@
   "prolonged model outage: session closed, agent leaves, fresh agent in the same room gets the history and answers": true
  },
  "measurements": {
-  "token_ms": 17,
-  "join_ms": 144,
-  "first_connect_to_agent_listening_ms": 1381,
-  "short_reconnect_to_listening_ms": 144,
-  "rejoin_after_room_closed_to_listening_ms": 1394,
-  "outage_detected_ms": 37321,
-  "livekit_restart_to_agent_listening_ms": 27852,
-  "llm_restart_to_first_reply_text_ms": 2568,
+  "token_ms": 19,
+  "join_ms": 671,
+  "first_connect_to_agent_listening_ms": 2315,
+  "short_reconnect_to_listening_ms": 116,
+  "rejoin_after_room_closed_to_listening_ms": 1130,
+  "outage_detected_ms": 25137,
+  "livekit_restart_to_agent_listening_ms": 27363,
+  "llm_restart_to_first_reply_text_ms": 2198,
   "speech_end_to_first_audio_ms": [
-   2021,
-   1725
+   1760,
+   1522
   ],
   "text_to_first_text_ms": [
-   331,
-   753,
-   873
+   328,
+   709,
+   763
   ],
   "text_to_first_audio_ms": [
-   742,
-   850
+   696,
+   725
   ]
  },
  "quality": {
@@ -49,11 +49,11 @@
   "answers_checked": 4
  },
  "providers": {
-  "clu.stack": "local",
+  "clu.turn": "vad",
   "clu.stt": "sherpa-onnx kroko-en",
   "clu.llm": "mock (OpenAI-compatible server)",
-  "clu.tts": "sherpa-onnx voice",
-  "clu.turn": "vad"
+  "clu.stack": "local",
+  "clu.tts": "sherpa-onnx voice"
  },
  "voice_to_spoken": {
   "asked": "What is the capital of France?",
@@ -61,8 +61,8 @@
   "wer": 0.0,
   "reply": "The capital of France is Paris.",
   "answer_contains_expected": true,
-  "speech_end_to_first_audio_ms": 2021,
-  "speech_end_to_first_text_ms": 2063,
+  "speech_end_to_first_audio_ms": 1760,
+  "speech_end_to_first_text_ms": 1819,
   "audio_received": true
  },
  "voice_to_text": {
@@ -72,7 +72,7 @@
   "reply": "The capital of Italy is Rome.",
   "answer_contains_expected": true,
   "speech_end_to_first_audio_ms": null,
-  "speech_end_to_first_text_ms": 1067,
+  "speech_end_to_first_text_ms": 1024,
   "audio_received": false
  },
  "follow_up": {
@@ -85,23 +85,23 @@
    "sent": "My name is Ashwin. Please remember it.",
    "reply": "Nice to meet you, Ashwin.",
    "spoken": false,
-   "text_to_first_text_ms": 331,
+   "text_to_first_text_ms": 328,
    "audio_received": false
   },
   {
    "sent": "What is my name?",
    "reply": "Your name is Ashwin.",
    "spoken": true,
-   "text_to_first_text_ms": 753,
-   "text_to_first_audio_ms": 742,
+   "text_to_first_text_ms": 709,
+   "text_to_first_audio_ms": 696,
    "audio_received": true
   },
   {
    "sent": "What is the capital of India?",
    "reply": "The capital of India is New Delhi.",
    "spoken": true,
-   "text_to_first_text_ms": 873,
-   "text_to_first_audio_ms": 850,
+   "text_to_first_text_ms": 763,
+   "text_to_first_audio_ms": 725,
    "answer_contains_expected": true
   }
  ],
@@ -114,8 +114,8 @@
    ],
    "model_requests": 1,
    "evidence_in_model_request": true,
-   "text_to_first_text_ms": 1746,
-   "text_to_first_audio_ms": 1589,
+   "text_to_first_text_ms": 1418,
+   "text_to_first_audio_ms": 1263,
    "ok": true
   },
   {
@@ -126,8 +126,8 @@
    ],
    "model_requests": 1,
    "evidence_in_model_request": true,
-   "text_to_first_text_ms": 1587,
-   "text_to_first_audio_ms": 1426,
+   "text_to_first_text_ms": 1251,
+   "text_to_first_audio_ms": 1087,
    "ok": true
   },
   {
@@ -138,8 +138,8 @@
    ],
    "model_requests": 2,
    "evidence_in_model_request": true,
-   "text_to_first_text_ms": 1610,
-   "text_to_first_audio_ms": 1469,
+   "text_to_first_text_ms": 1510,
+   "text_to_first_audio_ms": 1364,
    "ok": true
   },
   {
@@ -150,8 +150,8 @@
    ],
    "model_requests": 1,
    "evidence_in_model_request": false,
-   "text_to_first_text_ms": 1380,
-   "text_to_first_audio_ms": 1341,
+   "text_to_first_text_ms": 1252,
+   "text_to_first_audio_ms": 1256,
    "ok": true
   },
   {
@@ -160,8 +160,8 @@
    "searched": [],
    "model_requests": 1,
    "evidence_in_model_request": false,
-   "text_to_first_text_ms": 867,
-   "text_to_first_audio_ms": 839,
+   "text_to_first_text_ms": 808,
+   "text_to_first_audio_ms": 780,
    "ok": true
   }
  ],
@@ -171,15 +171,15 @@
   ],
   "agent_was_speaking_at_barge_in": true,
   "agent_stopped": true,
-  "owner_starts_talking_to_agent_silent_ms": 642,
-  "recognised": "sup was two plus two",
+  "owner_starts_talking_to_agent_silent_ms": 603,
+  "recognised": "top was his two plus two",
   "reply_to_new_question": "Two plus two is four.",
   "answer_contains_expected": true
  },
  "stop_button": {
   "agent_was_speaking": true,
   "stopped": true,
-  "stop_to_agent_silent_ms": 88,
+  "stop_to_agent_silent_ms": 55,
   "state_after": "listening"
  },
  "short_reconnect": {
@@ -205,7 +205,7 @@
    "recoverable": true,
    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
   },
-  "send_to_error_ms": 28,
+  "send_to_error_ms": 18,
   "events": [
    {
     "type": "error",
@@ -325,8 +325,8 @@
    "wer": 0.0,
    "reply": "The capital of France is Paris.",
    "answer_contains_expected": true,
-   "speech_end_to_first_audio_ms": 2021,
-   "speech_end_to_first_text_ms": 2063,
+   "speech_end_to_first_audio_ms": 1760,
+   "speech_end_to_first_text_ms": 1819,
    "audio_received": true
   },
   {
@@ -335,8 +335,8 @@
    "wer": 0.0,
    "reply": "The capital of Japan is Tokyo.",
    "answer_contains_expected": true,
-   "speech_end_to_first_audio_ms": 1725,
-   "speech_end_to_first_text_ms": 1732,
+   "speech_end_to_first_audio_ms": 1522,
+   "speech_end_to_first_text_ms": 1523,
    "audio_received": true
   },
   {
@@ -346,7 +346,7 @@
    "reply": "The capital of Italy is Rome.",
    "answer_contains_expected": true,
    "speech_end_to_first_audio_ms": null,
-   "speech_end_to_first_text_ms": 1067,
+   "speech_end_to_first_text_ms": 1024,
    "audio_received": false
   }
  ],
@@ -357,12 +357,12 @@
  },
  "metrics_from_agent": [
   {
-   "llm_ttft_ms": 357,
-   "tts_ttfb_ms": 432
+   "llm_ttft_ms": 338,
+   "tts_ttfb_ms": 294
   },
   {
-   "llm_ttft_ms": 356,
-   "tts_ttfb_ms": 286
+   "llm_ttft_ms": 339,
+   "tts_ttfb_ms": 203
   }
  ],
  "passed": true

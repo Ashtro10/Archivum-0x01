@@ -48,10 +48,14 @@ class Stage1UiTest {
         app.core.conversations.addMessage(conv, Role.ASSISTANT, "Hello.", MessageMeta())
         val a = launch(MainActivity::class.java)
         val t = texts(a).map { it.text.toString() }
-        assertTrue(t.contains("🔎 Searched the web · 1 source · On-device model"))
+        assertTrue("$t", t.contains("Searched the web · On-device model"))
         assertTrue("an offline answer is labelled differently", t.contains("On-device model"))
-        val src = texts(a).first { it.text.toString() == "[1] Android 16 release notes" }
-        assertTrue(t.any { it.startsWith("source.android.com — Android 16 is now available.") })
+        // Stage 4: answer first. The sources are one collapsed line; the list (no numbers) appears only when it is tapped.
+        val src = texts(a).first { it.text.toString() == "Android 16 release notes" }
+        assertFalse("the source list is collapsed by default", src.isShown)
+        texts(a).first { it.text.toString() == "Sources (1) ▸" }.performClick(); idle()
+        assertTrue("tapping the line shows the sources", src.isShown)
+        assertTrue(texts(a).any { it.text.toString().startsWith("source.android.com — Android 16 is now available.") })
         (src.parent as View).performClick()
         val started = shadowOf(a).nextStartedActivity
         assertEquals(Intent.ACTION_VIEW, started.action)

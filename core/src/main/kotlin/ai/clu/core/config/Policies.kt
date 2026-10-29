@@ -29,6 +29,17 @@ object UiPolicy {
     fun diagnosticsVisible(s: SettingsStore) = s.bool(Settings.DEV_DIAGNOSTICS)
 
     /** Source badge under a reply, or null when disabled. */
+    /**
+     * The one line shown for a reply's sources (collapsed; tapping it lists them). The answer is the product: sources
+     * support it and are never spoken. A single official source is named ("Source: GDACS …").
+     */
+    fun sourcesSummary(sources: List<ai.clu.core.conversation.SourceRef>): String? = when {
+        sources.isEmpty() -> null
+        sources.size == 1 && sources[0].title.startsWith("GDACS") -> "Source: GDACS (UN / European Commission)"
+        sources.size == 1 && sources[0].title.startsWith("Open-Meteo") -> "Source: Open-Meteo forecast data"
+        else -> "Sources (${sources.size})"
+    }
+
     fun sourceBadge(s: SettingsStore, meta: MessageMeta): String? {
         if (!s.bool(Settings.SHOW_SOURCES)) return null
         val where = when (meta.source) {
@@ -40,7 +51,7 @@ object UiPolicy {
             else -> meta.source
         }
         // A searched answer leads with that (its sources are listed under it); a failed search is said plainly.
-        if (meta.sources.isNotEmpty()) return "🔎 Searched the web · ${meta.sources.size} source${if (meta.sources.size == 1) "" else "s"} · $where"
+        if (meta.sources.isNotEmpty()) return if (meta.tools.any { it == "hazards" || it == "weather" }) "Checked live data · $where" else "Searched the web · $where"
         if (meta.error == "search_failed") return "Search unavailable · answered without the web"
         val net = if (meta.stats["network"] == 1.0) " · used internet" else ""
         val tools = if (meta.tools.isNotEmpty()) " · " + meta.tools.joinToString() else ""

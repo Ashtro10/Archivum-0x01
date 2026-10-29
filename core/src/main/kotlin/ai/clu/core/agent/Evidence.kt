@@ -82,9 +82,15 @@ object Claims {
     private val NUMBER = Regex("\\d+")
     private val NAME = Regex("(?<![\\p{L}'])\\p{Lu}[\\p{L}'-]{2,}")
     private val TOKEN = Regex("[\\p{L}\\p{N}']+")
+    private val RESULTS_FORMAT = Regex("(?i)\\([^()]*;\\s*snippet only\\)|\\bsnippet only\\b|\\b(?:BEGIN|END) WEB RES|\\[(?:Information found|Tool result)")
+    private val LIGHT = setOf("company", "firm", "corporation", "organisation", "organization", "business", "role", "position", "post", "job",
+        "led", "lead", "leads", "leading", "head", "heads", "headed", "run", "runs", "ran", "running", "serve", "serves", "served", "serving",
+        "held", "hold", "holds", "holding", "became", "become", "becomes", "currently", "current", "still", "now", "today", "since")
 
     fun check(sentence: String, units: List<List<String>>, question: String, subjects: List<String>, sources: List<SourceRef>,
               instructions: String = ""): Result {
+        // The results block's own format ("(en.wikipedia.org, updated …; snippet only)", "BEGIN WEB RESULTS") copied into the answer.
+        if (RESULTS_FORMAT.containsMatchIn(sentence)) return Result(Verdict.UNSUPPORTED, "it copied the information block instead of answering")
         val clean = AnswerStyle.withoutSourceTalk(sentence).trim()
         if (clean.isEmpty() || TOKEN.findAll(clean).none()) return Result(Verdict.NEUTRAL)
         if (Grounding.echoes(clean, instructions)) return Result(Verdict.UNSUPPORTED, "it repeated my own notes instead of answering")
@@ -94,11 +100,13 @@ object Claims {
         Grounding.words(clean).firstOrNull { it in sites }?.let { return Result(Verdict.UNSUPPORTED, "it named a website ('$it'); answer without sources") }
 
         val topic = tokens(question + " " + subjects.joinToString(" "))
-        val allNames = NAME.findAll(clean).map { it.value.lowercase().removeSuffix("'s") }.filter { it !in Grounding.FUNCTION }.toSet()
+        val found = names(clean, units)
+        val allNames = found.map { it.lowercase().removeSuffix("'s") }.filter { it !in Grounding.FUNCTION }.toSet()
         val names = allNames.filter { !has(topic, it) }.toSet()
         // The subject's own name, when the claim uses it, must be in the result that supports the claim (not borrowed
-        // from another result about someone else).
-        val subjectNames = allNames - names
+        // from another result about someone else). An acronym from the question ("CEO") is often spelt out there instead.
+        val acronyms = found.filter { it.length <= 5 && it.all { c -> c.isUpperCase() || c.isDigit() } }.map { it.lowercase() }.toSet()
+        val subjectNames = allNames - names - acronyms
         val nums = NUMBER.findAll(clean).map { it.value }.filter { it !in topic }.toSet()
         val content = Grounding.words(clean).map { it.removeSuffix("'s") }.filter { it !in allNames && it !in Grounding.FUNCTION && !has(topic, it) }.toSet()
         if (names.isEmpty() && nums.isEmpty() && content.isEmpty()) return Result(Verdict.NEUTRAL)
@@ -109,7 +117,9 @@ object Claims {
         for (w in windows) {
             val wt = tokens(w)
             if (names.any { !has(wt, it) } || nums.any { it !in wt }) continue
-            val hits = content.count { has(wt, it) }
+            // Light words that restate a relation the names and numbers already pin down ("has led the company since 2014"
+            // for "has held the role since 2014") count as matching when the names and numbers are all in this sentence.
+            val hits = content.count { has(wt, it) || (it in LIGHT && (names.isNotEmpty() || nums.isNotEmpty())) }
             if (content.isEmpty() || hits * 2 >= content.size) return Result(Verdict.SUPPORTED)
             best = maxOf(best, hits.toDouble() / content.size)
         }
@@ -119,7 +129,7 @@ object Claims {
         nums.firstOrNull { it !in everywhere }?.let { return Result(Verdict.UNSUPPORTED, "the number $it is not in the information") }
         if (best < 0 && (names.size + nums.size) >= 2)
             return Result(Verdict.UNSUPPORTED, "it connects ${(names.map { original(clean, it) } + nums).take(3).joinToString(", ")} in a way the information doesn't")
-        val missing = content.filter { !has(everywhere, it) }.take(3)
+        val missing = content.filter { !has(everywhere, it) && it !in LIGHT }.take(3)
         return Result(Verdict.UNSUPPORTED, if (missing.isEmpty()) "it isn't what the information says" else "it says things the information doesn't (${missing.joinToString(", ")})")
     }
 
@@ -135,6 +145,20 @@ object Claims {
             if (r.verdict == Verdict.SUPPORTED) supported = true
         }
         return if (supported) Result(Verdict.SUPPORTED) else Result(Verdict.UNSUPPORTED, "it didn't answer the question from the information")
+    }
+
+    /**
+     * Capitalised words that are names. A word capitalised only because it starts the sentence ("See …", "Its …") is a
+     * name only when another capitalised word follows it ("Lemmertz Norgay") or the results write it capitalised.
+     */
+    private fun names(text: String, units: List<List<String>>): List<String> {
+        val ms = NAME.findAll(text).toList()
+        val evidenceCaps = NAME.findAll(units.flatten().joinToString(" ")).map { it.value.lowercase() }.toSet()
+        return ms.filterIndexed { i, m ->
+            val sentenceStart = text.substring(0, m.range.first).trimEnd().let { it.isEmpty() || it.last() in ".!?:" }
+            !sentenceStart || m.value.all { it.isUpperCase() } || m.value.lowercase() in evidenceCaps ||
+                ms.getOrNull(i + 1)?.let { n -> text.substring(m.range.last + 1, n.range.first).isBlank() } == true
+        }.map { it.value }
     }
 
     private fun tokens(t: String) = TOKEN.findAll(t.lowercase()).flatMap { m -> listOf(m.value, m.value.removeSuffix("'s")) + m.value.split('-', '\'') }.toSet()

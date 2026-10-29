@@ -109,6 +109,7 @@ class RealModelEvaluation {
             route("Leman Russ legion lead", wiki("Space Wolves" to "Leman Russ leads the VI Legion, the Space Wolves, from their home world Fenris. They are fierce."))
             route("Tenzing Norgay", wiki("Tenzing Norgay" to "Tenzing Norgay was a Nepali-Indian Sherpa mountaineer who reached the summit of Mount Everest in 1953 with Edmund Hillary."))
             route("What is the latest Android version", wiki("Android 16" to "Android 16 is the latest stable version of Android, released in June 2025."))
+            route("latest Android version", wiki("Android 16" to "Android 16 is the latest stable version of Android, released in June 2025.")) // 1.7 sends the question's terms
             route("Mercury", wiki("Mercury (disambiguation)" to "Mercury may refer to several things.", "Mercury (planet)" to "Mercury is the smallest planet.",
                 "Mercury (element)" to "Mercury is a chemical element.", "Freddie Mercury" to "Freddie Mercury was a singer."))
             route("Zorblax Quintarion", wiki()); route("Kessandra Vale", wiki("Vale of Glamorgan" to "The Vale of Glamorgan is a county borough in Wales."))

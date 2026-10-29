@@ -15,6 +15,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 import clu_controller as cc  # noqa: E402
+import clu_context as ctx  # noqa: E402
 
 CONTRACT = json.loads((HERE.parent.parent / "contract" / "agent_contract.json").read_text())
 
@@ -127,6 +128,36 @@ class Cancellation(unittest.TestCase):
         self.assertLess(state["words"], 100)
 
 
+class Context(unittest.TestCase):
+    """Server-only details of the conversation context (the contract's turns cover the behaviour)."""
+
+    def test_nothing_personal_reaches_the_alert_or_forecast_services(self):
+        url = ctx.Gdacs.url("TC", 1_760_000_000_000)
+        self.assertNotIn("Chennai", url)
+        self.assertNotIn("lat", url.lower())
+        pune = ctx.Places.resolve("Pune")
+        self.assertIn("latitude=18.52&longitude=73.86", ctx.OpenMeteo.url(pune))
+
+    def test_state_survives_a_restart(self):
+        async def hz(t):
+            return ctx.Gdacs.check(t, ctx.now_ms(), 200, json.dumps(next(s for s in CONTRACT["turns"] if "gdacs" in s)["gdacs"]))
+
+        async def gen(extra):
+            yield "OK."
+        async def search(q):
+            return cc.SearchResult(False, empty=True, query=q)
+        a = cc.Controller(search, hazards=hz, home="Chennai")
+        asyncio.run(_drain(a.respond("Which cyclone is heading towards us?", [], gen)))
+        b = cc.Controller(search, hazards=hz, home="Chennai")  # a new process: only the saved state carries over
+        b.state = ctx.ConversationState.from_json(a.state.to_json())
+        said = "".join(asyncio.run(_drain(b.respond("Is it dangerous?", [], gen))))
+        self.assertTrue(said.startswith("GDACS rates Tropical Cyclone DANA-24 Orange"), said)
+
+    def test_unknown_place_is_never_guessed(self):
+        self.assertIsNone(ctx.Places.resolve("Atlantis"))
+        self.assertEqual("Chennai", ctx.Places.resolve("we are in Chennai now").name)
+
+
 async def _drain(agen):
     return [p async for p in agen]
 
@@ -143,7 +174,15 @@ def run_scenario(test: unittest.TestCase, scenario: dict) -> None:
             return cc.SearchResult(False, error="Wikipedia returned HTTP 404.", query=q)
         return cc.parse_wikipedia(wiki_json(r.get("results", []), r.get("suggestion")), q)
 
-    ctl = cc.Controller(search, instructions="You are Clu.", online=lambda: state["online"])
+    gdacs = json.dumps(scenario["gdacs"]) if "gdacs" in scenario else None
+
+    async def hazards(type_: str) -> ctx.HazardCheck:  # the official alert service's fixture (no network in tests)
+        return ctx.Gdacs.check(type_, ctx.now_ms(), 200 if gdacs is not None else 404, gdacs or "")
+
+    async def weather(place) -> ctx.WeatherNow:
+        return ctx.OpenMeteo.parse(place, ctx.now_ms(), 404, "")
+
+    ctl = cc.Controller(search, instructions="You are Clu.", online=lambda: state["online"], hazards=hazards, weather=weather, home=scenario.get("home"))
     history: list[str] = []
     for step in scenario["steps"]:
         replies = list(step.get("model", []))
@@ -160,14 +199,22 @@ def run_scenario(test: unittest.TestCase, scenario: dict) -> None:
         state["fail"] = step.get("search_fails", False)
 
         async def run():
-            return "".join([p async for p in ctl.respond(step["say"], history, generate)])
+            return "".join([p async for p in ctl.respond(step["say"], history, generate, via_voice=step.get("voice", False))])
 
         said = asyncio.run(run()).strip()
         turn = ctl.last
         exp = step["expect"]
-        test.assertEqual(exp["decision"], turn.decision.kind, f"{step['say']}: research decision")
+        if "decision" in exp:
+            test.assertEqual(exp["decision"], turn.decision.kind, f"{step['say']}: research decision")
         test.assertEqual(exp["queries"], turn.queries, f"{step['say']}: queries sent")
-        test.assertEqual(exp["final"], said, f"{step['say']}: final answer")
+        if "final" in exp:
+            test.assertEqual(exp["final"], said, f"{step['say']}: final answer")
+        if "final_prefix" in exp:
+            test.assertTrue(said.startswith(exp["final_prefix"]), f"{step['say']}: final answer '{said}'")
+        if "model_calls" in exp:
+            test.assertEqual(exp["model_calls"], len(prompts), f"{step['say']}: model calls")
+        if "interpreted" in exp:
+            test.assertEqual(exp["interpreted"], turn.interpreted, f"{step['say']}: re-heard as")
         test.assertEqual(said, turn.text)
         if "kind" in exp:
             test.assertEqual(exp["kind"], turn.kind, f"{step['say']}: kind")

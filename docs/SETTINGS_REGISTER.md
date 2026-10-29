@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.6.2-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.7.0-prototype.
 
-* Settings: **202** · verifying test passed: **202** · other: **0**
+* Settings: **203** · verifying test passed: **203** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -15,6 +15,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 |---|---|---|---|---|---|---|---|---|---|---|
 | `identity.cluName` | Clu's name 🔒 | `"Clu"` | text ≤ 40 chars, non-empty | SHARED | PromptBuilder, UI | System prompt identity line and screen titles use this name | Applies immediately | `PersonaSettingsTest#cluName` | passed | – |
 | `identity.ownerName` | Owner's name | `""` | text ≤ 60 chars | SHARED | PromptBuilder | System prompt states who the owner is | Applies immediately | `PersonaSettingsTest#ownerName` | passed | – |
+| `identity.homeLocation` | Home location | `""` | text ≤ 80 chars | SHARED | CluAgent, Places | Hazard and weather answers measure distance from it; unknown → Clu asks | Applies immediately | `HomeLocationTest#homeLocation` | passed | – |
 | `identity.ownerAddress` | Form of address | `""` | text ≤ 40 chars | SHARED | PromptBuilder, ResponseTemplates | Prompt instruction and spoken templates ({owner}) use it | Applies immediately | `PersonaSettingsTest#ownerAddress` | passed | – |
 | `persona.language` | Response language | `"en"` | `en`, `hi`, `hinglish` | SHARED | PromptBuilder | Adds a language instruction to the system prompt | Applies immediately | `PersonaSettingsTest#language` | passed | Offline speech recognition model bundled for download is English; Hindi affects text replies only. |
 | `persona.pronunciations` | Pronunciation fixes | `[]` | list of ≤ 50 entries (≤ 120 chars each) | SHARED | SpeechTextPreprocessor | Matching words are replaced in the text sent to the TTS engine | Applies immediately | `PersonaSettingsTest#pronunciations` | passed | – |

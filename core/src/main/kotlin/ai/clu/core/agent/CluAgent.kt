@@ -79,6 +79,11 @@ class Turn internal constructor(val origin: TurnOrigin, val signal: CancelSignal
     /** The reply has been delivered; only optional extra work (alternative reply, diary) is still running. */
     @Volatile var followUp = false
         internal set
+    /** Conversation context for this request (ConversationContext.kt): the state it started from, how the message was resolved, what to store. */
+    internal var state: ConversationState? = null
+    internal var resolved: Resolved? = null
+    internal var topicOut: Topic? = null
+    internal var pendingOut: Pending? = null
 }
 
 /** Why a reply's prompt needed the processing it got (Diagnostics; see CluAgent.recordPrefill). */
@@ -123,6 +128,9 @@ private const val HISTORY_TRIM_TARGET = 0.6
 private const val SPEECH_RESERVED_THREADS = 2
 /** How long a researched subject is remembered for follow-up questions in the same conversation. */
 private const val SUBJECT_MEMORY_MS = 15 * 60_000L
+
+/** A hazard check is reused for follow-ups for this long; then it is fetched again. */
+private const val HAZARD_FRESH_MS = 30 * 60_000L
 
 /** Correction attempts for a research answer that didn't hold up (each costs one more generation). */
 private const val MAX_REPAIRS = 1
@@ -197,6 +205,10 @@ class CluAgent(
     private val deviceRole: () -> String = { "portable" },
     var timeouts: TurnTimeouts = TurnTimeouts(),
     private val diary: ai.clu.core.diary.DiaryRepository? = null,
+    /** Per-conversation context (topic, open question, pending clarification); null = no context (tests of single turns). */
+    private val context: ConversationStateStore? = null,
+    private val hazards: ai.clu.core.search.Gdacs? = null,
+    private val weather: ai.clu.core.search.OpenMeteo? = null,
 ) {
     private val retriever = MemoryRetriever(settings, memories, now)
     /** Unfinished multi-step tasks per conversation (in memory only: after a restart there is not enough state to resume safely). */
@@ -306,6 +318,28 @@ class CluAgent(
             return
         }
 
+        // 3b'. CONTEXT: resolve the message against the conversation before routing it, so "search the web and tell me",
+        // "look it up", "tell me more", "is it dangerous?" act on what the conversation is about (ConversationContext.kt).
+        val state = context?.get(req.conversationId) ?: ConversationState()
+        turn.state = state
+        val command = IntentRouter.route(text)?.let { it.tool != "web.search" && tools.has(it.tool) } == true
+        val resolved = if (persona.isClu && context != null) FollowUpResolver.resolve(text, state, req.viaVoice, now(), command) else Resolved(Resolution.Standalone(text), text)
+        turn.resolved = resolved
+        resolved.corrected?.let { c ->
+            diag?.i("agent", "speech re-interpreted from the conversation (raw transcript kept)")
+            conversations.updateMessage(userMsg.id, userMsg.content, userMsg.meta.copy(interpreted = c))
+        }
+        when (val r = resolved.resolution) {
+            is Resolution.Clarify -> { finish(req, turn, r.text, baseMeta.copy(source = "template"), emit); return }
+            is Resolution.FollowUp -> { followUp(req, turn, persona, ctx, baseMeta, emit, r, state, resolved.placeFromReply); return }
+            is Resolution.Standalone -> if (r.text != text) return handleStandalone(req.copy(text = r.text), turn, persona, ctx, baseMeta, emit, state)
+        }
+        handleStandalone(req, turn, persona, ctx, baseMeta, emit, state)
+    }
+
+    private suspend fun handleStandalone(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
+                                         emit: (AgentEvent) -> Unit, state: ConversationState) {
+        val text = req.text.trim()
         // 3c. Multi-step requests: a short plan run step by step with real results; "continue the task" resumes a recent one.
         if (persona.isClu && req.actor.role == PersonRole.OWNER) {
             if (TaskPlanner.isResume(text)) {
@@ -320,6 +354,17 @@ class CluAgent(
 
         // 4. Deterministic routing of explicit commands.
         val routed = IntentRouter.route(text)
+        // "Search for cyclones near Chennai": a current hazard goes to the official source, not to web search.
+        if (routed?.tool == "web.search" && persona.isClu) HazardPolicy.detect(routed.args.str("query") ?: text)?.let { need ->
+            answerHazard(req, turn, baseMeta, emit, need, text, state); return }
+        // "Search for …" goes through the same bounded, relevance-checked research as automatic searches: results that
+        // don't mention what was asked about are never the answer (offline, the tool path below explains why not).
+        if (routed?.tool == "web.search" && persona.isClu && tools.has("web.search") && tools.isEnabled("web.search") &&
+            tools.networkCategory("web.search")?.let { network.check(it) } == null) {
+            val q = ResearchPolicy.focus(routed.args.str("query") ?: text)
+            research(req, turn, persona, ctx, baseMeta, emit, q, ResearchPolicy.keySubject(q) ?: ResearchPolicy.decide(q, now()).subject)
+            return
+        }
         if (routed != null && tools.has(routed.tool)) {
             if (routed.tool == "memory.remember" && !settings.bool(Settings.REMEMBER_COMMAND)) {
                 val p = proposals.propose(ai.clu.core.memory.ProposalKind.OBSERVATION, routed.args.str("text") ?: text, "You asked me to remember this.", req.conversationId)
@@ -351,21 +396,143 @@ class CluAgent(
         // people, characters and named subjects, and follow-ups about them are researched without being asked to; other
         // factual questions are answered from knowledge and researched only if the model can't answer; conversation isn't.
         val researchable = persona.isClu && settings.string(Settings.SEARCH_AUTO) == "auto" && tools.has("web.search") && tools.isEnabled("web.search")
-        val decision = if (researchable) ResearchPolicy.decide(text, now(), recentSubject(req.conversationId)) else ResearchPolicy.Decision(ResearchPolicy.Kind.NONE)
+        // 5a. Current natural hazards and the weather: official or meteorological sources, not an encyclopedia.
+        if (researchable) HazardPolicy.detect(text)?.let { need -> answerHazard(req, turn, baseMeta, emit, need, text, state); return }
+        val topic = state.topic?.takeIf { FollowUpResolver.topicUsable(state, now()) && it.kind != "general" }
+        val decision = if (researchable) ResearchPolicy.decide(text, now(), topic?.subject) else ResearchPolicy.Decision(ResearchPolicy.Kind.NONE)
         if (decision.kind == ResearchPolicy.Kind.RESEARCH) {
             diag?.d("agent", "research: ${decision.reason}")
             research(req, turn, persona, ctx, baseMeta, emit, decision.query, decision.subject)
             return
         }
 
-        // 6. Model-driven reply (may propose tool calls, validated by the controller).
+        // 6. Model-driven reply (may propose tool calls, validated by the controller). A real question becomes the topic.
+        if (ResearchPolicy.contentWords(text).size >= 2 || (text.endsWith("?") && ResearchPolicy.contentWords(text).isNotEmpty()))
+            turn.topicOut = Topic(text, kind = "general", subject = (decision.subject ?: ResearchPolicy.decide(text, now()).subject
+                ?: ResearchPolicy.subjectOf(ResearchPolicy.focus(ai.clu.core.search.SearchTrigger.clean(text))))?.take(80))
         generateReply(req, turn, persona, ctx, baseMeta, emit, preToolResult = null,
             verify = decision.takeIf { it.kind == ResearchPolicy.Kind.VERIFY_IF_UNSURE })
     }
 
-    /** Subject of the last successful research per conversation (for follow-ups like "what did he do then?"). */
-    private val researchSubjects = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
-    private fun recentSubject(conversationId: String) = researchSubjects[conversationId]?.takeIf { now() - it.second < SUBJECT_MEMORY_MS }?.first
+
+    /** The owner's location: the saved home location, else a place named earlier in this conversation. */
+    private fun home(state: ConversationState) = ai.clu.core.search.Places.resolve(settings.string(Settings.HOME_LOCATION)) ?: ai.clu.core.search.Places.resolve(state.place)
+
+    /** A follow-up bound to the active topic: answered from what was found, or researched as the question it stands for. */
+    private suspend fun followUp(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit,
+                                 r: Resolution.FollowUp, state0: ConversationState, placeFromReply: String?) {
+        val state = placeFromReply?.let { state0.copy(place = it) } ?: state0
+        if (placeFromReply != null) turn.state = state
+        val topic = r.topic
+        // Hazard and weather topics: from the stored finding (fresh enough), or checked again.
+        if (topic.kind == "hazard" || topic.kind == "weather" || HazardPolicy.detect(r.question) != null) {
+            val need = HazardPolicy.detect(r.question) ?: topic.hazard?.let { HazardPolicy.Need(it.type, nearOwner = true, place = null) }
+                ?: HazardPolicy.Need("WX", nearOwner = true, place = topic.weather?.place?.let { ai.clu.core.search.Places.resolve(it) })
+            val fresh = topic.hazard?.takeIf { now() - it.checkedAt < HAZARD_FRESH_MS && it.error == null }
+            if (r.ask != null && fresh != null && need.type != "WX") {
+                val text = ai.clu.core.search.HazardAnswers.followUp(r.ask, fresh, need.place ?: home(state), r.compareWith?.hazard)
+                turn.topicOut = topic
+                finish(req, turn, text, baseMeta.copy(source = "tool", tools = listOf("hazards"), sources = hazardSources(fresh)), emit)
+                return
+            }
+            answerHazard(req, turn, baseMeta, emit, need, r.question, state, r.ask, r.compareWith?.hazard)
+            return
+        }
+        val prompted = req.copy(text = r.prompt)
+        if (!r.research) {
+            turn.topicOut = topic
+            generateReply(prompted, turn, persona, ctx, baseMeta, emit, preToolResult = null)
+            return
+        }
+        // Research what the follow-up stands for, never its own words ("look it up" is not a query).
+        val d = ResearchPolicy.decide(r.question, now(), r.subject)
+        val (query, subject) = if (d.kind == ResearchPolicy.Kind.RESEARCH && d.query.isNotBlank()) d.query to (d.subject ?: r.subject)
+            else ResearchPolicy.focus(ai.clu.core.search.SearchTrigger.clean(r.question)).let { q -> q to (r.subject ?: ResearchPolicy.keySubject(q)) }
+        if (!(settings.string(Settings.SEARCH_AUTO) != "off" && tools.has("web.search") && tools.isEnabled("web.search"))) {
+            turn.topicOut = topic
+            finish(req, turn, "Web search is turned off, so I can't look that up. You can turn it on in Settings → Search.", baseMeta.copy(source = "template"), emit)
+            return
+        }
+        research(prompted, turn, persona, ctx, baseMeta, emit, query, subject)
+    }
+
+    /**
+     * A current natural hazard or the weather, from an official or meteorological source. Asks once for the place when
+     * the question is about "us" and no location is known; never invents an event, a track or a warning.
+     */
+    private suspend fun answerHazard(req: TurnRequest, turn: Turn, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit, need: HazardPolicy.Need,
+                                     question: String, state: ConversationState, ask: ai.clu.core.search.HazardAnswers.Ask? = null,
+                                     previous: ai.clu.core.search.HazardCheck? = null) {
+        val place = need.place ?: home(state)
+        val noun = if (need.type == "WX") "weather" else ai.clu.core.search.HazardAnswers.noun(need.type)
+        if (place == null && (need.nearOwner || need.type == "WX")) {
+            turn.pendingOut = Pending("location", question)
+            turn.topicOut = Topic(question, subject = noun, kind = if (need.type == "WX") "weather" else "hazard", answered = false)
+            finish(req, turn, "Which city or area should I check ${if (need.type == "WX") "the weather" else "for ${noun}s"} for? " +
+                "(You can also save your home location in Settings → General.)", baseMeta.copy(source = "template"), emit)
+            return
+        }
+        network.check(NetCategory.WEB)?.let { why ->
+            turn.topicOut = Topic(question, subject = noun, kind = if (need.type == "WX") "weather" else "hazard", answered = false)
+            finish(req, turn, "I'm offline right now, so I can't check current ${if (need.type == "WX") "weather" else "${noun}s"} ($why).", baseMeta.copy(source = "template", error = "search_failed"), emit)
+            return
+        }
+        emit(AgentEvent.Status(if (need.type == "WX") "Checking the weather…" else "Checking current $noun alerts…"))
+        if (need.type == "WX") {
+            val w = cancellable(turn) { (weather ?: return@cancellable null).now(place!!, now()) } ?: return finish(req, turn, "", baseMeta.copy(interrupted = true), emit).let {}
+            turn.topicOut = Topic(question, subject = "weather in ${place!!.name}", kind = "weather", weather = w, answered = w.error == null)
+            finish(req, turn, ai.clu.core.search.OpenMeteo.answer(w), baseMeta.copy(source = "tool", tools = listOf("weather"), error = if (w.error != null) "search_failed" else "",
+                sources = if (w.error == null) listOf(ai.clu.core.conversation.SourceRef("Open-Meteo forecast for ${w.place}", "https://open-meteo.com/", retrievedAt = w.checkedAt)) else emptyList()), emit)
+            return
+        }
+        val check = cancellable(turn) { (hazards ?: return@cancellable null).current(need.type, now()) } ?: return finish(req, turn, "", baseMeta.copy(interrupted = true), emit).let {}
+        turn.topicOut = Topic(question, subject = noun, kind = "hazard", hazard = check, answered = check.error == null,
+            entities = check.events.map { it.name }.take(1))
+        val text = if (ask != null) ai.clu.core.search.HazardAnswers.followUp(ask, check, place, previous) else ai.clu.core.search.HazardAnswers.answer(check, place)
+        finish(req, turn, text, baseMeta.copy(source = "tool", tools = listOf("hazards"), error = if (check.error != null) "search_failed" else "", sources = hazardSources(check)), emit)
+    }
+
+    /** One compact source for a hazard answer: the official service and the event's report page (no list of links). */
+    private fun hazardSources(c: ai.clu.core.search.HazardCheck) = if (c.error != null) emptyList() else
+        listOf(ai.clu.core.conversation.SourceRef("GDACS — Global Disaster Alert and Coordination System (UN / European Commission)",
+            c.events.firstOrNull()?.url?.takeIf { it.startsWith("https://") } ?: "https://www.gdacs.org/", retrievedAt = c.checkedAt))
+
+    /** Runs [block] so that Stop / barge-in cancels it; null when cancelled (or nothing to run). */
+    private suspend fun <T> cancellable(turn: Turn, block: suspend () -> T?): T? {
+        if (turn.signal.isCancelled) return null
+        return coroutineScope {
+            val run = async { block() }
+            val reg = turn.signal.onCancel { run.cancel() }
+            try { run.await() } catch (e: CancellationException) { if (turn.signal.isCancelled && isActive) null else throw e } finally { reg.close() }
+        }
+    }
+
+    /** Stores what this turn did to the conversation context (every path ends in [finish]). */
+    private fun updateContext(req: TurnRequest, turn: Turn, text: String, meta: MessageMeta) {
+        val store = context ?: return
+        val s = turn.state ?: return
+        val n = s.turn + 1; val t = now()
+        val failed = text.isBlank() || meta.error.isNotEmpty() || meta.interrupted || NonAnswer.matches(text)
+        val r = turn.resolved?.resolution
+        val out = turn.topicOut
+        val next = when {
+            turn.pendingOut != null -> s.copy(turn = n, pending = turn.pendingOut!!.copy(turn = n, at = t),
+                topic = out?.copy(turn = n, at = t, answered = false) ?: s.topic, previous = if (out != null && out.question != s.topic?.question) s.topic else s.previous)
+            r is Resolution.Clarify -> s.copy(turn = n, pending = r.pending.copy(turn = n, at = t))
+            out != null -> {
+                val topic = out.copy(turn = n, at = t, answered = out.answered && !failed, entities = out.entities.ifEmpty { entitiesOf(out.subject) })
+                val sameTopic = r is Resolution.FollowUp || s.topic?.question == topic.question
+                s.copy(turn = n, topic = topic, previous = if (sameTopic) s.previous else s.topic, pending = null)
+            }
+            r is Resolution.FollowUp -> s.copy(turn = n, topic = r.topic.copy(turn = n, at = t, answered = !failed), pending = null)
+            else -> s.copy(turn = n, pending = null)
+        }
+        runCatching { store.put(req.conversationId, next) }.onFailure { diag?.w("agent", "conversation context not saved: ${it.message}") }
+    }
+
+    private fun entitiesOf(subject: String?): List<String> =
+        subject?.split(Regex("\\s*(?:,|\\band\\b|\\bor\\b|\\bvs\\.?|\\bversus\\b)\\s*", RegexOption.IGNORE_CASE))?.map { it.trim() }?.filter { it.length > 1 }?.takeIf { it.size >= 2 }
+            ?: listOfNotNull(subject)
 
     /**
      * ACT → OBSERVE → RETRY/ANSWER for a research decision: never contacts a provider while offline or with internet
@@ -374,6 +541,8 @@ class CluAgent(
      */
     private suspend fun research(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
                                  emit: (AgentEvent) -> Unit, query: String, subject: String?) {
+        // The question becomes the topic now, whatever the outcome: after a failure, "look it up" refers to it.
+        turn.topicOut = Topic(req.text, subject = subject, kind = if (ai.clu.core.search.SearchTrigger.detect(req.text, now()) != null) "current" else "entity")
         tools.networkCategory("web.search")?.let { cat -> network.check(cat) }?.let { why ->
             searchFailed(req, turn, persona, ctx, baseMeta, emit, ToolResult.fail(why), subject ?: query); return
         }
@@ -386,11 +555,11 @@ class CluAgent(
         val meta = baseMeta.copy(tools = listOf("web.search"))
         when (val o = runner.research(query, subject, ResearchRunner.namesIn(history))) {
             is ResearchOutcome.Found -> {
-                (o.interpretedAs ?: subject)?.let { researchSubjects[req.conversationId] = it to now() }
+                turn.topicOut = turn.topicOut?.copy(subject = o.interpretedAs ?: subject)
                 generateReply(req, turn, persona, ctx, meta, emit, preToolResult = "web.search" to o.result, interpretedAs = o.interpretedAs, subject = subject)
             }
-            is ResearchOutcome.Ambiguous -> finish(req, turn, "Do you mean " + when (o.options.size) { 2 -> "${o.options[0]} or ${o.options[1]}"
-                else -> o.options.dropLast(1).joinToString(", ") + ", or " + o.options.last() } + "?", meta.copy(source = "tool", sources = WebSearchTool.sources(o.result)), emit)
+            is ResearchOutcome.Ambiguous -> { turn.pendingOut = Pending("choice", req.text, o.options); finish(req, turn, "Do you mean " + when (o.options.size) { 2 -> "${o.options[0]} or ${o.options[1]}"
+                else -> o.options.dropLast(1).joinToString(", ") + ", or " + o.options.last() } + "?", meta.copy(source = "tool", sources = WebSearchTool.sources(o.result)), emit) }
             is ResearchOutcome.NothingFound -> {
                 val note = ToolResult(false, false, "SEARCHED: the web search ran (${o.attempts.size} ${if (o.attempts.size == 1) "query" else "different queries"}) but found nothing " +
                     "reliable about \"${subject ?: query}\". Say so briefly and naturally. If you genuinely know the answer, you may give it, saying you couldn't confirm it; " +
@@ -799,11 +968,16 @@ class CluAgent(
                 continue
             }
             if (ungrounded && !turn.signal.isCancelled) {
-                val extracted = if (sources.isNotEmpty()) Grounding.extract(sources, req.text) else null
+                // What Clu has said lately in this conversation is not quoted again ("tell me more" gets something new, or says so).
+                val said = conversations.messages(req.conversationId).takeLast(6).filter { it.role == ai.clu.core.conversation.Role.ASSISTANT }.joinToString(" ") { it.content }
+                val extracted = if (sources.isNotEmpty()) Grounding.extract(sources, req.text, said) else null
+                val nothingNew = extracted == null && sources.isNotEmpty() && Grounding.extract(sources, req.text) != null
                 diag?.w("agent", if (sources.isNotEmpty()) "research answer did not use the evidence" else "reply did not acknowledge the failed search")
                 // A quote is said to be one: never presented as Clu's own explanation.
                 extractive = extracted != null
-                finalText = extracted?.let { "$EXTRACT_PREFIX$it" } ?: honestyFallback ?: "I found results, but I couldn't put together a reliable answer from them."
+                finalText = extracted?.let { "$EXTRACT_PREFIX$it" }
+                    ?: (if (nothingNew) "What I found doesn't say more than I've already told you." else null)
+                    ?: honestyFallback ?: "I found results, but I couldn't put together a reliable answer from them."
                 groundingFallback = true
                 if (shown > 0) emit(AgentEvent.ResetText) // part of it was already shown: replace, don't append
                 emit(AgentEvent.Text(finalText)); shown = finalText.length
@@ -1066,6 +1240,7 @@ class CluAgent(
         }
         if (!alreadyStreamed && text.isNotEmpty()) emit(AgentEvent.Text(text))
         val m = if (text.isNotEmpty()) conversations.addMessage(req.conversationId, Role.ASSISTANT, text, meta) else null
+        updateContext(req, turn, text, meta)
         maybeTitle(req.conversationId, req.text)
         emit(AgentEvent.Done(m, text, meta))
         return m

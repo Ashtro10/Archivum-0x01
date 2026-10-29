@@ -1,0 +1,816 @@
+{
+    "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+    "runs": 5,
+    "rows": [
+        {
+            "run": 1,
+            "chain": "cyclone",
+            "turn": 1,
+            "text": "Which cyclone is heading towards us?",
+            "total_ms": 161.954611,
+            "first_text_ms": 122.249149,
+            "model_ms": 0.0,
+            "outside_model_ms": 161.954611,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 1,
+            "chain": "cyclone",
+            "turn": 2,
+            "text": "Search the web and tell me",
+            "total_ms": 48.60356,
+            "first_text_ms": 41.946511,
+            "model_ms": 0.0,
+            "outside_model_ms": 48.60356,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 1,
+            "chain": "cyclone",
+            "turn": 3,
+            "text": "Is it dangerous?",
+            "total_ms": 40.148571,
+            "first_text_ms": 33.914098,
+            "model_ms": 0.0,
+            "outside_model_ms": 40.148571,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Departme"
+        },
+        {
+            "run": 1,
+            "chain": "cyclone",
+            "turn": 4,
+            "text": "When will it arrive?",
+            "total_ms": 45.484471,
+            "first_text_ms": 32.956858,
+            "model_ms": 0.0,
+            "outside_model_ms": 45.484471,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "The data I have gives its current position, not a forecast track, so I can't say when or whether it will reach you without guessing. Right now it is about 700 km east-northeast of Chennai. The India Meteorological Department (IMD) publishes"
+        },
+        {
+            "run": 1,
+            "chain": "ceo",
+            "turn": 1,
+            "text": "Who is the current CEO of Microsoft?",
+            "total_ms": 2125.843767,
+            "first_text_ms": 2099.209355,
+            "model_ms": 1880.305418,
+            "outside_model_ms": 245.53834899999993,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1218.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+        },
+        {
+            "run": 1,
+            "chain": "ceo",
+            "turn": 2,
+            "text": "Look it up.",
+            "total_ms": 1999.741511,
+            "first_text_ms": 1985.639768,
+            "model_ms": 1900.654554,
+            "outside_model_ms": 99.08695699999998,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1261.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 1,
+            "chain": "ceo",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 1673.778755,
+            "first_text_ms": 1658.240979,
+            "model_ms": 1588.353601,
+            "outside_model_ms": 85.42515400000002,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1285.0,
+            "network_requests": 2,
+            "searches": [
+                "Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 1,
+            "chain": "entity",
+            "turn": 1,
+            "text": "Who is Leman Russ?",
+            "total_ms": 1809.042454,
+            "first_text_ms": 1783.773774,
+            "model_ms": 1714.392858,
+            "outside_model_ms": 94.64959599999997,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1228.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 1,
+            "chain": "entity",
+            "turn": 2,
+            "text": "Which legion does he lead?",
+            "total_ms": 1849.619458,
+            "first_text_ms": 1824.07979,
+            "model_ms": 1767.526486,
+            "outside_model_ms": 82.09297199999992,
+            "model_calls": 1,
+            "prompt_tokens_last_call": 1230.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ legion lead"
+            ],
+            "answer": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 1,
+            "chain": "entity",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 2555.927472,
+            "first_text_ms": 2523.174196,
+            "model_ms": 2448.181815,
+            "outside_model_ms": 107.74565699999994,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1331.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: He leads the VI Legion."
+        },
+        {
+            "run": 2,
+            "chain": "cyclone",
+            "turn": 1,
+            "text": "Which cyclone is heading towards us?",
+            "total_ms": 22.688474,
+            "first_text_ms": 12.836857,
+            "model_ms": 0.0,
+            "outside_model_ms": 22.688474,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 2,
+            "chain": "cyclone",
+            "turn": 2,
+            "text": "Search the web and tell me",
+            "total_ms": 34.605616,
+            "first_text_ms": 28.630221,
+            "model_ms": 0.0,
+            "outside_model_ms": 34.605616,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 2,
+            "chain": "cyclone",
+            "turn": 3,
+            "text": "Is it dangerous?",
+            "total_ms": 34.309272,
+            "first_text_ms": 27.542978,
+            "model_ms": 0.0,
+            "outside_model_ms": 34.309272,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Departme"
+        },
+        {
+            "run": 2,
+            "chain": "cyclone",
+            "turn": 4,
+            "text": "When will it arrive?",
+            "total_ms": 37.523369,
+            "first_text_ms": 31.976136,
+            "model_ms": 0.0,
+            "outside_model_ms": 37.523369,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "The data I have gives its current position, not a forecast track, so I can't say when or whether it will reach you without guessing. Right now it is about 700 km east-northeast of Chennai. The India Meteorological Department (IMD) publishes"
+        },
+        {
+            "run": 2,
+            "chain": "ceo",
+            "turn": 1,
+            "text": "Who is the current CEO of Microsoft?",
+            "total_ms": 1907.931645,
+            "first_text_ms": 1865.611142,
+            "model_ms": 1787.429989,
+            "outside_model_ms": 120.50165599999991,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1218.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+        },
+        {
+            "run": 2,
+            "chain": "ceo",
+            "turn": 2,
+            "text": "Look it up.",
+            "total_ms": 1903.922859,
+            "first_text_ms": 1886.856835,
+            "model_ms": 1810.45821,
+            "outside_model_ms": 93.46464900000001,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1261.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 2,
+            "chain": "ceo",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 1724.099562,
+            "first_text_ms": 1700.765584,
+            "model_ms": 1628.551591,
+            "outside_model_ms": 95.54797100000019,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1285.0,
+            "network_requests": 2,
+            "searches": [
+                "Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 2,
+            "chain": "entity",
+            "turn": 1,
+            "text": "Who is Leman Russ?",
+            "total_ms": 1966.996537,
+            "first_text_ms": 1934.167538,
+            "model_ms": 1852.44706,
+            "outside_model_ms": 114.54947700000002,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1228.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 2,
+            "chain": "entity",
+            "turn": 2,
+            "text": "Which legion does he lead?",
+            "total_ms": 1760.526608,
+            "first_text_ms": 1732.913598,
+            "model_ms": 1684.952291,
+            "outside_model_ms": 75.57431699999984,
+            "model_calls": 1,
+            "prompt_tokens_last_call": 1230.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ legion lead"
+            ],
+            "answer": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 2,
+            "chain": "entity",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 2387.389731,
+            "first_text_ms": 2375.113043,
+            "model_ms": 2303.7471189999997,
+            "outside_model_ms": 83.64261200000055,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1331.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: He leads the VI Legion."
+        },
+        {
+            "run": 3,
+            "chain": "cyclone",
+            "turn": 1,
+            "text": "Which cyclone is heading towards us?",
+            "total_ms": 31.952144,
+            "first_text_ms": 25.21967,
+            "model_ms": 0.0,
+            "outside_model_ms": 31.952144,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 3,
+            "chain": "cyclone",
+            "turn": 2,
+            "text": "Search the web and tell me",
+            "total_ms": 32.33042,
+            "first_text_ms": 21.233134,
+            "model_ms": 0.0,
+            "outside_model_ms": 32.33042,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 3,
+            "chain": "cyclone",
+            "turn": 3,
+            "text": "Is it dangerous?",
+            "total_ms": 14.23844,
+            "first_text_ms": 7.253338,
+            "model_ms": 0.0,
+            "outside_model_ms": 14.23844,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Departme"
+        },
+        {
+            "run": 3,
+            "chain": "cyclone",
+            "turn": 4,
+            "text": "When will it arrive?",
+            "total_ms": 13.913859,
+            "first_text_ms": 7.514747,
+            "model_ms": 0.0,
+            "outside_model_ms": 13.913859,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "The data I have gives its current position, not a forecast track, so I can't say when or whether it will reach you without guessing. Right now it is about 700 km east-northeast of Chennai. The India Meteorological Department (IMD) publishes"
+        },
+        {
+            "run": 3,
+            "chain": "ceo",
+            "turn": 1,
+            "text": "Who is the current CEO of Microsoft?",
+            "total_ms": 1712.044562,
+            "first_text_ms": 1695.136277,
+            "model_ms": 1647.186123,
+            "outside_model_ms": 64.85843900000009,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1218.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+        },
+        {
+            "run": 3,
+            "chain": "ceo",
+            "turn": 2,
+            "text": "Look it up.",
+            "total_ms": 1646.53422,
+            "first_text_ms": 1633.069647,
+            "model_ms": 1583.232572,
+            "outside_model_ms": 63.301648000000114,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1261.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 3,
+            "chain": "ceo",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 1813.954304,
+            "first_text_ms": 1791.41927,
+            "model_ms": 1737.4475380000001,
+            "outside_model_ms": 76.50676599999997,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1285.0,
+            "network_requests": 2,
+            "searches": [
+                "Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 3,
+            "chain": "entity",
+            "turn": 1,
+            "text": "Who is Leman Russ?",
+            "total_ms": 1761.128812,
+            "first_text_ms": 1747.690342,
+            "model_ms": 1687.086344,
+            "outside_model_ms": 74.04246799999987,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1228.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 3,
+            "chain": "entity",
+            "turn": 2,
+            "text": "Which legion does he lead?",
+            "total_ms": 1439.847029,
+            "first_text_ms": 1427.505236,
+            "model_ms": 1402.770787,
+            "outside_model_ms": 37.07624200000009,
+            "model_calls": 1,
+            "prompt_tokens_last_call": 1230.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ legion lead"
+            ],
+            "answer": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 3,
+            "chain": "entity",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 2164.482229,
+            "first_text_ms": 2153.801046,
+            "model_ms": 2114.39112,
+            "outside_model_ms": 50.091109000000415,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1331.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: He leads the VI Legion."
+        },
+        {
+            "run": 4,
+            "chain": "cyclone",
+            "turn": 1,
+            "text": "Which cyclone is heading towards us?",
+            "total_ms": 9.312946,
+            "first_text_ms": 5.573095,
+            "model_ms": 0.0,
+            "outside_model_ms": 9.312946,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 4,
+            "chain": "cyclone",
+            "turn": 2,
+            "text": "Search the web and tell me",
+            "total_ms": 8.788119,
+            "first_text_ms": 5.221934,
+            "model_ms": 0.0,
+            "outside_model_ms": 8.788119,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 4,
+            "chain": "cyclone",
+            "turn": 3,
+            "text": "Is it dangerous?",
+            "total_ms": 14.815754,
+            "first_text_ms": 11.058016,
+            "model_ms": 0.0,
+            "outside_model_ms": 14.815754,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Departme"
+        },
+        {
+            "run": 4,
+            "chain": "cyclone",
+            "turn": 4,
+            "text": "When will it arrive?",
+            "total_ms": 7.776031,
+            "first_text_ms": 4.269505,
+            "model_ms": 0.0,
+            "outside_model_ms": 7.776031,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "The data I have gives its current position, not a forecast track, so I can't say when or whether it will reach you without guessing. Right now it is about 700 km east-northeast of Chennai. The India Meteorological Department (IMD) publishes"
+        },
+        {
+            "run": 4,
+            "chain": "ceo",
+            "turn": 1,
+            "text": "Who is the current CEO of Microsoft?",
+            "total_ms": 1552.353081,
+            "first_text_ms": 1540.407989,
+            "model_ms": 1495.5566880000001,
+            "outside_model_ms": 56.79639299999985,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1218.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+        },
+        {
+            "run": 4,
+            "chain": "ceo",
+            "turn": 2,
+            "text": "Look it up.",
+            "total_ms": 1770.846178,
+            "first_text_ms": 1758.498907,
+            "model_ms": 1715.38476,
+            "outside_model_ms": 55.461418000000094,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1261.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 4,
+            "chain": "ceo",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 1675.058534,
+            "first_text_ms": 1663.751732,
+            "model_ms": 1614.599302,
+            "outside_model_ms": 60.45923199999993,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1285.0,
+            "network_requests": 2,
+            "searches": [
+                "Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 4,
+            "chain": "entity",
+            "turn": 1,
+            "text": "Who is Leman Russ?",
+            "total_ms": 1790.204146,
+            "first_text_ms": 1776.019524,
+            "model_ms": 1729.9674,
+            "outside_model_ms": 60.23674600000004,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1228.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 4,
+            "chain": "entity",
+            "turn": 2,
+            "text": "Which legion does he lead?",
+            "total_ms": 1581.99709,
+            "first_text_ms": 1568.920672,
+            "model_ms": 1544.260049,
+            "outside_model_ms": 37.73704100000009,
+            "model_calls": 1,
+            "prompt_tokens_last_call": 1230.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ legion lead"
+            ],
+            "answer": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 4,
+            "chain": "entity",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 2275.860723,
+            "first_text_ms": 2263.523406,
+            "model_ms": 2208.75676,
+            "outside_model_ms": 67.10396299999957,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1331.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: He leads the VI Legion."
+        },
+        {
+            "run": 5,
+            "chain": "cyclone",
+            "turn": 1,
+            "text": "Which cyclone is heading towards us?",
+            "total_ms": 12.34055,
+            "first_text_ms": 7.326108,
+            "model_ms": 0.0,
+            "outside_model_ms": 12.34055,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 5,
+            "chain": "cyclone",
+            "turn": 2,
+            "text": "Search the web and tell me",
+            "total_ms": 9.345777,
+            "first_text_ms": 5.387148,
+            "model_ms": 0.0,
+            "outside_model_ms": 9.345777,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 1,
+            "searches": [],
+            "answer": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as a"
+        },
+        {
+            "run": 5,
+            "chain": "cyclone",
+            "turn": 3,
+            "text": "Is it dangerous?",
+            "total_ms": 8.981396,
+            "first_text_ms": 4.948913,
+            "model_ms": 0.0,
+            "outside_model_ms": 8.981396,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Departme"
+        },
+        {
+            "run": 5,
+            "chain": "cyclone",
+            "turn": 4,
+            "text": "When will it arrive?",
+            "total_ms": 9.525386,
+            "first_text_ms": 5.206865,
+            "model_ms": 0.0,
+            "outside_model_ms": 9.525386,
+            "model_calls": 0,
+            "prompt_tokens_last_call": 0.0,
+            "network_requests": 0,
+            "searches": [],
+            "answer": "The data I have gives its current position, not a forecast track, so I can't say when or whether it will reach you without guessing. Right now it is about 700 km east-northeast of Chennai. The India Meteorological Department (IMD) publishes"
+        },
+        {
+            "run": 5,
+            "chain": "ceo",
+            "turn": 1,
+            "text": "Who is the current CEO of Microsoft?",
+            "total_ms": 1831.553971,
+            "first_text_ms": 1549.497756,
+            "model_ms": 1763.482802,
+            "outside_model_ms": 68.07116900000005,
+            "model_calls": 3,
+            "prompt_tokens_last_call": 1218.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+        },
+        {
+            "run": 5,
+            "chain": "ceo",
+            "turn": 2,
+            "text": "Look it up.",
+            "total_ms": 1698.012082,
+            "first_text_ms": 1686.741327,
+            "model_ms": 1640.147116,
+            "outside_model_ms": 57.86496599999987,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1261.0,
+            "network_requests": 2,
+            "searches": [
+                "current CEO of Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 5,
+            "chain": "ceo",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 1787.393164,
+            "first_text_ms": 1764.54192,
+            "model_ms": 1712.881212,
+            "outside_model_ms": 74.51195200000006,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1285.0,
+            "network_requests": 2,
+            "searches": [
+                "Microsoft"
+            ],
+            "answer": "What I found doesn't say more than I've already told you."
+        },
+        {
+            "run": 5,
+            "chain": "entity",
+            "turn": 1,
+            "text": "Who is Leman Russ?",
+            "total_ms": 1744.233758,
+            "first_text_ms": 1720.128129,
+            "model_ms": 1668.830398,
+            "outside_model_ms": 75.40336000000002,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1228.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 5,
+            "chain": "entity",
+            "turn": 2,
+            "text": "Which legion does he lead?",
+            "total_ms": 1761.27745,
+            "first_text_ms": 1744.751166,
+            "model_ms": 1704.480651,
+            "outside_model_ms": 56.796798999999965,
+            "model_calls": 1,
+            "prompt_tokens_last_call": 1230.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ legion lead"
+            ],
+            "answer": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000."
+        },
+        {
+            "run": 5,
+            "chain": "entity",
+            "turn": 3,
+            "text": "Tell me more",
+            "total_ms": 2529.754629,
+            "first_text_ms": 2505.669521,
+            "model_ms": 2443.615988,
+            "outside_model_ms": 86.138641,
+            "model_calls": 2,
+            "prompt_tokens_last_call": 1331.0,
+            "network_requests": 2,
+            "searches": [
+                "Leman Russ"
+            ],
+            "answer": "I couldn't put that into my own words reliably. The top result says: He leads the VI Legion."
+        }
+    ]
+}

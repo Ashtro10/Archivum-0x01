@@ -58,7 +58,7 @@ class Stage3AuditTest {
         delay(150); core.agent.cancel(null)
         val ev = job.await()
         delay(600) // anything still running would have issued its next request by now
-        assertEquals(listOf("https://searx.example.org/search?q=What+is+the+latest+Android+version&format=json&safesearch=1"), http.requests.toList(),
+        assertEquals(listOf("https://searx.example.org/search?q=latest+Android+version&format=json&safesearch=1"), http.requests.toList(),
             "no robots.txt or page requests after Stop")
         assertTrue(engine.prompts.isEmpty(), "the model isn't run on a cancelled search")
         val done = ev.filterIsInstance<AgentEvent.Done>().single()

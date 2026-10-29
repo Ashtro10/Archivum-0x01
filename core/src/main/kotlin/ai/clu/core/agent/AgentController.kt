@@ -101,7 +101,7 @@ object ResearchPolicy {
     fun decide(text: String, nowMs: Long, previousSubject: String? = null): Decision {
         val t = text.trim().trimEnd('?', '.', '!', ' ')
         // Current information: researched as asked, without a subject check (a news query need not repeat its words).
-        SearchTrigger.detect(text, nowMs)?.let { return Decision(Kind.RESEARCH, it.query, null, it.reason) }
+        SearchTrigger.detect(text, nowMs)?.let { val q = focus(it.query); return Decision(Kind.RESEARCH, q, keySubject(q), it.reason) }
         val q = SearchTrigger.clean(t).trimEnd('?', '.', '!')
         if (q.length < 3 || STABLE.containsMatchIn(q)) return Decision(Kind.NONE)
         WHO.find(q)?.let { m -> val s = subjectText(m.groupValues[1]); if (s != null) return Decision(Kind.RESEARCH, s, s, "about a person or character") }
@@ -130,15 +130,65 @@ object ResearchPolicy {
 
     fun subjectOf(query: String): String? = contentWords(query).takeIf { it.isNotEmpty() }?.joinToString(" ")
 
+    private val FRAME = r("^(?:(?:who|what|which|where|when|how)(?:'s|\\s+(?:is|are|was|were|will|does|do|did))?\\s+)(?:the\\s+|an?\\s+)?")
+    private val TIME_WORDS = setOf("current", "currently", "latest", "newest", "today", "now", "recent", "recently", "this", "week", "month", "year")
+
+    /** The query sent to a search provider: the question without its frame ("who is the current CEO of Microsoft" → "current CEO of Microsoft"). */
+    fun focus(query: String): String = FRAME.replace(query.trim(), "").trim().ifEmpty { query.trim() }
+
+    /** The distinctive part of a current-information query that results must mention: its names (or null: any result can be relevant). */
+    fun keySubject(query: String): String? {
+        val keys = contentWords(query).filter { w -> (w.first().isUpperCase() || w.any(Char::isDigit)) && w.lowercase() !in TIME_WORDS }
+        // An acronym ("CEO") is often spelt out in results ("chief executive officer"): required only when nothing else is.
+        val names = keys.filterNot { it.length <= 4 && it.all { c -> c.isUpperCase() || c.isDigit() } }
+        return names.ifEmpty { keys }.takeIf { it.isNotEmpty() }?.joinToString(" ")
+    }
+
     fun contentWords(s: String): List<String> = Regex("[\\p{L}\\p{N}][\\p{L}\\p{N}'.-]*").findAll(s).map { it.value }.filter { it.lowercase() !in STOP }.toList()
 }
 
-/** A model reply that doesn't answer ("I'm not familiar with…", "I don't have information about…"). */
+/**
+ * Questions about a current natural hazard ("which cyclone is heading towards us?") or the weather, which need an
+ * official or meteorological source rather than an encyclopedia. A hazard word alone isn't enough ("what is a cyclone?"
+ * is a definition): the question must be about now or about a place.
+ */
+object HazardPolicy {
+    data class Need(val type: String, val nearOwner: Boolean, val place: ai.clu.core.search.Place?)
+    private fun r(p: String) = Regex(p, RegexOption.IGNORE_CASE)
+    private val TYPES = listOf(
+        "TC" to r("\\b(?:cyclones?|hurricanes?|typhoons?|tropical (?:storms?|depressions?|cyclones?)|deep depressions?|storms?)\\b"),
+        "EQ" to r("\\b(?:earthquakes?|quakes?|tremors?)\\b"),
+        "FL" to r("\\b(?:floods?|flooding)\\b"),
+        "VO" to r("\\b(?:volcano(?:es)?|volcanic|eruptions?)\\b"),
+        "WF" to r("\\b(?:wildfires?|forest fires?|bush ?fires?)\\b"),
+        "WX" to r("\\b(?:weather|temperature|raining|rain|forecast|humid(?:ity)?|windy|umbrella)\\b"))
+    private val CURRENT = r("\\b(?:which|any|is there|are there|where|heading|coming|approaching|towards?|near(?:by)?|close|now|currently|current|today|tonight|tomorrow|latest|active|us|our|me|my|here|hit|affect|outside|going on)\\b")
+    private val DEFINITION = r("^\\s*(?:what (?:is|are) (?:an? )?\\w+\\s*\\??$|how (?:do|does|are|is) |why (?:do|does|are|is) |explain |define |what causes )")
+    /** "Write me a poem about rain": about the word, not a request for conditions. */
+    private val CREATIVE = r("\\b(?:write|compose|poems?|poetry|story|stories|song|lyrics|haiku|essay|joke|draw|paint|imagine|pretend)\\b")
+    private val NEAR = r("\\b(?:us|our|me|my|here|near(?:by)?|close|towards?|our way|this area|local|outside)\\b")
+
+    fun detect(text: String): Need? {
+        val t = text.trim()
+        val type = TYPES.firstOrNull { it.second.containsMatchIn(t) }?.first ?: return null
+        if (DEFINITION.containsMatchIn(t) || CREATIVE.containsMatchIn(t) || !CURRENT.containsMatchIn(t)) return null
+        if (Regex("\\b(?:1[89]\\d\\d|20[01]\\d)\\b").containsMatchIn(t)) return null // a past year: history, not a current alert
+        val place = ai.clu.core.search.Places.resolve(t)
+        return Need(type, nearOwner = place == null && (NEAR.containsMatchIn(t) || type == "WX"), place = place)
+    }
+}
+
+/**
+ * A model reply that doesn't answer ("I'm not familiar with…", "I don't have information about…"), including a deferral
+ * ("I'd need to check live information", "I can't reliably identify it without checking").
+ */
 object NonAnswer {
     private val re = Regex("\\b(?:i'?m not (?:sure|familiar|aware)|i am not (?:sure|familiar|aware)|i don'?t (?:know|recognise|recognize|have (?:any |enough )?(?:information|details|data|knowledge))|" +
         "i do not (?:know|have)|i (?:couldn'?t|could not|can'?t|cannot) (?:find|provide|confirm|say)|i have no (?:information|knowledge|data|details)|" +
         "not (?:familiar|aware) with|no (?:reliable )?information (?:about|on)|i'?m unable to|(?:cannot|can'?t|could not|couldn'?t) be found|" +
-        "(?:is|are) not (?:available|known)|isn'?t (?:available|known))\\b", RegexOption.IGNORE_CASE)
+        "(?:is|are) not (?:available|known)|isn'?t (?:available|known)|" +
+        "i (?:would |will |'d )?need to (?:check|look|search|verify|confirm)|without (?:checking|looking|access to)|" +
+        "(?:don'?t|do not) have (?:access to )?(?:live|current|real-?time|up-to-date)|can'?t (?:reliably )?(?:identify|confirm|know))\\b", RegexOption.IGNORE_CASE)
     fun matches(text: String) = re.containsMatchIn(text.take(240))
 }
 
@@ -227,10 +277,15 @@ object Grounding {
     }
 
     /** What the best-matching result itself says (its first sentence or two), for an answer that wasn't supported. */
-    fun extract(sources: List<ai.clu.core.conversation.SourceRef>, question: String): String? {
+    private fun norm(t: String) = t.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+
+    fun extract(sources: List<ai.clu.core.conversation.SourceRef>, question: String, said: String = ""): String? {
         val q = words(question)
+        val before = norm(said)
         // Sentences that address an AI, and the sanitiser's own marker, are never quoted; the rest of such a result can be.
-        fun usable(snippet: String) = Evidence.sentences(snippet).filterNot { Evidence.INJECTION.containsMatchIn(it) || it.contains("was removed]") }
+        // Nor is what Clu has already told the owner ("tell me more" gets something new, or nothing).
+        fun usable(snippet: String) = Evidence.sentences(snippet).filterNot { Evidence.INJECTION.containsMatchIn(it) || it.contains("was removed]") ||
+            (before.isNotEmpty() && norm(it).let { n -> n.isNotEmpty() && n in before }) }
         val best = sources.filter { usable(it.snippet).isNotEmpty() }.maxByOrNull { s -> words("${s.title} ${s.snippet}").count { it in q } } ?: return null
         val sentences = usable(best.snippet)
         val out = StringBuilder()
@@ -298,7 +353,9 @@ class ResearchRunner(private val run: suspend (String) -> ToolResult?) {
             val words = ResearchPolicy.contentWords(subject).map { it.lowercase() }.filter { it.length >= 3 }
             if (words.isEmpty()) return true
             val have = Regex("[\\p{L}\\p{N}]+").findAll(text.lowercase()).map { it.value }.toSet()
-            val hits = words.count { w -> w in have || have.any { h -> h.length >= 4 && w.length >= 4 && editDistance(h, w) <= 1 } }
+            // A one-letter difference is a spelling variant for longer words; a short one must keep its first letter
+            // ("Pune" is not "June").
+            val hits = words.count { w -> w in have || have.any { h -> h.length >= 4 && w.length >= 4 && (minOf(h.length, w.length) >= 5 || h[0] == w[0]) && editDistance(h, w) <= 1 } }
             return hits * 2 >= words.size + (if (words.size >= 2) 1 else 0) // half, or all but one of two-plus
         }
 
@@ -379,6 +436,9 @@ object AnswerStyle {
     fun withoutSourceTalk(text: String): String {
         var s = text
         for (re in PHRASES) s = re.replace(s, "\u0001")
+        // "See …" / "Read more at …" left pointing at a removed link or citation
+        s = s.replace(Regex("(?i)(?:\\b(?:also|please)\\s+)?\\b(?:see|visit|read more|more (?:info|information|details))(?:\\s+(?:at|on|here))?\\s*:?\\s*\u0001+\\.?"), "\u0001")
+        s = s.replace(Regex("(?<=^|[.!?]\\s)\\s*(?:(?:[Aa]lso|[Pp]lease)\\s+)?(?:[Ss]ee|[Vv]isit|[Rr]ead more)(?:\\s+(?:at|on|here))?\\s*(?:[.:]|$)"), "")
         s = s.replace(Regex("(^|[.!?]\\s+)\u0001+(\\p{Ll})")) { it.groupValues[1] + it.groupValues[2].uppercase() }.replace("\u0001", "")
         return s.replace(Regex("[ \\t]{2,}"), " ").replace(Regex(" +([,.!?;:])"), "$1").trim()
     }

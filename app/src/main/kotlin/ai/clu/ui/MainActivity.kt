@@ -290,8 +290,24 @@ class MainActivity : BaseActivity() {
                 setOnLongClickListener { if (msg != null) messageMenu(msg) else copy(text); true }
             })
             sub?.let { addView(TextView(context).apply { this.text = it; textSize = 11f; setTextColor(C.MUTED); setPadding(0, dp(4), 0, 0) }) }
-            // Sources exactly as the search provider returned them; tapping opens the page in the browser.
-            msg?.meta?.sources?.forEachIndexed { i, src -> addView(sourceRow(i + 1, src)) }
+            // Answer first: the sources are one collapsed line ("Sources (3)" / "Source: GDACS …"); tapping it lists them
+            // exactly as the provider returned them, and tapping one opens it in the browser.
+            val sources = msg?.meta?.sources.orEmpty()
+            ai.clu.core.config.UiPolicy.sourcesSummary(sources)?.let { summary ->
+                val list = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE
+                    sources.forEachIndexed { i, src -> addView(sourceRow(i + 1, src)) } }
+                addView(TextView(context).apply {
+                    this.text = "$summary ▸"; textSize = 12f; setTextColor(C.MUTED); setPadding(0, dp(6), 0, dp(6)); minimumHeight = dp(32)
+                    contentDescription = "$summary. Double-tap to show."
+                    setOnClickListener {
+                        val open = list.visibility != View.VISIBLE
+                        list.visibility = if (open) View.VISIBLE else View.GONE
+                        this.text = "$summary ${if (open) "▾" else "▸"}"
+                        contentDescription = "$summary. Double-tap to ${if (open) "hide" else "show"}."
+                    }
+                })
+                addView(list)
+            }
         }, LinearLayout.LayoutParams(0, -2, 1f))
     }
 
@@ -299,7 +315,7 @@ class MainActivity : BaseActivity() {
         orientation = LinearLayout.VERTICAL; setPadding(dp(10), dp(8), dp(8), dp(8)); minimumHeight = dp(48)
         background = roundBg(C.SURFACE, dp(12).toFloat(), C.BORDER)
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) }
-        addView(TextView(context).apply { this.text = "[$n] ${src.title}"; textSize = 14f; setTextColor(C.ACCENT); maxLines = 2 })
+        addView(TextView(context).apply { this.text = src.title; textSize = 14f; setTextColor(C.ACCENT); maxLines = 2 })
         addView(TextView(context).apply {
             this.text = (runCatching { java.net.URI(src.url).host?.removePrefix("www.") }.getOrNull() ?: src.url) + if (src.snippet.isNotBlank()) " — " + src.snippet.take(140) else ""
             textSize = 12f; setTextColor(C.MUTED); maxLines = 2

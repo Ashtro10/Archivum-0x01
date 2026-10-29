@@ -22,57 +22,57 @@
   "prolonged model outage: session closed, agent leaves, fresh agent in the same room gets the history and answers": true
  },
  "measurements": {
-  "token_ms": 23,
-  "join_ms": 151,
-  "first_connect_to_agent_listening_ms": 1342,
-  "short_reconnect_to_listening_ms": 139,
-  "rejoin_after_room_closed_to_listening_ms": 1298,
-  "outage_detected_ms": 33433,
-  "livekit_restart_to_agent_listening_ms": 27562,
-  "llm_restart_to_first_reply_text_ms": 3383,
+  "token_ms": 15,
+  "join_ms": 115,
+  "first_connect_to_agent_listening_ms": 1349,
+  "short_reconnect_to_listening_ms": 148,
+  "rejoin_after_room_closed_to_listening_ms": 1216,
+  "outage_detected_ms": 30023,
+  "livekit_restart_to_agent_listening_ms": 27301,
+  "llm_restart_to_first_reply_text_ms": 3083,
   "speech_end_to_first_audio_ms": [
-   2614,
-   1449
+   2092,
+   1236
   ],
   "text_to_first_text_ms": [
-   222,
-   1627,
-   1027
+   184,
+   1289,
+   602
   ],
   "text_to_first_audio_ms": [
-   1598,
-   986
+   1296,
+   576
   ]
  },
  "quality": {
-  "answers_with_expected_fact": 3,
+  "answers_with_expected_fact": 4,
   "answers_checked": 4
  },
  "providers": {
-  "clu.turn": "vad",
-  "clu.stt": "sherpa-onnx kroko-en",
-  "clu.tts": "sherpa-onnx voice",
   "clu.stack": "local",
-  "clu.llm": "smollm2 (OpenAI-compatible server)"
+  "clu.tts": "sherpa-onnx voice",
+  "clu.stt": "sherpa-onnx kroko-en",
+  "clu.llm": "smollm2 (OpenAI-compatible server)",
+  "clu.turn": "vad"
  },
  "voice_to_spoken": {
   "asked": "What is the capital of France?",
   "recognised": "what is the capital of france?",
   "wer": 0.0,
-  "reply": "Paris is the capital of France.",
+  "reply": "The capital of France is Paris.",
   "answer_contains_expected": true,
-  "speech_end_to_first_audio_ms": 2614,
-  "speech_end_to_first_text_ms": 2672,
+  "speech_end_to_first_audio_ms": 2092,
+  "speech_end_to_first_text_ms": 2143,
   "audio_received": true
  },
  "voice_to_text": {
   "asked": "What is the capital of Italy?",
   "recognised": "what is the capital of italy?",
   "wer": 0.0,
-  "reply": "Rome is the capital of Italy.",
+  "reply": "The capital of Italy is Rome.",
   "answer_contains_expected": true,
   "speech_end_to_first_audio_ms": null,
-  "speech_end_to_first_text_ms": 1033,
+  "speech_end_to_first_text_ms": 1073,
   "audio_received": false
  },
  "follow_up": {
@@ -83,25 +83,25 @@
  "text_turns": [
   {
    "sent": "My name is Ashwin. Please remember it.",
-   "reply": "Ashwin, I'm sorry, but I'm afraid I'm not a Japanese AI. I'm an AI named Ashwin, but I'm here to help with the language and culture of Ashwin. I'm sorry if my previous answer was confusing.",
+   "reply": "I'm sorry for the misunderstanding, but I'm sorry for any confusion. You are not allowed to use it.",
    "spoken": false,
-   "text_to_first_text_ms": 222,
+   "text_to_first_text_ms": 184,
    "audio_received": false
   },
   {
    "sent": "What is my name?",
-   "reply": "I'm sorry for the confusion, but in my language, it is a Japanese. I'm afraid you can't speak Japanese. I'm sorry for any other confusion. But I'm here to help you with the language and culture, not to translate. I'm sorry you're having a hard time. If you have any questions or need help, just ask.",
+   "reply": "No, no, no. You don't need to use it anymore, you have to use it. You should use it. You don't want it to be used anymore. You don't need to use it anymore. You don't want it anymore. You don't want to use it anymore. You can use it. You don't want it anymore. You can use it. You don't want it anymore. You don't want it anymore. You don't want it anymore. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You can use it. You",
    "spoken": true,
-   "text_to_first_text_ms": 1627,
-   "text_to_first_audio_ms": 1598,
+   "text_to_first_text_ms": 1289,
+   "text_to_first_audio_ms": 1296,
    "audio_received": true
   },
   {
    "sent": "What is the capital of India?",
-   "reply": "The capital of India is New Delhi, not Delhi. India is the largest sovereign state in the world.",
+   "reply": "The capital of India is New Delhi.",
    "spoken": true,
-   "text_to_first_text_ms": 1027,
-   "text_to_first_audio_ms": 986,
+   "text_to_first_text_ms": 602,
+   "text_to_first_audio_ms": 576,
    "answer_contains_expected": true
   }
  ],
@@ -114,8 +114,8 @@
    ],
    "model_requests": 2,
    "evidence_in_model_request": true,
-   "text_to_first_text_ms": 8189,
-   "text_to_first_audio_ms": 8201,
+   "text_to_first_text_ms": 8794,
+   "text_to_first_audio_ms": 8783,
    "ok": true
   },
   {
@@ -126,8 +126,8 @@
    ],
    "model_requests": 2,
    "evidence_in_model_request": true,
-   "text_to_first_text_ms": 5890,
-   "text_to_first_audio_ms": 5852,
+   "text_to_first_text_ms": 6074,
+   "text_to_first_audio_ms": 6071,
    "ok": true
   },
   {
@@ -138,8 +138,8 @@
    ],
    "model_requests": 2,
    "evidence_in_model_request": true,
-   "text_to_first_text_ms": 3765,
-   "text_to_first_audio_ms": 3770,
+   "text_to_first_text_ms": 6121,
+   "text_to_first_audio_ms": 6120,
    "ok": true
   },
   {
@@ -150,18 +150,18 @@
    ],
    "model_requests": 1,
    "evidence_in_model_request": false,
-   "text_to_first_text_ms": 2394,
-   "text_to_first_audio_ms": 2396,
+   "text_to_first_text_ms": 1503,
+   "text_to_first_audio_ms": 1494,
    "ok": true
   },
   {
    "sent": "What is the capital of India?",
-   "reply": "The capital of India is Mumbai.",
+   "reply": "The capital of India is New Delhi.",
    "searched": [],
    "model_requests": 1,
    "evidence_in_model_request": false,
-   "text_to_first_text_ms": 868,
-   "text_to_first_audio_ms": 841,
+   "text_to_first_text_ms": 755,
+   "text_to_first_audio_ms": 737,
    "ok": true
   }
  ],
@@ -171,15 +171,15 @@
   ],
   "agent_was_speaking_at_barge_in": true,
   "agent_stopped": true,
-  "owner_starts_talking_to_agent_silent_ms": 625,
-  "recognised": "sop what is two plus two",
-  "reply_to_new_question": "Two plus two equals six.",
+  "owner_starts_talking_to_agent_silent_ms": 738,
+  "recognised": "stop what's two plus two",
+  "reply_to_new_question": "Stop what's two plus two is a classic phrase, and one that I'm very happy to repeat.",
   "answer_contains_expected": false
  },
  "stop_button": {
   "agent_was_speaking": true,
   "stopped": true,
-  "stop_to_agent_silent_ms": 86,
+  "stop_to_agent_silent_ms": 48,
   "state_after": "listening"
  },
  "short_reconnect": {
@@ -187,7 +187,7 @@
    "loaded": 0,
    "reason": "session already has history"
   },
-  "reply": "I'm sorry, but I'm still available to help. I'm afraid I'm going to have to make a decision.",
+  "reply": "The name of a popular movie is \"The Nightmare with a M Life\"",
   "typed_resends": 0
  },
  "rejoin_after_room_closed": {
@@ -195,8 +195,8 @@
   "history_reload": {
    "loaded": 2
   },
-  "reply": "Ashwen, my name is Ashwen.",
-  "name_recalled_from_reloaded_history": false
+  "reply": "Your name is Ashwin.",
+  "name_recalled_from_reloaded_history": true
  },
  "llm_outage": {
   "error_event": {
@@ -205,7 +205,7 @@
    "recoverable": true,
    "message": "APIStatusError: message='Error code: 502', status_code=502, retryable=True, body=model server unreachable"
   },
-  "send_to_error_ms": 24,
+  "send_to_error_ms": 21,
   "events": [
    {
     "type": "error",
@@ -315,7 +315,7 @@
   "history_to_new_agent": {
    "loaded": 2
   },
-  "reply_after_recovery": "My name is Ashwin.",
+  "reply_after_recovery": "Your name is Ashwin.",
   "history_in_new_agent_context": true
  },
  "voice_turns": [
@@ -323,30 +323,30 @@
    "asked": "What is the capital of France?",
    "recognised": "what is the capital of france?",
    "wer": 0.0,
-   "reply": "Paris is the capital of France.",
+   "reply": "The capital of France is Paris.",
    "answer_contains_expected": true,
-   "speech_end_to_first_audio_ms": 2614,
-   "speech_end_to_first_text_ms": 2672,
+   "speech_end_to_first_audio_ms": 2092,
+   "speech_end_to_first_text_ms": 2143,
    "audio_received": true
   },
   {
    "asked": "What is the capital of Japan?",
    "recognised": "what is the capital of japan?",
    "wer": 0.0,
-   "reply": "Kyoto is the capital of Japan.",
-   "answer_contains_expected": false,
-   "speech_end_to_first_audio_ms": 1449,
-   "speech_end_to_first_text_ms": 1620,
+   "reply": "The capital of Japan is Tokyo.",
+   "answer_contains_expected": true,
+   "speech_end_to_first_audio_ms": 1236,
+   "speech_end_to_first_text_ms": 1248,
    "audio_received": true
   },
   {
    "asked": "What is the capital of Italy?",
    "recognised": "what is the capital of italy?",
    "wer": 0.0,
-   "reply": "Rome is the capital of Italy.",
+   "reply": "The capital of Italy is Rome.",
    "answer_contains_expected": true,
    "speech_end_to_first_audio_ms": null,
-   "speech_end_to_first_text_ms": 1033,
+   "speech_end_to_first_text_ms": 1073,
    "audio_received": false
   }
  ],
@@ -357,12 +357,12 @@
  },
  "metrics_from_agent": [
   {
-   "llm_ttft_ms": 136,
-   "tts_ttfb_ms": 327
+   "llm_ttft_ms": 143,
+   "tts_ttfb_ms": 135
   },
   {
-   "llm_ttft_ms": 1426,
-   "tts_ttfb_ms": 268
+   "llm_ttft_ms": 1347,
+   "tts_ttfb_ms": 151
   }
  ],
  "passed": true

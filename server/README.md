@@ -9,6 +9,7 @@ that lets your phone join. The full guide (architecture, LiveKit Cloud vs. self-
 | `clu_agent.py` | LiveKit Agents worker: VAD, turn detection, STT → streaming LLM → streaming TTS, interruption, transcripts, three small RPCs for the app |
 | `clu_voice_server.py` | Token endpoint (device key → 10-minute room token), dispatches the agent, runs `clu_agent.py` as a child |
 | `clu_controller.py` | The agent controller shared in behaviour with the on-device engine: decides when to research, keyless Wikipedia search, evidence for the model, answers checked before they are spoken, honest failures. Standard library only |
+| `clu_context.py` | Conversation context shared in behaviour with the device: topic state, follow-up resolution, re-hearing misheard words, GDACS hazards and Open-Meteo weather from `CLU_HOME_LOCATION`. Standard library only (aiohttp for the live fetchers) |
 | `local_speech.py` | sherpa-onnx STT/TTS plugins for the fully local stack (`CLU_STACK=local`) |
 | `fetch_models.sh` | Downloads the local stack's speech models (~124 MB, SHA-256 checked). The cloud stack needs none |
 | `livekit.yaml.example` | Starting point for a self-hosted `livekit-server` |
@@ -53,6 +54,7 @@ OpenAI-compatible LLM).
 | `CLU_MIN_SILENCE` | `0.45` | Silence (s) that ends an utterance. The largest share of the local stack's reply delay; lower is faster but can cut you off mid-pause |
 | `CLU_SEARCH` | `wikipedia` | Automatic research (people, named subjects, follow-ups, current information) through Wikipedia's free API, as on the device. Only the subject of your own question is sent. `off` disables it (Clu then says it can't check) |
 | `CLU_SEARCH_URL` | Wikipedia's API | Another MediaWiki-compatible search endpoint (the end-to-end test uses a local one) |
+| `CLU_HOME_LOCATION` | unset | Your city (or "lat, lon") for "is a cyclone heading towards us?" and the weather. Resolved on the server from a built-in list of ~135 cities; never sent to search. Current hazards come from GDACS (no location sent) and the weather from Open-Meteo (only the city's coordinates). Unset: Clu asks which area |
 | `CLU_TURN` | `model` | `model` = LiveKit turn detector if its files were downloaded (`python clu_agent.py download-files`), otherwise VAD with a warning in the log; `vad` forces VAD |
 
 ## Test

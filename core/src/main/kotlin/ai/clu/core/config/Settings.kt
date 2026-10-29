@@ -80,6 +80,10 @@ object Settings {
         SettingType.Text(40, allowEmpty = false), sensitive = true)
     val OWNER_NAME = text("identity.ownerName", "Owner's name", GENERAL, "", "Your name, as Clu should know it.", "PromptBuilder",
         "System prompt states who the owner is", "PersonaSettingsTest#ownerName", SettingType.Text(60))
+    val HOME_LOCATION = text("identity.homeLocation", "Home location", GENERAL, "", "Your city (or \"latitude, longitude\"), for questions like " +
+        "\"is a cyclone heading towards us?\". Resolved on this device and never sent to a search service; for the weather, only the city's " +
+        "approximate coordinates go to the forecast service.", "CluAgent, Places",
+        "Hazard and weather answers measure distance from it; unknown → Clu asks", "HomeLocationTest#homeLocation", SettingType.Text(80))
     val OWNER_ADDRESS = text("identity.ownerAddress", "Form of address", GENERAL, "", "How Clu addresses you (e.g. \"sir\", your first name). Empty = your name.",
         "PromptBuilder, ResponseTemplates", "Prompt instruction and spoken templates ({owner}) use it", "PersonaSettingsTest#ownerAddress", SettingType.Text(40))
     val LANGUAGE = choice("persona.language", "Response language", GENERAL, "en",

@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-28 (v1.6.2)_
+_Last updated: 2026-10-29 (v1.7.0)_
 
 ## Current state
 
@@ -12,10 +12,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 490 total (core 428, app 62): 478 passed, 0 failed, 12 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: 3/3 executed and passed). Server: shared agent contract + cancellation 6/6 (also run by the core suite); LiveKit end-to-end 18/18 with the scripted mock and 18/18 with a real model (SmolLM2-135M) |
+| Automated tests (JVM / Robolectric / host engines) | 508 total (core 446, app 62): 495 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: 4/4 executed and passed). Server: shared agent contract (v2, with the Stage 4 conversations), cancellation and context 9/9 (also run by the core suite); LiveKit end-to-end 18/18 with the scripted mock and 18/18 with a real model (SmolLM2-135M) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-29: Stage 4 correction — conversation context, research relevance, answer first (v1.7.0, versionCode 16)
+
+Details: [docs/STAGE4_CONVERSATION_CONTEXT.md](docs/STAGE4_CONVERSATION_CONTEXT.md). Follow-ups ("search the web and
+tell me", "look it up", "tell me more", "is it dangerous?", "compare it with the previous one") now act on an explicit,
+persisted conversation state instead of their own words; a misheard word is re-heard from the conversation or asked
+about (raw transcript kept); current cyclones and other hazards come from GDACS and the weather from Open-Meteo,
+measured from a new **Home location** setting (Clu asks when it is unknown); search queries use the question's terms
+and unrelated results are never the answer; correct answers in other words are no longer rejected; sources are one
+collapsed line under the answer. The LiveKit server engine follows the same rules (shared contract, both engines).
+Host: hazard turns ~15–32 ms instead of 0.6–2.8 s of wrong model answers; comparable research turns unchanged.
+GDACS/Open-Meteo/Wikipedia were unreachable here, so those paths are fixture-verified only. **Not yet tested on a device.**
 
 ## 2026-10-28: Real model, unified agent path, answer quality (v1.6.2, versionCode 15)
 

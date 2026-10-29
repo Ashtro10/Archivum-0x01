@@ -34,6 +34,9 @@ Protocol with the Clu app (all standard LiveKit Agents conventions plus three sm
 Answers follow the same agent contract as the on-device engine (clu_controller.py): automatic research of people,
 named subjects, follow-ups and current information through keyless Wikipedia search, answers checked against the
 evidence before they are spoken, and honesty when the search fails or finds nothing (CLU_SEARCH=off disables it).
+Follow-ups ("look it up", "tell me more", "is it dangerous?") are resolved against the conversation state
+(clu_context.py); current cyclones and other hazards come from GDACS and the weather from Open-Meteo, measured from
+CLU_HOME_LOCATION (a city or "lat, lon"; when unset Clu asks which area).
 """
 from __future__ import annotations
 
@@ -156,7 +159,8 @@ class Clu(Agent):
     def __init__(self) -> None:
         super().__init__(instructions=INSTRUCTIONS)
         from clu_controller import Controller
-        self.controller = Controller(search_provider(), instructions=INSTRUCTIONS)
+        # CLU_HOME_LOCATION: the owner's city for "is a cyclone heading towards us?" (resolved here; never sent to search).
+        self.controller = Controller(search_provider(), instructions=INSTRUCTIONS, home=os.environ.get("CLU_HOME_LOCATION") or None)
 
     async def llm_node(self, chat_ctx: llm.ChatContext, tools, model_settings):
         msgs = [i for i in chat_ctx.items if getattr(i, "type", "message") == "message" and i.role in ("user", "assistant")]
@@ -178,11 +182,13 @@ class Clu(Agent):
                 if t:
                     yield t
 
-        async for piece in self.controller.respond(text, history, generate):
+        # Speech-to-text input: a word the conversation never used that sounds like its topic is re-heard (or asked about).
+        async for piece in self.controller.respond(text, history, generate, via_voice=True):
             yield piece
         t = self.controller.last
         if t is not None:  # no conversation content in the log
-            log.info("turn: decision=%s queries=%d answer=%s corrections=%d", t.decision.kind, len(t.queries), t.kind, t.repairs)
+            log.info("turn: decision=%s resolution=%s reheard=%s queries=%d answer=%s corrections=%d", t.decision.kind, t.resolution,
+                     t.interpreted is not None, len(t.queries), t.kind, t.repairs)
 
 
 def prewarm(proc) -> None:

@@ -177,7 +177,9 @@ class NetworkSettingsTest {
         assertEquals("Home device's model · used internet · web.search", UiPolicy.sourceBadge(s, meta))
         val searched = meta.copy(source = "local", sources = listOf(ai.clu.core.conversation.SourceRef("A", "https://a.example/x"),
             ai.clu.core.conversation.SourceRef("B", "https://b.example/y")))
-        assertEquals("🔎 Searched the web · 2 sources · On-device model", UiPolicy.sourceBadge(s, searched))
+        // Stage 4: answer first; the sources are one collapsed line under the answer, not a count in the badge.
+        assertEquals("Searched the web · On-device model", UiPolicy.sourceBadge(s, searched))
+        assertEquals("Sources (2)", UiPolicy.sourcesSummary(searched.sources))
         assertEquals("Search unavailable · answered without the web", UiPolicy.sourceBadge(s, meta.copy(tools = emptyList(), error = "search_failed")))
         s.set(Settings.SHOW_SOURCES, false)
         assertNull(UiPolicy.sourceBadge(s, meta))

@@ -49,6 +49,11 @@ LiveKit Agents worker (`server/clu_agent.py`). The custom client of 1.1–1.2 is
   checks with one correction attempt and an attributed quote as last resort, and honesty when a search fails or finds
   nothing — one behavioural contract (`contract/agent_contract.json`) tested on both engines. `CLU_SEARCH=off` turns
   research off. See docs/MODEL_AND_ANSWER_QUALITY.md §4.
+* **Conversation context (since 1.7.0).** `server/clu_context.py` keeps the same explicit conversation state as the
+  device (active topic, previous topic, pending clarification): "look it up", "tell me more", "is it dangerous?" and
+  "compare it with the previous one" act on the topic; a misheard word is re-heard from the conversation or asked
+  about; current cyclones and other hazards come from GDACS and the weather from Open-Meteo, measured from
+  `CLU_HOME_LOCATION`. The contract's Stage 4 conversations run on both engines. See docs/STAGE4_CONVERSATION_CONTEXT.md.
 * **Feature freeze.** In server mode the agent does not use the phone's memories, tools, characters or on-device
   model; those belong to the device engine. Background wake-word listening is off while the server engine is
   selected, because it belongs to the device engine and would otherwise answer offline without saying so.

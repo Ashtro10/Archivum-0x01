@@ -3,6 +3,7 @@ package ai.clu.core
 import ai.clu.core.agent.AgentEvent
 import ai.clu.core.agent.AnswerStyle
 import ai.clu.core.agent.TurnRequest
+import ai.clu.core.config.Settings
 import ai.clu.core.tools.HttpResponse
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -76,6 +77,8 @@ class AgentContractTest {
                     }
                 }.toString())
             }
+            sc.str("home")?.let { core.settings.set(Settings.HOME_LOCATION, it) }
+            http.routes["gdacsapi"] = sc["gdacs"]?.let { HttpResponse(200, it.toString()) } ?: HttpResponse(404, "")
             val conv = core.conversations.create("contract").id
             var subject: String? = null
             for (step in sc["steps"]!!.jsonArray.map { it.jsonObject }) {
@@ -86,7 +89,8 @@ class AgentContractTest {
                 http.failWith = if (step["search_fails"]?.jsonPrimitive?.boolean == true) java.io.IOException("connection refused") else null
                 http.requests.clear()
                 val decision = ResearchPolicy.decide(say, System.currentTimeMillis(), subject)
-                val ev = core.agent.respond(TurnRequest(conv, say, ai.clu.core.security.Actor.ownerInApp())).toList()
+                val voice = step["voice"]?.jsonPrimitive?.boolean == true
+                val ev = core.agent.respond(TurnRequest(conv, say, ai.clu.core.security.Actor.ownerInApp(), viaVoice = voice)).toList()
                 val done = ev.filterIsInstance<AgentEvent.Done>().single()
                 val queries = http.requests.filter { "list=search" in it }.map { java.net.URLDecoder.decode(it.substringAfter("srsearch=").substringBefore("&"), "UTF-8") }
                 val st = done.meta.stats
@@ -99,10 +103,15 @@ class AgentContractTest {
                     else -> "model"
                 }
                 val name = "${sc.str("name")} / '$say'"
-                if (decision.kind.name != exp.str("decision")) failures += "$name: decision ${decision.kind}, expected ${exp.str("decision")}"
+                exp.str("decision")?.let { if (decision.kind.name != it) failures += "$name: decision ${decision.kind}, expected $it" }
                 val expQ = exp["queries"]!!.jsonArray.map { it.jsonPrimitive.content }
                 if (queries != expQ) failures += "$name: queries $queries, expected $expQ"
-                if (done.text != exp.str("final")) failures += "$name: final '${done.text}', expected '${exp.str("final")}'"
+                exp.str("final")?.let { if (done.text != it) failures += "$name: final '${done.text}', expected '$it'" }
+                exp.str("final_prefix")?.let { if (!done.text.startsWith(it)) failures += "$name: final '${done.text}', expected to start '$it'" }
+                exp["model_calls"]?.jsonPrimitive?.int?.let { if (modelCalls != it) failures += "$name: $modelCalls model calls, expected $it" }
+                exp.str("interpreted")?.let { want ->
+                    val got = core.conversations.messages(conv).last { it.role == ai.clu.core.conversation.Role.USER }.meta.interpreted
+                    if (got != want) failures += "$name: re-heard as '$got', expected '$want'" }
                 exp.str("kind")?.let { if (kind != it) failures += "$name: kind $kind, expected $it" }
                 exp.str("evidence_reaches_model")?.let { phrase ->
                     if (engine.prompts.drop(promptsBefore).none { p -> p.any { it.content.startsWith("[Information found]") && phrase in it.content } })

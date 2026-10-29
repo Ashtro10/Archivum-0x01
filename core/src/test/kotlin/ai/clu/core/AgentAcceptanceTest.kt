@@ -397,7 +397,7 @@ class AgentAcceptanceTest {
 
     /** Real-model failure: filler whose only link to the results is a number from a result's title ("Android 16"). */
     @Test fun aNumberFromAResultTitleIsNotAnAnswer() {
-        route("What is the latest Android version", wiki("Android 16" to "Android 16 is the latest stable version of Android, released in June 2025."))
+        route("latest Android version", wiki("Android 16" to "Android 16 is the latest stable version of Android, released in June 2025."))
         model.queued += "I'm glad I could help. It's a very good question and the answer is (16) what was the latest Android version."
         val ev = ask("What is the latest Android version?")
         assertEquals("Android 16 is the latest stable version of Android, released in June 2025.", done(ev).text)

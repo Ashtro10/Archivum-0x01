@@ -29,6 +29,8 @@ data class MessageMeta(
     val personaId: String = "clu",
     /** Web sources the reply was based on (from web.search), shown as links under it. Empty for offline answers. */
     val sources: List<SourceRef> = emptyList(),
+    /** On a spoken message: what Clu took it to mean when the conversation showed a word was misheard (the content stays as heard). */
+    val interpreted: String = "",
 )
 
 /** A source a reply used: exactly what the search provider returned (never written by the model). */
@@ -80,6 +82,8 @@ class ConversationRepository(private val store: CluStore) {
                 db.execute("UPDATE messages SET deleted = 1, content = '', hlc = ?, origin = ? WHERE id = ?", listOf(h, store.deviceId, mid))
             }
         }
+        // Its conversation context (the active topic, in the owner's words) goes with it (ConversationStateStore).
+        db.execute("DELETE FROM kv_meta WHERE key = ?", listOf("conv_state:$id"))
         store.notifyChanged(MSG)
     }
 

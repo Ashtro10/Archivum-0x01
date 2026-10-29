@@ -1,5 +1,5 @@
 {
- "version": 1,
+ "version": 2,
  "about": "Behavioural contract shared by the on-device agent (core, Kotlin) and the LiveKit server agent (server, Python). Both test suites read this file.",
  "claims": [
   {
@@ -290,6 +290,70 @@
    "sentence": "Sure.",
    "verdict": "NEUTRAL",
    "why": "no claim"
+  },
+  {
+   "question": "Who is the current CEO of Microsoft?",
+   "subjects": [
+    "Microsoft"
+   ],
+   "results": [
+    {
+     "title": "Satya Nadella",
+     "url": "https://en.wikipedia.org/wiki/Satya_Nadella",
+     "snippet": "Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+    }
+   ],
+   "sentence": "Microsoft's CEO is Satya Nadella, who has led the company since 2014.",
+   "verdict": "SUPPORTED",
+   "why": "correct answer in different words (acronym spelt out, 'led the company' for 'held the role')"
+  },
+  {
+   "question": "Who is the current CEO of Microsoft?",
+   "subjects": [
+    "Microsoft"
+   ],
+   "results": [
+    {
+     "title": "Satya Nadella",
+     "url": "https://en.wikipedia.org/wiki/Satya_Nadella",
+     "snippet": "Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+    }
+   ],
+   "sentence": "Bill Gates has led the company since 2014.",
+   "verdict": "UNSUPPORTED",
+   "why": "light words never excuse a name the information doesn't have"
+  },
+  {
+   "question": "Who is Leman Russ?",
+   "subjects": [
+    "Leman Russ"
+   ],
+   "results": [
+    {
+     "title": "Leman Russ",
+     "url": "https://en.wikipedia.org/wiki/Leman_Russ",
+     "snippet": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000. He leads the VI Legion from Fenris."
+    }
+   ],
+   "sentence": "Leman Russ (en.wikipedia.org, updated 2025-11-04; snippet only): The Primarch of the Space Wolves.",
+   "verdict": "UNSUPPORTED",
+   "why": "copies the results block's format"
+  },
+  {
+   "question": "Who is Leman Russ?",
+   "subjects": [
+    "Leman Russ"
+   ],
+   "results": [
+    {
+     "title": "Leman Russ",
+     "url": "https://en.wikipedia.org/wiki/Leman_Russ",
+     "snippet": "Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000. He leads the VI Legion from Fenris."
+    }
+   ],
+   "sentence": "See, he leads the VI Legion from Fenris.",
+   "verdict": "SUPPORTED",
+   "why": "a word capitalised only because it starts the sentence is not a name"
   }
  ],
  "policy": [
@@ -360,6 +424,18 @@
   {
    "text": "What's the weather in Pune today?",
    "kind": "RESEARCH"
+  },
+  {
+   "text": "Who is the current CEO of Microsoft?",
+   "kind": "RESEARCH",
+   "query": "current CEO of Microsoft",
+   "subject": "Microsoft"
+  },
+  {
+   "text": "What is the latest news about the Pune metro?",
+   "kind": "RESEARCH",
+   "query": "latest news about the Pune metro",
+   "subject": "Pune"
   }
  ],
  "style": [
@@ -379,6 +455,18 @@
    "in": "[Tool result: web.search] I couldn't check that right now.",
    "out": "I couldn't check that right now.",
    "internal": true
+  },
+  {
+   "in": "According to Wikipedia, Leman Russ is the Primarch of the Space Wolves [1]. See https://en.wikipedia.org/wiki/Leman_Russ",
+   "out": "Leman Russ is the Primarch of the Space Wolves."
+  },
+  {
+   "in": "Android 16 is the latest stable version [1][2]. Also see [9].",
+   "out": "Android 16 is the latest stable version."
+  },
+  {
+   "in": "Visit Paris in spring.",
+   "out": "Visit Paris in spring."
   }
  ],
  "turns": [
@@ -862,6 +950,386 @@
       "final": "Two plus two is four.",
       "kind": "model",
       "prompt_excludes": "The top result says"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stage 4: a bare search command researches the open question, not its own words",
+   "search": {
+    "current CEO of Microsoft": {
+     "results": [
+      {
+       "title": "Satya Nadella",
+       "url": "https://en.wikipedia.org/wiki/Satya_Nadella",
+       "snippet": "Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+      }
+     ]
+    }
+   },
+   "steps": [
+    {
+     "say": "Who is the current CEO of Microsoft?",
+     "model": [
+      "Satya Nadella is the chief executive officer of Microsoft."
+     ],
+     "expect": {
+      "decision": "RESEARCH",
+      "queries": [
+       "current CEO of Microsoft"
+      ],
+      "final": "Satya Nadella is the chief executive officer of Microsoft.",
+      "kind": "model"
+     }
+    },
+    {
+     "say": "Look it up.",
+     "model": [
+      "Microsoft's CEO is Satya Nadella, who has led the company since 2014."
+     ],
+     "expect": {
+      "queries": [
+       "current CEO of Microsoft"
+      ],
+      "final": "Microsoft's CEO is Satya Nadella, who has led the company since 2014.",
+      "kind": "model"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stage 4: a current cyclone from the official alert service, followed up, re-heard from the conversation",
+   "home": "Chennai",
+   "gdacs": {
+    "type": "FeatureCollection",
+    "features": [
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        86.4,
+        15.2
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "DANA-24",
+       "description": "Tropical Cyclone DANA-24",
+       "alertlevel": "Orange",
+       "iscurrent": "true",
+       "country": "India, Bangladesh",
+       "source": "JTWC",
+       "datemodified": "2026-10-28T09:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=1001"
+       },
+       "severitydata": {
+        "severitytext": "Tropical cyclone (maximum wind speed of 120 km/h)"
+       }
+      }
+     },
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        132.0,
+        18.5
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "KONG-REY-24",
+       "description": "Tropical Cyclone KONG-REY-24",
+       "alertlevel": "Green",
+       "iscurrent": "true",
+       "country": "",
+       "source": "JTWC",
+       "datemodified": "2026-10-28T06:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=1002"
+       },
+       "severitydata": {
+        "severitytext": "Tropical storm (maximum wind speed of 83 km/h)"
+       }
+      }
+     },
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        88.0,
+        20.0
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "OLD-24",
+       "description": "Tropical Cyclone OLD-24",
+       "alertlevel": "Red",
+       "iscurrent": "false",
+       "country": "India",
+       "source": "JTWC",
+       "datemodified": "2026-10-20T09:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=900"
+       },
+       "severitydata": {
+        "severitytext": "Tropical cyclone (maximum wind speed of 180 km/h)"
+       }
+      }
+     }
+    ]
+   },
+   "search": {},
+   "steps": [
+    {
+     "say": "Which cyclone is heading towards us?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as affected: India, Bangladesh. The data I have doesn't include its direction of movement or a landfall time; the India Meteorological Department (IMD) issues the official forecasts and warnings for this area. (GDACS, based on JTWC data, updated 2026-10-28 09:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Search the web and tell me",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as affected: India, Bangladesh. The data I have doesn't include its direction of movement or a landfall time; the India Meteorological Department (IMD) issues the official forecasts and warnings for this area. (GDACS, based on JTWC data, updated 2026-10-28 09:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Is it dangerous?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Department (IMD) and your local authorities. (GDACS, based on JTWC data, updated 2026-10-28 09:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "When will it arrive?",
+     "voice": true,
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "The data I have gives its current position, not a forecast track, so I can't say when or whether it will reach you without guessing. Right now it is about 700 km east-northeast of Chennai. The India Meteorological Department (IMD) publishes the forecast track and warnings. (GDACS, based on JTWC data, updated 2026-10-28 09:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Is the convoy dangerous?",
+     "voice": true,
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Department (IMD) and your local authorities. (GDACS, based on JTWC data, updated 2026-10-28 09:00 UTC.)",
+      "model_calls": 0,
+      "interpreted": "Is the cyclone dangerous?"
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stage 4: without a known location Clu asks once, then answers for the place given",
+   "gdacs": {
+    "type": "FeatureCollection",
+    "features": [
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        86.4,
+        15.2
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "DANA-24",
+       "description": "Tropical Cyclone DANA-24",
+       "alertlevel": "Orange",
+       "iscurrent": "true",
+       "country": "India, Bangladesh",
+       "source": "JTWC",
+       "datemodified": "2026-10-28T09:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=1001"
+       },
+       "severitydata": {
+        "severitytext": "Tropical cyclone (maximum wind speed of 120 km/h)"
+       }
+      }
+     },
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        132.0,
+        18.5
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "KONG-REY-24",
+       "description": "Tropical Cyclone KONG-REY-24",
+       "alertlevel": "Green",
+       "iscurrent": "true",
+       "country": "",
+       "source": "JTWC",
+       "datemodified": "2026-10-28T06:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=1002"
+       },
+       "severitydata": {
+        "severitytext": "Tropical storm (maximum wind speed of 83 km/h)"
+       }
+      }
+     },
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        88.0,
+        20.0
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "OLD-24",
+       "description": "Tropical Cyclone OLD-24",
+       "alertlevel": "Red",
+       "iscurrent": "false",
+       "country": "India",
+       "source": "JTWC",
+       "datemodified": "2026-10-20T09:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=900"
+       },
+       "severitydata": {
+        "severitytext": "Tropical cyclone (maximum wind speed of 180 km/h)"
+       }
+      }
+     }
+    ]
+   },
+   "search": {},
+   "steps": [
+    {
+     "say": "Which cyclone is heading towards us?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final_prefix": "Which city or area should I check for tropical cyclones for?",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Chennai",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "The active tropical cyclone nearest to Chennai: Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as affected: India, Bangladesh. The data I have doesn't include its direction of movement or a landfall time; the India Meteorological Department (IMD) issues the official forecasts and warnings for this area. (GDACS, based on JTWC data, updated 2026-10-28 09:00 UTC.)",
+      "model_calls": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stage 4: 'it' with two subjects in play is asked about once, then researched",
+   "search": {
+    "Mars and Venus": {
+     "results": [
+      {
+       "title": "Mars and Venus",
+       "url": "https://en.wikipedia.org/wiki/Mars_and_Venus",
+       "snippet": "Mars and Venus are the planets nearest to Earth."
+      }
+     ]
+    },
+    "Venus big": {
+     "results": [
+      {
+       "title": "Venus",
+       "url": "https://en.wikipedia.org/wiki/Venus",
+       "snippet": "Venus is about the same size as Earth, with a diameter of 12,104 km."
+      }
+     ]
+    }
+   },
+   "steps": [
+    {
+     "say": "Tell me about Mars and Venus",
+     "model": [
+      "Mars and Venus are the planets nearest to Earth."
+     ],
+     "expect": {
+      "decision": "RESEARCH",
+      "queries": [
+       "Mars and Venus"
+      ],
+      "final": "Mars and Venus are the planets nearest to Earth."
+     }
+    },
+    {
+     "say": "How big is it?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "Do you mean Mars or Venus?",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Venus",
+     "model": [
+      "Venus is about the same size as Earth."
+     ],
+     "expect": {
+      "queries": [
+       "Venus big"
+      ],
+      "final": "Venus is about the same size as Earth."
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stage 4: unrelated results are never the answer",
+   "search": {
+    "latest Android version": {
+     "results": [
+      {
+       "title": "List of most-visited websites",
+       "url": "https://en.wikipedia.org/wiki/List_of_most-visited_websites",
+       "snippet": "Google is the most visited website in the world."
+      }
+     ]
+    },
+    "Android": {
+     "results": []
+    }
+   },
+   "steps": [
+    {
+     "say": "What is the latest Android version?",
+     "model": [
+      "The most visited website is Google."
+     ],
+     "expect": {
+      "decision": "RESEARCH",
+      "queries": [
+       "latest Android version",
+       "Android"
+      ],
+      "final": "I looked that up but couldn't find anything reliable. Could you say or spell the name again?"
      }
     }
    ]

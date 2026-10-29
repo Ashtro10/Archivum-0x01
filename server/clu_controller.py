@@ -136,6 +136,23 @@ class ResearchPolicy:
             "what", "which", "who", "whom", "when", "where", "why", "how", "he", "she", "him", "her", "his", "hers", "they", "them", "their", "it", "its",
             "that", "this", "about", "me", "tell", "you", "can", "could", "would", "please", "know", "really", "actually", "also", "then", "so"}
 
+    FRAME = re.compile(r"^(?:(?:who|what|which|where|when|how)(?:'s|\s+(?:is|are|was|were|will|does|do|did))?\s+)(?:the\s+|an?\s+)?", I)
+    TIME_WORDS = {"current", "currently", "latest", "newest", "today", "now", "recent", "recently", "this", "week", "month", "year"}
+
+    @classmethod
+    def focus(cls, query: str) -> str:
+        """The query sent to a search provider: the question without its frame ("who is the current CEO of Microsoft" -> "current CEO of Microsoft")."""
+        return cls.FRAME.sub("", query.strip(), count=1).strip() or query.strip()
+
+    @classmethod
+    def key_subject(cls, query: str) -> str | None:
+        """The distinctive part of a current-information query that results must mention: its names (None: any result can be relevant)."""
+        keys = [w for w in cls.content_words(query) if (w[0].isupper() or any(c.isdigit() for c in w)) and w.lower() not in cls.TIME_WORDS]
+        # An acronym ("CEO") is often spelt out in results ("chief executive officer"): required only when nothing else is.
+        names = [w for w in keys if not (len(w) <= 4 and all(c.isupper() or c.isdigit() for c in w))]
+        keys = names or keys
+        return " ".join(keys) if keys else None
+
     @classmethod
     def content_words(cls, s: str) -> list[str]:
         return [w for w in _WORD.findall(s) if w.lower() not in cls.STOP]
@@ -162,7 +179,8 @@ class ResearchPolicy:
         t = text.strip().rstrip("?.! ")
         need = SearchTrigger.detect(text)
         if need:
-            return Decision(RESEARCH, need[0], None, need[1])
+            q = cls.focus(need[0])
+            return Decision(RESEARCH, q, cls.key_subject(q), need[1])
         q = SearchTrigger.clean(t).rstrip("?.!")
         if len(q) < 3 or cls.STABLE.search(q):
             return Decision(NONE)
@@ -193,7 +211,10 @@ class ResearchPolicy:
 NON_ANSWER = re.compile(r"\b(?:i'?m not (?:sure|familiar|aware)|i am not (?:sure|familiar|aware)|i don'?t (?:know|recognise|recognize|have (?:any |enough )?(?:information|details|data|knowledge))|"
                         r"i do not (?:know|have)|i (?:couldn'?t|could not|can'?t|cannot) (?:find|provide|confirm|say)|i have no (?:information|knowledge|data|details)|"
                         r"not (?:familiar|aware) with|no (?:reliable )?information (?:about|on)|i'?m unable to|(?:cannot|can'?t|could not|couldn'?t) be found|"
-                        r"(?:is|are) not (?:available|known)|isn'?t (?:available|known))\b", I)
+                        r"(?:is|are) not (?:available|known)|isn'?t (?:available|known)|"
+                        # Deferrals: "I'd need to check live information", "I can't reliably identify it without checking".
+                        r"i (?:would |will |'d )?need to (?:check|look|search|verify|confirm)|without (?:checking|looking|access to)|"
+                        r"(?:don'?t|do not) have (?:access to )?(?:live|current|real-?time|up-to-date)|can'?t (?:reliably )?(?:identify|confirm|know))\b", I)
 
 
 def non_answer(text: str) -> bool:
@@ -290,7 +311,7 @@ class WikipediaSearch:
         import aiohttp
         params = {"action": "query", "list": "search", "srsearch": query, "format": "json", "srlimit": str(self.count), "srinfo": "suggestion", "utf8": "1"}
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout), headers={"User-Agent": "Clu/1.6 (personal assistant)"}) as s:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout), headers={"User-Agent": "Clu/1.7 (personal assistant)"}) as s:
                 async with s.get(self.url, params=params) as r:
                     if r.status != 200:
                         return SearchResult(False, error=f"Wikipedia returned HTTP {r.status}.", query=query)
@@ -324,7 +345,9 @@ def mentions(text: str, subject: str) -> bool:
     if not words:
         return True
     have = set(re.findall(r"[^\W_]+", text.lower()))
-    hits = sum(1 for w in words if w in have or any(len(h) >= 4 and len(w) >= 4 and edit_distance(h, w) <= 1 for h in have))
+    # A one-letter difference is a spelling variant for longer words; a short one must keep its first letter ("Pune" is not "June").
+    hits = sum(1 for w in words if w in have or any(len(h) >= 4 and len(w) >= 4 and (min(len(h), len(w)) >= 5 or h[0] == w[0])
+                                                    and edit_distance(h, w) <= 1 for h in have))
     return hits * 2 >= len(words) + (1 if len(words) >= 2 else 0)
 
 
@@ -434,6 +457,9 @@ class AnswerStyle:
         s = text
         for r in cls.PHRASES:
             s = r.sub("\u0001", s)
+        # "See …" / "Read more at …" left pointing at a removed link or citation
+        s = re.sub(r"(?i)(?:\b(?:also|please)\s+)?\b(?:see|visit|read more|more (?:info|information|details))(?:\s+(?:at|on|here))?\s*:?\s*\u0001+\.?", "\u0001", s)
+        s = re.sub(r"(?:^|(?<=[.!?]\s))\s*(?:(?:[Aa]lso|[Pp]lease)\s+)?(?:[Ss]ee|[Vv]isit|[Rr]ead more)(?:\s+(?:at|on|here))?\s*(?:[.:]|$)", "", s)
         s = re.sub(r"(^|[.!?]\s+)\u0001+([^\W\d_])", lambda m: m.group(1) + (m.group(2).upper() if m.group(2).islower() else m.group(2)), s)
         s = s.replace("\u0001", "")
         s = re.sub(r"[ \t]{2,}", " ", s)
@@ -512,11 +538,14 @@ class Grounding:
         return not cls.echoes(sentence, instructions) and not cls.CLAIMS_SEARCH.search(sentence)
 
     @classmethod
-    def extract(cls, hits: list[Hit], question: str) -> str | None:
+    def extract(cls, hits: list[Hit], question: str, said: str = "") -> str | None:
         q = cls.words(question)
+        before = _norm(said)
 
         def usable(snippet: str) -> list[str]:
-            return [s for s in Evidence.sentences(snippet) if not Evidence.INJECTION.search(s) and "was removed]" not in s]
+            # Never what Clu has already told the owner ("tell me more" gets something new, or nothing).
+            return [s for s in Evidence.sentences(snippet) if not Evidence.INJECTION.search(s) and "was removed]" not in s
+                    and not (before and _norm(s) and _norm(s) in before)]
 
         cands = [h for h in hits if usable(h.snippet)]
         if not cands:
@@ -603,6 +632,10 @@ SUPPORTED, NEUTRAL, UNSUPPORTED = "SUPPORTED", "NEUTRAL", "UNSUPPORTED"
 
 class Claims:
     ACTION = re.compile(r"(?i)\bI(?:'ll|\s+will|\s+have|'ve|\s+am going to)\s+(?:now\s+)?(?:save|remember|store|call|send|open|delete|set|book|buy|share|forward|email|text)\b")
+    RESULTS_FORMAT = re.compile(r"(?i)\([^()]*;\s*snippet only\)|\bsnippet only\b|\b(?:BEGIN|END) WEB RES|\[(?:Information found|Tool result)")
+    LIGHT = {"company", "firm", "corporation", "organisation", "organization", "business", "role", "position", "post", "job",
+             "led", "lead", "leads", "leading", "head", "heads", "headed", "run", "runs", "ran", "running", "serve", "serves", "served", "serving",
+             "held", "hold", "holds", "holding", "became", "become", "becomes", "currently", "current", "still", "now", "today", "since"}
 
     @staticmethod
     def _tokens(t: str) -> set[str]:
@@ -617,12 +650,31 @@ class Claims:
         return out
 
     @staticmethod
-    def _names(text: str) -> list[str]:
+    def _name_spans(text: str) -> list[tuple[int, int, str]]:
         """Capitalised words of 3+ letters not preceded by a letter or apostrophe (Kotlin: (?<![\\p{L}'])\\p{Lu}[\\p{L}'-]{2,})."""
         out = []
         for m in re.finditer(r"[^\W\d_][\w'-]*", text):
             w = re.match(r"[^\W\d_](?:[^\W\d_]|['-])*", m.group(0)).group(0)
             if len(w) >= 3 and w[0].isupper() and (m.start() == 0 or not (text[m.start() - 1].isalpha() or text[m.start() - 1] == "'")):
+                out.append((m.start(), m.start() + len(w), w))
+        return out
+
+    @classmethod
+    def _names(cls, text: str) -> list[str]:
+        return [w for _, _, w in cls._name_spans(text)]
+
+    @classmethod
+    def _sentence_names(cls, text: str, units: list[list[str]]) -> list[str]:
+        """Names in a sentence. A word capitalised only because it starts the sentence ("See …", "Its …") is a name only
+        when another capitalised word follows it ("Lemmertz Norgay"), it is all capitals, or the results capitalise it."""
+        ms = cls._name_spans(text)
+        caps = {w.lower() for w in cls._names(" ".join(s for u in units for s in u))}
+        out = []
+        for i, (a, b, w) in enumerate(ms):
+            before = text[:a].rstrip()
+            start = not before or before[-1] in ".!?:"
+            follows = i + 1 < len(ms) and not text[b:ms[i + 1][0]].strip()
+            if not start or all(c.isupper() for c in w) or w.lower() in caps or follows:
                 out.append(w)
         return out
 
@@ -639,6 +691,9 @@ class Claims:
 
     @classmethod
     def check(cls, sentence: str, units: list[list[str]], question: str, subjects: list[str], hits: list[Hit], instructions: str = "") -> tuple[str, str | None]:
+        # The results block's own format ("(en.wikipedia.org, updated …; snippet only)", "BEGIN WEB RESULTS") copied into the answer.
+        if cls.RESULTS_FORMAT.search(sentence):
+            return UNSUPPORTED, "it copied the information block instead of answering"
         clean = AnswerStyle.without_source_talk(sentence).strip()
         if not clean or not re.search(r"[^\W_]", clean):
             return NEUTRAL, None
@@ -653,9 +708,12 @@ class Claims:
             if w in sites:
                 return UNSUPPORTED, f"it named a website ('{w}'); answer without sources"
         topic = cls._tokens(question + " " + " ".join(subjects))
-        all_names = {n.lower().removesuffix("'s") for n in cls._names(clean)} - Grounding.FUNCTION
+        found = cls._sentence_names(clean, units)
+        all_names = {n.lower().removesuffix("'s") for n in found} - Grounding.FUNCTION
         names = {n for n in all_names if not cls._has(topic, n)}
-        subject_names = all_names - names
+        # An acronym from the question ("CEO") is often spelt out in the results instead.
+        acronyms = {n.lower() for n in found if len(n) <= 5 and all(c.isupper() or c.isdigit() for c in n)}
+        subject_names = all_names - names - acronyms
         nums = {n for n in re.findall(r"\d+", clean) if n not in topic}
         content = {w.removesuffix("'s") for w in Grounding.words(clean)}
         content = {w for w in content if w not in all_names and w not in Grounding.FUNCTION and not cls._has(topic, w)}
@@ -675,7 +733,9 @@ class Claims:
             wt = cls._tokens(w)
             if any(not cls._has(wt, n) for n in names) or any(n not in wt for n in nums):
                 continue
-            hits_ = sum(1 for c in content if cls._has(wt, c))
+            # Light words restating a relation the names and numbers pin down ("has led the company since 2014" for
+            # "has held the role since 2014") count as matching when the names and numbers are all in this sentence.
+            hits_ = sum(1 for c in content if cls._has(wt, c) or (c in cls.LIGHT and (names or nums)))
             if not content or hits_ * 2 >= len(content):
                 return SUPPORTED, None
             best = max(best, hits_ / len(content))
@@ -693,7 +753,7 @@ class Claims:
         if best < 0 and len(names) + len(nums) >= 2:
             items = ([original(n) for n in sorted(names, key=lambda x: clean.lower().find(x))] + sorted(nums))[:3]
             return UNSUPPORTED, f"it connects {', '.join(items)} in a way the information doesn't"
-        missing = [c for c in content if not cls._has(everywhere, c)][:3]
+        missing = [c for c in content if not cls._has(everywhere, c) and c not in cls.LIGHT][:3]
         return UNSUPPORTED, ("it isn't what the information says" if not missing else f"it says things the information doesn't ({', '.join(missing)})")
 
     @classmethod
@@ -710,7 +770,7 @@ class Claims:
 # ------------------------------------------------------------------------------------------------ the answer loop
 EXTRACT_PREFIX = "I couldn't put that into my own words reliably. The top result says: "
 MAX_REPAIRS = 1
-SUBJECT_MEMORY_S = 15 * 60
+HAZARD_FRESH_MS = 30 * 60_000
 
 def for_prompt(assistant_text: str) -> str:
     """An earlier reply as the model sees it again: a quote without Clu's "the top result says" framing (a weak model
@@ -734,43 +794,201 @@ class Turn:
     model_outputs: list[str] = field(default_factory=list)
     error: str | None = None
     text: str = ""
+    resolution: str = "standalone"  # standalone | follow_up | clarify
+    heard: str = ""                  # the raw transcript; [interpreted] is what Clu acted on when speech was re-heard
+    interpreted: str | None = None
+    topic_out: object = None
+    pending_out: object = None
 
 
 class Controller:
-    def __init__(self, search: Callable[[str], Awaitable[SearchResult]] | None, instructions: str = "", online: Callable[[], bool] = lambda: True):
+    """One conversation's controller. [hazards]/[weather]: official alert and forecast fetchers (clu_context.Gdacs.fetch /
+    OpenMeteo.fetch by default when [search] is set); [home]: the owner's city (CLU_HOME_LOCATION), resolved locally.
+    [state] is the conversation context (clu_context.ConversationState): temporary, never memory, JSON-serialisable."""
+
+    def __init__(self, search: Callable[[str], Awaitable[SearchResult]] | None, instructions: str = "", online: Callable[[], bool] = lambda: True,
+                 hazards=None, weather=None, home: str | None = None, clock: Callable[[], int] | None = None):
+        import clu_context as ctx
         self.search = search
         self.instructions = instructions
         self.online = online
-        self.subject: tuple[str, float] | None = None
+        self.hazards = hazards if hazards is not None else (ctx.Gdacs.fetch if search is not None else None)
+        self.weather = weather if weather is not None else (ctx.OpenMeteo.fetch if search is not None else None)
+        self.home = home
+        self.clock = clock or ctx.now_ms
+        self.state = ctx.ConversationState()
         self.last: Turn | None = None
 
     def previous_subject(self) -> str | None:
-        if self.subject and time.monotonic() - self.subject[1] < SUBJECT_MEMORY_S:
-            return self.subject[0]
-        return None
+        import clu_context as ctx
+        t = self.state.topic
+        return t.subject if t is not None and t.kind != "general" and ctx.FollowUpResolver.topic_usable(self.state, self.clock()) else None
 
-    async def respond(self, text: str, history: list[str], generate: Generate) -> AsyncIterator[str]:
-        """The reply to [text] as it should be spoken and shown, in pieces. [history]: earlier messages' text."""
+    async def respond(self, text: str, history: list[str], generate: Generate, via_voice: bool = False) -> AsyncIterator[str]:
+        """The reply to [text] as it should be spoken and shown, in pieces. [history]: earlier messages' text. The message
+        is first resolved against the conversation ("look it up", "is it dangerous?", a misheard word), then answered."""
+        import clu_context as ctx
         d = ResearchPolicy.decide(text, self.previous_subject())
-        turn = self.last = Turn(d)
+        turn = self.last = Turn(d, heard=text)
         out: list[str] = []
+        state = self.state
+        resolved = ctx.FollowUpResolver.resolve(text, state, via_voice, self.clock())
+        turn.interpreted = resolved.corrected
+        r = resolved.resolution
         try:
-            if d.kind == RESEARCH and self.search is not None:
-                async for piece in self._research(turn, text, history, generate, d.query, d.subject):
+            if isinstance(r, ctx.Clarify):
+                turn.resolution, turn.kind = "clarify", "clarify"
+                out.append(r.text)
+                yield r.text
+                return
+            if isinstance(r, ctx.FollowUp):
+                turn.resolution = "follow_up"
+                async for piece in self._follow_up(turn, r, history, generate, resolved.place_from_reply):
                     out.append(piece)
                     yield piece
                 return
-            async for piece in self._plain(turn, text, history, generate, verify=d.kind == VERIFY_IF_UNSURE and self.search is not None):
+            async for piece in self._standalone(turn, r.text, history, generate):
                 out.append(piece)
                 yield piece
         finally:
             turn.text = "".join(out).strip()
+            self._update(turn, resolved)
 
-    async def _plain(self, turn: Turn, text: str, history: list[str], generate: Generate, verify: bool) -> AsyncIterator[str]:
+    async def _standalone(self, turn: Turn, text: str, history: list[str], generate: Generate) -> AsyncIterator[str]:
+        import clu_context as ctx
+        need = ctx.HazardPolicy.detect(text) if self.search is not None else None
+        if need is not None:
+            async for piece in self._hazard(turn, need, text):
+                yield piece
+            return
+        d = ResearchPolicy.decide(text, self.previous_subject())
+        if d.kind == RESEARCH and self.search is not None:
+            async for piece in self._research(turn, text, history, generate, d.query, d.subject):
+                yield piece
+            return
+        if len(ResearchPolicy.content_words(text)) >= 2 or (text.endswith("?") and ResearchPolicy.content_words(text)):
+            subject = d.subject or ResearchPolicy.subject_of(ResearchPolicy.focus(SearchTrigger.clean(text)))
+            turn.topic_out = ctx.Topic(text, subject=subject[:80] if subject else None)
+        async for piece in self._plain(turn, text, history, generate, verify=d.kind == VERIFY_IF_UNSURE and self.search is not None):
+            yield piece
+
+    def _home(self):
+        import clu_context as ctx
+        return ctx.Places.resolve(self.home) or ctx.Places.resolve(self.state.place)
+
+    async def _follow_up(self, turn: Turn, r, history: list[str], generate: Generate, place_from_reply: str | None) -> AsyncIterator[str]:
+        """A follow-up bound to the active topic: answered from what was found, or researched as the question it stands for."""
+        import clu_context as ctx
+        if place_from_reply:
+            self.state.place = place_from_reply
+        topic = r.topic
+        need = ctx.HazardPolicy.detect(r.question)
+        if topic.kind in ("hazard", "weather") or need is not None:
+            if need is None:
+                need = (ctx.Need(topic.hazard.type, True, None) if topic.hazard is not None
+                        else ctx.Need("WX", True, ctx.Places.resolve(topic.weather.place) if topic.weather is not None else None))
+            fresh = topic.hazard if topic.hazard is not None and self.clock() - topic.hazard.checked_at < HAZARD_FRESH_MS and topic.hazard.error is None else None
+            if r.ask is not None and fresh is not None and need.type != "WX":
+                turn.topic_out, turn.kind = topic, "clu_message"
+                turn.sources = self._hazard_sources(fresh)
+                yield ctx.HazardAnswers.follow_up(r.ask, fresh, need.place or self._home(), r.compare_with.hazard if r.compare_with else None)
+                return
+            async for piece in self._hazard(turn, need, r.question, r.ask, r.compare_with.hazard if r.compare_with else None):
+                yield piece
+            return
+        if not r.research:
+            turn.topic_out = topic
+            async for piece in self._plain(turn, r.prompt, history, generate, verify=False, prompt=r.prompt):
+                yield piece
+            return
+        # Research what the follow-up stands for, never its own words ("look it up" is not a query).
+        d = ResearchPolicy.decide(r.question, r.subject)
+        if d.kind == RESEARCH and d.query.strip():
+            query, subject = d.query, d.subject or r.subject
+        else:
+            query = ResearchPolicy.focus(SearchTrigger.clean(r.question))
+            subject = r.subject or ResearchPolicy.key_subject(query)
+        if self.search is None:
+            turn.topic_out, turn.kind = topic, "clu_message"
+            yield "Web search is turned off, so I can't look that up."
+            return
+        async for piece in self._research(turn, r.prompt, history, generate, query, subject):
+            yield piece
+
+    @staticmethod
+    def _hazard_sources(c) -> list[Hit]:
+        if c.error is not None:
+            return []
+        url = next((e.url for e in c.events if e.url.startswith("https://")), "") or "https://www.gdacs.org/"
+        return [Hit("GDACS — Global Disaster Alert and Coordination System (UN / European Commission)", url, "")]
+
+    async def _hazard(self, turn: Turn, need, question: str, ask: str | None = None, previous=None) -> AsyncIterator[str]:
+        """A current natural hazard or the weather from an official or meteorological source; asks once for the place when
+        none is known; never invents an event, a track or a warning."""
+        import clu_context as ctx
+        place = need.place or self._home()
+        noun = "weather" if need.type == "WX" else ctx.HazardAnswers.noun(need.type)
+        kind = "weather" if need.type == "WX" else "hazard"
+        turn.kind = "clu_message"
+        if place is None and (need.near_owner or need.type == "WX"):
+            turn.pending_out = ctx.Pending("location", question)
+            turn.topic_out = ctx.Topic(question, subject=noun, kind=kind, answered=False)
+            yield f"Which city or area should I check {'the weather' if need.type == 'WX' else 'for ' + noun + 's'} for?"
+            return
+        if not self.online():
+            turn.topic_out = ctx.Topic(question, subject=noun, kind=kind, answered=False)
+            turn.error = "search_failed"
+            yield f"I'm offline right now, so I can't check current {'weather' if need.type == 'WX' else noun + 's'}."
+            return
+        if need.type == "WX":
+            w = await self.weather(place)
+            turn.topic_out = ctx.Topic(question, subject=f"weather in {place.name}", kind="weather", weather=w, answered=w.error is None)
+            turn.error = "search_failed" if w.error else None
+            turn.sources = [] if w.error else [Hit(f"Open-Meteo forecast for {w.place}", "https://open-meteo.com/", "")]
+            yield ctx.OpenMeteo.answer(w)
+            return
+        c = await self.hazards(need.type)
+        turn.topic_out = ctx.Topic(question, subject=noun, kind="hazard", hazard=c, answered=c.error is None, entities=[e.name for e in c.events][:1])
+        turn.error = "search_failed" if c.error else None
+        turn.sources = self._hazard_sources(c)
+        yield ctx.HazardAnswers.follow_up(ask, c, place, previous) if ask is not None else ctx.HazardAnswers.answer(c, place)
+
+    def _update(self, turn: Turn, resolved) -> None:
+        """Stores what this turn did to the conversation context (CluAgent.updateContext)."""
+        import clu_context as ctx
+        from dataclasses import replace
+        s, n, t = self.state, self.state.turn + 1, self.clock()
+        failed = not turn.text or bool(turn.error) or non_answer(turn.text)
+        r, out = resolved.resolution, turn.topic_out
+        if turn.pending_out is not None:
+            topic = replace(out, turn=n, at=t, answered=False) if out is not None else s.topic
+            prev = s.topic if out is not None and out.question != (s.topic.question if s.topic else None) else s.previous
+            self.state = ctx.ConversationState(n, topic, prev, replace(turn.pending_out, turn=n, at=t), s.place)
+        elif isinstance(r, ctx.Clarify):
+            self.state = ctx.ConversationState(n, s.topic, s.previous, replace(r.pending, turn=n, at=t), s.place)
+        elif out is not None:
+            entities = out.entities or self._entities(out.subject)
+            topic = replace(out, turn=n, at=t, answered=out.answered and not failed, entities=entities)
+            same = isinstance(r, ctx.FollowUp) or (s.topic is not None and s.topic.question == topic.question)
+            self.state = ctx.ConversationState(n, topic, s.previous if same else s.topic, None, s.place)
+        elif isinstance(r, ctx.FollowUp):
+            self.state = ctx.ConversationState(n, replace(r.topic, turn=n, at=t, answered=not failed), s.previous, None, s.place)
+        else:
+            self.state = ctx.ConversationState(n, s.topic, s.previous, None, s.place)
+
+    @staticmethod
+    def _entities(subject: str | None) -> list[str]:
+        if not subject:
+            return []
+        parts = [p.strip() for p in re.split(r"\s*(?:,|\band\b|\bor\b|\bvs\.?|\bversus\b)\s*", subject, flags=I) if len(p.strip()) > 1]
+        return parts if len(parts) >= 2 else [subject]
+
+    async def _plain(self, turn: Turn, text: str, history: list[str], generate: Generate, verify: bool, prompt: str | None = None) -> AsyncIterator[str]:
         """No research: the model's reply as it streams. "Verify if unsure": the first sentence is held back; a
         non-answer ("I'm not familiar with…") is never spoken and the controller researches instead."""
         buf, shown, held = "", 0, verify
-        async for delta in generate([]):
+        # A follow-up re-asked in full ("Tell me more about Leman Russ.") goes to the model as the owner's message.
+        async for delta in generate([{"role": "user", "content": prompt}] if prompt and prompt != turn.heard else []):
             buf += delta
             if held:
                 if _SENT_END.search(buf) or len(buf) >= 160:
@@ -793,7 +1011,10 @@ class Controller:
             yield buf[shown:]
 
     async def _research(self, turn: Turn, text: str, history: list[str], generate: Generate, query: str, subject: str | None) -> AsyncIterator[str]:
+        import clu_context as ctx
         turn.researched = True
+        # The question becomes the topic now, whatever the outcome: after a failure, "look it up" refers to it.
+        turn.topic_out = ctx.Topic(text, subject=subject, kind="current" if SearchTrigger.detect(text) else "entity")
         if not self.online():
             o = Outcome("failed", [], reason="No internet connection")
         else:
@@ -806,11 +1027,12 @@ class Controller:
         if o.kind == "ambiguous":
             turn.kind = "clarify"
             opts = o.options
+            turn.pending_out = ctx.Pending("choice", text, list(opts))
             yield "Do you mean " + (f"{opts[0]} or {opts[1]}" if len(opts) == 2 else ", ".join(opts[:-1]) + ", or " + opts[-1]) + "?"
             return
         if o.kind == "found":
-            self.subject = ((o.interpreted_as or subject), time.monotonic()) if (o.interpreted_as or subject) else self.subject
-            async for piece in self._grounded(turn, text, generate, o.result, o.interpreted_as, [s for s in (subject, o.interpreted_as) if s]):
+            turn.topic_out.subject = o.interpreted_as or subject
+            async for piece in self._grounded(turn, text, generate, o.result, o.interpreted_as, [s for s in (subject, o.interpreted_as) if s], history):
                 yield piece
             return
         if o.kind == "nothing":
@@ -900,7 +1122,8 @@ class Controller:
     def _instructions(self, *notes: str) -> str:
         return self.instructions + "\n" + AnswerStyle.evidence("", None, "") + "\n" + "\n".join(notes)
 
-    async def _grounded(self, turn: Turn, text: str, generate: Generate, result: SearchResult, interpreted: str | None, subjects: list[str]) -> AsyncIterator[str]:
+    async def _grounded(self, turn: Turn, text: str, generate: Generate, result: SearchResult, interpreted: str | None, subjects: list[str],
+                        history: list[str] | None = None) -> AsyncIterator[str]:
         hits, s = result.hits, result.summary()
         turn.sources = hits
         units = Evidence.units(s, hits, subjects)
@@ -927,9 +1150,12 @@ class Controller:
         if st["ok"]:
             turn.kind = "model_after_correction" if turn.repairs else "model"
         elif not st["said"]:  # (something already said is never taken back; nothing more is added)
-            q = Grounding.extract(hits, text)
+            said = " ".join((history or [])[-6:])  # what was said lately is not quoted again
+            q = Grounding.extract(hits, text, said)
+            nothing_new = q is None and Grounding.extract(hits, text) is not None
             turn.kind = "quoted_result" if q else "clu_message"
-            yield EXTRACT_PREFIX + q if q else "I found results, but I couldn't put together a reliable answer from them."
+            yield (EXTRACT_PREFIX + q if q else "What I found doesn't say more than I've already told you." if nothing_new
+                   else "I found results, but I couldn't put together a reliable answer from them.")
 
     async def _honest(self, turn: Turn, text: str, generate: Generate, note_msg: str, fallback: str, memo: str | None, subject: str | None) -> AsyncIterator[str]:
         extra = [{"role": "user", "content": note_msg}]
@@ -951,3 +1177,6 @@ class Controller:
         if not st["ok"] and not st["said"]:
             turn.kind = "clu_message"
             yield fallback
+
+
+import clu_context  # noqa: E402,F401  (conversation context; imported last: it uses this module's classes)

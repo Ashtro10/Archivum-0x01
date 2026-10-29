@@ -43,15 +43,25 @@ class SearchAgentTest {
     @Test fun personalDataNeverSentToTheProvider() {
         core.settings.set(Settings.OWNER_NAME, "Ashwin")
         core.memories.save(ai.clu.core.memory.Memory(category = ai.clu.core.memory.MemoryCategory.CORE_FACT, title = "Sister in Pune",
-            content = "Pune weather forecast note: my sister Riya says carry an umbrella to flat zebra-17.", source = ai.clu.core.memory.MemorySource.OWNER_SUPPLIED))
+            content = "Pune metro and weather note: my sister Riya takes the metro to flat zebra-17 and says carry an umbrella.", source = ai.clu.core.memory.MemorySource.OWNER_SUPPLIED))
         core.diary.add("Argued with Riya about the Pune flat. secret-diary-marker")
         ask("Hello, how are you?") // some history in the conversation
-        engine.reply("Rain is expected in Pune today [1].")
-        val d = done(ask("What's the weather forecast in Pune today?"))
+        // Stage 4: the weather comes from a forecast service, which receives only the city's approximate coordinates.
+        http.routes["api.open-meteo.com"] = HttpResponse(200, """{"current":{"time":"2026-10-29T15:00","temperature_2m":27.4,"relative_humidity_2m":70,
+            "weather_code":61,"wind_speed_10m":12.0},"daily":{"temperature_2m_max":[29.0],"temperature_2m_min":[21.0],"precipitation_probability_max":[80]}}""")
+        val w = done(ask("What's the weather forecast in Pune today?"))
+        assertEquals("In Pune it's 27°C and rainy, humidity 70%, wind 12 km/h. Today: 21 to 29°C, 80% chance of rain. (Open-Meteo forecast data, 2026-10-29 15:00 local time.)", w.text)
+        assertEquals(listOf("open-meteo.com"), w.meta.sources.map { java.net.URI(it.url).host.removePrefix("api.") })
+        assertTrue(http.requests.single { "open-meteo" in it }.contains("latitude=18.52&longitude=73.86"), "coordinates of the city, nothing else")
+        // A web search with the same private context around it.
+        http.routes["q=latest+news+about+the+Pune+metro"] = HttpResponse(200, """{"web":{"results":[{"title":"Pune Metro Line 3 opens",
+            "url":"https://news.example.org/pune-metro","description":"The new Pune Metro line opened today between Hinjewadi and Shivajinagar."}]}}""")
+        engine.reply("Pune's new metro line opened today [1].")
+        val d = done(ask("What is the latest news about the Pune metro?"))
         assertTrue(d.meta.sources.isNotEmpty())
         assertTrue(engine.prompts.last().any { it.content.contains("zebra-17") }, "the memory is used locally in the prompt: ${engine.prompts.last()}")
         val outgoing = http.requests + http.headers.map { it.toString() }
-        assertTrue(outgoing.isNotEmpty())
+        assertTrue(outgoing.any { "brave" in it } && outgoing.any { "open-meteo" in it })
         for (secret in listOf("zebra", "Riya", "secret-diary", "Ashwin", "Hello"))
             assertTrue(outgoing.none { it.contains(secret, ignoreCase = true) }, "\"$secret\" must not leave the device: $outgoing")
     }
@@ -64,12 +74,12 @@ class SearchAgentTest {
         assertEquals(listOf("https://source.android.com/docs/whatsnew/android-16-release", "https://en.wikipedia.org/wiki/Android_version_history"),
             d.meta.sources.take(2).map { it.url }, "sources are exactly what the provider returned")
         // Final Stage 3: a conversational answer has no citation markers at all (the sources stay on the message's cards).
-        assertEquals("Android 16 is the latest stable version, released in June 2025. Also see.", d.text, "no citation numbers in the answer")
+        assertEquals("Android 16 is the latest stable version, released in June 2025.", d.text, "no citation numbers, and no \"see …\" left pointing at one")
         val sent = engine.prompts.last().last().content
         assertTrue(sent.startsWith("[Information found]") && sent.contains("[1] Android 16 release notes (source.android.com; snippet only)"))
         assertFalse(sent.contains("https://"), "the model gets numbered sources and site names, not URLs")
         assertTrue(sent.contains("Do not mention searching, websites, sources, links, citation numbers") && sent.contains("say plainly"))
-        assertEquals(1, http.requests.size, "one request: ${http.requests}"); assertTrue(http.requests.single().contains("q=What+is+the+latest+version+of+Android&"), "only the question is sent: ${http.requests}")
+        assertEquals(1, http.requests.size, "one request: ${http.requests}"); assertTrue(http.requests.single().contains("q=latest+version+of+Android&"), "only the question's terms are sent: ${http.requests}")
         // On request only: the same question is answered without searching.
         core.settings.set(Settings.SEARCH_AUTO, "explicit"); http.requests.clear()
         engine.reply("I can't check live information without searching.")

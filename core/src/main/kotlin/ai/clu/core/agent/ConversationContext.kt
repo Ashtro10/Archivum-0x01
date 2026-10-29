@@ -19,7 +19,7 @@ data class Topic(
     val question: String,
     val subject: String? = null,
     val entities: List<String> = emptyList(),
-    /** general | entity | current | hazard | weather */
+    /** general | entity | current | hazard | weather | memory (the owner's own archive) */
     val kind: String = "general",
     /** Clu could not answer yet (it deferred, the search failed, or an error happened): "look it up" refers to this. */
     val answered: Boolean = true,
@@ -27,6 +27,10 @@ data class Topic(
     val weather: WeatherNow? = null,
     val turn: Int = 0,
     val at: Long = 0,
+    /** For a memory topic: the records and people being discussed (so "she", "that", "what happened next" resolve). */
+    val memoryIds: List<String> = emptyList(),
+    val personIds: List<String> = emptyList(),
+    val projectIds: List<String> = emptyList(),
 )
 
 @Serializable
@@ -40,6 +44,8 @@ data class Pending(
     val literal: String = "",
     val turn: Int = 0,
     val at: Long = 0,
+    /** Record ids behind [options] (memory recall: which person or memory each option is). */
+    val ids: List<String> = emptyList(),
 )
 
 @Serializable
@@ -86,6 +92,8 @@ data class Resolved(val resolution: Resolution, val heard: String, val corrected
  * a request with its own subject never inherits an old one.
  */
 object FollowUpResolver {
+    /** Topics never looked up on the web: ordinary chat, and the owner's own memories (private people and events). */
+    private val PRIVATE = setOf("general", "memory")
     const val TOPIC_TURNS = 6
     const val TOPIC_MS = 60 * 60_000L
     private const val PENDING_TURNS = 2
@@ -152,10 +160,11 @@ object FollowUpResolver {
         // Bare research command: research the open question (or the current topic).
         if (isBareResearch(t)) {
             if (topic == null) return Resolution.Clarify("What would you like me to look up?", Pending("subject", "", turn = s.turn))
+            if (topic.kind == "memory") return Resolution.Standalone(t) // a private memory is not searched on the web
             return Resolution.FollowUp(topic.question, topic, research = true, subject = topic.subject, prompt = topic.question)
         }
         if (topic == null) return Resolution.Standalone(t)
-        if (isMore(t)) return Resolution.FollowUp(topic.subject?.let { "Tell me about $it" } ?: topic.question, topic, research = topic.kind != "general",
+        if (isMore(t)) return Resolution.FollowUp(topic.subject?.let { "Tell me about $it" } ?: topic.question, topic, research = topic.kind !in PRIVATE,
             subject = topic.subject, ask = if (topic.kind == "hazard") HazardAnswers.Ask.MORE else null,
             prompt = topic.subject?.let { "Tell me more about $it." } ?: "Tell me more about that.")
         // A reference: a pronoun, "the previous one", "what about …", or the topic named with "the" ("is the cyclone dangerous?").
@@ -194,7 +203,7 @@ object FollowUpResolver {
         val subject = topic.subject ?: return Resolution.Standalone(t)
         val extra = ResearchPolicy.contentWords(WHAT_ABOUT.find(t)?.groupValues?.get(1) ?: t)
             .filter { w -> w.lowercase() !in subject.lowercase().split(' ') && !PRONOUN.matches(w) }
-        return Resolution.FollowUp((subject + " " + extra.joinToString(" ")).trim(), topic, research = topic.kind != "general", subject = subject, prompt = t)
+        return Resolution.FollowUp((subject + " " + extra.joinToString(" ")).trim(), topic, research = topic.kind !in PRIVATE, subject = subject, prompt = t)
     }
 
     /** True when [t] names something of its own (a capitalised name or several content words not about the topic). */

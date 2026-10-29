@@ -98,17 +98,68 @@ object Schema {
             """ALTER TABLE diary_entries ADD COLUMN origin TEXT NOT NULL DEFAULT ''""",
             """INSERT INTO change_log(table_name, row_id, hlc) SELECT 'diary_entries', id, '' FROM diary_entries""",
         ),
+        // v3 -> v4: the personal archive. Memories get historical dates (day / month / year / range / unknown, possibly
+        // approximate) separate from when they were recorded, a "told to Clu" date in Clu's timeline, places, certainty,
+        // importance and story fields. Legacy event timestamps become date-only values (they were saved at local noon).
+        // New tables: people catalog, projects, documents (text chunks + term index), links between records, revisions,
+        // conflicts and import progress. Existing rows are only extended, never removed.
+        listOf(
+            """ALTER TABLE memories ADD COLUMN event_start TEXT""",
+            """ALTER TABLE memories ADD COLUMN event_end TEXT""",
+            """ALTER TABLE memories ADD COLUMN event_precision TEXT NOT NULL DEFAULT 'UNKNOWN'""",
+            """ALTER TABLE memories ADD COLUMN event_approx INTEGER NOT NULL DEFAULT 0""",
+            """ALTER TABLE memories ADD COLUMN told TEXT""",
+            """ALTER TABLE memories ADD COLUMN places TEXT NOT NULL DEFAULT '[]'""",
+            """ALTER TABLE memories ADD COLUMN certainty TEXT NOT NULL DEFAULT 'RECOLLECTION'""",
+            """ALTER TABLE memories ADD COLUMN importance INTEGER NOT NULL DEFAULT 0""",
+            """ALTER TABLE memories ADD COLUMN significance TEXT NOT NULL DEFAULT ''""",
+            """ALTER TABLE memories ADD COLUMN thread_kind TEXT NOT NULL DEFAULT ''""",
+            """ALTER TABLE memories ADD COLUMN links TEXT NOT NULL DEFAULT '[]'""",
+            """ALTER TABLE memories ADD COLUMN merged_into TEXT""",
+            """UPDATE memories SET event_start = strftime('%Y-%m-%d', event_at / 1000, 'unixepoch', 'localtime'),
+                event_end = strftime('%Y-%m-%d', event_at / 1000, 'unixepoch', 'localtime'), event_precision = 'DAY' WHERE event_at IS NOT NULL""",
+            """CREATE INDEX idx_memories_event ON memories(deleted, event_start)""",
+            """CREATE TABLE archive_people (id TEXT PRIMARY KEY, name TEXT NOT NULL, json TEXT NOT NULL, created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, hlc TEXT NOT NULL, origin TEXT NOT NULL)""",
+            """CREATE TABLE archive_projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, json TEXT NOT NULL, created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, hlc TEXT NOT NULL, origin TEXT NOT NULL)""",
+            """CREATE TABLE archive_documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, sha256 TEXT NOT NULL, json TEXT NOT NULL,
+                created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, hlc TEXT NOT NULL, origin TEXT NOT NULL)""",
+            """CREATE INDEX idx_documents_sha ON archive_documents(sha256)""",
+            """CREATE TABLE document_chunks (id TEXT PRIMARY KEY, doc_id TEXT NOT NULL, seq INTEGER NOT NULL, text TEXT NOT NULL)""",
+            """CREATE INDEX idx_chunks_doc ON document_chunks(doc_id, seq)""",
+            """CREATE TABLE document_terms (chunk_id TEXT NOT NULL, doc_id TEXT NOT NULL, term TEXT NOT NULL, tf INTEGER NOT NULL)""",
+            """CREATE INDEX idx_document_terms_term ON document_terms(term)""",
+            """CREATE INDEX idx_document_terms_doc ON document_terms(doc_id)""",
+            """CREATE TABLE archive_links (id TEXT PRIMARY KEY, a_kind TEXT NOT NULL, a_id TEXT NOT NULL, b_kind TEXT NOT NULL, b_id TEXT NOT NULL,
+                relation TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0)""",
+            """CREATE INDEX idx_links_a ON archive_links(a_kind, a_id, deleted)""",
+            """CREATE INDEX idx_links_b ON archive_links(b_kind, b_id, deleted)""",
+            """CREATE TABLE record_revisions (id TEXT PRIMARY KEY, kind TEXT NOT NULL, record_id TEXT NOT NULL, json TEXT NOT NULL,
+                reason TEXT NOT NULL, created_at INTEGER NOT NULL)""",
+            """CREATE INDEX idx_revisions_record ON record_revisions(kind, record_id, created_at)""",
+            """CREATE TABLE archive_conflicts (id TEXT PRIMARY KEY, kind TEXT NOT NULL, a_id TEXT NOT NULL, b_id TEXT NOT NULL, field TEXT NOT NULL,
+                a_value TEXT NOT NULL, b_value TEXT NOT NULL, status TEXT NOT NULL, resolution TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
+                resolved_at INTEGER)""",
+            """CREATE TABLE import_jobs (id TEXT PRIMARY KEY, source TEXT NOT NULL, fingerprint TEXT NOT NULL, total INTEGER NOT NULL,
+                done INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, error TEXT, started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)""",
+            """CREATE TABLE import_keys (key TEXT PRIMARY KEY, record_id TEXT NOT NULL, job_id TEXT NOT NULL)""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size
 
-    fun migrate(db: SqlDriver) {
+    /**
+     * Brings [db] to [target] (default: the current version). All steps run in one transaction: if any statement fails,
+     * nothing is changed and the version stays where it was, so the app can be fixed and opened again without data loss.
+     */
+    fun migrate(db: SqlDriver, target: Int = currentVersion, steps: List<List<String>> = migrations) {
         val from = db.userVersion
-        require(from <= currentVersion) { "Database version $from is newer than this app ($currentVersion)" }
-        if (from == currentVersion) return
+        require(from <= steps.size) { "Database version $from is newer than this app (${steps.size})" }
+        if (from >= target) return
         db.transaction {
-            for (v in from until currentVersion) migrations[v].forEach { db.execute(it) }
+            for (v in from until target) steps[v].forEach { db.execute(it) }
+            db.userVersion = target
         }
-        db.userVersion = currentVersion
     }
 }

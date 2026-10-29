@@ -15,6 +15,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import java.security.MessageDigest
 import kotlin.math.ln
+import ai.clu.core.history.HistoricalDate
 
 enum class MemoryCategory(val label: String) {
     CORE_FACT("Core fact"),
@@ -59,6 +60,20 @@ enum class MemorySource(val label: String) {
 
 enum class RetainMode { FULL, SUMMARY, BOTH }
 
+/** How sure the record is: a confirmed fact, the owner's own recollection, or uncertain. (Conflicts are tracked separately.) */
+enum class Certainty(val label: String) {
+    CONFIRMED("Confirmed fact"),
+    RECOLLECTION("Personal recollection"),
+    UNCERTAIN("Uncertain"),
+}
+
+/** The role a memory plays in a project's or story's history. */
+object ThreadKind {
+    const val NONE = ""
+    val all = listOf("plan" to "Plan / original idea", "decision" to "Decision", "change" to "Change", "abandoned" to "Abandoned approach",
+        "goal" to "Goal", "lesson" to "Lesson learned", "question" to "Open question", "conversation" to "Important conversation", "event" to "Event")
+}
+
 /** Memory scope: "clu" for Clu's own memory, or a character id for character-private memory. */
 const val CLU_SCOPE = "clu"
 
@@ -85,7 +100,29 @@ data class Memory(
     val deleted: Boolean = false,
     val hlc: String = "",
     val origin: String = "",
+    // ---- personal archive (1.8.0)
+    /** When it happened, as precisely as known. Not the recording time ([createdAt]), which is never narrated. */
+    val eventDate: HistoricalDate = HistoricalDate.UNKNOWN,
+    /** When the owner told Clu, positioned in Clu's (possibly simulated) timeline; null = not recorded. */
+    val told: HistoricalDate? = null,
+    val places: List<String> = emptyList(),
+    val certainty: Certainty = Certainty.RECOLLECTION,
+    /** 0 = normal, 1 = important, 2 = very important. Never used to discard anything. */
+    val importance: Int = 0,
+    /** Optional personal significance in the owner's words (non-empty = personally significant). */
+    val significance: String = "",
+    val threadKind: String = ThreadKind.NONE,
+    /** Web links the owner attached. */
+    val links: List<String> = emptyList(),
+    /** Set when this record was merged into another (kept as a tombstone for provenance). */
+    val mergedInto: String? = null,
 ) {
+    /** The event date, also for records saved by older versions that only had [eventAt]. */
+    fun historicalDate(): HistoricalDate = if (eventDate.known) eventDate else eventAt?.let { HistoricalDate.fromEpoch(it) } ?: HistoricalDate.UNKNOWN
+
+    /** What an edit can change (bookkeeping fields excluded), to decide whether a revision is worth keeping. */
+    fun editKey(): Memory = copy(eventAt = null, eventHasTime = false, eventDate = historicalDate(), expiresAt = null, createdAt = 0, updatedAt = 0, hlc = "", origin = "")
+
     /** Text used for retrieval and prompts, honouring the retention choice. */
     fun bodyForPrompt(): String = when (retainMode) {
         RetainMode.SUMMARY -> summary ?: content
@@ -93,7 +130,7 @@ data class Memory(
         RetainMode.BOTH -> summary?.takeIf { it.isNotBlank() } ?: content
     }
 
-    fun indexText(): String = listOf(title, content, summary ?: "", people.joinToString(" "), tags.joinToString(" ")).joinToString(" ")
+    fun indexText(): String = listOf(title, content, summary ?: "", people.joinToString(" "), tags.joinToString(" "), places.joinToString(" "), significance).joinToString(" ")
 }
 
 class MemoryDisabledException : IllegalStateException("Persistent memory is disabled in settings")
@@ -110,7 +147,9 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
     private fun ensureEnabled() { if (!settings.bool(Settings.MEMORY_ENABLED)) throw MemoryDisabledException() }
 
     /** Inserts or updates a memory. Throws [MemoryDisabledException] when persistent memory is off. */
-    fun save(m: Memory): Memory {
+    fun save(m: Memory): Memory = try { saveInner(m) } finally { revisionReason = null }
+
+    private fun saveInner(m: Memory): Memory {
         ensureEnabled()
         require(m.title.isNotBlank() || m.content.isNotBlank()) { "memory needs a title or content" }
         require(m.retainMode != RetainMode.SUMMARY || !m.summary.isNullOrBlank()) { "summary-only memories need a summary" }
@@ -120,10 +159,18 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         // A summary-only memory keeps no original text by the owner's explicit choice.
         val content = if (m.retainMode == RetainMode.SUMMARY) "" else m.content
         val existing = get(m.id)
+        // The historical date is the source of truth; the legacy instant is kept only for an exact day (older peers show it).
+        val hd = m.historicalDate()
+        val legacyAt = if (hd.precision == ai.clu.core.history.DatePrecision.DAY && !hd.approximate)
+            (if (m.eventAt != null && HistoricalDate.fromEpoch(m.eventAt) == hd) m.eventAt else hd.startDate()!!.atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+            else null
         val saved = db.transaction {
+            // Revision history: the previous version of an edited record is kept (corrections never lose the old text).
+            if (existing != null && !existing.deleted && existing.editKey() != m.copy(content = content, eventDate = hd).editKey())
+                revision(existing, revisionReason ?: "edited")
             val hlc = store.stamp(TABLE, m.id)
             val row = m.copy(content = content, expiresAt = expires, createdAt = existing?.createdAt ?: (if (m.createdAt > 0) m.createdAt else now),
-                updatedAt = now, hlc = hlc, origin = store.deviceId, deleted = false)
+                updatedAt = now, hlc = hlc, origin = store.deviceId, deleted = false, eventDate = hd, eventAt = legacyAt, eventHasTime = legacyAt != null && m.eventHasTime)
             write(row)
             row
         }
@@ -131,17 +178,38 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         return saved
     }
 
+    /** Reason recorded with the next revision (set by callers such as "corrected", "merged"); cleared after each save. */
+    @Volatile var revisionReason: String? = null
+
+    private fun revision(m: Memory, reason: String) {
+        db.execute("INSERT INTO record_revisions(id, kind, record_id, json, reason, created_at) VALUES(?,?,?,?,?,?)",
+            listOf(newId(), "memory", m.id, CluJson.encodeToString(Memory.serializer(), m), reason, store.clock.now()))
+    }
+
+    /** Earlier versions of a memory, newest first. */
+    fun revisions(id: String): List<Pair<Long, Memory>> = db.query("SELECT created_at, json FROM record_revisions WHERE kind = 'memory' AND record_id = ? ORDER BY created_at DESC", listOf(id)) {
+        it.lng(0) to CluJson.decodeFromString(Memory.serializer(), it.str(1))
+    }
+
     private fun write(m: Memory) {
+        val ls = ListSerializer(String.serializer())
+        val hd = m.historicalDate()
         db.execute(
             """INSERT INTO memories(id, category, title, content, summary, retain_mode, event_at, event_has_time, source, people, tags,
-               pinned, scope, expires_at, created_at, updated_at, deleted, hlc, origin) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               pinned, scope, expires_at, created_at, updated_at, deleted, hlc, origin, event_start, event_end, event_precision, event_approx, told,
+               places, certainty, importance, significance, thread_kind, links, merged_into) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(id) DO UPDATE SET category=excluded.category, title=excluded.title, content=excluded.content, summary=excluded.summary,
                retain_mode=excluded.retain_mode, event_at=excluded.event_at, event_has_time=excluded.event_has_time, source=excluded.source,
                people=excluded.people, tags=excluded.tags, pinned=excluded.pinned, scope=excluded.scope, expires_at=excluded.expires_at,
-               created_at=excluded.created_at, updated_at=excluded.updated_at, deleted=excluded.deleted, hlc=excluded.hlc, origin=excluded.origin""",
+               created_at=excluded.created_at, updated_at=excluded.updated_at, deleted=excluded.deleted, hlc=excluded.hlc, origin=excluded.origin,
+               event_start=excluded.event_start, event_end=excluded.event_end, event_precision=excluded.event_precision, event_approx=excluded.event_approx,
+               told=excluded.told, places=excluded.places, certainty=excluded.certainty, importance=excluded.importance, significance=excluded.significance,
+               thread_kind=excluded.thread_kind, links=excluded.links, merged_into=excluded.merged_into""",
             listOf(m.id, m.category.name, m.title, m.content, m.summary, m.retainMode.name, m.eventAt, m.eventHasTime, m.source.name,
-                CluJson.encodeToString(ListSerializer(String.serializer()), m.people), CluJson.encodeToString(ListSerializer(String.serializer()), m.tags),
-                m.pinned, m.scope, m.expiresAt, m.createdAt, m.updatedAt, m.deleted, m.hlc, m.origin)
+                CluJson.encodeToString(ls, m.people), CluJson.encodeToString(ls, m.tags),
+                m.pinned, m.scope, m.expiresAt, m.createdAt, m.updatedAt, m.deleted, m.hlc, m.origin,
+                hd.start, hd.end ?: hd.start, hd.precision.name, hd.approximate, m.told?.let { CluJson.encodeToString(HistoricalDate.serializer(), it) },
+                CluJson.encodeToString(ls, m.places), m.certainty.name, m.importance, m.significance, m.threadKind, CluJson.encodeToString(ls, m.links), m.mergedInto)
         )
         reindex(m)
     }
@@ -155,12 +223,17 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
             listOf(m.id, tf.values.sum().toDouble()))
     }
 
-    /** Soft delete (tombstone, so the deletion synchronises). Deleting is an owner action and works even if memory is off. */
-    fun delete(id: String) {
+    /**
+     * Soft delete (tombstone, so the deletion synchronises). Deleting is an owner action and works even if memory is off.
+     * The record's earlier versions are erased too, unless [keepHistory] (a merge, which keeps provenance).
+     */
+    fun delete(id: String, keepHistory: Boolean = false) {
         val m = get(id) ?: return
         db.transaction {
+            if (keepHistory) revision(m, "merged") else db.execute("DELETE FROM record_revisions WHERE kind = 'memory' AND record_id = ?", listOf(id))
             val hlc = store.stamp(TABLE, id)
             write(m.copy(deleted = true, content = "", summary = null, updatedAt = store.clock.now(), hlc = hlc, origin = store.deviceId))
+            db.execute("DELETE FROM archive_links WHERE (a_kind = 'memory' AND a_id = ?) OR (b_kind = 'memory' AND b_id = ?)", listOf(id, id))
             db.execute("DELETE FROM memory_stats WHERE key = ?", listOf("len:$id"))
         }
         store.notifyChanged(TABLE)
@@ -176,7 +249,7 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         if (scope != null) { where += "scope = ?"; args += scope }
         if (category != null) { where += "category = ?"; args += category.name }
         val w = if (where.isEmpty()) "" else "WHERE " + where.joinToString(" AND ")
-        return db.query("SELECT $COLS FROM memories $w ORDER BY pinned DESC, COALESCE(event_at, created_at) DESC LIMIT $limit", args, ::read)
+        return db.query("SELECT $COLS FROM memories $w ORDER BY pinned DESC, COALESCE(event_start, strftime('%Y-%m-%d', created_at / 1000, 'unixepoch')) DESC LIMIT $limit", args, ::read)
     }
 
     /** Free-text search for the memory browser: ranked results, plus substring matches on title. */
@@ -229,6 +302,17 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         }.sortedByDescending { it.score }.take(limit)
     }
 
+    /** Memories whose event date can fall within [from]..[to] (inclusive), oldest first. Undated memories are not included. */
+    fun inPeriod(from: java.time.LocalDate, to: java.time.LocalDate, scope: String? = CLU_SCOPE, limit: Int = 500): List<Memory> =
+        db.query("SELECT $COLS FROM memories WHERE deleted = 0 ${if (scope != null) "AND scope = ?" else ""} AND event_start IS NOT NULL " +
+            "AND event_start <= ? AND COALESCE(event_end, event_start) >= ? ORDER BY event_start, created_at LIMIT $limit",
+            listOfNotNull(scope) + listOf(to.toString(), from.toString()), ::read)
+
+    /** All dated memories in event order (for the timeline), oldest first. */
+    fun timeline(scope: String? = CLU_SCOPE, limit: Int = 5000): List<Memory> =
+        db.query("SELECT $COLS FROM memories WHERE deleted = 0 ${if (scope != null) "AND scope = ?" else ""} AND event_start IS NOT NULL " +
+            "ORDER BY event_start, created_at LIMIT $limit", listOfNotNull(scope), ::read)
+
     fun purgeExpired(): Int {
         val now = store.clock.now()
         val ids = db.query("SELECT id FROM memories WHERE deleted = 0 AND expires_at IS NOT NULL AND expires_at < ?", listOf(now)) { it.str(0) }
@@ -264,11 +348,19 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         tags = CluJson.decodeFromString(ListSerializer(String.serializer()), r.str(10)),
         pinned = r.bool(11), scope = r.str(12), expiresAt = r.long(13), createdAt = r.lng(14), updatedAt = r.lng(15),
         deleted = r.bool(16), hlc = r.str(17), origin = r.str(18),
+        eventDate = r.string(19)?.let { HistoricalDate(runCatching { ai.clu.core.history.DatePrecision.valueOf(r.str(21)) }.getOrDefault(ai.clu.core.history.DatePrecision.DAY), it, r.string(20) ?: it, r.bool(22)) }
+            ?: HistoricalDate.UNKNOWN,
+        told = r.string(23)?.let { runCatching { CluJson.decodeFromString(HistoricalDate.serializer(), it) }.getOrNull() },
+        places = CluJson.decodeFromString(ListSerializer(String.serializer()), r.str(24).ifEmpty { "[]" }),
+        certainty = runCatching { Certainty.valueOf(r.str(25)) }.getOrDefault(Certainty.RECOLLECTION),
+        importance = r.lng(26).toInt(), significance = r.str(27), threadKind = r.str(28),
+        links = CluJson.decodeFromString(ListSerializer(String.serializer()), r.str(29).ifEmpty { "[]" }), mergedInto = r.string(30),
     )
 
     companion object {
         const val TABLE = "memories"
-        private const val COLS = "id, category, title, content, summary, retain_mode, event_at, event_has_time, source, people, tags, pinned, scope, expires_at, created_at, updated_at, deleted, hlc, origin"
+        private const val COLS = "id, category, title, content, summary, retain_mode, event_at, event_has_time, source, people, tags, pinned, scope, expires_at, created_at, updated_at, deleted, hlc, origin, " +
+            "event_start, event_end, event_precision, event_approx, told, places, certainty, importance, significance, thread_kind, links, merged_into"
     }
 }
 

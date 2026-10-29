@@ -110,7 +110,8 @@ class AppSmokeTest {
             SettingsActivity::class.java, WakeWordsActivity::class.java, ModelsActivity::class.java, VoiceActivity::class.java,
             CharactersActivity::class.java, CharacterEditActivity::class.java, PeopleActivity::class.java, CommandsActivity::class.java,
             DevicesActivity::class.java, PreferencesActivity::class.java, ToolHistoryActivity::class.java, DiagnosticsActivity::class.java,
-            ConnectionActivity::class.java, VoiceChatActivity::class.java)
+            ConnectionActivity::class.java, VoiceChatActivity::class.java, TimelineActivity::class.java, ArchivePeopleActivity::class.java, PersonEditActivity::class.java,
+            DocumentsActivity::class.java, ProjectsActivity::class.java, ProjectEditActivity::class.java, ArchiveImportActivity::class.java, ConflictsActivity::class.java)
             .forEach { cls -> val a = launch(cls); assertFalse("${cls.simpleName} finished unexpectedly", a.isFinishing) }
     }
 
@@ -128,7 +129,7 @@ class AppSmokeTest {
         val a = launch(MemoryEditActivity::class.java)
         val edits = allViews(a.window.decorView).filterIsInstance<EditText>()
         edits[0].setText("Old chat with Ashutosh")
-        edits[3].setText("Ashutosh: are we going to Goa?\nMe: yes in December")
+        edits[1].setText("Ashutosh: are we going to Goa?\nMe: yes in December") // 1.8.0 editor: title, what happened, when…
         allViews(a.window.decorView).filterIsInstance<Button>().first { it.text == "Save" }.performClick()
         idle()
         val m = app.core.memories.list().first { it.title == "Old chat with Ashutosh" }

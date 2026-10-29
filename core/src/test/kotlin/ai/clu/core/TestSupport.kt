@@ -142,6 +142,9 @@ class TestPlatform(val fakeHttp: FakeHttp = FakeHttp(), override val llm: TestLl
     override fun deviceName() = name
     override fun secret(name: String) = secrets[name]
     override val http: HttpFetcher get() = fakeHttp
+    /** App-private file storage for archive copies (a temporary directory, removed when the JVM exits). */
+    val files: File by lazy { Files.createTempDirectory("clu-files").toFile().also { d -> Runtime.getRuntime().addShutdownHook(Thread { d.deleteRecursively() }) } }
+    override fun filesDir(): File? = files
 }
 
 /** Deterministic engine: returns scripted replies and records every prompt it receives. */

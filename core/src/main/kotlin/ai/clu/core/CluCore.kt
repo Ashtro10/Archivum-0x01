@@ -38,6 +38,8 @@ interface CluPlatform {
     fun deviceName(): String
     /** Secret storage for API keys (Android: Keystore-encrypted). */
     fun secret(name: String): String?
+    /** App-private storage for archive files (managed copies of imported documents and photos); null = no file storage. */
+    fun filesDir(): java.io.File? = null
 }
 
 /**
@@ -50,6 +52,11 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val diag = DiagnosticsLog(store, settings)
     val conversations = ConversationRepository(store)
     val memories = MemoryRepository(store, settings)
+    /** Real clock, simulated conversation date and historical perspective (one time service for the whole app). */
+    val time = ai.clu.core.history.CluTime(settings, clock) { keys ->
+        db.query("SELECT MAX(updated_at) FROM settings WHERE key IN (${keys.joinToString(",") { "?" }})", keys) { it.long(0) }.firstOrNull() }
+    /** The personal archive: historical memories, People catalog, projects, documents, links, conflicts, import/backup. */
+    val archive = ai.clu.core.history.ArchiveService(store, settings, memories, time, platform::filesDir)
     val proposals = ProposalRepository(store, settings, memories)
     /** The owner's diary: separate from memory; entries reach memory only when promoted. */
     val diary = ai.clu.core.diary.DiaryRepository(store, memories)
@@ -94,7 +101,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
 
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
         inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) }, diary = diary,
-        context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http))
+        context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http),
+        archive = archive)
 
     private var node: SyncNode? = null
 
@@ -115,7 +123,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     private fun registerCoreTools() {
         val web = WebSearchTool(search)
         val geo = Geocoder(platform.http)
-        listOf(TimeTool(), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
+        listOf(TimeTool(time::conversationNow), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
             DiaryAddTool(diary, conversations), PersonaSwitchTool(personas),
             web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") })
             .forEach(toolRegistry::register)

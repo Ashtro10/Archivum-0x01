@@ -354,6 +354,38 @@ object Settings {
         "Whether meaningful conversations become diary entries.", "DiaryWriter", "Creates proposals / entries when a conversation ends",
         "MemorySettingsTest#diaryMode")
 
+    // ---------------------------------------------------------------- Personal archive & timeline (1.8.0)
+    private val ISO_DAY = Regex("\\d{4}-\\d{2}-\\d{2}")
+    val TIMELINE_START = text("history.timelineStart", "Clu timeline start", MEMORY, "2018-01-01",
+        "When your history with Clu begins (yyyy-mm-dd). Clu's identity, the timeline view and gap detection start here; " +
+            "nothing is invented to fill it.", "CluTime, PromptBuilder, ArchiveTimeline",
+        "Prompt says when Clu's history began; timeline and gaps start here; 'told' dates are not earlier", "HistorySettingsTest#timelineStart",
+        SettingType.Text(10, pattern = ISO_DAY))
+    val SIMULATED_TIME = choice("history.simulatedTime", "Simulated current date", MEMORY, "off",
+        listOf("off" to "Off: use the device date", "fixed" to "Fixed: always the date below", "advancing" to "Advancing: starts at the date below and moves on day by day"),
+        "Lets Clu talk as if today were another date (e.g. while building its history). The device clock is still used for the database.",
+        "CluTime", "Clu's 'today', 'last year' and 'N years ago' use the simulated date", "HistorySettingsTest#simulatedTime")
+    val SIMULATED_DATE = text("history.simulatedDate", "Simulated date", MEMORY, "",
+        "The simulated current date (yyyy-mm-dd), used when simulated time is on.", "CluTime", "Sets Clu's conversational 'today'",
+        "HistorySettingsTest#simulatedTime", SettingType.Text(10, pattern = ISO_DAY))
+    val HISTORY_PERSPECTIVE = text("history.perspective", "Historical perspective (as of)", MEMORY, "",
+        "When set (yyyy-mm-dd), Clu answers as of that date: only memories it knew by then are used, and later events are not mentioned. Empty = off.",
+        "CluTime, Recall, MemoryRetriever", "Recall and memory retrieval are cut off at this date", "HistorySettingsTest#perspective",
+        SettingType.Text(10, pattern = ISO_DAY))
+    val TOLD_DEFAULT = choice("history.toldDefault", "When Clu learned an undated-told memory", MEMORY, "event",
+        listOf("event" to "When it happened (you told Clu at the time)", "unknown" to "Unknown"),
+        "For a historical memory without a 'told to Clu' date: assume you told Clu when it happened, or treat that as unknown.",
+        "ArchiveDates, Recall", "'How long ago did I tell you…' and the historical perspective use this", "HistorySettingsTest#toldDefault")
+    val RECALL_IN_CHAT = bool("history.recallInChat", "Answer memory questions from the archive", MEMORY, true,
+        "\"Do you remember…\", \"what did I tell you about…\", \"what happened in March 2018?\": answered directly from your records, with their dates.",
+        "Recall, CluAgent", "Memory questions get record-based answers instead of a model reply", "HistorySettingsTest#recallInChat")
+    val RESURFACE = bool("history.resurface", "Bring up related earlier decisions", MEMORY, true,
+        "When a project or person comes up, related earlier decisions and memories are given to Clu (a few, only when relevant).",
+        "MemoryRetriever, ProjectContext", "Related decisions are added to the reply's context", "HistorySettingsTest#resurface")
+    val SUGGEST_MISSING = bool("history.suggestMissing", "Suggest missing details", MEMORY, true,
+        "While entering or importing, point out missing dates or unknown people (never blocks saving).", "ArchiveService",
+        "Editor and import preview list missing-context hints", "HistorySettingsTest#suggestMissing")
+
     // ---------------------------------------------------------------- Security
     val SPEAKER_VERIFY = bool("security.speakerId", "Recognise speakers by voice", SECURITY, true,
         "Identify the owner and registered people from their voice.", "SpeakerIdentifier", "Each voice turn is attributed to a person or 'unknown'",

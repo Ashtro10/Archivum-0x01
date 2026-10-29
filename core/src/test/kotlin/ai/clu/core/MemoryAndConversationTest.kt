@@ -49,7 +49,7 @@ class MemoryTest {
     @Test fun promptMarksOwnerSuppliedMemoriesAsNotWitnessed() {
         val line = PromptMemoryFormat.line(insertManual())
         assertTrue(line.contains("owner told you; you did not witness it"))
-        assertTrue(line.contains("[13 Jul 2024]"))
+        assertTrue(line.startsWith("- [13 July 2024]"), line) // 1.8.0: the archive's date labels (event date, never the entry date)
     }
 
     @Test fun agentInjectsRetrievedMemoryIntoPrompt(): Unit = runBlocking {

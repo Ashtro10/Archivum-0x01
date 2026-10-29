@@ -42,13 +42,14 @@ interface HttpFetcher {
 private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 const val USER_AGENT = "Clu/1.0 (personal offline-first Android assistant)"
 
-class TimeTool : Tool {
+/** [clock]: Clu's conversation time (simulated date when that is on); null = the request time. */
+class TimeTool(private val clock: (() -> Long)? = null) : Tool {
     override val name = "time.now"
     override val description = "Current local date and time."
     override val argsExample = "{}"
     override val sensitivity = Sensitivity.ROUTINE
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
-        val s = SimpleDateFormat("EEEE d MMMM yyyy, h:mm a", Locale.ENGLISH).format(Date(ctx.now))
+        val s = SimpleDateFormat("EEEE d MMMM yyyy, h:mm a", Locale.ENGLISH).format(Date(clock?.invoke() ?: ctx.now))
         return ToolResult.ok("It is $s.")
     }
 }
@@ -193,16 +194,19 @@ class PersonaSwitchTool(private val personas: PersonaManager) : Tool {
 
 /** Formats memories for prompts/tools with date and provenance so the model knows what it did not witness. */
 object PromptMemoryFormat {
-    fun line(m: Memory): String {
-        val date = m.eventAt?.let { SimpleDateFormat(if (m.eventHasTime) "d MMM yyyy HH:mm" else "d MMM yyyy", Locale.ENGLISH).format(Date(it)) }
+    /** One memory for the prompt: when it happened (never when it was typed in), when the owner told Clu, and its provenance. */
+    fun line(m: Memory, told: ai.clu.core.history.HistoricalDate? = m.told, today: java.time.LocalDate? = null): String {
+        val d = m.historicalDate()
+        val date = if (d.known) d.label() + (today?.let { ai.clu.core.history.TimePhrases.ago(d, it) }?.let { ", $it" } ?: "") else null
         val prov = when (m.source) {
-            MemorySource.OWNER_SUPPLIED, MemorySource.IMPORTED -> "owner told you; you did not witness it"
+            MemorySource.OWNER_SUPPLIED, MemorySource.IMPORTED -> "owner told you" + (told?.takeIf { it.known }?.let { " (${it.label()})" } ?: "") + "; you did not witness it"
             MemorySource.OWNER_INSTRUCTION -> "owner asked you to remember"
             MemorySource.CONVERSATION -> "from your conversation"
             MemorySource.APPROVED_INFERENCE -> "your inference, approved by owner"
         }
+        val sure = when (m.certainty) { ai.clu.core.memory.Certainty.CONFIRMED -> "; confirmed"; ai.clu.core.memory.Certainty.UNCERTAIN -> "; uncertain"; else -> "" }
         val body = m.bodyForPrompt().replace(Regex("\\s+"), " ").take(600)
-        return "- ${if (date != null) "[$date] " else ""}${m.category.label}: ${if (m.title.isNotBlank() && !body.startsWith(m.title)) m.title + " — " else ""}$body ($prov)"
+        return "- ${if (date != null) "[$date] " else ""}${m.category.label}: ${if (m.title.isNotBlank() && !body.startsWith(m.title)) m.title + " — " else ""}$body ($prov$sure)"
     }
 }
 

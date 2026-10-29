@@ -24,6 +24,14 @@ data class PromptContext(
     val viaSpeech: Boolean = false,
     /** The owner's standing instructions saved in memory ("from now on…"): part of Clu's rules, not per-message context. */
     val standingInstructions: List<String> = emptyList(),
+    /** The date line from the time service (simulated date / historical perspective); null = the real clock ([nowMs]). */
+    val timeLine: String? = null,
+    /** When Clu learned each memory, in its timeline (for "you told me back in …"). */
+    val toldOf: (ai.clu.core.memory.Memory) -> ai.clu.core.history.HistoricalDate? = { it.told },
+    /** Relevant passages from the owner's documents. */
+    val documents: List<String> = emptyList(),
+    /** Clu's "today" (simulated or real), for how long ago a memory happened. */
+    val today: java.time.LocalDate? = null,
 )
 
 /**
@@ -46,15 +54,19 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
 
     /** Per-message context: date/time, connectivity, speaker and retrieved memories. */
     fun turnContext(ctx: PromptContext): String = buildString {
-        appendLine("Current date and time: " + SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ctx.nowMs)) + ".")
+        appendLine(ctx.timeLine ?: ("Current date and time: " + SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date(ctx.nowMs)) + "."))
         if (!ctx.online) appendLine("The device is OFFLINE: you cannot access live information (news, weather, prices, train status). Say so instead of guessing.")
         if (!ctx.speakerIsOwner) appendLine("You are speaking with ${ctx.speakerName ?: "someone"} who is not the owner. Do not reveal the owner's private information.")
         if (ctx.memories.isNotEmpty()) {
             appendLine("Relevant memories (only use them if relevant; provenance in parentheses):")
-            ctx.memories.forEach { appendLine(PromptMemoryFormat.line(it.memory)) }
+            ctx.memories.forEach { appendLine(PromptMemoryFormat.line(it.memory, ctx.toldOf(it.memory), ctx.today)) }
             ai.clu.core.memory.MemoryConflicts.find(ctx.memories.map { it.memory }).forEach { (older, newer) ->
                 appendLine(ai.clu.core.memory.MemoryConflicts.note(older, newer) { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(it)) })
             }
+        }
+        if (ctx.documents.isNotEmpty()) {
+            appendLine("From the owner's documents (this is what the documents say, not verified facts; name the document if you use it):")
+            ctx.documents.forEach { appendLine("- $it") }
         }
         if (ctx.viaSpeech) {
             appendLine("This message was spoken and transcribed automatically, so words (especially names and places) may be misheard. " +
@@ -72,6 +84,9 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
             "You run locally on the owner's ${if (ctx.deviceRole == "home") "tablet (your home device)" else "phone"}; whichever device runs you, you are the same $name with the same memories.")
         appendLine("Personality: calm, controlled, highly intelligent and confident; composed, slightly intimidating but never needlessly hostile. " +
             "You respect your owner, analyse situations and give real judgement. You disagree when warranted, admit uncertainty and correct your mistakes. You never simply agree to please.")
+        ai.clu.core.history.CluTime.parseDay(settings.string(Settings.TIMELINE_START))?.let { d ->
+            appendLine("Your history with the owner began in ${d.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH)} ${d.year}. " +
+                "Memories carry the date the event happened; what the owner told you is their account, not something you witnessed.") }
         if (address.isNotBlank()) appendLine("Address the owner as \"$address\".")
         else if (owner.isNotBlank()) appendLine("Address the owner by name ($owner) when natural.")
         styleLines(ctx).forEach { appendLine(it) }

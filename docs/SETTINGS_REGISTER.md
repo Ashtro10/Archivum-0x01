@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.7.0-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.0-prototype.
 
-* Settings: **203** · verifying test passed: **203** · other: **0**
+* Settings: **211** · verifying test passed: **211** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -121,6 +121,14 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `memory.proposeInsights` | Suggest insights | `true` | true / false | SHARED | InsightProposer | Proposals are created for review | Applies immediately | `MemorySettingsTest#proposeInsights` | passed | – |
 | `memory.rememberCommand` | "Remember that…" saves directly | `true` | true / false | SHARED | CommandRouter, MemoryService | Command saves a memory instead of creating a proposal | Applies immediately | `MemorySettingsTest#rememberCommand` | passed | – |
 | `diary.mode` | Conversation diary | `"propose"` | `off`, `propose`, `automatic` | SHARED | DiaryWriter | Creates proposals / entries when a conversation ends | Applies immediately | `MemorySettingsTest#diaryMode` | passed | – |
+| `history.timelineStart` | Clu timeline start | `"2018-01-01"` | text ≤ 10 chars, validated format | SHARED | CluTime, PromptBuilder, ArchiveTimeline | Prompt says when Clu's history began; timeline and gaps start here; 'told' dates are not earlier | Applies immediately | `HistorySettingsTest#timelineStart` | passed | – |
+| `history.simulatedTime` | Simulated current date | `"off"` | `off`, `fixed`, `advancing` | SHARED | CluTime | Clu's 'today', 'last year' and 'N years ago' use the simulated date | Applies immediately | `HistorySettingsTest#simulatedTime` | passed | – |
+| `history.simulatedDate` | Simulated date | `""` | text ≤ 10 chars, validated format | SHARED | CluTime | Sets Clu's conversational 'today' | Applies immediately | `HistorySettingsTest#simulatedTime` | passed | – |
+| `history.perspective` | Historical perspective (as of) | `""` | text ≤ 10 chars, validated format | SHARED | CluTime, Recall, MemoryRetriever | Recall and memory retrieval are cut off at this date | Applies immediately | `HistorySettingsTest#perspective` | passed | – |
+| `history.toldDefault` | When Clu learned an undated-told memory | `"event"` | `event`, `unknown` | SHARED | ArchiveDates, Recall | 'How long ago did I tell you…' and the historical perspective use this | Applies immediately | `HistorySettingsTest#toldDefault` | passed | – |
+| `history.recallInChat` | Answer memory questions from the archive | `true` | true / false | SHARED | Recall, CluAgent | Memory questions get record-based answers instead of a model reply | Applies immediately | `HistorySettingsTest#recallInChat` | passed | – |
+| `history.resurface` | Bring up related earlier decisions | `true` | true / false | SHARED | MemoryRetriever, ProjectContext | Related decisions are added to the reply's context | Applies immediately | `HistorySettingsTest#resurface` | passed | – |
+| `history.suggestMissing` | Suggest missing details | `true` | true / false | SHARED | ArchiveService | Editor and import preview list missing-context hints | Applies immediately | `HistorySettingsTest#suggestMissing` | passed | – |
 
 ## Owner, people & security
 

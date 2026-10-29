@@ -160,4 +160,6 @@ class AndroidPlatform(private val context: Context, override val keyVault: KeyVa
 
     override fun deviceName() = DeviceInfo.name(context)
     override fun secret(name: String) = secrets.get(name)
+    /** App-private storage (managed copies of archive documents and photos; removed with the app's data). */
+    override fun filesDir(): java.io.File = context.filesDir
 }

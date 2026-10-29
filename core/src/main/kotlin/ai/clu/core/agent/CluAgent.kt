@@ -139,7 +139,9 @@ private const val MAX_REPAIRS = 1
 internal const val EXTRACT_PREFIX = "I couldn't put that into my own words reliably. The top result says: "
 private val LOOKUP = Regex("(?i)^(?:search|look up|look into|find|research|check|compare)\\b")
 
-class MemoryRetriever(private val settings: SettingsStore, private val memories: MemoryRepository, private val now: () -> Long = System::currentTimeMillis) {
+class MemoryRetriever(private val settings: SettingsStore, private val memories: MemoryRepository, private val now: () -> Long = System::currentTimeMillis,
+                      /** Historical perspective: only memories known by the cutoff date (identity when off). */
+                      private val visible: (List<ai.clu.core.memory.Memory>) -> List<ai.clu.core.memory.Memory> = { it }) {
     fun retrieve(query: String, scopes: List<String>): List<ScoredMemory> {
         if (!settings.bool(Settings.MEMORY_RETRIEVAL) || scopes.isEmpty()) return emptyList()
         val max = settings.int(Settings.MEMORY_MAX)
@@ -147,14 +149,17 @@ class MemoryRetriever(private val settings: SettingsStore, private val memories:
         val min = effectiveThreshold(settings.double(Settings.MEMORY_MIN_SCORE), memories.count())
         // Instructions are part of the system prompt already; legacy diary rows are not memories.
         fun usable(s: ScoredMemory) = s.memory.category != MemoryCategory.INSTRUCTION && s.memory.category != MemoryCategory.DIARY
-        val picked = memories.rank(query, scopes, limit = max + 4).filter(::usable).filter { it.score >= min || it.memory.pinned && it.score >= min / 2 }
+        fun seen(list: List<ScoredMemory>): List<ScoredMemory> { val ok = visible(list.map { it.memory }).map { it.id }.toSet(); return list.filter { it.memory.id in ok } }
+        val picked = seen(memories.rank(query, scopes, limit = max + 4).filter(::usable).filter { it.score >= min || it.memory.pinned && it.score >= min / 2 })
         val resumed = if (picked.none { it.memory.category == MemoryCategory.PROJECT } && ai.clu.core.memory.ProjectContext.wantsResume(query))
             memories.rank(query, scopes, limit = 3).filter { it.memory.category == MemoryCategory.PROJECT && it.score >= min / 2 }.take(1) else emptyList()
         // Only the best-matching project is expanded: one extra ranking pass, whatever the database size.
         val projects = (picked + resumed).map { it.memory }.filter { it.category == MemoryCategory.PROJECT }.take(1)
-        val related = if (projects.isEmpty()) emptyList() else ai.clu.core.memory.ProjectContext.related(projects, { memories.rank(it, scopes, limit = 8) },
-            (picked + resumed).map { it.memory.id }.toSet(), 3).filter { usable(it) && it.score >= min / 2 }
         val ordered = ai.clu.core.memory.MemoryRanking.rerank(picked + resumed, now()).take(max)
+        // Contextual resurfacing: earlier decisions of the project in question (setting "Bring up related earlier decisions"),
+        // including ones that matched but didn't make the cut above.
+        val related = if (projects.isEmpty() || !settings.bool(Settings.RESURFACE)) emptyList() else seen(ai.clu.core.memory.ProjectContext.related(projects, { memories.rank(it, scopes, limit = 8) },
+            ordered.map { it.memory.id }.toSet(), 3).filter { usable(it) && it.score >= min / 2 })
         return ordered + related.filter { r -> ordered.none { it.memory.id == r.memory.id } }.take(2)
     }
 
@@ -209,8 +214,11 @@ class CluAgent(
     private val context: ConversationStateStore? = null,
     private val hazards: ai.clu.core.search.Gdacs? = null,
     private val weather: ai.clu.core.search.OpenMeteo? = null,
+    /** The personal archive (historical memories, people, projects, documents) and its time service; null in single-turn tests. */
+    private val archive: ai.clu.core.history.ArchiveService? = null,
 ) {
-    private val retriever = MemoryRetriever(settings, memories, now)
+    private val retriever = MemoryRetriever(settings, memories, now, visible = { list -> archive?.dates?.visible(list) ?: list })
+    private val recall = archive?.let { ai.clu.core.history.Recall(it, settings) }
     /** Unfinished multi-step tasks per conversation (in memory only: after a restart there is not enough state to resume safely). */
     private val tasks = java.util.concurrent.ConcurrentHashMap<String, TaskState>()
     fun activeTask(conversationId: String): TaskState? = tasks[conversationId]
@@ -322,6 +330,18 @@ class CluAgent(
         // "look it up", "tell me more", "is it dangerous?" act on what the conversation is about (ConversationContext.kt).
         val state = context?.get(req.conversationId) ?: ConversationState()
         turn.state = state
+        // 3b''. MEMORY RECALL: questions about the owner's own past are answered from the archive (records and the configured
+        // clock), with one question back when it could be several people, and an honest "nothing stored" otherwise.
+        val recall = recall
+        if (persona.isClu && req.actor.role == PersonRole.OWNER && recall != null) {
+            val recent = conversations.messages(req.conversationId).takeLast(8).map { it.content }
+            val a = runCatching { recall.answer(text, state, recent) }.onFailure { diag?.w("agent", "memory recall failed: ${it.message}") }.getOrNull()
+            if (a != null) {
+                turn.topicOut = a.topic; turn.pendingOut = a.pending
+                finish(req, turn, a.text, baseMeta.copy(source = "template", tools = listOf("memory.recall")), emit)
+                return
+            }
+        }
         val command = IntentRouter.route(text)?.let { it.tool != "web.search" && tools.has(it.tool) } == true
         val resolved = if (persona.isClu && context != null) FollowUpResolver.resolve(text, state, req.viaVoice, now(), command) else Resolved(Resolution.Standalone(text), text)
         turn.resolved = resolved
@@ -732,10 +752,15 @@ class CluAgent(
         val canReadMemory = auth.decide(req.actor, Sensitivity.PERSONAL) == AuthDecision.Allow
         val tMem = System.nanoTime()
         val mems = if (canReadMemory) retriever.retrieve(req.text, persona.readableScopes) else emptyList()
+        // Passages from the owner's documents, when they match well (what the document says, not verified facts).
+        val docs = if (canReadMemory && persona.isClu && settings.bool(Settings.MEMORY_RETRIEVAL)) archive?.documents?.search(req.text, limit = 2)
+            ?.filter { it.score >= 3.0 }?.map { "\"${it.document.name}\": " + it.text.replace(Regex("\\s+"), " ").take(500) }.orEmpty() else emptyList()
         if (canReadMemory) diag?.perf("memory_retrieval_ms", (System.nanoTime() - tMem) / 1e6)
         val toolList = toolsFor(persona, req.text)
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
-            viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList())
+            viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList(),
+            timeLine = archive?.time?.promptLine(), toldOf = { m -> archive?.dates?.told(m) ?: m.told }, documents = docs,
+            today = archive?.time?.today())
         val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"),
             reserveThreads = if (req.spokenOnDevice) SPEECH_RESERVED_THREADS else 0)
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)

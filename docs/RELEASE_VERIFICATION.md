@@ -1,6 +1,6 @@
 # Release verification and provenance
 
-_Verified 2026-10-29 in the build container (1.7.0-prototype). These facts were checked by tools, not recalled._
+_Verified 2026-10-29 in the build container (1.8.0-prototype). These facts were checked by tools, not recalled._
 
 ## 1. Where everything is
 
@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,321,743 bytes | `stat` |
-| SHA-256 | `c52eed39111ad3c86a1b064ceb9ec86f75b0fef4570fb661adad12661bfea596` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,485,581 bytes | `stat` |
+| SHA-256 | `81b30cd7a8b4b587072a85ba8e99349f523697593ad4b7320dbd3d6038905846` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.7.0-prototype` (versionCode 16; installs as an update over versionCodes 1–15, same package and signer; no database change since 1.5.0 — schema v3 (the new conversation context uses the existing `kv_meta` table). Previous APKs: 1.6.2 in commit `ac3eda6`, 1.6.1 in `798a07e`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
+| Version | `1.8.0-prototype` (versionCode 17; installs as an update over versionCodes 1–16, same package and signer; database migrates v3 → v4 on first start, extending memories and adding archive tables, nothing removed; the migration is one transaction. Previous APKs: 1.7.0 in commit `cc18766`, 1.6.2 in `ac3eda6`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |
@@ -42,9 +42,9 @@ repository.
 | Regex compatibility | every regex literal compiles with ICU (the engine Android uses) | `:app:icuRegexCheck` |
 | Test code in APK | none (no `androidx/`, `org/robolectric`, `org/junit` classes in `classes.dex`) | `strings classes.dex` |
 | Static API check | 793 classes (app, core), every platform reference exists at API 33. The prebuilt LiveKit SDK is not part of this check: it is built by LiveKit for minSdk 21 | `:app:apiCheck` |
-| APK structure check | 27 manifest components exist; 377 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
+| APK structure check | 36 manifest components exist; 377 JNI methods (Clu, sherpa-onnx, LiveKit's prefixed WebRTC, JNA) resolve to exported native symbols; all bundled models present. Exception, documented: WebRTC's AV1 *video* encoder is not compiled in and is unreachable (Clu sends no video) | `:app:verifyApk -Pclu.verify=release` |
 
-**Check the download on the tablet (optional):** the file size should be 85,321,743 bytes (Files → file → Details). To
+**Check the download on the tablet (optional):** the file size should be 85,485,581 bytes (Files → file → Details). To
 check the SHA-256 without a PC, use any "hash checker" app from Google Play on the downloaded file. It must match the
 value above.
 

@@ -59,6 +59,15 @@
         <activity android:name=".ui.MemoryActivity" />
         <activity android:name=".ui.MemoryEditActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.ProposalsActivity" />
+        <activity android:name=".ui.TimelineActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ArchivePeopleActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.PersonEditActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.DocumentsActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.DocumentActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ProjectsActivity" />
+        <activity android:name=".ui.ProjectEditActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ArchiveImportActivity" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ConflictsActivity" />
         <activity android:name=".ui.DiaryActivity" />
         <activity android:name=".ui.DiaryEditActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.SettingsActivity" />

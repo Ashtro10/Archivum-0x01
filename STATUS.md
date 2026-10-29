@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-29 (v1.7.0)_
+_Last updated: 2026-10-29 (v1.8.0)_
 
 ## Current state
 
@@ -12,10 +12,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 508 total (core 446, app 62): 495 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: 4/4 executed and passed). Server: shared agent contract (v2, with the Stage 4 conversations), cancellation and context 9/9 (also run by the core suite); LiveKit end-to-end 18/18 with the scripted mock and 18/18 with a real model (SmolLM2-135M) |
+| Automated tests (JVM / Robolectric / host engines) | 539 total (core 473, app 66): 526 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: executed and passed). Server: shared agent contract, cancellation and context 9/9 (also run by the core suite). LiveKit end-to-end last run for 1.7.0 (server unchanged since) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-29: Personal archive, historical memory and simulated timeline (v1.8.0, versionCode 17)
+
+Details: [docs/HISTORICAL_ARCHIVE.md](docs/HISTORICAL_ARCHIVE.md). Clu's history begins at a configurable timeline
+start (default 2018) and can run on a simulated current date, separate from the device clock. Memories carry
+historical dates (day, month, year, range, unknown, approximate), when Clu was told, places, certainty, importance and
+their role in a project or story. Added: a People catalog, a document archive (TXT/MD/CSV/HTML/JSON/PDF/DOCX, local
+index), projects, links, revisions, conflict and duplicate detection, gaps, bulk import with preview and resumable
+batches, and a full archive backup. Questions such as "do you remember that girl I told you about?", "what happened in
+March 2018?" and "what did we decide about Primus?" are answered from the records with real dates, a clarifying
+question when several people fit, and "nothing stored" when nothing is. A historical perspective mode answers as of a
+chosen date. Database schema v4 (memories extended, never removed). Host-verified only; **not yet tested on a device.**
 
 ## 2026-10-29: Stage 4 correction — conversation context, research relevance, answer first (v1.7.0, versionCode 16)
 

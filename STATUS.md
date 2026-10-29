@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-29 (v1.8.0)_
+_Last updated: 2026-10-29 (v1.8.1)_
 
 ## Current state
 
@@ -12,10 +12,20 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 539 total (core 473, app 66): 526 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: executed and passed). Server: shared agent contract, cancellation and context 9/9 (also run by the core suite). LiveKit end-to-end last run for 1.7.0 (server unchanged since) |
+| Automated tests (JVM / Robolectric / host engines) | 549 total (core 475, app 74): 536 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: executed and passed). Server: shared agent contract, cancellation and context 9/9 (also run by the core suite). LiveKit end-to-end last run for 1.7.0 (server unchanged since) |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-29: Archive workflows verified end to end (v1.8.1, versionCode 18)
+
+New `ArchiveWorkflowTest` (8 tests) drives every archive screen through the real UI, dialogs, file pickers and the chat
+screen on the real Android database: navigation, historical dates with simulated time and recall, People with
+linking/ambiguity/merge/conflict resolution, documents, projects and timeline with historical perspective, bulk import
+from a file, and backup export/restore. Fixed: the memory editor dropped fields it doesn't show (expiry, sync
+metadata); a new profile lost typed fields when a photo was picked; CSV/JSON import rejected the line format's column
+names; restore ran on the main thread; sync from a pre-1.8.0 device could reset archive fields; a recall phrase.
+Details: [docs/HISTORICAL_ARCHIVE.md](docs/HISTORICAL_ARCHIVE.md) §7. Host-verified only; **not tested on a device.**
 
 ## 2026-10-29: Personal archive, historical memory and simulated timeline (v1.8.0, versionCode 17)
 

@@ -206,15 +206,17 @@ class MemoryEditActivity : BaseActivity() {
                 val hd = date.value() ?: return@button toast("The date isn't understood — fix it or leave it empty.")
                 val toldDate = told.value() ?: return@button toast("The 'told' date isn't understood.")
                 val retain = modes[mode.selectedItemPosition].first
-                val base = existing
-                val mem = Memory(id = base?.id ?: ai.clu.core.util.newId(), category = cats[cat.selectedItemPosition], title = title.text.toString().trim(),
+                // Edit a copy of the stored record so fields this screen doesn't show (expiry, sync metadata…) are kept.
+                val base = existing ?: Memory(category = cats[cat.selectedItemPosition], title = "", content = "", source = MemorySource.OWNER_SUPPLIED,
+                    scope = intent.getStringExtra("scope") ?: CLU_SCOPE)
+                val mem = base.copy(category = cats[cat.selectedItemPosition], title = title.text.toString().trim(),
                     content = textField.text.toString(), summary = summary.text.toString().trim().ifEmpty { null }, retainMode = retain, eventDate = hd,
-                    told = toldDate.takeIf { it.known }, source = base?.source ?: MemorySource.OWNER_SUPPLIED, people = split(people), places = split(places), tags = split(tags),
-                    pinned = pinned.isChecked, scope = base?.scope ?: intent.getStringExtra("scope") ?: CLU_SCOPE, createdAt = base?.createdAt ?: 0,
+                    eventAt = null, eventHasTime = false,
+                    told = toldDate.takeIf { it.known }, people = split(people), places = split(places), tags = split(tags), pinned = pinned.isChecked,
                     certainty = Certainty.values()[certainty.selectedItemPosition], importance = importance.selectedItemPosition, significance = significance.text.toString().trim(),
                     threadKind = kinds[kind.selectedItemPosition].first, links = links.text.lines().map { it.trim() }.filter { it.isNotEmpty() })
                 val go = { save(mem) }
-                if (retain == RetainMode.SUMMARY && base?.retainMode != RetainMode.SUMMARY) confirm("Discard original text?", "Only the summary will be kept.") { go() } else go()
+                if (retain == RetainMode.SUMMARY && existing?.retainMode != RetainMode.SUMMARY) confirm("Discard original text?", "Only the summary will be kept.") { go() } else go()
             }
             if (m != null) {
                 row {

@@ -229,6 +229,19 @@ class SyncEngine(
         return st
     }
 
+    /**
+     * A memory edited on a device still running a version before 1.8.0 arrives without the personal-archive fields
+     * (1.8.0 always sends them). Keep this device's values for those fields instead of resetting them to defaults;
+     * if the older device changed the event time, that change wins.
+     */
+    private fun fromOlderVersion(incoming: Memory, d: JsonObject): Memory {
+        if ("eventDate" in d) return incoming
+        val local = memories.get(incoming.id) ?: return incoming
+        val date = if (incoming.eventAt != local.eventAt && incoming.eventAt != null) ai.clu.core.history.HistoricalDate.UNKNOWN else local.eventDate
+        return incoming.copy(eventDate = date, told = local.told, places = local.places, certainty = local.certainty, importance = local.importance,
+            significance = local.significance, threadKind = local.threadKind, links = local.links, mergedInto = local.mergedInto)
+    }
+
     private fun applyRow(r: SyncRow, force: Boolean): Boolean {
         // "force" (home-wins) adopts the peer version even if our hlc is newer, by re-stamping it above ours.
         val hlc = if (force) { store.hlc.observe(r.hlc); val local = rowFor(r.table, r.id)?.hlc ?: ""; if (local > r.hlc) store.hlc.now() else r.hlc } else r.hlc
@@ -238,7 +251,7 @@ class SyncEngine(
         fun l(k: String) = d[k]?.jsonPrimitive?.longOrNull ?: 0L
         return runCatching {
             when (r.table) {
-                MemoryRepository.TABLE -> memories.applyRemote(CluJson.decodeFromJsonElement(Memory.serializer(), d).copy(hlc = hlc, origin = r.origin))
+                MemoryRepository.TABLE -> memories.applyRemote(fromOlderVersion(CluJson.decodeFromJsonElement(Memory.serializer(), d), d).copy(hlc = hlc, origin = r.origin))
                 ConversationRepository.CONV -> conversations.applyRemoteConversation(Conversation(r.id, s("title"), s("personaId").ifEmpty { "clu" }, b("archived"),
                     l("createdAt"), l("updatedAt"), b("deleted"), hlc, r.origin))
                 ConversationRepository.MSG -> conversations.applyRemoteMessage(Message(r.id, s("conversationId"), Role.valueOf(s("role")), s("content"), l("createdAt"),

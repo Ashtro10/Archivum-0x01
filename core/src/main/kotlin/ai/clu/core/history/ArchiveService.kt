@@ -232,6 +232,10 @@ class ArchiveService(private val store: CluStore, private val settings: Settings
     data class ImportResult(val jobId: String, val imported: Int, val skipped: Int, val status: String, val error: String? = null)
 
     private val FIELDS = setOf("date", "title", "description", "people", "places", "projects", "tags", "category", "certainty", "importance", "told", "kind", "significance")
+    /** Column/key spellings people naturally use (the line format's "details", "project: …"), mapped to [FIELDS]. */
+    private val FIELD_ALIASES = mapOf("details" to "description", "content" to "description", "text" to "description", "person" to "people", "place" to "places",
+        "project" to "projects", "tag" to "tags", "role" to "kind", "when" to "date")
+    private fun field(name: String) = name.trim().lowercase().let { FIELD_ALIASES[it] ?: it }
 
     /**
      * Reads a batch of memories without saving anything: one per line ("March 2018 | Met Riya at the fest | details |
@@ -328,7 +332,7 @@ class ArchiveService(private val store: CluStore, private val settings: Settings
         Triple(it.str(0), it.str(1), it.str(2)) }
 
     private fun looksLikeCsv(t: String): Boolean {
-        val header = t.lineSequence().first().lowercase().split(',').map { it.trim().trim('"') }
+        val header = t.lineSequence().first().split(',').map { field(it.trim().trim('"')) }
         return header.size >= 2 && header.count { it in FIELDS } >= 2
     }
 
@@ -358,7 +362,7 @@ class ArchiveService(private val store: CluStore, private val settings: Settings
     private fun csvRows(t: String, errors: MutableList<ImportError>): List<Pair<Int, Map<String, String>>> {
         val records = Csv.parse(t)
         if (records.isEmpty()) return emptyList()
-        val header = records.first().map { it.trim().lowercase() }
+        val header = records.first().map { field(it) }
         header.filter { it.isNotEmpty() && it !in FIELDS }.forEach { errors += ImportError(1, "Unknown column \"$it\" (ignored).") }
         return records.drop(1).mapIndexedNotNull { i, r -> if (r.all { it.isBlank() }) null else (i + 2) to header.zip(r).filter { it.first in FIELDS }.toMap() }
     }
@@ -366,7 +370,7 @@ class ArchiveService(private val store: CluStore, private val settings: Settings
     private fun jsonRows(t: String): List<Pair<Int, Map<String, String>>> {
         val el = CluJson.parseToJsonElement(t)
         val arr = when { el is JsonArray -> el; el is JsonObject && el["memories"] is JsonArray -> el["memories"]!!.jsonArray; else -> error("expected a list of memories") }
-        return arr.mapIndexed { i, e -> (i + 1) to e.jsonObject.mapNotNull { (k, v) -> val key = k.lowercase(); if (key !in FIELDS) null else key to when (v) {
+        return arr.mapIndexed { i, e -> (i + 1) to e.jsonObject.mapNotNull { (k, v) -> val key = field(k); if (key !in FIELDS) null else key to when (v) {
             is JsonArray -> v.joinToString(", ") { it.jsonPrimitive.content }; is JsonPrimitive -> v.content; else -> v.toString() } }.toMap() }
     }
 

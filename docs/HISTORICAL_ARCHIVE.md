@@ -1,4 +1,4 @@
-# Personal archive, historical memory and simulated timeline (1.8.0)
+# Personal archive, historical memory and simulated timeline (1.8.0, verified and fixed in 1.8.1)
 
 _2026-10-29. Verified on the build machine only (JVM tests with real SQLite, Robolectric for the screens, real document
 parsers on files made by fpdf2, python-docx and LibreOffice). **Not installed or tested on a device.**_
@@ -141,11 +141,13 @@ Each is shown to change behaviour in `HistorySettingsTest`.
   * offers "same event as…" and revision history;
   * after saving, shows duplicate, conflict and missing-context notes with Merge / Add to People.
 
-Screen tests: `ArchiveUiTest` and `AppSmokeTest.everyScreenOpens`.
+Screen tests: `ArchiveUiTest`, `ArchiveWorkflowTest` (the connected workflows, section 7) and `AppSmokeTest.everyScreenOpens`.
 
 ## 5. Limits
 
-* **Sync.** Memories (with their new fields) sync between phone and tablet as before. The People catalog, projects,
+* **Sync.** Memories (with their new fields) sync between phone and tablet as before. While one device is still on a
+  version before 1.8.0, its edits keep the other device's archive fields (date, told, places, certainty, importance,
+  role, links) instead of resetting them (1.8.1); the older device itself can't show those fields until it's updated. The People catalog, projects,
   documents, links and conflicts are **not synced** in this release. Use Import & export → Backup to move them.
 * **PDFs.** The PDF reader handles PDFs from word processors, browsers and printers; tested with fpdf2 core and
   embedded fonts and with LibreOffice. Scanned PDFs, encrypted PDFs and unusual font encodings report "no readable
@@ -182,3 +184,27 @@ Screen tests: `ArchiveUiTest` and `AppSmokeTest.everyScreenOpens`.
 | 17 | Import failures reported; interrupted imports resume | `importFailuresAreReportedAndInterruptedImportsResume`; app: `bulkAddPreviewsBeforeSaving` |
 
 Also: `projectHistoryIsAnsweredFromTheRecords`, `timelineGapsAndReminders`, `missingContextIsSuggestedNotRequired`.
+
+## 7. Connected workflows (1.8.1)
+
+`app/src/test/kotlin/ai/clu/ArchiveWorkflowTest.kt` drives the real screens on Android framework code (Robolectric,
+real Android SQLite, real archive services; file pickers answered with real files the way the system picker returns
+them; chat through the real chat screen with no model loaded, so answers come from recall):
+
+| Workflow | What is clicked and checked |
+|---|---|
+| Navigation | Every Memory-hub button opens its screen; Settings opens Memory & diary with the timeline settings; ☰ → Memory opens the hub |
+| Simulated time + dates + recall | Quick add "around March 2018" → list shows the event date, not today; chat "Do you remember Riya?", "How long ago…her?" (eight years, from the simulated date), "what time is it?" (simulated date); moving the date to 2030 gives twelve years; unknown subject → "nothing stored" |
+| People | + Add person with an important date → existing memory linked and listed; two Rahuls → chat asks which; duplicate warning; Merge → aliases + relation conflict → hub banner → Conflicts → chosen value applied |
+| Photo picker | Typed name and notes of a new profile survive picking a photo (bug fixed in 1.8.1); managed photo copy |
+| Editor | Same title → duplicate dialog → Merge keeps both texts; "Same event as…" with different dates → conflict → Use June 2021 corrects the other record, old date in history; editing keeps expiry and creation time (bug fixed in 1.8.1) |
+| Documents | Import PDF + DOCX + corrupt PDF + XLSX in one pick → per-file results; search inside documents; link to a person → shown on the profile; hub search; chat quotes the document and says it isn't verified |
+| Projects + timeline | New project → + Add to history (pre-linked) with role "Change" → history in date order; timeline year groups, period filter, gaps; View as of 2019-01-01 hides 2024 and chat says it doesn't know yet; Turn off restores |
+| Bulk import + backup | CSV file with `details`/`project` columns → preview (problems per line, nothing saved) → add → re-import adds 0; Export with files → people/projects/documents removed → Restore brings them back with the file; damaged file refused, nothing changed |
+
+Fixed in 1.8.1 as a result: editing a memory dropped fields the editor doesn't show (expiry, sync metadata); a new
+profile lost typed fields when a photo was picked; CSV/JSON imports rejected the column names the line format uses
+(`details`, `project`, `person`…); restoring a backup ran on the main thread (now in the background, with a message
+if it fails); recall said "You first mentioned **it**" about a person ("You first told me about Riya…"); sync from a
+pre-1.8.0 device could reset archive fields (above).
+

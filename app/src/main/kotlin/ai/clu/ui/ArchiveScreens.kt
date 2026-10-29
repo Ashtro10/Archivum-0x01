@@ -101,6 +101,9 @@ class PersonEditActivity : BaseActivity() {
     private var person: ArchivePerson? = null
     private val dates = mutableListOf<ImportantDate>()
     private var photo = ""
+    /** Unsaved field values, kept while the photo picker is open (the screen is rebuilt when it returns). */
+    private var draft: ArchivePerson? = null
+    private var readFields: (() -> ArchivePerson?)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,18 +114,19 @@ class PersonEditActivity : BaseActivity() {
 
     private fun build() {
         val pr = person
+        val src = draft ?: pr
         screen(pr?.name ?: "Add person") {
             if (photo.isNotEmpty()) runCatching { android.graphics.BitmapFactory.decodeFile(photo) }.getOrNull()?.let { bmp ->
                 addView(ImageView(context).apply { setImageBitmap(bmp); adjustViewBounds = true; maxHeight = dp(180) }, LinearLayout.LayoutParams(-2, dp(180))) }
-            val name = field("Name", pr?.name ?: "")
-            val aliases = field("Other names, nicknames, spellings (comma separated)", pr?.aliases?.joinToString(", ") ?: "")
-            val relation = field("Relationship to you (optional)", pr?.relation ?: "", hint = "e.g. friend from college")
-            val first = HistoricalDateField(this@PersonEditActivity, this, "First met / first known (optional)", pr?.firstKnown)
-            val howMet = field("How you know them", pr?.howWeMet ?: "", multiline = true)
-            val background = field("Background (optional)", pr?.background ?: "", multiline = true)
-            val notes = field("Notes", pr?.notes ?: "", multiline = true)
-            val leftOff = field("Where you last left off", pr?.lastLeftOff ?: "", multiline = true)
-            val contact = field("Contact (optional — only if you want it stored)", pr?.contact ?: "")
+            val name = field("Name", src?.name ?: "")
+            val aliases = field("Other names, nicknames, spellings (comma separated)", src?.aliases?.joinToString(", ") ?: "")
+            val relation = field("Relationship to you (optional)", src?.relation ?: "", hint = "e.g. friend from college")
+            val first = HistoricalDateField(this@PersonEditActivity, this, "First met / first known (optional)", src?.firstKnown)
+            val howMet = field("How you know them", src?.howWeMet ?: "", multiline = true)
+            val background = field("Background (optional)", src?.background ?: "", multiline = true)
+            val notes = field("Notes", src?.notes ?: "", multiline = true)
+            val leftOff = field("Where you last left off", src?.lastLeftOff ?: "", multiline = true)
+            val contact = field("Contact (optional — only if you want it stored)", src?.contact ?: "")
             h1("Important dates")
             val datesBox = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }; addView(datesBox)
             fun showDates() { datesBox.removeAllViews(); dates.forEachIndexed { i, d -> datesBox.row { datesBox.context.let { }
@@ -133,17 +137,19 @@ class PersonEditActivity : BaseActivity() {
                 val d = parts.getOrNull(1)?.let { DateParser.parse(it) }?.takeIf { it.known }
                 if (parts.isEmpty() || parts[0].isBlank() || d == null) toast("Use: label | date | remind") else { dates += ImportantDate(parts[0], d, parts.getOrNull(2)?.startsWith("remind", true) == true); showDates() } } }
             row {
-                smallButton("Photo") { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"), 1) }
+                smallButton("Photo") { draft = readFields?.invoke(); startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"), 1) }
                 if (photo.isNotEmpty()) smallButton("Remove photo") { photo = ""; build() }
             }
+            fun current(fk: HistoricalDate) = (pr ?: ArchivePerson(name = name.text.toString())).copy(name = name.text.toString().trim(), aliases = aliases.text.split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                relation = relation.text.toString().trim(), firstKnown = fk, howWeMet = howMet.text.toString().trim(), background = background.text.toString().trim(),
+                notes = notes.text.toString().trim(), lastLeftOff = leftOff.text.toString().trim(), contact = contact.text.toString().trim(), importantDates = dates.toList(), photoPath = photo)
+            readFields = { current(first.value() ?: src?.firstKnown ?: HistoricalDate.UNKNOWN) }
             button("Save", primary = true) {
                 val fk = first.value() ?: return@button toast("The date isn't understood.")
-                val p = (pr ?: ArchivePerson(name = name.text.toString())).copy(name = name.text.toString().trim(), aliases = aliases.text.split(",").map { it.trim() }.filter { it.isNotEmpty() },
-                    relation = relation.text.toString().trim(), firstKnown = fk, howWeMet = howMet.text.toString().trim(), background = background.text.toString().trim(),
-                    notes = notes.text.toString().trim(), lastLeftOff = leftOff.text.toString().trim(), contact = contact.text.toString().trim(), importantDates = dates.toList(), photoPath = photo)
+                val p = current(fk)
                 if (p.name.isBlank()) return@button toast("A name is needed.")
                 val dups = if (pr == null) core.archive.people.duplatesSafe(p) else emptyList()
-                val save = { person = core.archive.people.save(p); core.memories.list(scope = null, limit = 5000).filter { m -> m.people.any { Names.score(it, person!!.allNames()) >= 2 } }
+                val save = { person = core.archive.people.save(p); draft = null; core.memories.list(scope = null, limit = 5000).filter { m -> m.people.any { Names.score(it, person!!.allNames()) >= 2 } }
                     .forEach { core.archive.saveMemory(it, check = false) }; toast("Saved."); build() }
                 if (dups.isNotEmpty()) confirm("Possible duplicate", "Already in People: ${dups.joinToString { it.name }}. Save as a separate person anyway?") { save() } else save()
             }
@@ -159,7 +165,7 @@ class PersonEditActivity : BaseActivity() {
                 row {
                     smallButton("Merge with…") { val others = core.archive.people.list().filter { it.id != pr.id }
                         choose("Merge into ${pr.name}", others.map { it.name }) { i -> confirm("Merge ${others[i].name} into ${pr.name}?", "Names become aliases, memories and documents move over; differing details are flagged for you to resolve.") {
-                            person = core.archive.mergePeople(pr.id, others[i].id); toast("Merged."); build() } } }
+                            person = core.archive.mergePeople(pr.id, others[i].id); draft = null; toast("Merged."); build() } } }
                     smallButton("Delete") { confirm("Delete ${pr.name}?", "Their profile is removed. Memories that mention them stay.") { core.archive.people.delete(pr.id); finish() } }
                 }
             }
@@ -338,7 +344,7 @@ class ArchiveImportActivity : BaseActivity() {
     private fun build(): Unit = screen("Import & export") {
         h1("Add many memories")
         p("One per line: date | title | details | people: … | places: … | project: … | tags: … | kind: decision | told: … | certainty: uncertain\n" +
-            "Dates can be \"March 2018\", \"around 2019\", \"between 2018 and 2019\", \"12 March 2018\" or empty. CSV (with a header row) and JSON work too.", C.MUTED, 12f)
+            "Dates can be \"March 2018\", \"around 2019\", \"between 2018 and 2019\", \"12 March 2018\" or empty. CSV (header row such as date,title,details,people,places,project,tags,kind) and JSON work too.", C.MUTED, 12f)
         input = field("Memories", if (::input.isInitialized) input.text.toString() else "", multiline = true,
             hint = "March 2018 | Met Riya at the college fest | She was in the band | people: Riya, Karan | places: Pune")
         row {
@@ -376,7 +382,9 @@ class ArchiveImportActivity : BaseActivity() {
         smallButton("Restore a backup") { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), 4) }
         bundle?.let { b -> card {
             p("Backup from ${fmtTime(b.bundle.exportedAt)}: ${b.newMemories} new memories (${b.existingMemories} already here), ${b.newPeople} people, ${b.newProjects} projects, ${b.newDocuments} documents. Nothing here is overwritten.", C.TEXT, 13f)
-            smallButton("Restore") { val n = core.archive.restoreBundle(b); bundle = null; toast("Restored $n records."); build() }
+            if (!running) smallButton("Restore") { running = true; p("Restoring…", C.MUTED, 12f)
+                scope.launch { val r = withContext(Dispatchers.IO) { runCatching { core.archive.restoreBundle(b) } }
+                    running = false; bundle = null; toast(r.fold({ "Restored $it records." }, { "Restore failed: ${it.message}. Nothing already here was changed." })); build() } }
         } }
         legacy?.let { l -> card {
             val fresh = l.filter { !it.deleted && core.memories.get(it.id) == null }

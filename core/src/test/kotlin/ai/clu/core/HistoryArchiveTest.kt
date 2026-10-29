@@ -22,6 +22,10 @@ import kotlin.test.*
  * SQLite, real agent path (scripted model), real document parsers on files made by fpdf2, python-docx and LibreOffice.
  * The device clock is 9 October 2025 (ManualClock); the simulated date, when on, is 29 October 2026.
  */
+private object CluJsonFor {
+    fun memory(m: Memory) = ai.clu.core.util.CluJson.encodeToJsonElement(Memory.serializer(), m) as kotlinx.serialization.json.JsonObject
+}
+
 class HistoryArchiveTest {
     private val platform = TestPlatform()
     private val core = newCore(platform = platform)
@@ -352,6 +356,39 @@ class HistoryArchiveTest {
         assertTrue("masala chai" in engine.lastSystem, "ordinary retrieval still feeds the model")
         engine.reply("Two plus two is four.")
         assertEquals("Two plus two is four.", ask("What is two plus two?"))
+    }
+
+    // CSV and JSON accept the same words as the line format ("details", "project", "person"…).
+    @Test fun csvAndJsonAcceptTheLineFormatsColumnNames() {
+        val csv = archive.previewImport("date,title,details,person,project,role\nMarch 2018,Met Riya,At the fest,Riya,Primus,decision\n", "memories.csv")
+        assertTrue(csv.errors.isEmpty(), csv.errors.toString())
+        val m = csv.importable.single().memory
+        assertEquals("At the fest", m.content); assertEquals(listOf("Riya"), m.people); assertEquals("decision", m.threadKind)
+        assertEquals(listOf("Primus"), csv.newProjects)
+        val json = archive.previewImport("""[{"when": "2019", "title": "Started Primus", "details": "On my laptop", "project": "Primus"}]""", "m.json")
+        assertTrue(json.errors.isEmpty(), json.errors.toString())
+        assertEquals("On my laptop", json.importable.single().memory.content); assertEquals("2019", json.importable.single().memory.historicalDate().label())
+    }
+
+    // A device still on 1.7.0 doesn't know the archive fields: its edits must not wipe them on this device.
+    @Test fun syncFromAnOlderVersionKeepsTheArchiveFields() {
+        val m = mem("Met Riya", "around March 2018", "At the fest.", people = listOf("Riya"), kind = "event", importance = 2, told = "2019", places = listOf("Pune"))
+        fun olderDevice(edit: Memory, extra: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap()): ai.clu.core.sync.SyncRow {
+            val full = CluJsonFor.memory(edit)
+            val pre18 = setOf("eventDate", "told", "places", "certainty", "importance", "significance", "threadKind", "links", "mergedInto")
+            return ai.clu.core.sync.SyncRow(MemoryRepository.TABLE, m.id, core.store.hlc.now(), "old-phone",
+                kotlinx.serialization.json.JsonObject(full.filterKeys { it !in pre18 } + extra))
+        }
+        core.syncEngine.apply(listOf(olderDevice(core.memories.get(m.id)!!.copy(content = "At the spring fest."))), "old-phone", tables = setOf(MemoryRepository.TABLE))
+        val after = core.memories.get(m.id)!!
+        assertEquals("At the spring fest.", after.content, "the older device's edit is applied")
+        assertEquals("around March 2018", after.historicalDate().label()); assertEquals("2019", after.told?.label())
+        assertEquals(listOf("Pune"), after.places); assertEquals(2, after.importance); assertEquals("event", after.threadKind)
+        // If the older device changed the event time itself, that change wins.
+        val newTime = java.time.LocalDate.of(2018, 4, 2).atTime(12, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        core.syncEngine.apply(listOf(olderDevice(after.copy(eventAt = newTime))), "old-phone", tables = setOf(MemoryRepository.TABLE))
+        assertEquals("2 April 2018", core.memories.get(m.id)!!.historicalDate().label())
+        assertEquals(listOf("Pune"), core.memories.get(m.id)!!.places)
     }
 
     // 17. Failures: unknown dates, invalid imports, interrupted imports and recovery.

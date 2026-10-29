@@ -181,7 +181,7 @@ class Recall(private val archive: ArchiveService, private val settings: Settings
         val today = time.today()
         val told = list.mapNotNull { dates.told(it) }.minByOrNull { it.startDate()!! }
         val sb = StringBuilder("Here's what you told me about $s.")
-        if (told != null) sb.append(" You first mentioned it ${TimePhrases.whenPhrase(told, today)}").append(TimePhrases.ago(told, today)?.let { " — $it." } ?: ".")
+        if (told != null) sb.append(" You first told me about $s ${TimePhrases.whenPhrase(told, today)}").append(TimePhrases.ago(told, today)?.let { " — that's $it." } ?: ".")
         facts(list, sb)
         conflictNote(list, sb)
         documentNote(s, sb)

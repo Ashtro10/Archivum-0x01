@@ -1,0 +1,52 @@
+[reasoning]
+model = "Huihui-Qwen3-8B-abliterated-v2.Q2_K"
+model_path = "D:/Projects/Astra/benchmarks/models/Huihui-Qwen3-8B-abliterated-v2.Q2_K.gguf"
+deep_model = ""
+embedding_model_path = "C:/Users/ASUS/Documents/Astra/benchmarks/models/nomic-embed-text-v1.5.Q8_0.gguf"
+gpu_layers = 99
+context_tokens = 4096
+threads = 6
+
+[memory]
+database_path = "astra.db"
+vector_index_path = "vectors.faiss"
+
+[knowledge]
+database_path = "knowledge.db"
+
+[planning]
+database_path = "planning.db"
+
+[research]
+allow_external = true
+
+[voice]
+tts_enabled = true
+tts_engine = "kokoro"
+kokoro_voice = "bm_lewis"
+kokoro_lang = "a"
+kokoro_speed = 1.1
+kokoro_device = "cpu"
+kokoro_repo = "hexgrad/Kokoro-82M"
+optimus_model_path = "C:/Users/ASUS/Documents/Astra/Optimus Prime/optimus_720e_5040s.pth"
+optimus_index_path = "C:/Users/ASUS/Documents/Astra/Optimus Prime/added_IVF216_Flat_nprobe_1_v2.index"
+optimus_device = "cpu"
+optimus_index_rate = 0.88
+optimus_rms_mix_rate = 0.45
+optimus_protect = 0.25
+optimus_f0_method = "rmvpe"
+optimus_warm_rvc = false
+stt_enabled = true
+stt_engine = "whisper"
+whisper_model = "base"
+whisper_device = "cpu"
+whisper_compute_type = "int8"
+
+[personality]
+name = "Primus"
+voice = "You are Primus, a local-first personal AI for one user. Be calm, precise, and honest. The language model is replaceable; you are Primus. Use provided memory, goals, knowledge, research evidence, and file contents. Do not invent personal facts, URLs, or citations. Do not claim you searched the web unless external research evidence is present. Ask at most one useful clarification when a plan lacks skill level or time."
+warmth = 60
+directness = 60
+humor = 25
+formality = 35
+verbosity = 45

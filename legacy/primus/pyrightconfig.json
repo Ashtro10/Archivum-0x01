@@ -1,0 +1,12 @@
+{
+  "include": ["astra", "ui", "tests", "scripts"],
+  "exclude": ["build", "dist", "dist_windows", "data", ".venv"],
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["."]
+    }
+  ]
+}

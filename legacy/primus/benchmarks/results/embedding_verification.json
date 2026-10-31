@@ -1,0 +1,76 @@
+{
+  "model_filename": "nomic-embed-text-v1.5.Q8_0.gguf",
+  "model_size_mb": 139,
+  "llama_cpp_version": "0.3.34",
+  "load_ok": true,
+  "load_time_s": 0.43,
+  "ram_before_load_mib": 188,
+  "ram_after_load_mib": 340,
+  "ram_model_cost_mib": 152,
+  "embedding_dim": 768,
+  "is_token_level": false,
+  "token_count_if_token_level": null,
+  "pooling_method": "model_returns_pooled_vector",
+  "l2_norm_sample": 22.538836,
+  "is_normalized": false,
+  "deterministic": true,
+  "determinism_max_diff": 0.0,
+  "similarity_pairs": {
+    "identical": {
+      "ip": 424.4599,
+      "cosine": 1.0
+    },
+    "near_dup": {
+      "ip": 420.9933,
+      "cosine": 0.9857
+    },
+    "sem_similar": {
+      "ip": 366.1951,
+      "cosine": 0.8431
+    },
+    "sem_different": {
+      "ip": 161.7791,
+      "cosine": 0.3803
+    },
+    "unrelated": {
+      "ip": 175.806,
+      "cosine": 0.4325
+    },
+    "vs_code": {
+      "ip": 161.9553,
+      "cosine": 0.4076
+    },
+    "short_hi_hello": {
+      "ip": 485.419,
+      "cosine": 0.8881
+    }
+  },
+  "ram_during_embed_mib": 587,
+  "latency_short_text_ms": 14.8,
+  "latency_long_text_ms": 51.1,
+  "batch_10_time_s": 0.051,
+  "batch_10_per_item_ms": 5.1,
+  "batch_50_time_s": 0.1,
+  "batch_50_per_item_ms": 2.0,
+  "batch_10_items_per_s": 194.3,
+  "batch_50_items_per_s": 498.6,
+  "test_500tok_ok": true,
+  "test_500tok_lat_ms": 68.2,
+  "test_500tok_norm": 18.866,
+  "test_1ktok_ok": true,
+  "test_1ktok_lat_ms": 90.2,
+  "q8_identical_ip": 424.459866,
+  "q8_identical_perfect": false,
+  "astra_interface_error": "No module named 'astra'",
+  "astra_backend_available": true,
+  "astra_embed_ok": true,
+  "astra_embed_count": 3,
+  "astra_embed_dim": 768,
+  "dim_matches_settings": true,
+  "settings_embedding_dim": 768,
+  "astra_interface_note": "Confirmed via direct test; initial script failed due to sys.path issue (fixed)",
+  "n_ctx_train_gguf": 2048,
+  "n_ctx_warning": "GGUF n_ctx_train=2048; setting n_ctx=8192 triggers overflow warning; practical limit is 2048 tokens",
+  "normalization_note": "Vectors NOT normalized (L2~22); B-003 FAISS adapter must normalize before indexing",
+  "indexflatip_note": "IndexFlatIP usable only if vectors normalized first; otherwise use IndexFlatL2 or manual cosine"
+}

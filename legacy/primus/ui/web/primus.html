@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Primus</title>
+
+  <link rel="stylesheet" href="/static/chat.css?v=3">
+
+</head>
+
+<body>
+
+  <iframe
+
+    id="jarvis-bg"
+
+    class="jarvis-bg"
+
+    src="/jarvis/index.html?background=1&theme=blue&v=3"
+
+    title="Primus Core"
+
+    tabindex="-1"
+
+  ></iframe>
+
+
+
+  <div class="app-shell">
+
+    <header class="top-bar">
+
+      <div class="brand">PRIMUS</div>
+
+      <nav class="primary-nav" aria-label="Primary">
+
+        <button type="button" class="nav-btn active" data-view="talk">Talk</button>
+
+        <button type="button" class="nav-btn" data-view="system">System</button>
+
+      </nav>
+
+      <span class="session-tag">LOCAL SESSION</span>
+
+    </header>
+
+
+
+    <main id="view-talk" class="view view-talk active">
+
+      <div class="core-region" aria-hidden="true">
+        <div id="thinking-layer" class="thinking-layer" aria-live="polite"></div>
+      </div>
+
+      <p id="status-line" class="status-line" aria-live="polite"></p>
+
+      <section id="messages" class="messages" aria-live="polite"></section>
+
+      <form id="composer" class="composer" autocomplete="off">
+
+        <input id="input" type="text" placeholder="Talk to Primus…" aria-label="Message Primus" />
+
+        <button type="submit" id="send-btn" aria-label="Send">Send</button>
+
+        <button type="button" id="mic-btn" aria-label="Hold to talk">Mic</button>
+
+        <button type="button" id="stop-btn">Stop</button>
+
+      </form>
+
+    </main>
+
+
+
+    <main id="view-system" class="view view-system" hidden>
+
+      <aside class="system-nav" aria-label="System sections">
+
+        <button type="button" class="sys-btn active" data-panel="memory">Memory</button>
+
+        <button type="button" class="sys-btn" data-panel="knowledge">Knowledge</button>
+
+        <button type="button" class="sys-btn" data-panel="research">Research &amp; RAG</button>
+
+        <button type="button" class="sys-btn" data-panel="automation">Automation</button>
+
+        <button type="button" class="sys-btn" data-panel="resources">Resources</button>
+
+        <button type="button" class="sys-btn" data-panel="visual">Visual</button>
+
+        <button type="button" class="sys-btn" data-panel="personality">Personality</button>
+
+      </aside>
+
+      <section class="system-panel">
+
+        <div id="panel-memory" class="panel active">
+
+          <header class="panel-head">
+
+            <h2>Memory</h2>
+
+            <button type="button" id="memory-refresh">Refresh</button>
+
+          </header>
+
+          <div id="memory-groups" class="memory-groups"></div>
+
+          <form id="memory-add" class="memory-add">
+
+            <input id="memory-label" type="text" placeholder="Label (optional)" aria-label="Memory label" />
+
+            <textarea id="memory-content" rows="3" placeholder="What should Primus remember?" aria-label="Memory content"></textarea>
+
+            <label class="slider-inline">Importance <span id="memory-importance-new-label">50</span>
+
+              <input id="memory-importance-new" type="range" min="0" max="100" value="50" />
+
+            </label>
+
+            <button type="submit">Save memory</button>
+
+          </form>
+
+        </div>
+
+        <div id="panel-knowledge" class="panel">
+
+          <header class="panel-head"><h2>Knowledge</h2></header>
+
+          <form id="knowledge-upload" class="stack-form">
+
+            <label>Upload document <input id="knowledge-file" type="file" accept=".txt,.md,.json,.csv,.toml" /></label>
+
+            <button type="submit">Ingest file</button>
+
+          </form>
+
+          <div class="stack-form">
+
+            <label>Folder sync path <input id="knowledge-folder" type="text" placeholder="C:\Users\...\Documents" /></label>
+
+            <button type="button" id="knowledge-sync-btn">Sync folder</button>
+
+          </div>
+
+          <div id="knowledge-list" class="list-box"></div>
+
+        </div>
+
+        <div id="panel-research" class="panel">
+
+          <header class="panel-head"><h2>Research &amp; RAG</h2></header>
+
+          <form id="research-form" class="research-form">
+
+            <label>
+
+              <input type="checkbox" id="r-external" />
+
+              Allow web search (external research)
+
+            </label>
+
+            <button type="submit">Save research settings</button>
+
+          </form>
+
+          <div class="rag-box">
+
+            <h3>RAG database</h3>
+
+            <div id="rag-status" class="list-box"></div>
+
+            <button type="button" id="rag-reindex">Re-index memory vectors</button>
+
+          </div>
+
+        </div>
+
+        <div id="panel-automation" class="panel">
+
+          <header class="panel-head"><h2>Automation</h2></header>
+
+          <form id="automation-event-form" class="stack-form">
+
+            <h3>Event</h3>
+
+            <input id="auto-event-name" type="text" placeholder="Event name" />
+
+            <input id="auto-event-trigger" type="text" placeholder="Trigger (e.g. on:memory_saved)" />
+
+            <input id="auto-event-action" type="text" placeholder="Action (e.g. notify:user)" />
+
+            <button type="submit">Add event</button>
+
+          </form>
+
+          <form id="automation-schedule-form" class="stack-form">
+
+            <h3>Scheduled task</h3>
+
+            <input id="auto-sched-name" type="text" placeholder="Task name" />
+
+            <input id="auto-sched-at" type="datetime-local" />
+
+            <input id="auto-sched-action" type="text" placeholder="Action" />
+
+            <button type="submit">Schedule task</button>
+
+          </form>
+
+          <form id="automation-recurring-form" class="stack-form">
+
+            <h3>Recurring task</h3>
+
+            <input id="auto-recur-name" type="text" placeholder="Task name" />
+
+            <input id="auto-recur-hours" type="number" min="1" value="24" placeholder="Every N hours" />
+
+            <input id="auto-recur-action" type="text" placeholder="Action" />
+
+            <button type="submit">Add recurring task</button>
+
+          </form>
+
+          <div id="automation-events" class="list-box"></div>
+
+          <div id="automation-scheduled" class="list-box"></div>
+
+          <div id="automation-recurring" class="list-box"></div>
+
+        </div>
+
+        <div id="panel-resources" class="panel">
+
+          <header class="panel-head"><h2>Resources</h2></header>
+
+          <div class="meter-block">
+
+            <div class="meter-label">CPU <span id="label-cpu">—</span></div>
+
+            <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="meter-cpu" class="meter-fill"></div></div>
+
+          </div>
+
+          <div class="meter-block">
+
+            <div class="meter-label">RAM <span id="label-ram">—</span></div>
+
+            <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="meter-ram" class="meter-fill"></div></div>
+
+          </div>
+
+          <div class="meter-block">
+
+            <div class="meter-label">GPU VRAM <span id="label-gpu">—</span></div>
+
+            <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="meter-gpu" class="meter-fill"></div></div>
+
+          </div>
+
+          <div class="meter-note" id="label-vram">—</div>
+
+          <div class="rag-box" style="margin-top:1rem">
+
+            <h3>Language model</h3>
+
+            <div id="llm-status" class="list-box"></div>
+
+            <form id="reasoning-form" class="stack-form">
+
+              <label>Model path (.gguf)
+
+                <input id="reasoning-model-path" type="text" placeholder="C:\...\model.gguf" spellcheck="false" />
+
+              </label>
+
+              <button type="submit">Save model path</button>
+
+            </form>
+
+            <p class="meter-note">Restart Primus after changing models if chat still fails to load.</p>
+
+          </div>
+
+        </div>
+
+        <div id="panel-visual" class="panel">
+
+          <header class="panel-head"><h2>Visual style</h2></header>
+
+          <form id="visual-form" class="stack-form">
+
+            <label>Theme
+
+              <select id="v-theme">
+
+                <option value="blue">Blue</option>
+
+                <option value="cyan">Cyan</option>
+
+                <option value="amber">Amber</option>
+
+                <option value="violet">Violet</option>
+
+              </select>
+
+            </label>
+
+            <label>Accent <input id="v-accent" type="color" value="#22e9ff" /></label>
+
+            <label>Panel transparency <span id="v-transparency-label">72%</span>
+
+              <input id="v-transparency" type="range" min="20" max="95" value="72" />
+
+            </label>
+
+            <label><input id="v-animate" type="checkbox" checked /> Animations</label>
+
+            <button type="submit">Save visual settings</button>
+
+          </form>
+
+        </div>
+
+        <div id="panel-personality" class="panel">
+
+          <header class="panel-head"><h2>Personality</h2></header>
+
+          <form id="personality-form" class="slider-form">
+
+            <label>Name <input type="text" id="p-name" /></label>
+
+            <label>Warmth <span id="p-warmth-label">55</span> <input type="range" id="p-warmth" min="0" max="100" /></label>
+
+            <label>Directness <span id="p-directness-label">60</span> <input type="range" id="p-directness" min="0" max="100" /></label>
+
+            <label>Humor <span id="p-humor-label">25</span> <input type="range" id="p-humor" min="0" max="100" /></label>
+
+            <label>Formality <span id="p-formality-label">35</span> <input type="range" id="p-formality" min="0" max="100" /></label>
+
+            <label>Verbosity <span id="p-verbosity-label">45</span> <input type="range" id="p-verbosity" min="0" max="100" /></label>
+
+            <button type="submit">Save personality</button>
+
+          </form>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+
+
+  <script src="/static/chat.js?v=24"></script>
+
+  <script src="/static/system.js?v=11"></script>
+
+</body>
+
+</html>
+

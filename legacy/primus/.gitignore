@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+# Local runtime state. Never committed: this is user data, not source.
+data/
+logs/
+models/
+*.db
+*.sqlite3
+*.faiss
+
+dist-windows/
+dist_windows/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/

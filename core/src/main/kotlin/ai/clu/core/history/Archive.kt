@@ -98,7 +98,10 @@ object Names {
             val words = n.split(' ')
             if (q.split(' ').size == 1 && q in words && q.length >= 3) best = maxOf(best, 2)
             if (words.size > 1 && q.split(' ').all { it in words }) best = maxOf(best, 2)
-            val close = (q.length >= 5 && editDistance(q, n) <= 1) || (q.length >= 4 && Phonetics.similarity(q, n) >= 0.9) ||
+            // Sounding alike counts only with the same first letter or a skeleton of 3+ sounds (Sara/Sarah, Kristina/Christina),
+            // never for short names that merely share one consonant class (Leah and Riya are different people).
+            val soundAlike = q.length >= 4 && Phonetics.similarity(q, n) >= 0.9 && (q.first() == n.first() || Phonetics.key(q).length >= 3)
+            val close = (q.length >= 5 && editDistance(q, n) <= 1) || soundAlike ||
                 words.any { w -> w.length >= 5 && q.length >= 5 && editDistance(q, w) <= 1 }
             if (close) best = maxOf(best, 1)
         }

@@ -134,7 +134,17 @@ object ResearchPolicy {
     private val TIME_WORDS = setOf("current", "currently", "latest", "newest", "today", "now", "recent", "recently", "this", "week", "month", "year")
 
     /** The query sent to a search provider: the question without its frame ("who is the current CEO of Microsoft" → "current CEO of Microsoft"). */
-    fun focus(query: String): String = FRAME.replace(query.trim(), "").trim().ifEmpty { query.trim() }
+    fun focus(query: String): String {
+        val q = query.trim().trimEnd('?', '.', '!')
+        // An embedded question ("who the current CEO of Microsoft is"): its subject, without the trailing verb.
+        val embedded = EMBEDDED.matchEntire(q)?.groupValues?.get(1)
+        return FRAME.replace(embedded ?: q, "").trim().let { ARTICLE.replace(it, "") }.trim().ifEmpty { query.trim() }
+    }
+
+    private val EMBEDDED = Regex("(?i)^(?:who|what|which|where|when)\\s+(.+?)\\s+(?:is|are|was|were)$")
+
+    /** A lower-case leading article before a lower-case word ("the history of …"; "The Beatles" keeps its name). */
+    private val ARTICLE = Regex("^(?:the|a|an)\\s+(?=\\p{Ll})")
 
     /** The distinctive part of a current-information query that results must mention: its names (or null: any result can be relevant). */
     fun keySubject(query: String): String? {
@@ -167,6 +177,11 @@ object HazardPolicy {
     /** "Write me a poem about rain": about the word, not a request for conditions. */
     private val CREATIVE = r("\\b(?:write|compose|poems?|poetry|story|stories|song|lyrics|haiku|essay|joke|draw|paint|imagine|pretend)\\b")
     private val NEAR = r("\\b(?:us|our|me|my|here|near(?:by)?|close|towards?|our way|this area|local|outside)\\b")
+
+    /** True when the question is about the owner's own location ("us", "here", "near me"). */
+    fun aboutOwner(text: String) = OWNER_PLACE.containsMatchIn(text)
+    /** Narrower than [NEAR]: "tell me more" mentions "me" but not the owner's location. */
+    private val OWNER_PLACE = r("\\b(?:us|our|ours|here|this area|our way|(?:towards?|near|close to|reach|hit) me|my (?:area|city|town|place|home|location|house))\\b")
 
     fun detect(text: String): Need? {
         val t = text.trim()

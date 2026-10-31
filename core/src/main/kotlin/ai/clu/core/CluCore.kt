@@ -117,6 +117,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         commands.seedDefaults()
         memories.purgeExpired()
         tools.purgeHistory()
+        ai.clu.core.agent.ConversationStateStore(store).prune(conversations, clock.now())
         diag.i("core", "Clu core started (entity ${store.entityId.take(8)}, device ${store.deviceId.take(8)})")
     }
 

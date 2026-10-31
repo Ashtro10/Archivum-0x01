@@ -137,12 +137,16 @@ class ResearchPolicy:
             "that", "this", "about", "me", "tell", "you", "can", "could", "would", "please", "know", "really", "actually", "also", "then", "so"}
 
     FRAME = re.compile(r"^(?:(?:who|what|which|where|when|how)(?:'s|\s+(?:is|are|was|were|will|does|do|did))?\s+)(?:the\s+|an?\s+)?", I)
+    EMBEDDED = re.compile(r"(?:who|what|which|where|when)\s+(.+?)\s+(?:is|are|was|were)", I)
+    ARTICLE = re.compile(r"^(?:the|a|an)\s+(?=[^\W\d_A-Z])")  # "the history of …"; "The Beatles" keeps its name
     TIME_WORDS = {"current", "currently", "latest", "newest", "today", "now", "recent", "recently", "this", "week", "month", "year"}
 
     @classmethod
     def focus(cls, query: str) -> str:
         """The query sent to a search provider: the question without its frame ("who is the current CEO of Microsoft" -> "current CEO of Microsoft")."""
-        return cls.FRAME.sub("", query.strip(), count=1).strip() or query.strip()
+        q = query.strip().rstrip("?.!")
+        m = cls.EMBEDDED.fullmatch(q)  # an embedded question ("who the current CEO of Microsoft is"): its subject
+        return cls.ARTICLE.sub("", cls.FRAME.sub("", m.group(1) if m else q, count=1).strip(), count=1).strip() or query.strip()
 
     @classmethod
     def key_subject(cls, query: str) -> str | None:
@@ -887,13 +891,27 @@ class Controller:
             if need is None:
                 need = (ctx.Need(topic.hazard.type, True, None) if topic.hazard is not None
                         else ctx.Need("WX", True, ctx.Places.resolve(topic.weather.place) if topic.weather is not None else None))
-            fresh = topic.hazard if topic.hazard is not None and self.clock() - topic.hazard.checked_at < HAZARD_FRESH_MS and topic.hazard.error is None else None
+            fresh = (topic.hazard if topic.hazard is not None and self.clock() - topic.hazard.checked_at < HAZARD_FRESH_MS
+                     and topic.hazard.error is None and not r.refresh else None)
+            # "Is it heading towards us?" with no known place: ask once, then answer this follow-up for that place.
+            if need.type != "WX" and need.place is None and self._home() is None and ctx.HazardPolicy.about_owner(r.prompt):
+                turn.pending_out, turn.topic_out, turn.kind = ctx.Pending("location", r.prompt), topic, "clu_message"
+                yield "Which city or area should I check that for?"
+                return
             if r.ask is not None and fresh is not None and need.type != "WX":
                 turn.topic_out, turn.kind = topic, "clu_message"
                 turn.sources = self._hazard_sources(fresh)
-                yield ctx.HazardAnswers.follow_up(r.ask, fresh, need.place or self._home(), r.compare_with.hazard if r.compare_with else None)
+                yield ctx.HazardAnswers.follow_up(r.ask, fresh, need.place or self._home(), r.compare_with.hazard if r.compare_with else None, r.focus)
                 return
-            async for piece in self._hazard(turn, need, r.question, r.ask, r.compare_with.hazard if r.compare_with else None):
+            day = ctx.OpenMeteo.day_asked(r.prompt)
+            w = topic.weather
+            if (need.type == "WX" and w is not None and w.error is None and not r.refresh and self.clock() - w.checked_at < HAZARD_FRESH_MS
+                    and (day == 0 or len(w.days) > day) and (need.place is None or need.place.name == w.place)):
+                turn.topic_out, turn.kind = topic, "clu_message"
+                turn.sources = [Hit(f"Open-Meteo forecast for {w.place}", "https://open-meteo.com/", "")]
+                yield ctx.OpenMeteo.answer(w, day)
+                return
+            async for piece in self._hazard(turn, need, r.question, r.ask, r.compare_with.hazard if r.compare_with else None, focus=r.focus, day=day):
                 yield piece
             return
         if not r.research:
@@ -922,7 +940,8 @@ class Controller:
         url = next((e.url for e in c.events if e.url.startswith("https://")), "") or "https://www.gdacs.org/"
         return [Hit("GDACS — Global Disaster Alert and Coordination System (UN / European Commission)", url, "")]
 
-    async def _hazard(self, turn: Turn, need, question: str, ask: str | None = None, previous=None) -> AsyncIterator[str]:
+    async def _hazard(self, turn: Turn, need, question: str, ask: str | None = None, previous=None, focus: str | None = None,
+                      day: int | None = None) -> AsyncIterator[str]:
         """A current natural hazard or the weather from an official or meteorological source; asks once for the place when
         none is known; never invents an event, a track or a warning."""
         import clu_context as ctx
@@ -945,13 +964,18 @@ class Controller:
             turn.topic_out = ctx.Topic(question, subject=f"weather in {place.name}", kind="weather", weather=w, answered=w.error is None)
             turn.error = "search_failed" if w.error else None
             turn.sources = [] if w.error else [Hit(f"Open-Meteo forecast for {w.place}", "https://open-meteo.com/", "")]
-            yield ctx.OpenMeteo.answer(w)
+            yield ctx.OpenMeteo.answer(w, ctx.OpenMeteo.day_asked(question) if day is None else day)
             return
         c = await self.hazards(need.type)
-        turn.topic_out = ctx.Topic(question, subject=noun, kind="hazard", hazard=c, answered=c.error is None, entities=[e.name for e in c.events][:1])
+        # The events in play: every one near the owner (so "it" with two of them is asked about), else the first.
+        near = ctx.HazardAnswers.relevant(c, place)
+        in_play = near[:3] if place is not None and len(near) > 1 else near[:1]
+        focused = focus if focus and any(ctx.HazardAnswers.short_name(e).lower() == focus.lower() for e in c.events) else None
+        turn.topic_out = ctx.Topic(question, subject=noun, kind="hazard", hazard=c, answered=c.error is None,
+                                   entities=[focused] if focused else [ctx.HazardAnswers.short_name(e) for e in in_play])
         turn.error = "search_failed" if c.error else None
         turn.sources = self._hazard_sources(c)
-        yield ctx.HazardAnswers.follow_up(ask, c, place, previous) if ask is not None else ctx.HazardAnswers.answer(c, place)
+        yield ctx.HazardAnswers.follow_up(ask, c, place, previous, focused) if ask is not None else ctx.HazardAnswers.answer(c, place)
 
     def _update(self, turn: Turn, resolved) -> None:
         """Stores what this turn did to the conversation context (CluAgent.updateContext)."""

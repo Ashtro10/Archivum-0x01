@@ -299,6 +299,19 @@ class HazardAnswers:
         return [e for e in sorted(c.events, key=lambda e: cls.distance(e, home))
                 if cls.distance(e, home) <= cls.NEAR_KM or (home.country and home.country.lower() in e.countries.lower())]
 
+    @staticmethod
+    def short_name(e: HazardEvent) -> str:
+        """The storm's own name ("DANA-24" from "Tropical Cyclone DANA-24"); other events keep their full name."""
+        last = e.name.rsplit(" ", 1)[-1]
+        return last if re.fullmatch(r"[^\W\d_][^\W\d_-]*(?:-[^\W\d_]+)*-\d{2}", last) else e.name
+
+    @classmethod
+    def named(cls, text: str, events: list[HazardEvent]) -> HazardEvent | None:
+        """The event a message names by its own name ("is DANA dangerous?"), if exactly one matches."""
+        ws = set(words(text))
+        hits = [e for e in events if (stem := re.split(r"[- ]", cls.short_name(e).lower())[0]) and len(stem) >= 3 and stem in ws]
+        return hits[0] if len(hits) == 1 else None
+
     @classmethod
     def describe(cls, e: HazardEvent, home: Place | None) -> str:
         out = e.name
@@ -328,6 +341,16 @@ class HazardAnswers:
             return (f"No active {n} is within about {cls._km(cls.NEAR_KM)} km of {home.name}, according to GDACS. The nearest active one is {nearest.name}, "
                     f"{cls._relative(nearest, home)}. {cls._stamp(c, nearest)}")
         e = near[0]
+        if home is not None and len(near) > 1:
+            shown = near[:3]
+            count = ["no", "one", "two", "three"][len(shown)]
+            out = f"{count.capitalize()} active {n}s are within about {cls._km(cls.NEAR_KM)} km of {home.name}. "
+            out += "".join(cls.describe(x, home) + " " for x in shown)
+            if e.type == "TC":
+                auths = list(dict.fromkeys(cls.authority(x) for x in shown))
+                out += ("The data I have doesn't include their directions of movement or landfall times; " + " and ".join(auths)
+                        + (" issues" if len(auths) == 1 else " issue") + " the official forecasts and warnings. ")
+            return out + cls._stamp(c, e)
         out = f"The active {n} nearest to {home.name}: " if home is not None else ""
         out += cls.describe(e, home)
         if e.type == "TC":
@@ -337,9 +360,10 @@ class HazardAnswers:
         return out + " " + cls._stamp(c, e)
 
     @classmethod
-    def follow_up(cls, ask: str, c: HazardCheck, home: Place | None, previous: HazardCheck | None) -> str:
+    def follow_up(cls, ask: str, c: HazardCheck, home: Place | None, previous: HazardCheck | None, focus: str | None = None) -> str:
         rel_events = cls.relevant(c, home)
-        e = rel_events[0] if rel_events else (c.events[0] if c.events else None)
+        e = next((x for x in c.events if focus and (x.name.lower() == focus.lower() or cls.short_name(x).lower() == focus.lower())), None)
+        e = e or (rel_events[0] if rel_events else (c.events[0] if c.events else None))
         if e is None:
             return cls.answer(c, home)
         rel = cls._relative(e, home)
@@ -378,6 +402,7 @@ class WeatherNow:
     time: str
     checked_at: int
     error: str | None = None
+    days: list = field(default_factory=list)  # [{"date", "code", "min_c", "max_c", "rain_chance"}] today, tomorrow, the day after
 
 
 class OpenMeteo:
@@ -388,7 +413,7 @@ class OpenMeteo:
     def url(cls, place: Place) -> str:
         return (f"{cls.BASE}?latitude={_fmt(place.lat, 2)}&longitude={_fmt(place.lon, 2)}"
                 "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
-                "&timezone=auto&forecast_days=1")
+                "&daily=weather_code&timezone=auto&forecast_days=3")
 
     @staticmethod
     def parse(place: Place, now: int, status: int | None, body: str) -> WeatherNow:
@@ -406,9 +431,16 @@ class OpenMeteo:
                 v = d.get(k)
                 return v[0] if isinstance(v, list) and v else None
             num = lambda v, t: t(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None  # noqa: E731
+
+            def at(k: str, i: int):
+                v = d.get(k)
+                return v[i] if isinstance(v, list) and i < len(v) else None
+            days = [{"date": str(day), "code": num(at("weather_code", i), int), "min_c": num(at("temperature_2m_min", i), float),
+                     "max_c": num(at("temperature_2m_max", i), float), "rain_chance": num(at("precipitation_probability_max", i), int)}
+                    for i, day in enumerate(d.get("time") or [])]
             return WeatherNow(place.name, num(c.get("temperature_2m"), float), num(c.get("relative_humidity_2m"), int), num(c.get("wind_speed_10m"), float),
                               num(c.get("weather_code"), int), num(first("temperature_2m_min"), float), num(first("temperature_2m_max"), float),
-                              num(first("precipitation_probability_max"), int), str(c.get("time") or ""), now)
+                              num(first("precipitation_probability_max"), int), str(c.get("time") or ""), now, days=days)
         except (ValueError, KeyError, TypeError, AttributeError):
             return fail("the weather service returned an unexpected response")
 
@@ -431,10 +463,26 @@ class OpenMeteo:
                  95: "thunderstorms", 96: "thunderstorms with hail", 99: "thunderstorms with hail"}
         return table.get(code) if code is not None else None
 
+    @staticmethod
+    def day_asked(text: str) -> int:
+        """Which day a question is about: 0 today (or now), 1 tomorrow, 2 the day after tomorrow."""
+        if re.search(r"\bday after tomorrow\b", text, I):
+            return 2
+        return 1 if re.search(r"\btomorrow\b", text, I) else 0
+
     @classmethod
-    def answer(cls, w: WeatherNow) -> str:
+    def answer(cls, w: WeatherNow, day: int = 0) -> str:
         if w.error is not None:
             return f"I couldn't get the weather for {w.place} just now ({w.error}), so I won't guess."
+        if day > 0:
+            label = "Tomorrow" if day == 1 else "The day after tomorrow"
+            if day >= len(w.days):
+                return f"The forecast I have for {w.place} doesn't cover {label.lower()}, so I won't guess."
+            f = w.days[day]
+            parts = [p for p in (cls.describe(f["code"]),
+                                 f"{_fmt(f['min_c'])} to {_fmt(f['max_c'])}°C" if f["min_c"] is not None and f["max_c"] is not None else None,
+                                 f"{f['rain_chance']}% chance of rain" if f["rain_chance"] is not None else None) if p]
+            return f"{label} in {w.place}: {', '.join(parts) or 'no details in the forecast'}. (Open-Meteo forecast for {f['date']}.)"
         parts = [p for p in (f"{_fmt(w.temperature_c)}°C" if w.temperature_c is not None else None, cls.describe(w.code)) if p]
         out = f"In {w.place} it's " + (" and ".join(parts) or "currently unreported")
         if w.humidity is not None:
@@ -471,6 +519,14 @@ class HazardPolicy:
     DEFINITION = re.compile(r"^\s*(?:what (?:is|are) (?:an? )?\w+\s*\??$|how (?:do|does|are|is) |why (?:do|does|are|is) |explain |define |what causes )", I)
     CREATIVE = re.compile(r"\b(?:write|compose|poems?|poetry|story|stories|song|lyrics|haiku|essay|joke|draw|paint|imagine|pretend)\b", I)
     NEAR = re.compile(r"\b(?:us|our|me|my|here|near(?:by)?|close|towards?|our way|this area|local|outside)\b", I)
+
+    # Narrower than NEAR: "tell me more" mentions "me" but not the owner's location.
+    OWNER_PLACE = re.compile(r"\b(?:us|our|ours|here|this area|our way|(?:towards?|near|close to|reach|hit) me|my (?:area|city|town|place|home|location|house))\b", I)
+
+    @classmethod
+    def about_owner(cls, text: str) -> bool:
+        """True when the question is about the owner's own location ("us", "here", "near me")."""
+        return bool(cls.OWNER_PLACE.search(text))
 
     @classmethod
     def detect(cls, text: str) -> Need | None:
@@ -551,6 +607,8 @@ class FollowUp:
     ask: str | None = None
     compare_with: Topic | None = None
     prompt: str = ""
+    focus: str | None = None      # for a hazard topic: which event is meant, when several are in play
+    refresh: bool = False         # check again even if what was found is still fresh ("is there any update?")
 
     def __post_init__(self):
         self.prompt = self.prompt or self.question
@@ -659,7 +717,10 @@ class ContextualCorrection:
     COMMON = {"what", "which", "where", "when", "will", "would", "could", "should", "there", "their", "about", "tell", "know", "this",
               "that", "with", "from", "have", "does", "doing", "going", "come", "coming", "heading", "towards", "toward", "near", "today", "now", "still",
               "dangerous", "danger", "safe", "arrive", "reach", "much", "many", "more", "very", "really", "please", "think", "look", "search", "find",
-              "check", "just", "also", "like", "make", "made", "take", "give", "said", "says", "sure", "okay", "yeah", "right", "time", "here"}
+              "check", "just", "also", "like", "make", "made", "take", "give", "said", "says", "sure", "okay", "yeah", "right", "time", "here",
+              # Ordinary request words: never a mishearing of the topic ("is there any update?" is not "is there any weather?").
+              "update", "updates", "news", "latest", "change", "changes", "changed", "forecast", "tomorrow", "yesterday", "tonight", "anything",
+              "something", "information", "details", "again", "happened", "happening", "since", "before", "after", "afterwards", "later"}
 
     @staticmethod
     def _replace_word(text: str, frm: str, to: str) -> str:
@@ -667,6 +728,9 @@ class ContextualCorrection:
 
     @classmethod
     def find(cls, text: str, topic: Topic) -> Fix | None:
+        # A message already understood as a request on the topic ("is there any update?", "look it up") is taken as said.
+        if FollowUpResolver.is_update(text) or FollowUpResolver.is_bare_research(text) or FollowUpResolver.is_more(text):
+            return None
         named = (any(any(c.isupper() for c in e) for e in topic.entities)
                  or any(m.group(1).isupper() for m in re.finditer(r"(?<=\S\s)([^\W\d_])", topic.question)))
         if topic.kind == "general" and not named:
@@ -733,6 +797,9 @@ class FollowUpResolver:
     RESEARCH_VERB = {"search", "google", "look", "lookup", "check", "find", "research", "browse", "verify", "confirm"}
     MORE = re.compile(r"^(?:(?:ok|okay|and|so|please|clu)[ ,]+)*(?:tell me more|more(?: details?| info(?:rmation)?)?|go on|continue|keep going|what else|anything else|"
                       r"elaborate|explain more|say more|and)(?: about (?:it|that|this|him|her|them))?[ .!?]*$", I)
+    UPDATE = re.compile(r"^(?:(?:ok|okay|so|and|clu|hey)[ ,]+)*(?:(?:is|are) there |got |have you got )?(?:any |an )?(?:updates?|news|new information|developments?|changes?)"
+                        r"(?: on (?:it|that|this|them))?(?: yet| now)?[ ?.!]*$|^(?:(?:ok|so|and)[ ,]+)?(?:what'?s|what is) the latest(?: on (?:it|that|this))?[ ?.!]*$|"
+                        r"^(?:has|did) anything (?:new )?(?:changed?|happened)(?: since)?[ ?.!]*$|^anything new[ ?.!]*$", I)
     PRONOUN = re.compile(r"\b(?:it|its|it's|he|him|his|she|her|hers|they|them|their|this|that|those|these|there)\b", I)
     SINGULAR = re.compile(r"\b(?:it|its|it's|he|him|his|she|her|this|that)\b", I)
     PREVIOUS = re.compile(r"\b(?:the )?(?:previous|last|earlier|other|first) one\b|\bthe one before\b", I)
@@ -760,6 +827,15 @@ class FollowUpResolver:
         return bool(cls.MORE.fullmatch(text.strip()))
 
     @classmethod
+    def is_update(cls, text: str) -> bool:
+        return bool(cls.UPDATE.fullmatch(text.strip()))
+
+    @classmethod
+    def hazard_ask(cls, t: str) -> str:
+        return (Ask.DANGER if cls.ASK_DANGER.search(t) else Ask.ARRIVAL if cls.ASK_ARRIVAL.search(t) else
+                Ask.DIRECTION if cls.ASK_DIRECTION.search(t) else Ask.LOCATION if cls.ASK_LOCATION.search(t) else Ask.MORE)
+
+    @classmethod
     def resolve(cls, text: str, s: ConversationState, via_voice: bool, now: int, command: bool = False) -> Resolved:
         t = text.strip()
         p = s.pending
@@ -785,8 +861,19 @@ class FollowUpResolver:
             if topic is None:
                 return Clarify("What would you like me to look up?", Pending("subject", "", turn=s.turn))
             return FollowUp(topic.question, topic, True, topic.subject, prompt=topic.question)
+        if cls.is_update(t):
+            if topic is None:
+                return Clarify("What would you like me to look up?", Pending("subject", "", turn=s.turn))
+            if topic.kind != "general":
+                return FollowUp(topic.question, topic, True, topic.subject, prompt=topic.question, refresh=True,
+                                focus=topic.entities[0] if len(topic.entities) == 1 else None)
         if topic is None:
             return Standalone(t)
+        if topic.kind == "hazard" and topic.hazard is not None:
+            e = HazardAnswers.named(t, topic.hazard.events)
+            if e is not None:
+                name = HazardAnswers.short_name(e)
+                return FollowUp(topic.question, Topic(**{**topic.__dict__, "entities": [name]}), False, topic.subject, ask=cls.hazard_ask(t), focus=name)
         if cls.is_more(t):
             return FollowUp(f"Tell me about {topic.subject}" if topic.subject else topic.question, topic, topic.kind != "general", topic.subject,
                             ask=Ask.MORE if topic.kind == "hazard" else None,
@@ -809,9 +896,8 @@ class FollowUpResolver:
         if topic.kind == "weather":
             return FollowUp(topic.question, topic, True, topic.subject, prompt=t)
         if topic.kind == "hazard":
-            ask = (Ask.DANGER if cls.ASK_DANGER.search(t) else Ask.ARRIVAL if cls.ASK_ARRIVAL.search(t) else
-                   Ask.DIRECTION if cls.ASK_DIRECTION.search(t) else Ask.LOCATION if cls.ASK_LOCATION.search(t) else Ask.MORE)
-            return FollowUp(topic.question, topic, False, topic.subject, ask=ask)
+            return FollowUp(topic.question, topic, False, topic.subject, ask=cls.hazard_ask(t), prompt=t,
+                            focus=topic.entities[0] if len(topic.entities) == 1 else None)
         subject = topic.subject
         if subject is None:
             return Standalone(t)
@@ -853,7 +939,10 @@ class FollowUpResolver:
             if place is None:
                 return None
             topic = s.topic or Topic(p.question)
-            return Resolved(FollowUp(p.question, topic, True, topic.subject, prompt=p.question), t, place_from_reply=place.name)
+            # A follow-up that waited for the place ("is it heading towards us?") is answered as that follow-up.
+            ask = cls.hazard_ask(p.question) if topic.kind == "hazard" and topic.hazard is not None else None
+            return Resolved(FollowUp(p.question, topic, True, topic.subject, prompt=p.question, ask=ask,
+                                     focus=topic.entities[0] if ask and len(topic.entities) == 1 else None), t, place_from_reply=place.name)
         if p.kind == "choice":
             choice = next((o for o in p.options if any(x in w for x in words(o) if len(x) > 2)), None)
             if choice is None:

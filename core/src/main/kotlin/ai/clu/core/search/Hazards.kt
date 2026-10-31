@@ -108,6 +108,15 @@ object HazardAnswers {
 
     fun distance(e: HazardEvent, home: Place) = Places.distanceKm(home.lat, home.lon, e.lat, e.lon)
 
+    /** The storm's own name ("DANA-24" from "Tropical Cyclone DANA-24"); other events keep their full name. */
+    fun shortName(e: HazardEvent): String = e.name.substringAfterLast(' ').takeIf { Regex("^[\\p{L}][\\p{L}-]*-\\d{2}$").matches(it) } ?: e.name
+
+    /** The event a message names by its own name ("is DANA dangerous?", "VAYU"), if exactly one matches. */
+    fun named(text: String, events: List<HazardEvent>): HazardEvent? {
+        val words = Regex("[\\p{L}\\p{N}]+").findAll(text.lowercase()).map { it.value }.toSet()
+        return events.filter { e -> shortName(e).lowercase().split('-', ' ').first().let { it.length >= 3 && it in words } }.singleOrNull()
+    }
+
     private fun stamp(c: HazardCheck, e: HazardEvent?) = buildString {
         append("(GDACS")
         e?.source?.takeIf { it.isNotBlank() }?.let { append(", based on $it data") }
@@ -141,6 +150,15 @@ object HazardAnswers {
                 "${relative(nearest, home)}. ${stamp(c, nearest)}"
         }
         val e = near.first()
+        if (home != null && near.size > 1) return buildString {
+            // Several near the owner: each one named with its own distance, so "which one?" can be answered.
+            val shown = near.take(3)
+            append("${WORDS_NUM.getOrElse(shown.size) { "${shown.size}" }.replaceFirstChar { it.uppercase() }} active ${n}s are within about ${km(NEAR_KM)} km of ${home.name}. ")
+            shown.forEach { append(describe(it, home)).append(" ") }
+            if (e.type == "TC") append("The data I have doesn't include their directions of movement or landfall times; " +
+                shown.map { authority(it) }.distinct().joinToString(" and ") + " issue${if (shown.map { authority(it) }.distinct().size == 1) "s" else ""} the official forecasts and warnings. ")
+            append(stamp(c, e))
+        }
         return buildString {
             if (home != null) append("The active $n nearest to ${home.name}: ")
             append(describe(e, home))
@@ -150,11 +168,14 @@ object HazardAnswers {
         }
     }
 
+    private val WORDS_NUM = listOf("no", "one", "two", "three")
+
     enum class Ask { LOCATION, ARRIVAL, DIRECTION, DANGER, MORE, COMPARE }
 
     /** Follow-ups answered from what was already found (no new request unless it is stale). */
-    fun followUp(ask: Ask, c: HazardCheck, home: Place?, previous: HazardCheck?): String {
-        val e = relevant(c, home).firstOrNull() ?: c.events.firstOrNull() ?: return answer(c, home)
+    fun followUp(ask: Ask, c: HazardCheck, home: Place?, previous: HazardCheck?, focus: String? = null): String {
+        val e = focus?.let { f -> c.events.firstOrNull { it.name.equals(f, true) || shortName(it).equals(f, true) } }
+            ?: relevant(c, home).firstOrNull() ?: c.events.firstOrNull() ?: return answer(c, home)
         return when (ask) {
             Ask.LOCATION -> "${e.name} is near ${position(e)}${relative(e, home)?.let { ", $it" } ?: ""}. ${stamp(c, e)}"
             Ask.ARRIVAL, Ask.DIRECTION -> "The data I have gives its current position, not a forecast track, so I can't say ${if (ask == Ask.ARRIVAL) "when or whether it will reach you" else "which way it is moving"} without guessing. " +
@@ -175,7 +196,13 @@ object HazardAnswers {
 /** Current weather and today's forecast for one place, as the weather service reported it. */
 @Serializable
 data class WeatherNow(val place: String, val temperatureC: Double?, val humidity: Int?, val windKmh: Double?, val code: Int?,
-                      val minC: Double?, val maxC: Double?, val rainChance: Int?, val time: String, val checkedAt: Long, val error: String? = null)
+                      val minC: Double?, val maxC: Double?, val rainChance: Int?, val time: String, val checkedAt: Long, val error: String? = null,
+                      /** Today, tomorrow and the day after, as forecast (empty in states saved before 1.8.2). */
+                      val days: List<WeatherDay> = emptyList())
+
+/** One day of the forecast. */
+@Serializable
+data class WeatherDay(val date: String, val code: Int?, val minC: Double?, val maxC: Double?, val rainChance: Int?)
 
 /**
  * Current conditions and today's forecast from Open-Meteo (free, no key; forecasts from national weather services'
@@ -186,7 +213,7 @@ class OpenMeteo(private val http: HttpFetcher, private val base: String = "https
     suspend fun now(place: Place, now: Long): WeatherNow {
         val url = "$base?latitude=${"%.2f".format(java.util.Locale.ROOT, place.lat)}&longitude=${"%.2f".format(java.util.Locale.ROOT, place.lon)}" +
             "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-            "&timezone=auto&forecast_days=1"
+            "&daily=weather_code&timezone=auto&forecast_days=3"
         val r = try { http.get(url, mapOf("User-Agent" to Gdacs.USER_AGENT)) } catch (e: Exception) {
             return WeatherNow(place.name, null, null, null, null, null, null, null, "", now, error = "the weather service could not be reached")
         }
@@ -195,10 +222,14 @@ class OpenMeteo(private val http: HttpFetcher, private val base: String = "https
             val o = CluJson.parseToJsonElement(r.body).jsonObject
             val c = o["current"]!!.jsonObject; val d = o["daily"]?.jsonObject
             fun first(k: String) = d?.get(k)?.jsonArray?.firstOrNull()?.jsonPrimitive
+            fun at(k: String, i: Int) = d?.get(k)?.jsonArray?.getOrNull(i)?.jsonPrimitive
+            val dates = d?.get("time")?.jsonArray?.map { it.jsonPrimitive.content }.orEmpty()
+            val days = dates.indices.map { i -> WeatherDay(dates[i], at("weather_code", i)?.intOrNull, at("temperature_2m_min", i)?.doubleOrNull,
+                at("temperature_2m_max", i)?.doubleOrNull, at("precipitation_probability_max", i)?.intOrNull) }
             WeatherNow(place.name, c["temperature_2m"]?.jsonPrimitive?.doubleOrNull, c["relative_humidity_2m"]?.jsonPrimitive?.intOrNull,
                 c["wind_speed_10m"]?.jsonPrimitive?.doubleOrNull, c["weather_code"]?.jsonPrimitive?.intOrNull,
                 first("temperature_2m_min")?.doubleOrNull, first("temperature_2m_max")?.doubleOrNull, first("precipitation_probability_max")?.intOrNull,
-                c["time"]?.jsonPrimitive?.contentOrNull.orEmpty(), now)
+                c["time"]?.jsonPrimitive?.contentOrNull.orEmpty(), now, days = days)
         }.getOrElse { WeatherNow(place.name, null, null, null, null, null, null, null, "", now, error = "the weather service returned an unexpected response") }
     }
 
@@ -211,8 +242,25 @@ class OpenMeteo(private val http: HttpFetcher, private val base: String = "https
             95 -> "thunderstorms"; 96, 99 -> "thunderstorms with hail"; else -> null
         }
 
-        fun answer(w: WeatherNow): String {
+        /** Which day a question is about: 0 today (or now), 1 tomorrow, 2 the day after tomorrow. */
+        fun dayAsked(text: String): Int = when {
+            Regex("(?i)\\bday after tomorrow\\b").containsMatchIn(text) -> 2
+            Regex("(?i)\\btomorrow\\b").containsMatchIn(text) -> 1
+            else -> 0
+        }
+
+        fun answer(w: WeatherNow, day: Int = 0): String {
             if (w.error != null) return "I couldn't get the weather for ${w.place} just now (${w.error}), so I won't guess."
+            if (day > 0) {
+                val label = if (day == 1) "Tomorrow" else "The day after tomorrow"
+                val f = w.days.getOrNull(day) ?: return "The forecast I have for ${w.place} doesn't cover ${label.lowercase()}, so I won't guess."
+                return buildString {
+                    append("$label in ${w.place}: ")
+                    append(listOfNotNull(describe(f.code), if (f.minC != null && f.maxC != null) "%.0f to %.0f°C".format(f.minC, f.maxC) else null,
+                        f.rainChance?.let { "$it% chance of rain" }).joinToString(", ").ifEmpty { "no details in the forecast" })
+                    append(". (Open-Meteo forecast for ${f.date}.)")
+                }
+            }
             return buildString {
                 append("In ${w.place} it's ")
                 append(listOfNotNull(w.temperatureC?.let { "%.0f°C".format(it) }, describe(w.code)).joinToString(" and ").ifEmpty { "currently unreported" })

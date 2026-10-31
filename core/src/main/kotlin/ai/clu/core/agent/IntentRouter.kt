@@ -80,7 +80,7 @@ object IntentRouter {
         if (r("^(?:status report|system status|device status|(?:how much|what(?:'s| is)(?: my| the)?) battery(?: level| left)?.*|battery(?: level| status)?)\\??$").matches(t))
             return RoutedIntent("device.status", obj(), "status")
 
-        r("^(?:search|google|look\\s+up|search\\s+the\\s+web|search\\s+online)\\s+(?:for\\s+)?(.+)$").find(t)?.let { return RoutedIntent("web.search", obj("query" to it.groupValues[1]), "search") }
+        r("^(?:search(?:\\s+(?:the\\s+(?:web|internet|net)|online|google))?|google|look\\s+up)\\s+(?:for\\s+|about\\s+)?(.+)$").find(t)?.let { return RoutedIntent("web.search", obj("query" to it.groupValues[1]), "search") }
         if (r("\\b(pnr|running status|train\\s+(?:no|number)|train\\s+\\d{5}|\\d{5}\\s+(?:express|train|mail))\\b").containsMatchIn(lower))
             return RoutedIntent("trains.lookup", obj("query" to t), "train")
         r("^(?:calculate|compute|what(?:'s| is))\\s+([\\d\\s.,+\\-*/x×÷^%()]+)\\??$").find(t)?.let {

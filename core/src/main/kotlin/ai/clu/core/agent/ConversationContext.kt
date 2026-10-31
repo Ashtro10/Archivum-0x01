@@ -64,6 +64,22 @@ class ConversationStateStore(private val store: CluStore) {
     fun get(conversationId: String): ConversationState =
         store.meta(key(conversationId))?.let { runCatching { CluJson.decodeFromString(ConversationState.serializer(), it) }.getOrNull() } ?: ConversationState()
     fun put(conversationId: String, s: ConversationState) = store.setMeta(key(conversationId), CluJson.encodeToString(ConversationState.serializer(), s))
+
+    /**
+     * Start-up clean-up: removes the state of conversations that no longer exist (deleted here, on the other device,
+     * or never synced) and of conversations idle for [IDLE_MS] (their topic expired long ago). Returns how many were removed.
+     */
+    fun prune(conversations: ai.clu.core.conversation.ConversationRepository, now: Long): Int {
+        val keys = store.db.query("SELECT key FROM kv_meta WHERE key LIKE 'conv_state:%'") { it.string(0).orEmpty() }
+        var removed = 0
+        for (k in keys) {
+            val c = conversations.get(k.removePrefix("conv_state:"))
+            if (c == null || c.deleted || now - c.updatedAt > IDLE_MS) { store.db.execute("DELETE FROM kv_meta WHERE key = ?", listOf(k)); removed++ }
+        }
+        return removed
+    }
+
+    companion object { const val IDLE_MS = 30L * 24 * 60 * 60_000 }
 }
 
 /** How a message relates to the conversation. */
@@ -76,7 +92,11 @@ sealed class Resolution {
      * must be looked up; [ask] what a follow-up on a hazard wants to know.
      */
     data class FollowUp(val question: String, val topic: Topic, val research: Boolean, val subject: String?, val ask: HazardAnswers.Ask? = null,
-                        val compareWith: Topic? = null, val prompt: String = question) : Resolution()
+                        val compareWith: Topic? = null, val prompt: String = question,
+                        /** For a hazard topic: which event is meant (by name), when several are in play. */
+                        val focus: String? = null,
+                        /** Check again even if what was found is still fresh ("is there any update?"). */
+                        val refresh: Boolean = false) : Resolution()
     /** One short question back to the owner; [pending] says what the answer will complete. */
     data class Clarify(val text: String, val pending: Pending) : Resolution()
 }
@@ -108,6 +128,9 @@ object FollowUpResolver {
         "yes", "yeah", "sure", "try", "what", "say", "says", "show", "us", "to", "is", "there", "anything", "about", "info", "information")
     private val RESEARCH_VERB = setOf("search", "google", "look", "lookup", "check", "find", "research", "browse", "verify", "confirm")
     private val MORE = r("^(?:(?:ok|okay|and|so|please|clu)[ ,]+)*(?:tell me more|more(?: details?| info(?:rmation)?)?|go on|continue|keep going|what else|anything else|elaborate|explain more|say more|and)(?: about (?:it|that|this|him|her|them))?[ .!?]*$")
+    /** A request for news on the open topic: "is there any update?", "any news?", "what's the latest?", "has anything changed?". */
+    private val UPDATE = r("^(?:(?:ok|okay|so|and|clu|hey)[ ,]+)*(?:(?:is|are) there |got |have you got )?(?:any |an )?(?:updates?|news|new information|developments?|changes?)(?: on (?:it|that|this|them))?(?: yet| now)?[ ?.!]*$|" +
+        "^(?:(?:ok|so|and)[ ,]+)?(?:what'?s|what is) the latest(?: on (?:it|that|this))?[ ?.!]*$|^(?:has|did) anything (?:new )?(?:changed?|happened)(?: since)?[ ?.!]*$|^anything new[ ?.!]*$")
     private val PRONOUN = r("\\b(?:it|its|it's|he|him|his|she|her|hers|they|them|their|this|that|those|these|there)\\b")
     private val SINGULAR = r("\\b(?:it|its|it's|he|him|his|she|her|this|that)\\b")
     private val PREVIOUS = r("\\b(?:the )?(?:previous|last|earlier|other|first) one\\b|\\bthe one before\\b")
@@ -133,6 +156,16 @@ object FollowUpResolver {
     }
 
     fun isMore(text: String) = MORE.matches(text.trim())
+    fun isUpdate(text: String) = UPDATE.matches(text.trim())
+
+    /** What a follow-up on a hazard wants to know. */
+    fun hazardAsk(t: String): HazardAnswers.Ask = when {
+        ASK_DANGER.containsMatchIn(t) -> HazardAnswers.Ask.DANGER
+        ASK_ARRIVAL.containsMatchIn(t) -> HazardAnswers.Ask.ARRIVAL
+        ASK_DIRECTION.containsMatchIn(t) -> HazardAnswers.Ask.DIRECTION
+        ASK_LOCATION.containsMatchIn(t) -> HazardAnswers.Ask.LOCATION
+        else -> HazardAnswers.Ask.MORE
+    }
 
     /**
      * [command]: the message is an explicit command for a tool ("save this conversation to my diary"); it is still
@@ -163,7 +196,18 @@ object FollowUpResolver {
             if (topic.kind == "memory") return Resolution.Standalone(t) // a private memory is not searched on the web
             return Resolution.FollowUp(topic.question, topic, research = true, subject = topic.subject, prompt = topic.question)
         }
+        // "Is there any update?": check the open topic again (with no topic, ask what to check).
+        if (isUpdate(t)) {
+            if (topic == null) return Resolution.Clarify("What would you like me to look up?", Pending("subject", "", turn = s.turn))
+            if (topic.kind !in PRIVATE) return Resolution.FollowUp(topic.question, topic, research = true, subject = topic.subject, prompt = topic.question, refresh = true,
+                focus = topic.entities.singleOrNull())
+        }
         if (topic == null) return Resolution.Standalone(t)
+        // A hazard topic with several events: naming one ("is DANA dangerous?") switches to it, without another question.
+        if (topic.kind == "hazard") topic.hazard?.events?.let { HazardAnswers.named(t, it) }?.let { e ->
+            val name = HazardAnswers.shortName(e)
+            return Resolution.FollowUp(topic.question, topic.copy(entities = listOf(name)), research = false, subject = topic.subject, ask = hazardAsk(t), focus = name)
+        }
         if (isMore(t)) return Resolution.FollowUp(topic.subject?.let { "Tell me about $it" } ?: topic.question, topic, research = topic.kind !in PRIVATE,
             subject = topic.subject, ask = if (topic.kind == "hazard") HazardAnswers.Ask.MORE else null,
             prompt = topic.subject?.let { "Tell me more about $it." } ?: "Tell me more about that.")
@@ -189,16 +233,8 @@ object FollowUpResolver {
             return Resolution.Clarify("Do you mean ${topic.entities.dropLast(1).joinToString(", ")} or ${topic.entities.last()}?",
                 Pending("ambiguity", t, topic.entities, turn = s.turn))
         if (topic.kind == "weather") return Resolution.FollowUp(topic.question, topic, research = true, subject = topic.subject, prompt = t)
-        if (topic.kind == "hazard") {
-            val ask = when {
-                ASK_DANGER.containsMatchIn(t) -> HazardAnswers.Ask.DANGER
-                ASK_ARRIVAL.containsMatchIn(t) -> HazardAnswers.Ask.ARRIVAL
-                ASK_DIRECTION.containsMatchIn(t) -> HazardAnswers.Ask.DIRECTION
-                ASK_LOCATION.containsMatchIn(t) -> HazardAnswers.Ask.LOCATION
-                else -> HazardAnswers.Ask.MORE
-            }
-            return Resolution.FollowUp(topic.question, topic, research = false, subject = topic.subject, ask = ask)
-        }
+        if (topic.kind == "hazard")
+            return Resolution.FollowUp(topic.question, topic, research = false, subject = topic.subject, ask = hazardAsk(t), prompt = t, focus = topic.entities.singleOrNull())
         // Bind the reference to the subject: "what about its location?" about X → "X location".
         val subject = topic.subject ?: return Resolution.Standalone(t)
         val extra = ResearchPolicy.contentWords(WHAT_ABOUT.find(t)?.groupValues?.get(1) ?: t)
@@ -234,7 +270,10 @@ object FollowUpResolver {
             }
             "location" -> ai.clu.core.search.Places.resolve(t)?.let { place ->
                 val topic = s.topic ?: Topic(p.question)
-                Resolved(Resolution.FollowUp(p.question, topic, research = true, subject = topic.subject, prompt = p.question), t, placeFromReply = place.name)
+                // A follow-up that waited for the place ("is it heading towards us?") is answered as that follow-up.
+                val ask = if (topic.kind == "hazard" && topic.hazard != null) hazardAsk(p.question) else null
+                Resolved(Resolution.FollowUp(p.question, topic, research = true, subject = topic.subject, prompt = p.question, ask = ask,
+                    focus = topic.entities.singleOrNull().takeIf { ask != null }), t, placeFromReply = place.name)
             }
             // Which of several things with the same name (from a search): research the one chosen.
             "choice" -> p.options.firstOrNull { o -> words(o).filter { it.length > 2 }.any { it in w } }?.let { choice ->
@@ -260,9 +299,14 @@ object ContextualCorrection {
     internal val COMMON = setOf("what", "which", "where", "when", "will", "would", "could", "should", "there", "their", "about", "tell", "know", "this",
         "that", "with", "from", "have", "does", "doing", "going", "come", "coming", "heading", "towards", "toward", "near", "today", "now", "still",
         "dangerous", "danger", "safe", "arrive", "reach", "much", "many", "more", "very", "really", "please", "think", "look", "search", "find",
-        "check", "just", "also", "like", "make", "made", "take", "give", "said", "says", "sure", "okay", "yeah", "right", "time", "here")
+        "check", "just", "also", "like", "make", "made", "take", "give", "said", "says", "sure", "okay", "yeah", "right", "time", "here",
+        // Ordinary request words: never a mishearing of the topic ("is there any update?" is not "is there any weather?").
+        "update", "updates", "news", "latest", "change", "changes", "changed", "forecast", "tomorrow", "yesterday", "tonight", "anything",
+        "something", "information", "details", "again", "happened", "happening", "since", "before", "after", "afterwards", "later")
 
     fun find(text: String, topic: Topic): Fix? {
+        // A message already understood as a request on the topic ("is there any update?", "look it up", "tell me more") is taken as said.
+        if (FollowUpResolver.isUpdate(text) || FollowUpResolver.isBareResearch(text) || FollowUpResolver.isMore(text)) return null
         // Only a specific subject (a name, a storm, a place) is distinctive enough to re-hear words against; ordinary
         // chat ("first question" → "second question") is taken as said.
         val named = topic.entities.any { e -> e.any { it.isUpperCase() } } || Regex("(?<=\\S\\s)\\p{Lu}").containsMatchIn(topic.question)
@@ -299,6 +343,23 @@ object ContextualCorrection {
         val nameLike = Regex("(?<=\\S\\s)$capitalised\\b").containsMatchIn(text)
         val silent = !ACTION.containsMatchIn(text) && !nameLike && (strong || sim >= 0.7)
         return Fix(from, offer, fixed, silent)
+    }
+
+    /**
+     * A word that sounds like the name of a person in a memory topic ("Leah" while talking about Riya) and is not
+     * itself someone the owner knows ([isKnownPerson]): the question with the name corrected, to be confirmed.
+     */
+    fun misheardName(text: String, topic: Topic, isKnownPerson: (String) -> Boolean): Fix? {
+        val names = (listOfNotNull(topic.subject) + topic.entities).filter { n -> n.firstOrNull()?.isUpperCase() == true }.flatMap { it.split(' ') }
+            .filter { it.length >= 3 }.distinct()
+        if (names.isEmpty()) return null
+        val tokens = Regex("[\\p{L}']+").findAll(text).map { it.value }.toList()
+        if (tokens.size > 14) return null
+        val lowerNames = names.map { it.lowercase() }
+        val hit = tokens.filter { t -> t.length >= 3 && t.lowercase() !in lowerNames && t.lowercase() !in COMMON && t.lowercase() !in Grounding.FUNCTION && !isKnownPerson(t) }
+            .flatMap { t -> names.map { n -> Triple(t, n, Phonetics.similarity(t.lowercase(), n.lowercase())) } }
+            .filter { it.third >= 0.6 }.maxByOrNull { it.third } ?: return null
+        return Fix(hit.first, hit.second, Regex("\\b${Regex.escape(hit.first)}\\b").replace(text, hit.second), silent = false)
     }
 
     /** An action ("send lemon a message") whose object sounds just like the topic's name: never acted on as heard, never silently changed. */

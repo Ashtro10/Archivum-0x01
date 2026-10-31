@@ -1333,6 +1333,153 @@
      }
     }
    ]
+  },
+  {
+   "name": "Stage 4 (1.8.2): two cyclones near home are both named; 'it' is asked about, the choice carries, naming the other switches, an update re-checks",
+   "home": "Chennai",
+   "gdacs": {
+    "type": "FeatureCollection",
+    "features": [
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        86.4,
+        15.2
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "DANA-24",
+       "description": "Tropical Cyclone DANA-24",
+       "alertlevel": "Orange",
+       "iscurrent": "true",
+       "country": "India, Bangladesh",
+       "source": "JTWC",
+       "datemodified": "2026-10-29T06:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=1001"
+       },
+       "severitydata": {
+        "severitytext": "Tropical cyclone (maximum wind speed of 120 km/h)"
+       }
+      }
+     },
+     {
+      "type": "Feature",
+      "geometry": {
+       "type": "Point",
+       "coordinates": [
+        72.0,
+        12.0
+       ]
+      },
+      "properties": {
+       "eventtype": "TC",
+       "name": "VAYU-24",
+       "description": "Tropical Cyclone VAYU-24",
+       "alertlevel": "Green",
+       "iscurrent": "true",
+       "country": "India",
+       "source": "JTWC",
+       "datemodified": "2026-10-29T05:00:00",
+       "url": {
+        "report": "https://www.gdacs.org/report.aspx?eventid=1003"
+       },
+       "severitydata": {
+        "severitytext": "Tropical storm (maximum wind speed of 75 km/h)"
+       }
+      }
+     }
+    ]
+   },
+   "search": {},
+   "steps": [
+    {
+     "say": "Which cyclone is approaching?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "Two active tropical cyclones are within about 1,500 km of Chennai. Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as affected: India, Bangladesh. Tropical Cyclone VAYU-24 is about 900 km west of Chennai, near 12.0°N 72.0°E; tropical storm (maximum wind speed of 75 km/h). GDACS alert level: Green. Countries GDACS lists as affected: India. The data I have doesn't include their directions of movement or landfall times; the India Meteorological Department (IMD) issues the official forecasts and warnings. (GDACS, based on JTWC data, updated 2026-10-29 06:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Is it heading towards us?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "Do you mean DANA-24 or VAYU-24?",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "VAYU",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "The data I have gives its current position, not a forecast track, so I can't say which way it is moving without guessing. Right now it is about 900 km west of Chennai. The India Meteorological Department (IMD) publishes the forecast track and warnings. (GDACS, based on JTWC data, updated 2026-10-29 05:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Is it dangerous?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "GDACS rates Tropical Cyclone VAYU-24 Green: limited impact is expected, though local conditions can still be dangerous. Tropical storm (maximum wind speed of 75 km/h). It is about 900 km west of Chennai. For what to do locally, follow the India Meteorological Department (IMD) and your local authorities. (GDACS, based on JTWC data, updated 2026-10-29 05:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "And is DANA dangerous?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "GDACS rates Tropical Cyclone DANA-24 Orange: a significant impact is possible. Tropical cyclone (maximum wind speed of 120 km/h). It is about 700 km east-northeast of Chennai. For what to do locally, follow the India Meteorological Department (IMD) and your local authorities. (GDACS, based on JTWC data, updated 2026-10-29 06:00 UTC.)",
+      "model_calls": 0
+     }
+    },
+    {
+     "say": "Is there any update?",
+     "model": [],
+     "expect": {
+      "queries": [],
+      "final": "Two active tropical cyclones are within about 1,500 km of Chennai. Tropical Cyclone DANA-24 is about 700 km east-northeast of Chennai, near 15.2°N 86.4°E; tropical cyclone (maximum wind speed of 120 km/h). GDACS alert level: Orange. Countries GDACS lists as affected: India, Bangladesh. Tropical Cyclone VAYU-24 is about 900 km west of Chennai, near 12.0°N 72.0°E; tropical storm (maximum wind speed of 75 km/h). GDACS alert level: Green. Countries GDACS lists as affected: India. The data I have doesn't include their directions of movement or landfall times; the India Meteorological Department (IMD) issues the official forecasts and warnings. (GDACS, based on JTWC data, updated 2026-10-29 06:00 UTC.)",
+      "model_calls": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "Stage 4 (1.8.2): 'search the web for …' researches the subject, not the command's words",
+   "search": {
+    "current CEO of Microsoft": {
+     "results": [
+      {
+       "title": "Satya Nadella",
+       "url": "https://en.wikipedia.org/wiki/Satya_Nadella",
+       "snippet": "Satya Nadella is the chief executive officer of Microsoft, a role he has held since 2014."
+      }
+     ]
+    }
+   },
+   "steps": [
+    {
+     "say": "Search the web for the current CEO of Microsoft.",
+     "model": [
+      "Satya Nadella is the chief executive officer of Microsoft."
+     ],
+     "expect": {
+      "queries": [
+       "current CEO of Microsoft"
+      ],
+      "final": "Satya Nadella is the chief executive officer of Microsoft.",
+      "kind": "model"
+     }
+    }
+   ]
   }
  ]
 }

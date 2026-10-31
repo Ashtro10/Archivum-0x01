@@ -333,15 +333,26 @@ class CluAgent(
         // 3b''. MEMORY RECALL: questions about the owner's own past are answered from the archive (records and the configured
         // clock), with one question back when it could be several people, and an honest "nothing stored" otherwise.
         val recall = recall
-        if (persona.isClu && req.actor.role == PersonRole.OWNER && recall != null) {
-            val recent = conversations.messages(req.conversationId).takeLast(8).map { it.content }
-            val a = runCatching { recall.answer(text, state, recent) }.onFailure { diag?.w("agent", "memory recall failed: ${it.message}") }.getOrNull()
-            if (a != null) {
-                turn.topicOut = a.topic; turn.pendingOut = a.pending
-                finish(req, turn, a.text, baseMeta.copy(source = "template", tools = listOf("memory.recall")), emit)
+        val owner = persona.isClu && req.actor.role == PersonRole.OWNER
+        // A spoken name that sounds like the person being discussed, but isn't anyone in the People catalog
+        // ("where did I meet Leah?" while talking about Riya): asked about, never silently changed (names matter).
+        if (owner && req.viaVoice && archive != null && state.pending == null) state.topic?.takeIf { it.kind == "memory" && FollowUpResolver.topicUsable(state, now()) }?.let { topic ->
+            ContextualCorrection.misheardName(text, topic) { archive.people.resolve(it).isNotEmpty() }?.let { fix ->
+                turn.pendingOut = Pending("correction", fix.text, listOf(fix.to), literal = text, turn = state.turn, at = now())
+                turn.topicOut = topic
+                finish(req, turn, "Do you mean ${fix.to}?", baseMeta.copy(source = "template"), emit)
                 return
             }
         }
+        suspend fun tryRecall(q: String): Boolean {
+            if (!owner || recall == null) return false
+            val recent = conversations.messages(req.conversationId).takeLast(8).map { it.content }
+            val a = runCatching { recall.answer(q, state, recent) }.onFailure { diag?.w("agent", "memory recall failed: ${it.message}") }.getOrNull() ?: return false
+            turn.topicOut = a.topic; turn.pendingOut = a.pending
+            finish(req, turn, a.text, baseMeta.copy(source = "template", tools = listOf("memory.recall")), emit)
+            return true
+        }
+        if (tryRecall(text)) return
         val command = IntentRouter.route(text)?.let { it.tool != "web.search" && tools.has(it.tool) } == true
         val resolved = if (persona.isClu && context != null) FollowUpResolver.resolve(text, state, req.viaVoice, now(), command) else Resolved(Resolution.Standalone(text), text)
         turn.resolved = resolved
@@ -352,7 +363,11 @@ class CluAgent(
         when (val r = resolved.resolution) {
             is Resolution.Clarify -> { finish(req, turn, r.text, baseMeta.copy(source = "template"), emit); return }
             is Resolution.FollowUp -> { followUp(req, turn, persona, ctx, baseMeta, emit, r, state, resolved.placeFromReply); return }
-            is Resolution.Standalone -> if (r.text != text) return handleStandalone(req.copy(text = r.text), turn, persona, ctx, baseMeta, emit, state)
+            is Resolution.Standalone -> if (r.text != text) {
+                // A confirmed correction ("Do you mean Riya?" — "yes") may be a question about the owner's memories.
+                if (resolved.corrected != null && tryRecall(r.text)) return
+                return handleStandalone(req.copy(text = r.text), turn, persona, ctx, baseMeta, emit, state)
+            }
         }
         handleStandalone(req, turn, persona, ctx, baseMeta, emit, state)
     }
@@ -448,14 +463,30 @@ class CluAgent(
         if (topic.kind == "hazard" || topic.kind == "weather" || HazardPolicy.detect(r.question) != null) {
             val need = HazardPolicy.detect(r.question) ?: topic.hazard?.let { HazardPolicy.Need(it.type, nearOwner = true, place = null) }
                 ?: HazardPolicy.Need("WX", nearOwner = true, place = topic.weather?.place?.let { ai.clu.core.search.Places.resolve(it) })
-            val fresh = topic.hazard?.takeIf { now() - it.checkedAt < HAZARD_FRESH_MS && it.error == null }
+            val fresh = topic.hazard?.takeIf { now() - it.checkedAt < HAZARD_FRESH_MS && it.error == null && !r.refresh }
+            // "Is it heading towards us?" with no known place: ask once, then answer this follow-up for that place.
+            if (need.type != "WX" && need.place == null && home(state) == null && HazardPolicy.aboutOwner(r.prompt)) {
+                turn.pendingOut = Pending("location", r.prompt)
+                turn.topicOut = topic
+                finish(req, turn, "Which city or area should I check that for? (You can also save your home location in Settings → General.)", baseMeta.copy(source = "template"), emit)
+                return
+            }
             if (r.ask != null && fresh != null && need.type != "WX") {
-                val text = ai.clu.core.search.HazardAnswers.followUp(r.ask, fresh, need.place ?: home(state), r.compareWith?.hazard)
+                val text = ai.clu.core.search.HazardAnswers.followUp(r.ask, fresh, need.place ?: home(state), r.compareWith?.hazard, r.focus)
                 turn.topicOut = topic
                 finish(req, turn, text, baseMeta.copy(source = "tool", tools = listOf("hazards"), sources = hazardSources(fresh)), emit)
                 return
             }
-            answerHazard(req, turn, baseMeta, emit, need, r.question, state, r.ask, r.compareWith?.hazard)
+            // The weather: tomorrow's or today's forecast from what was just fetched, while it is fresh.
+            val day = ai.clu.core.search.OpenMeteo.dayAsked(r.prompt)
+            val freshWeather = topic.weather?.takeIf { now() - it.checkedAt < HAZARD_FRESH_MS && it.error == null && !r.refresh && (day == 0 || it.days.size > day) }
+            if (need.type == "WX" && freshWeather != null && (need.place == null || need.place.name == freshWeather.place)) {
+                turn.topicOut = topic
+                finish(req, turn, ai.clu.core.search.OpenMeteo.answer(freshWeather, day), baseMeta.copy(source = "tool", tools = listOf("weather"),
+                    sources = listOf(ai.clu.core.conversation.SourceRef("Open-Meteo forecast for ${freshWeather.place}", "https://open-meteo.com/", retrievedAt = freshWeather.checkedAt))), emit)
+                return
+            }
+            answerHazard(req, turn, baseMeta, emit, need, r.question, state, r.ask, r.compareWith?.hazard, focus = r.focus, day = day)
             return
         }
         val prompted = req.copy(text = r.prompt)
@@ -482,7 +513,8 @@ class CluAgent(
      */
     private suspend fun answerHazard(req: TurnRequest, turn: Turn, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit, need: HazardPolicy.Need,
                                      question: String, state: ConversationState, ask: ai.clu.core.search.HazardAnswers.Ask? = null,
-                                     previous: ai.clu.core.search.HazardCheck? = null) {
+                                     previous: ai.clu.core.search.HazardCheck? = null, focus: String? = null,
+                                     day: Int = ai.clu.core.search.OpenMeteo.dayAsked(question)) {
         val place = need.place ?: home(state)
         val noun = if (need.type == "WX") "weather" else ai.clu.core.search.HazardAnswers.noun(need.type)
         if (place == null && (need.nearOwner || need.type == "WX")) {
@@ -501,14 +533,17 @@ class CluAgent(
         if (need.type == "WX") {
             val w = cancellable(turn) { (weather ?: return@cancellable null).now(place!!, now()) } ?: return finish(req, turn, "", baseMeta.copy(interrupted = true), emit).let {}
             turn.topicOut = Topic(question, subject = "weather in ${place!!.name}", kind = "weather", weather = w, answered = w.error == null)
-            finish(req, turn, ai.clu.core.search.OpenMeteo.answer(w), baseMeta.copy(source = "tool", tools = listOf("weather"), error = if (w.error != null) "search_failed" else "",
+            finish(req, turn, ai.clu.core.search.OpenMeteo.answer(w, day), baseMeta.copy(source = "tool", tools = listOf("weather"), error = if (w.error != null) "search_failed" else "",
                 sources = if (w.error == null) listOf(ai.clu.core.conversation.SourceRef("Open-Meteo forecast for ${w.place}", "https://open-meteo.com/", retrievedAt = w.checkedAt)) else emptyList()), emit)
             return
         }
         val check = cancellable(turn) { (hazards ?: return@cancellable null).current(need.type, now()) } ?: return finish(req, turn, "", baseMeta.copy(interrupted = true), emit).let {}
+        // The events in play: every one near the owner (so "it" with two of them is asked about), else the first.
+        val inPlay = ai.clu.core.search.HazardAnswers.relevant(check, place).let { near -> if (place != null && near.size > 1) near.take(3) else near.take(1) }
+        val focused = focus?.takeIf { f -> check.events.any { ai.clu.core.search.HazardAnswers.shortName(it).equals(f, true) } }
         turn.topicOut = Topic(question, subject = noun, kind = "hazard", hazard = check, answered = check.error == null,
-            entities = check.events.map { it.name }.take(1))
-        val text = if (ask != null) ai.clu.core.search.HazardAnswers.followUp(ask, check, place, previous) else ai.clu.core.search.HazardAnswers.answer(check, place)
+            entities = focused?.let { listOf(it) } ?: inPlay.map { ai.clu.core.search.HazardAnswers.shortName(it) })
+        val text = if (ask != null) ai.clu.core.search.HazardAnswers.followUp(ask, check, place, previous, focused) else ai.clu.core.search.HazardAnswers.answer(check, place)
         finish(req, turn, text, baseMeta.copy(source = "tool", tools = listOf("hazards"), error = if (check.error != null) "search_failed" else "", sources = hazardSources(check)), emit)
     }
 

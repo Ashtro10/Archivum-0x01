@@ -139,6 +139,7 @@ class ConversationRepository(private val store: CluStore) {
         if (local != null && local.hlc >= c.hlc) return false
         store.hlc.observe(c.hlc)
         db.transaction { writeConv(c); store.logRemote(CONV, c.id, c.hlc) }
+        if (c.deleted) db.execute("DELETE FROM kv_meta WHERE key = ?", listOf("conv_state:${c.id}")) // deleted on the other device: its context goes too
         store.notifyChanged(CONV)
         return true
     }

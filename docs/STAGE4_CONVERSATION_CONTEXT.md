@@ -136,3 +136,69 @@ checks). GDACS, Open-Meteo and Wikipedia could not be reached from this environm
   The server agent treats every turn as speech (its input is speech-to-text).
 * The 135M model rarely paraphrases acceptably, so researched answers on this host are mostly attributed quotes;
   a larger model is needed for natural answers (see MODEL_AND_ANSWER_QUALITY.md).
+
+## 6. Completion (1.8.2)
+
+_2026-10-31. The Stage 4 brief was re-issued as "resume the interrupted Stage 4". The interrupted work had in fact been
+finished and released as 1.7.0 (sections 1–5). Each finding in the brief was re-checked against the 1.8.1 code with a
+new acceptance suite (`Stage4CompletionTest`). Five scenarios already passed. Seven failed and are fixed here. Fixtures
+and a scripted model only: GDACS, Open-Meteo and Wikipedia are still refused by this environment's network policy (proxy
+403 on 2026-10-31), so **no live-provider test was possible**. Not tested on a device._
+
+**Still wrong in 1.8.1, fixed:**
+
+| Finding | What happened in 1.8.1 | 1.8.2 |
+|---|---|---|
+| "Search the web for X" searched the literal words | The router matched "search" and kept "the web for the current CEO of Microsoft" as the query. Queries also kept a leading "the", and "look up who X is" kept the trailing "is". | The router accepts "search the web/internet/online for …". The query is the subject: "current CEO of Microsoft", "history of Bosnia and Herzegovina". |
+| Two cyclones near home | Only the nearest was described ("GDACS also lists Y"), and every follow-up silently meant the nearest. | Each nearby cyclone is named with its own distance and direction. "Is it heading towards us?" asks "Do you mean DANA-24 or VAYU-24?", and the choice carries into later turns. Naming one ("is DANA dangerous?") switches without another question. |
+| "Is it heading towards us?" with no location | Answered without a place ("near 15.2°N 86.4°E"). | One question ("Which city or area should I check that for?"). The reply then answers that follow-up for the place given. |
+| "What about tomorrow?" | Fetched the weather again and repeated today's. | Open-Meteo is asked for 3 days. "Tomorrow" and "the day after tomorrow" are answered from the forecast; follow-ups reuse a forecast fetched in the last 30 minutes. |
+| "Is there any update?" | Repeated the stored finding (or went to the model). | Checks the open topic again (a new request). With no topic, Clu asks what to look up. |
+| Misheard names on a memory topic | Memory recall ran before contextual correction, so "where did I meet Leah?" while talking about Riya was never re-heard. The People catalog also matched Leah to Riya as a "spelling variant" (sound-alike rule on one consonant). | A sound-alike of the person being discussed who isn't in the catalog gets "Do you mean Riya?" (names are never changed silently). "Yes" carries the corrected question on. The spelling-variant rule now needs the same first letter or a 3+ consonant skeleton: Sara/Sarah and Kristina/Christina still match; Leah/Riya don't. |
+| An ordinary word "re-heard" as the topic | On a voice turn, "Is there any update?" during a weather conversation was silently rewritten to "Is there any weather?" (update/weather share a consonant skeleton, similarity 0.8). The raw text was kept but the meaning changed without asking. Found by the latency benchmark. | A message already understood as a request (update, look it up, tell me more) is never re-heard. Common request words (update, news, latest, forecast, tomorrow, …) are never treated as mishearings. Both engines. |
+| Conversation-state clean-up | State was removed only when a conversation was deleted in the list. | It is also removed when the conversation is deleted on the other device (sync). Orphaned or 30-day-idle state is pruned at start-up. |
+
+**Re-checked and already correct in 1.8.1:**
+* the bare research command;
+* the restart;
+* unrelated questions;
+* "and" inside a subject ("Bosnia and Herzegovina" is not split; real chains still are);
+* provider failures;
+* cancellation;
+* collapsed sources;
+* "what did he do?" with one person (it binds) and with two (Clu asks);
+* memory recall vs live research (a memory question sends nothing to the web; a current question is researched and
+  never answered from a memory).
+
+**Server parity.** The LiveKit server controller (`server/clu_context.py`, `server/clu_controller.py`) has the same
+changes. The shared contract gained two conversations: the two-cyclone conversation (6 turns, with "any update?") and
+"search the web for …". Both engines run them (`AgentContractTest`, `server/tests/test_contract.py`).
+
+### Required tests → where they are
+
+| # | Brief | Test(s) |
+|---|---|---|
+| 1 | CEO question, then "Look it up." | `ConversationContextTest.aBareSearchCommandResearchesTheOpenQuestion`; contract (both engines) |
+| 2 | Cyclone, then "Is it heading towards us?" | `Stage4CompletionTest.twoNearbyCyclonesAreDistinguished`, `ConversationContextTest.aCycloneQuestionIsAnsweredFromTheOfficialSourceAndFollowedUp` |
+| 3 | ASR correction from the active topic | `…aMisheardWordIsReinterpretedFromTheConversation`, `Stage4CompletionTest.aMisheardNameIsReheardFromThePersonInPlay` |
+| 4 | Original transcript kept | the same two (raw message content and `meta.interpreted` checked) |
+| 5 | Ambiguous pronouns → clarification | `…anAmbiguousFollowUpIsClarifiedOnce`, `Stage4CompletionTest.pronounsBindOrAreClarified` |
+| 6 | Clarification answers carry on | `…anAmbiguousFollowUpIsClarifiedOnce` ("How hot is it?"), `twoNearbyCyclonesAreDistinguished` (VAYU, then "Is it dangerous?") |
+| 7 | State survives a restart | `…theTopicSurvivesAReloadAndARestart` |
+| 8 | Unrelated questions don't inherit | `…anUnrelatedQuestionStartsANewTopic` |
+| 9 | No filler-word searches | `Stage4CompletionTest.aSearchCommandResearchesTheSubjectNotTheFillerWords`; contract (both engines) |
+| 10 | Planner doesn't split on "and" | `Stage4CompletionTest.aSubjectWithAndIsNotSplit`, `TaskPlanTest` |
+| 11 | Weather uses the weather path | `Stage4CompletionTest.weatherAndTomorrowUseTheForecast`, `SearchAgentTest.personalDataNeverSentToTheProvider` |
+| 12 | Cyclones use structured hazard data | `…aCycloneQuestionIsAnsweredFromTheOfficialSourceAndFollowedUp` (GDACS, no encyclopedia request) |
+| 13 | Two simultaneous cyclones | `Stage4CompletionTest.twoNearbyCyclonesAreDistinguished`; contract (both engines) |
+| 14 | Configured coordinates | `Stage4CompletionTest.configuredCoordinatesAreUsed`, `HomeLocationTest` |
+| 15 | Missing location → clarification | `…anUnknownLocationIsAskedForOnce`, `Stage4CompletionTest.aFollowUpAboutUsWithoutALocationAsksForIt` |
+| 16 | Missing forecast track said | `…aCycloneQuestion…` ("Which way is it moving?", "When will it arrive?"), `twoNearbyCyclones…` |
+| 17 | Provider failure → honest limitation | `…aFailedSearchIsNotPresentedAsResearch`, `Stage4CompletionTest.aWeatherFailureIsAnHonestLimitation` |
+| 18 | Cancellation on Stop | `…cancellingStopsFurtherWork`, `Stage4CompletionTest.stopCancelsTheWeatherRequest`, server `Cancellation` |
+| 19 | Irrelevant results rejected | `…irrelevantResultsAreRejected`; contract (both engines) |
+| 20 | Collapsed sources expand | `Stage1UiTest.searchedAnswerShowsBadgeAndClickableSources` (collapsed by default, tap expands, link opens) |
+| 21 | Voice and text consistent | `…voiceAndTypingBehaveAlike`; the contract runs the same conversations on the server (voice) engine |
+| 22 | Memory recall ≠ live research | `Stage4CompletionTest.memoryRecallIsNotConfusedWithLiveResearch` |
+| 23 | Persistence and clean-up | `…theTopicSurvivesAReloadAndARestart`, `Stage4CompletionTest.conversationStateIsCleanedUp` |
+| 24 | Existing tests green | the full core and app suites, server tests and the offline test (see STATUS.md) |

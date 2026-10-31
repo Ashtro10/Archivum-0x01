@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.2-prototype.
 
-* Settings: **211** · verifying test passed: **211** · other: **0**
+* Settings: **215** · verifying test passed: **215** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -118,6 +118,10 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `memory.maxInjected` | Memories per reply | `4` | integer 0–12 | SHARED | MemoryRetriever | Caps retrieved memories | Applies immediately | `MemorySettingsTest#maxInjected` | passed | – |
 | `memory.minScore` | Relevance threshold | `1.2` | number 0.0–10.0 | SHARED | MemoryRetriever | Memories below the BM25 score are not injected | Applies immediately | `MemorySettingsTest#minScore` | passed | – |
 | `memory.temporaryDays` | Temporary context retention (days) | `7` | integer 1–90 | SHARED | MemoryService | expires_at for TEMPORARY memories; expired ones are purged | Applies immediately | `MemorySettingsTest#temporaryRetention` | passed | – |
+| `memory.workingHours` | Working memory lifetime (hours) | `24` | integer 1–168 | SHARED | WorkingMemory | expires_at of working memory items | Applies immediately | `MemoryM4SettingsTest#workingHours` | passed | – |
+| `memory.formation` | Learning facts from conversation | `"suggest"` | `off`, `suggest`, `auto` | SHARED | MemoryFormation | Candidates become suggestions, direct memories (stated facts only) or nothing | Applies immediately | `MemoryM4SettingsTest#formation` | passed | – |
+| `memory.consolidate` | Tidy up memory in the background | `true` | true / false | SHARED | Consolidator | Background job runs consolidation | Applies immediately | `MemoryM4SettingsTest#consolidate` | passed | – |
+| `memory.learnPreferences` | Learn how you like replies | `true` | true / false | SHARED | PreferenceLearner | Signals are recorded and may produce a question | Applies immediately | `MemoryM4SettingsTest#learnPreferences` | passed | – |
 | `memory.proposeInsights` | Suggest insights | `true` | true / false | SHARED | InsightProposer | Proposals are created for review | Applies immediately | `MemorySettingsTest#proposeInsights` | passed | – |
 | `memory.rememberCommand` | "Remember that…" saves directly | `true` | true / false | SHARED | CommandRouter, MemoryService | Command saves a memory instead of creating a proposal | Applies immediately | `MemorySettingsTest#rememberCommand` | passed | – |
 | `diary.mode` | Conversation diary | `"propose"` | `off`, `propose`, `automatic` | SHARED | DiaryWriter | Creates proposals / entries when a conversation ends | Applies immediately | `MemorySettingsTest#diaryMode` | passed | – |

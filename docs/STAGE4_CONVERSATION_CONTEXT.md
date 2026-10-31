@@ -202,3 +202,32 @@ changes. The shared contract gained two conversations: the two-cyclone conversat
 | 22 | Memory recall ≠ live research | `Stage4CompletionTest.memoryRecallIsNotConfusedWithLiveResearch` |
 | 23 | Persistence and clean-up | `…theTopicSurvivesAReloadAndARestart`, `Stage4CompletionTest.conversationStateIsCleanedUp` |
 | 24 | Existing tests green | the full core and app suites, server tests and the offline test (see STATUS.md) |
+
+### Latency, 1.8.1 vs 1.8.2 (host)
+
+`ConversationLatencyBenchmark`, the same file and the same fixture responses on both builds (1.8.1 = commit `5dffe1d` in
+a separate worktree). Setup: SmolLM2-135M-Instruct Q4_1 through llama.cpp JNI, 4 threads, temperature 0; x86 build
+container; 5 runs; medians; monotonic clock.
+* **Model:** time inside generate calls.
+* **Outside the model:** follow-up resolution, routing, planning, memory retrieval, research checks and storage.
+* **Network:** fixture requests (instant), so these numbers exclude real provider latency.
+
+Raw data: `docs/measurements/stage4_completion_latency_{before_1.8.1,after_1.8.2}.json`.
+
+| Turn | 1.8.1 total ms (model) | 1.8.2 total ms (model) | What changed |
+|---|---|---|---|
+| Which cyclone is approaching? (two near) | 12 (0) | 12 (0) | 1.8.2 names both cyclones |
+| Is it heading towards us? | 16 (0) | 9 (0) | 1.8.1 silently answered about the nearest; 1.8.2 asks which one |
+| VAYU | 1,768 (1,736) | 11 (0) | 1.8.1 sent the reply to the model; 1.8.2 answers from the data |
+| What about tomorrow? | 12 (0), 1 request | 12 (0), 0 requests | 1.8.1 repeated today's weather; 1.8.2 gives tomorrow's forecast |
+| Is there any update? (weather) | 19 (0) | 13 (0) | both re-check |
+| Search the web for the current CEO of Microsoft. | 1,722 (1,653), 4 requests | 1,715 (1,645), 2 requests | 1.8.1 searched "the web for the current CEO of Microsoft", then "Microsoft" |
+| What did I tell you about Microsoft? (memory) | 10 (0) | 10 (0) | unchanged; no network |
+| Comparable research turns (CEO, Leman Russ) | 1,723–2,508 | 1,868–2,617 | same model calls and queries |
+
+* **Comparable research turns:** these make the same calls in both builds, and the differences are within model-time
+  variance (±10 %). Time outside the model is 54–82 ms in both builds, so the new resolution and checks add no
+  measurable cost.
+* **Answered from data:** every hazard, weather and memory turn takes 4–16 ms on this host, with no model call.
+* **Not re-measured here:** speech-recognition time and time to first audio. That code is unchanged; earlier host
+  measurements are in `docs/measurements/`. No device numbers exist.

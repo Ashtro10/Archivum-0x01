@@ -21,6 +21,9 @@ data class GgufInfo(
     val contextLength: Long = 0,
     val blockCount: Long = 0,
     val embeddingLength: Long = 0,
+    /** Attention heads and key/value heads (grouped-query attention): decide how big the KV cache is. 0 = not in the file. */
+    val headCount: Long = 0,
+    val headCountKv: Long = 0,
     val tensorCount: Long = 0,
     val hasChatTemplate: Boolean = false,
     val parameterCountHint: Long = 0,
@@ -59,7 +62,7 @@ object GgufReader {
                 val key = r.string()
                 val type = r.u32().toInt()
                 val keep = key.startsWith("general.") || key.endsWith(".context_length") || key.endsWith(".block_count") ||
-                    key.endsWith(".embedding_length") || key == "tokenizer.chat_template"
+                    key.endsWith(".embedding_length") || key.endsWith(".attention.head_count") || key.endsWith(".attention.head_count_kv") || key == "tokenizer.chat_template"
                 val v = r.value(type, keep)
                 if (keep) wanted[key] = v
                 if (key == "general.architecture") arch = v as String
@@ -88,6 +91,8 @@ object GgufReader {
                 contextLength = num("$arch.context_length"),
                 blockCount = num("$arch.block_count"),
                 embeddingLength = num("$arch.embedding_length"),
+                headCount = num("$arch.attention.head_count"),
+                headCountKv = num("$arch.attention.head_count_kv"),
                 hasChatTemplate = wanted.containsKey("tokenizer.chat_template"),
                 parameterCountHint = num("general.parameter_count"),
             )
@@ -194,19 +199,38 @@ class ModelRegistry(private val store: CluStore) {
     companion object {
         const val TABLE = "models"
 
-        /** Rough RAM need: weights (mmap'd, but resident while generating) + KV cache + compute buffers. */
-        fun estimateRamBytes(e: ModelEntry, nCtx: Int): Long {
-            val layers = e.info.blockCount.takeIf { it > 0 } ?: 32
-            val embd = e.info.embeddingLength.takeIf { it > 0 } ?: 3072
-            // KV cache in F16 assuming GQA ratio ~ 1/4 (typical for 1-4B instruct models).
-            val kv = 2L * layers * nCtx * (embd / 4) * 2
-            return e.sizeBytes + kv + 300L * 1024 * 1024
+        /**
+         * RAM need: weights (memory-mapped, but resident while generating) + KV cache + compute buffers.
+         * The KV cache is f16 and sized from the model's own head counts when the file has them (grouped-query attention
+         * makes it several times smaller than full attention); otherwise a typical 1/4 ratio is assumed.
+         */
+        fun estimateRamBytes(e: ModelEntry, nCtx: Int): Long = e.sizeBytes + kvCacheBytes(e.info, nCtx) + COMPUTE_OVERHEAD
+
+        fun kvCacheBytes(info: GgufInfo, nCtx: Int): Long {
+            val layers = info.blockCount.takeIf { it > 0 } ?: 32
+            val embd = info.embeddingLength.takeIf { it > 0 } ?: 3072
+            val kvDim = if (info.headCount > 0 && info.headCountKv > 0) embd * info.headCountKv / info.headCount else embd / 4
+            return 2L * layers * nCtx * kvDim * 2
         }
+
+        const val COMPUTE_OVERHEAD = 300L * 1024 * 1024
+
+        /**
+         * The largest context (multiple of 256, at least [MIN_CONTEXT]) whose estimated need fits in [budgetBytes], never
+         * above [wanted] or the model's own training context. Null when even the smallest context does not fit.
+         */
+        fun fitContext(e: ModelEntry, wanted: Int, budgetBytes: Long): Int? {
+            val cap = if (e.info.contextLength > 0) minOf(wanted.toLong(), e.info.contextLength).toInt() else wanted
+            var ctx = cap
+            while (ctx >= MIN_CONTEXT) { if (estimateRamBytes(e, ctx) <= budgetBytes) return ctx; ctx = (ctx - 256).coerceAtMost(ctx * 3 / 4) / 256 * 256 }
+            return null
+        }
+        const val MIN_CONTEXT = 1024
 
         val catalog = listOf(
             CatalogModel("Qwen2.5 3B Instruct (Q4_K_M) – recommended default",
                 "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf", 2_100_000_000L,
-                "~3B parameters. Good quality/speed balance for the Snapdragon 870 and 8 Gen 2."),
+                "~3B parameters, ChatML template. Strong instruction following for its size; the default suggestion for the PC and the phone."),
             CatalogModel("Llama 3.2 3B Instruct (Q4_K_M)",
                 "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf", 2_020_000_000L,
                 "~3B parameters, Llama 3 chat template."),

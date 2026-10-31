@@ -318,6 +318,23 @@ object Settings {
         listOf("cpu" to "CPU (ARM NEON + dot-product)", "gpu" to "GPU (OpenCL/Vulkan)"), "Compute backend.", "LlmService",
         "Selects the backend / GPU layer offload", "ModelSettingsTest#acceleration", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD,
         limits = "This build contains only the CPU backend; GPU is shown as unavailable.")
+    val GPU_LAYERS = int("model.gpuLayers", "Layers on the GPU", MODEL, 99, 0, 99,
+        "With Acceleration = GPU: how many layers to offload (99 = all). If the GPU can't be initialised, CLU runs on the CPU and says so.",
+        "LlmService", "n_gpu_layers passed to the engine; ignored when acceleration is CPU", "InferenceSettingsTest#gpuLayers", scope = DEVICE,
+        apply = ApplyMode.MODEL_RELOAD, advanced = true)
+    val FIT_CONTEXT = bool("model.fitContext", "Shrink the context to fit memory", MODEL, true,
+        "If the model plus its context would not fit in the memory CLU may use, load it with a smaller context instead of refusing.",
+        "LlmService", "Context length is reduced to the largest that fits; the new length is reported", "InferenceSettingsTest#fitContext", scope = DEVICE, advanced = true)
+    val MAX_QUEUED = int("model.maxQueued", "Replies that may wait", MODEL, 4, 0, 16,
+        "Requests beyond the one being generated that may queue for the model. More are refused with a clear message instead of piling up.",
+        "InferenceService", "Requests over the limit fail immediately with 'busy'", "InferenceSettingsTest#maxQueued", scope = DEVICE, advanced = true)
+    val FIRST_TOKEN_TIMEOUT = int("model.firstTokenTimeoutS", "Wait for the first word (s)", MODEL, 180, 10, 900,
+        "A request that has started but produced nothing for this long is stopped with an error.", "InferenceService",
+        "Watchdog on time-to-first-token", "InferenceSettingsTest#timeouts", scope = DEVICE, advanced = true)
+    val STALL_TIMEOUT = int("model.stallTimeoutS", "Stall limit (s)", MODEL, 60, 5, 300,
+        "A reply that stops producing words for this long is stopped.", "InferenceService", "Watchdog on gaps between tokens", "InferenceSettingsTest#timeouts", scope = DEVICE, advanced = true)
+    val TOTAL_TIMEOUT = int("model.totalTimeoutS", "Longest reply (s)", MODEL, 900, 30, 3600,
+        "No single request may use the model longer than this.", "InferenceService", "Watchdog on total generation time", "InferenceSettingsTest#timeouts", scope = DEVICE, advanced = true)
     val AUTO_UNLOAD = int("model.autoUnloadMin", "Unload when idle (min)", MODEL, 20, 0, 240, "Free model RAM after this idle time. 0 = never.",
         "LlmService", "Model is released after the idle period", "ModelSettingsTest#autoUnload", scope = DEVICE)
     val LOAD_ON_START = bool("model.loadOnStart", "Load model at start", MODEL, true, "Load the model when the app starts for a faster first reply.",

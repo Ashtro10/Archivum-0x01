@@ -42,7 +42,7 @@ data class GenStats(
 
 data class GenResult(val text: String, val stats: GenStats, val source: String)
 
-class LlmException(message: String) : Exception(message)
+open class LlmException(message: String) : Exception(message)
 
 /** A text generation engine. Implementations: local llama.cpp, the paired home device, optional external API. */
 interface LlmEngine {

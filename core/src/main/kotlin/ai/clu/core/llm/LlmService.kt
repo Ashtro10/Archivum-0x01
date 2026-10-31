@@ -20,13 +20,32 @@ interface LlmPlatform {
     fun thermalSevere(): Boolean
     /** Currently available RAM in bytes (or Long.MAX_VALUE if unknown). */
     fun availableMemoryBytes(): Long
+    /** Whether a GPU load may be attempted (the engine falls back to the CPU if it cannot be initialised). */
     val gpuAvailable: Boolean get() = false
 }
 
-enum class LlmStatus { NO_MODEL, UNLOADED, LOADING, READY, GENERATING, ERROR }
+/** Loads a model file into an engine (replaceable in tests to simulate failures). */
+fun interface ModelLoader { fun load(id: String, path: String, cfg: LlamaConfig): LlamaEngine }
+
+/**
+ * The runtime state of the one local model. NO_MODEL/UNLOADED: nothing in memory; LOADING; READY; GENERATING;
+ * CANCELLING: a generation was told to stop and is winding down; UNLOADING: the model is being released; ERROR.
+ */
+enum class LlmStatus { NO_MODEL, UNLOADED, LOADING, READY, GENERATING, ERROR, CANCELLING, UNLOADING }
 
 data class LlmState(val status: LlmStatus, val modelId: String? = null, val modelName: String? = null, val message: String = "",
-                    val loadMs: Long = 0, val contextSize: Int = 0, /** Increments with every successful model load. */ val loadSeq: Long = 0)
+                    val loadMs: Long = 0, val contextSize: Int = 0, /** Increments with every successful model load. */ val loadSeq: Long = 0,
+                    /** What the loaded engine actually runs on ("cpu" or "gpu"), read from the engine's own log, never assumed. */
+                    val backend: String = "", val threads: Int = 0, val gpuLayers: Int = 0, val estimatedBytes: Long = 0,
+                    /** Why the load differs from what was asked for (GPU unavailable, context reduced), or empty. */
+                    val note: String = "")
+
+/** What llama.cpp reported about where the model's layers went. */
+object BackendReport {
+    private val offloaded = Regex("offloaded (\\d+)/(\\d+) layers to GPU")
+    /** Layers actually on the GPU according to the engine's load log (0 if it says nothing, as CPU-only builds do). */
+    fun gpuLayers(log: String): Int = offloaded.findAll(log).lastOrNull()?.groupValues?.get(1)?.toIntOrNull() ?: 0
+}
 
 /** Generation parameters derived from settings, learned preferences and thermal state. */
 object GenerationParams {
@@ -56,6 +75,7 @@ class LlmService(
     private val platform: LlmPlatform,
     private val diag: DiagnosticsLog?,
     private val now: () -> Long = System::currentTimeMillis,
+    private val loader: ModelLoader = ModelLoader { id, path, cfg -> LlamaEngine.load(id, path, cfg) },
 ) {
     private val thread = Executors.newSingleThreadExecutor { r -> Thread(r, "clu-llm").apply { priority = Thread.NORM_PRIORITY + 1 } }
     private val dispatcher = thread.asCoroutineDispatcher()
@@ -69,7 +89,7 @@ class LlmService(
     private var loadSeq = 0L
 
     private val reloadKeys = listOf(Settings.MODEL_ACTIVE, Settings.CONTEXT_LENGTH, Settings.THREADS, Settings.BATCH, Settings.USE_MMAP,
-        Settings.CHAT_TEMPLATE, Settings.ACCELERATION)
+        Settings.CHAT_TEMPLATE, Settings.ACCELERATION, Settings.GPU_LAYERS)
 
     init { refreshNoModelState() }
 
@@ -144,7 +164,7 @@ class LlmService(
             batchSize = settings.int(Settings.BATCH),
             threads = threads,
             useMmap = settings.bool(Settings.USE_MMAP),
-            gpuLayers = if (settings.string(Settings.ACCELERATION) == "gpu" && platform.gpuAvailable) 99 else 0,
+            gpuLayers = if (settings.string(Settings.ACCELERATION) == "gpu" && platform.gpuAvailable) settings.int(Settings.GPU_LAYERS) else 0,
             chatTemplate = settings.string(Settings.CHAT_TEMPLATE),
         )
     }
@@ -172,27 +192,47 @@ class LlmService(
             }
             registry.register(File(entry.path), entry.name)
         }
-        val cfg = configFor(entry)
-        val need = ModelRegistry.estimateRamBytes(entry, cfg.contextLength)
+        var cfg = configFor(entry)
+        var need = ModelRegistry.estimateRamBytes(entry, cfg.contextLength)
         val avail = platform.availableMemoryBytes()
-        if (need > avail * 1.35) {
-            val msg = "Not enough free memory: model needs ~${need / 1_048_576} MB, ${avail / 1_048_576} MB available. Choose a smaller model or context."
-            _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, msg)
-            diag?.w("llm", msg)
-            return null
+        val limit = if (avail == Long.MAX_VALUE) Long.MAX_VALUE else (avail * 1.35).toLong()
+        var note = ""
+        if (need > limit) {
+            // Rather than refuse, load with the largest context that fits (the weights still have to).
+            val fit = if (settings.bool(Settings.FIT_CONTEXT)) ModelRegistry.fitContext(entry, cfg.contextLength, limit) else null
+            if (fit == null) {
+                val msg = "Not enough free memory: model needs ~${need / 1_048_576} MB, ${avail / 1_048_576} MB available. Choose a smaller model or context."
+                _state.value = LlmState(LlmStatus.ERROR, entry.id, entry.name, msg)
+                diag?.w("llm", msg)
+                return null
+            }
+            note = "Context reduced from ${cfg.contextLength} to $fit tokens to fit the memory CLU may use."
+            diag?.w("llm", note)
+            cfg = cfg.copy(contextLength = fit); need = ModelRegistry.estimateRamBytes(entry, fit)
         }
         _state.value = LlmState(LlmStatus.LOADING, entry.id, entry.name, "Loading ${entry.name}…")
         val t0 = System.nanoTime()
         val visible = diag?.visibilityMark() ?: 0
         return try {
             if (!nativeReady) { platform.loadNativeLibrary(); nativeReady = true }
-            val e = LlamaEngine.load(entry.id, entry.path, cfg)
+            val e = try { loader.load(entry.id, entry.path, cfg) } catch (t: Throwable) {
+                // The GPU could not be initialised: the same model on the CPU, and say so (never a silent fallback, never a dead end).
+                if (cfg.gpuLayers <= 0) throw t
+                val why = (t.message ?: t.toString()).lineSequence().first().take(160)
+                note = (note + " GPU could not be used ($why); running on the CPU.").trim()
+                diag?.w("llm", "GPU load failed ($why); retrying on the CPU")
+                cfg = cfg.copy(gpuLayers = 0)
+                loader.load(entry.id, entry.path, cfg)
+            }
             engine = e
             lastUsed = now()
             val ms = (System.nanoTime() - t0) / 1_000_000
+            val onGpu = if (cfg.gpuLayers > 0) runCatching { BackendReport.gpuLayers(LlamaBridge.nativeLastLog()) }.getOrDefault(0) else 0
+            if (cfg.gpuLayers > 0 && onGpu == 0 && !note.contains("GPU")) note = (note + " The GPU was requested but this engine build has no GPU backend; running on the CPU.").trim()
             diag?.perfSpan("model_load_ms", ms.toDouble(), visible, entry.name)
-            diag?.i("llm", "loaded ${entry.name} in ${ms}ms (ctx=${e.config.contextLength}, threads=${cfg.threads})")
-            _state.value = LlmState(LlmStatus.READY, entry.id, entry.name, "Ready", ms, e.config.contextLength, ++loadSeq)
+            diag?.i("llm", "loaded ${entry.name} in ${ms}ms (ctx=${e.config.contextLength}, threads=${cfg.threads}, backend=${if (onGpu > 0) "gpu($onGpu layers)" else "cpu"})")
+            _state.value = LlmState(LlmStatus.READY, entry.id, entry.name, note.ifEmpty { "Ready" }, ms, e.config.contextLength, ++loadSeq,
+                backend = if (onGpu > 0) "gpu" else "cpu", threads = cfg.threads, gpuLayers = onGpu, estimatedBytes = need, note = note)
             e
         } catch (t: Throwable) {
             val msg = (t.message ?: t.toString()).take(1000)
@@ -226,12 +266,14 @@ class LlmService(
     }
 
     suspend fun unload() = withContext(dispatcher) {
+        if (engine != null) _state.value = _state.value.copy(status = LlmStatus.UNLOADING, message = "Unloading…")
         engine?.release(); engine = null
         refreshNoModelState()
         if (_state.value.status != LlmStatus.NO_MODEL) _state.value = _state.value.copy(status = LlmStatus.UNLOADED, message = "Unloaded")
     }
 
     suspend fun reload(): LlamaEngine? = withContext(dispatcher) {
+        if (engine != null) _state.value = _state.value.copy(status = LlmStatus.UNLOADING, message = "Unloading…")
         engine?.release(); engine = null
         _state.value = _state.value.copy(status = LlmStatus.UNLOADED)
         loadLocked()
@@ -248,32 +290,49 @@ class LlmService(
             override fun contextSize() = engine?.contextSize() ?: 0
             override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult =
                 generate(messages, params, CancelSignal(), onText)
-            override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult {
-                val submitted = System.nanoTime()
-                val visible = diag?.visibilityMark() ?: 0
-                return runOnLlm(signal, cancelled = { cancelledResult(source) }) {
-                    val queueMs = (System.nanoTime() - submitted) / 1e6
-                    // Queued behind another request and cancelled meanwhile: never start.
-                    if (signal.isCancelled) return@runOnLlm cancelledResult(source)
-                    val e = engine ?: throw LlmException("model unloaded")
-                    _state.value = _state.value.copy(status = LlmStatus.GENERATING)
-                    try {
-                        val r = e.generate(messages, params, signal, onText).let { it.copy(stats = it.stats.copy(queueMs = queueMs)) }
-                        lastUsed = now()
-                        registry.get(e.id)?.takeIf { it.status != ModelStatus.VERIFIED && r.stats.generatedTokens > 0 }
-                            ?.let { registry.setStatus(it.id, ModelStatus.VERIFIED) }
-                        if (params.maxTokens > 0) recordGeneration(r.stats, visible)
-                        r
-                    } finally {
-                        if (_state.value.status == LlmStatus.GENERATING) _state.value = _state.value.copy(status = LlmStatus.READY)
-                    }
-                }
-            }
+            override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult =
+                generateTracked(messages, params, signal, {}, onText)
             override fun cancel() { engine?.cancel() }
         }
     }
 
-    fun cancel() { engine?.cancel() }
+    /**
+     * One generation on the model thread. [onStarted] runs when this request actually gets the model (after any queue
+     * wait), so callers can time "first token" from the right moment. The state shows GENERATING, then CANCELLING if
+     * the request is cancelled while it runs, and returns to READY afterwards.
+     */
+    internal fun generateTracked(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onStarted: () -> Unit, onText: (String) -> Unit): GenResult {
+        val submitted = System.nanoTime()
+        val visible = diag?.visibilityMark() ?: 0
+        return runOnLlm(signal, cancelled = { cancelledResult("local") }) {
+            val queueMs = (System.nanoTime() - submitted) / 1e6
+            // Queued behind another request and cancelled meanwhile: never start.
+            if (signal.isCancelled) return@runOnLlm cancelledResult("local")
+            val e = engine ?: throw LlmException("model unloaded")
+            _state.value = _state.value.copy(status = LlmStatus.GENERATING)
+            onStarted()
+            signal.onCancel { _state.value = _state.value.let { st -> if (st.status == LlmStatus.GENERATING) st.copy(status = LlmStatus.CANCELLING) else st } }.use {
+                try {
+                    val r = e.generate(messages, params, signal, onText).let { it.copy(stats = it.stats.copy(queueMs = queueMs)) }
+                    lastUsed = now()
+                    registry.get(e.id)?.takeIf { it.status != ModelStatus.VERIFIED && r.stats.generatedTokens > 0 }
+                        ?.let { registry.setStatus(it.id, ModelStatus.VERIFIED) }
+                    if (params.maxTokens > 0) recordGeneration(r.stats, visible)
+                    r
+                } finally {
+                    _state.value = _state.value.let { st -> if (st.status == LlmStatus.GENERATING || st.status == LlmStatus.CANCELLING) st.copy(status = LlmStatus.READY) else st }
+                }
+            }
+        }
+    }
+
+    /** Tokens [messages] occupy once formatted for the loaded model. */
+    fun countTokens(messages: List<ChatMessage>): Int = runOnLlm { (engine ?: throw LlmException("model unloaded")).countTokens(messages) }
+
+    fun cancel() {
+        engine?.cancel()
+        _state.value = _state.value.let { st -> if (st.status == LlmStatus.GENERATING) st.copy(status = LlmStatus.CANCELLING) else st }
+    }
 
     /** Settings of the loaded model for the performance report: context, threads, batch, size and type (no file name). */
     fun loadedSummary(): Map<String, String>? = engine?.let { e ->

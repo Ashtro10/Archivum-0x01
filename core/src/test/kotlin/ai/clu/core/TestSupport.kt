@@ -121,7 +121,7 @@ class FakeHttp : HttpFetcher {
     }
 }
 
-class TestLlmPlatform(var available: Long = Long.MAX_VALUE, var thermal: Boolean = false) : LlmPlatform {
+open class TestLlmPlatform(var available: Long = Long.MAX_VALUE, var thermal: Boolean = false) : LlmPlatform {
     var loads = 0
     override fun loadNativeLibrary() {
         loads++

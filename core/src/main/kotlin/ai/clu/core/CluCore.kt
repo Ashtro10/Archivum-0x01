@@ -93,14 +93,18 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     /** Remote engine provider (set by the app when a paired home device is configured). */
     @Volatile var remoteEngineProvider: (suspend () -> LlmEngine?)? = null
 
+    /** The one inference API for every component (see [ai.clu.core.llm.InferenceService]). */
+    val inferenceService = ai.clu.core.llm.InferenceService(llm, settings, clock::now)
+    private suspend fun localEngine(): LlmEngine? = inferenceService.engine()
+
     val inference = object : InferenceRouter {
         override suspend fun select(): LlmEngine? {
             val mode = settings.string(Settings.REMOTE_INFERENCE)
             val iAmHome = settings.string(Settings.DEVICE_ROLE) == "home"
             val remote = if (iAmHome || mode == "local") null else remoteEngineProvider
             return when (mode) {
-                "prefer_home" -> remote?.invoke() ?: llm.engine()
-                "fallback" -> llm.engine() ?: remote?.invoke()
+                "prefer_home" -> remote?.invoke() ?: localEngine()
+                "fallback" -> localEngine() ?: remote?.invoke()
                 else -> llm.engine()
             }
         }
@@ -115,7 +119,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     private var node: SyncNode? = null
 
     fun syncNode(pairing: PairingHandler): SyncNode = node ?: SyncNode(store, settings, syncEngine, platform.keyVault, platform::deviceName, pairing,
-        inferenceProvider = { llm.engine() }, diag).also { node = it }
+        inferenceProvider = { localEngine() }, diag).also { node = it }
 
     init {
         registerCoreTools()

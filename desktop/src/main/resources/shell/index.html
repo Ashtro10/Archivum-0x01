@@ -16,6 +16,19 @@
   </div>
 </div>
 
+<div id="wizard" class="wizard hidden" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+  <div class="wiz-card">
+    <div class="wiz-steps" id="wizSteps" aria-hidden="true"></div>
+    <h2 id="wizTitle"></h2>
+    <div id="wizBody" class="wiz-body"></div>
+    <div class="form-actions wiz-actions"><button id="wizBack" class="small" type="button">Back</button><span class="spacer"></span><span id="wizMsg" class="muted"></span><button id="wizSkip" class="small" type="button">Skip for now</button><button id="wizNext" class="small primary" type="button">Next</button></div>
+  </div>
+</div>
+<div id="dlDialog" class="wizard hidden" role="dialog" aria-modal="true" aria-labelledby="dlTitle">
+  <div class="wiz-card"><h2 id="dlTitle">Download a model</h2><div id="dlBody" class="wiz-body"></div>
+    <div class="form-actions"><span class="spacer"></span><button id="dlCancel" class="small" type="button">Not now</button><button id="dlConfirm" class="small primary" type="button">Download</button></div></div>
+</div>
+
 <div id="app" class="app hidden">
   <nav class="rail" aria-label="Sections">
     <div class="brand"><span class="hex" aria-hidden="true"></span>CLU</div>
@@ -202,6 +215,13 @@
         </div>
         <div class="card"><h3>This PC</h3><div id="hwInfo" class="muted"></div></div>
       </div>
+      <div class="card"><h3>Add a model</h3>
+        <p class="muted">Choose a model file you already have, or download one of the suggested models. Nothing is downloaded until you confirm it.</p>
+        <div class="form-actions"><button id="scanModels" class="small primary" type="button">Find models on this PC</button><span id="scanMsg" class="muted"></span></div>
+        <ul id="scanResults" class="cards compact"></ul>
+        <h4>Suggested downloads</h4><ul id="suggestedDl" class="cards"></ul>
+        <ul id="dlJobs" class="cards compact"></ul>
+      </div>
       <div class="card"><h3>Registered models</h3>
         <ul id="modelList" class="cards"></ul>
         <form id="modelRegister" class="inline-form form">
@@ -211,8 +231,7 @@
           <button type="submit" class="primary small">Register</button>
         </form>
         <div id="modelNotes" class="notes"></div>
-        <p class="muted">Registering keeps the file where it is. Removing a registration never deletes the file. CLU never downloads a model by itself.</p>
-        <details><summary>Suggested models (download them yourself, then register the file)</summary><ul id="modelSuggested" class="cards compact"></ul></details>
+        <p class="muted">Registering keeps the file where it is. Removing a registration never deletes the file. A model CLU downloaded can also be deleted from disk, after you confirm.</p>
       </div>
       <form id="modelConfig" class="card form"><h3>How the model is loaded</h3>
         <div class="row" id="modelConfigFields"></div>
@@ -245,12 +264,20 @@
         </div>
         <div class="form-actions"><button type="submit" class="primary small">Save</button><span id="hostSaved" class="muted"></span></div>
       </form>
+      <form id="appForm" class="card form">
+        <h3>CLU on this PC</h3>
+        <label class="inline"><input name="runInBackground" type="checkbox"> Keep CLU running in the notification area when I close its window</label>
+        <label class="inline"><input name="startWithWindows" type="checkbox"> Start CLU when I sign in to Windows (without opening the window)</label>
+        <div id="appInfo" class="muted"></div>
+        <div class="form-actions"><button type="submit" class="primary small">Save</button><button type="button" id="runSetup" class="small">Run the setup guide again</button><button type="button" id="restartCLU" class="small">Restart CLU</button><button type="button" id="quitCLU" class="small danger">Quit CLU</button><span id="appSaved" class="muted"></span></div>
+      </form>
       <div class="toolbar"><select id="settingsCategory" aria-label="Settings category"></select></div>
       <div id="settingsList"></div>
     </section>
   </main>
 </div>
 <script src="/shell/face.js"></script>
+<script src="/shell/wizard.js"></script>
 <script src="/shell/shell.js"></script>
 </body>
 </html>

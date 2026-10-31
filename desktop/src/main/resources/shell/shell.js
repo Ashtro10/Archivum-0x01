@@ -27,7 +27,11 @@
     CluFace.attach($("face"));
     initNav(); initChat(); initModels(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
+    // While this window is open it tells CLU so (CLU treats a window that stops answering as closed: it goes to the tray or quits, as chosen in Settings).
+    const beat = () => api("/v1/shell/ping", { method: "POST", json: {} }).catch(() => {}); beat(); setInterval(beat, 5000);
+    CluWizard.maybeStart(api, () => { loadModelsIfOpen(); refreshStatus(); });
   }
+  function loadModelsIfOpen() { if (!$("view-models").classList.contains("hidden")) loadModels(); }
 
   async function api(path, opts = {}) {
     const headers = Object.assign({ Authorization: "Bearer " + token }, opts.json !== undefined ? { "Content-Type": "application/json" } : {}, opts.headers || {});
@@ -469,7 +473,7 @@
   let modelTimer = null, benchJob = null;
   const GB = (b) => (b / 1073741824).toFixed(1) + " GB", MBf = (b) => Math.round(b / 1048576) + " MB";
   function initModels() {
-    loaders.models = () => { loadModels(); clearInterval(modelTimer); modelTimer = setInterval(() => { if (document.hidden || $("view-models").classList.contains("hidden")) { if ($("view-models").classList.contains("hidden")) clearInterval(modelTimer); return; } loadRuntime(); }, 2000); };
+    initSetupModels(); loaders.models = () => { loadModels(); clearInterval(modelTimer); modelTimer = setInterval(() => { if (document.hidden || $("view-models").classList.contains("hidden")) { if ($("view-models").classList.contains("hidden")) clearInterval(modelTimer); return; } loadRuntime(); }, 2000); };
     const act = async (path, label) => { $("rtMsg").textContent = label + "…"; try { await api(path, { method: "POST", json: {} }); $("rtMsg").textContent = ""; } catch (e) { $("rtMsg").textContent = e.message; } loadModels(); };
     $("rtLoad").addEventListener("click", () => act("/v1/inference/load", "Loading"));
     $("rtUnload").addEventListener("click", () => act("/v1/inference/unload", "Unloading"));
@@ -517,9 +521,10 @@
       const btn = (label, fn, cls) => { const b = el("button", "small " + (cls || ""), label); b.type = "button"; b.addEventListener("click", fn); acts.append(b); return b; };
       if (!m.active) btn("Use as default", async () => { await api(`/v1/models/${m.id}/select`, { method: "POST", json: {} }); loadModels(); });
       btn(m.loaded ? "Reload" : "Load", async () => { $("rtMsg").textContent = "Loading…"; try { await api(`/v1/models/${m.id}/load`, { method: "POST", json: {} }); $("rtMsg").textContent = ""; } catch (e) { $("rtMsg").textContent = e.message + (e.data && e.data.suggestion ? " " + e.data.suggestion : ""); } loadModels(); }, "primary");
+      if (m.inModelsFolder && !m.loaded) btn("Delete file…", async () => { if (!confirm(`Permanently delete the file ${m.file} from this PC? CLU downloaded it, so it can be downloaded again, but your copy will be gone.`)) return; try { const r2 = await api(`/v1/models/${m.id}/delete-file`, { method: "POST", json: { confirm: true } }); $("modelNotes").textContent = `Deleted ${r2.deleted}.`; } catch (e) { $("modelNotes").textContent = e.message; } loadModels(); }, "danger");
       btn("Remove registration", async () => { if (!confirm(`Remove ${m.name} from CLU? The file ${m.file} stays on disk.`)) return; const r2 = await api(`/v1/models/${m.id}`, { method: "DELETE" }); $("modelNotes").textContent = `Removed. ${r2.fileKept} was not touched.`; loadModels(); });
       li.append(acts); return li; }) : [el("li", "muted", "No model registered yet. Register a .gguf file below.")]));
-    $("modelSuggested").replaceChildren(...o.suggested.map((m) => { const li = el("li"); li.append(el("div", "title", `${m.name} — about ${GB(m.approxBytes)}`), el("div", "sub", m.notes), el("div", "sub", m.url)); return li; }));
+    loadSetupParts();
     const f = $("modelConfigFields"); if (!f.contains(document.activeElement)) {
       f.replaceChildren(); Object.entries(o.config).filter(([k, v]) => typeof v === "object").forEach(([k, d]) => {
         const lab = el("label", null, d.title); let inp;
@@ -530,6 +535,38 @@
     }
     renderBenchList(bl);
   }
+  // ---- scanning, suggested downloads with consent, download progress
+  let dlTimer = null;
+  function initSetupModels() {
+    $("scanModels").addEventListener("click", async () => {
+      $("scanMsg").textContent = "Looking…"; $("scanResults").replaceChildren();
+      try {
+        const r = await api("/v1/setup/scan", { method: "POST", json: {} });
+        $("scanMsg").textContent = r.found.length ? `${r.found.length} model file${r.found.length === 1 ? "" : "s"} found that CLU does not know yet` : "No new .gguf files found in Downloads, Documents, Desktop, models or CLU's own folder.";
+        $("scanResults").replaceChildren(...r.found.map((f) => { const li = el("li"); li.append(el("div", "title", f.name), el("div", "sub", `${MBf(f.sizeBytes)} · ${f.quantization} ${f.architecture} · ${f.path}`));
+          if (!f.usable) li.append(el("div", "notes", "Not usable: " + f.problem));
+          else { const acts = el("div", "model-actions"); const b = el("button", "small primary", "Register"); b.type = "button"; b.addEventListener("click", async () => { b.disabled = true; try { await api("/v1/models", { method: "POST", json: { path: f.path } }); li.remove(); loadModels(); } catch (e) { b.disabled = false; $("scanMsg").textContent = e.message; } }); acts.append(b); li.append(acts); }
+          return li; }));
+      } catch (e) { $("scanMsg").textContent = e.message; }
+    });
+  }
+  async function loadSetupParts() {
+    let st; try { st = await api("/v1/setup/status"); } catch (e) { return; }
+    $("suggestedDl").replaceChildren(...st.suggested.map((m) => { const li = el("li"); li.append(el("div", "title", `${m.name} (${m.quantization}) — ${CluWizard.MB(m.sizeBytes)}`), el("div", "sub", m.notes),
+      el("div", m.suitability === "suitable" ? "sub" : "notes", m.suitabilityDetail), el("div", "sub", "Licence: " + m.license));
+      const dl = st.downloads.find((d) => d.modelId === m.id);
+      if (m.present && (!dl || dl.state === "done")) li.append(el("div", "sub", "Downloaded."));
+      else if (!dl || ["failed", "cancelled"].includes(dl.state)) { const acts = el("div", "model-actions"); const b = el("button", "small", dl ? "Resume download…" : "Download…"); b.type = "button"; b.addEventListener("click", () => { CluWizard.confirmDownload(api, Object.assign({}, m), () => loadSetupParts()); }); acts.append(b); li.append(acts); }
+      return li; }));
+    // the consent dialog reads the data folder from here
+    $("dlJobs").replaceChildren(...st.downloads.map((d) => { const li = el("li"); li.append(el("div", "title", d.name + " — " + d.state));
+      if (["downloading", "starting", "verifying"].includes(d.state)) li.append(CluWizard.progress(d)); else li.append(el("div", d.state === "failed" ? "notes" : "sub", d.message)); return li; }));
+    clearInterval(dlTimer);
+    if (st.downloads.some((d) => ["downloading", "starting", "verifying"].includes(d.state))) dlTimer = setInterval(() => { if ($("view-models").classList.contains("hidden")) clearInterval(dlTimer); else loadSetupParts(); }, 1500);
+    else if (st.downloads.some((d) => d.state === "done")) loadModelsSoon();
+    window.__cluSystem = st.system;
+  }
+  let soon = null; function loadModelsSoon() { clearTimeout(soon); soon = setTimeout(() => { if (!$("view-models").classList.contains("hidden")) api("/v1/models").then(() => {}).catch(() => {}); }, 100); }
   function renderBenchList(list) {
     $("benchList").replaceChildren(...(list.length ? list.map((b) => { const r = b.result; const li = el("li", "clickable");
       li.append(el("div", "title", `${r.model.name} (${r.model.quantization}) — ${new Date(r.startedAt).toLocaleString()}`), el("div", "sub", r.error ? "Failed: " + r.error : `${r.configuration.backend}, ${r.configuration.threads} threads, ${r.configuration.contextTokens}-token context, measured on ${r.machine.measuredOn}: ${r.generationTokensPerSecondMedian} tokens/s`));
@@ -561,6 +598,14 @@
   let settingsData = null;
   function initSettings() {
     loaders.settings = loadSettings;
+    $("appForm").addEventListener("submit", async (e) => {
+      e.preventDefault(); const f = e.target; $("appSaved").textContent = "";
+      try { const body = { runInBackground: f.elements.runInBackground.checked }; if (!f.elements.startWithWindows.disabled) body.startWithWindows = f.elements.startWithWindows.checked;
+        const r = await api("/v1/app/config", { method: "PUT", json: body }); $("appSaved").textContent = "Saved."; fillApp(r); } catch (err) { $("appSaved").textContent = err.message; loadApp(); }
+    });
+    $("runSetup").addEventListener("click", () => CluWizard.maybeStart(api, () => loadModelsIfOpen(), true));
+    $("restartCLU").addEventListener("click", async () => { if (confirm("Restart CLU? Any running answer is stopped, and the window reopens in a few seconds.")) { await api("/v1/shell/restart", { method: "POST", json: {} }).catch(() => {}); document.body.textContent = "CLU is restarting… this window will close; CLU opens a new one."; } });
+    $("quitCLU").addEventListener("click", async () => { if (confirm("Quit CLU completely? It stops running until you open it again from the Start Menu.")) { await api("/v1/shell/quit", { method: "POST", json: {} }).catch(() => {}); document.body.textContent = "CLU has quit. You can close this window."; } });
     $("settingsCategory").addEventListener("change", renderSettings);
     $("hostForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const f = e.target;
@@ -570,7 +615,14 @@
       } catch (err) { $("hostSaved").textContent = err.message; }
     });
   }
+  function fillApp(a) {
+    const f = $("appForm"); f.elements.runInBackground.checked = a.runInBackground;
+    f.elements.startWithWindows.disabled = !a.startWithWindowsSupported; f.elements.startWithWindows.checked = a.startWithWindows === true;
+    $("appInfo").textContent = `CLU ${a.version}. Your data: ${a.dataFolder}. Log: ${a.logFile}. Backups: ${a.backupFolder}.` + (a.startWithWindowsSupported ? "" : " Starting with Windows is available on Windows only.");
+  }
+  async function loadApp() { try { fillApp(await api("/v1/app/config")); } catch (e) { $("appInfo").textContent = e.message; } }
   async function loadSettings() {
+    loadApp();
     const [h, s] = await Promise.all([api("/v1/host-config"), api("/v1/settings")]);
     const f = $("hostForm"); f.elements.memoryBudgetGB.value = h.memoryBudgetGB; f.elements.reserveGB.value = h.reserveGB; f.elements.pressureFreeGB.value = h.pressureFreeGB;
     settingsData = s;

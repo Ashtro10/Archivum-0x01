@@ -123,3 +123,18 @@ select.feedback:hover, select.feedback:focus { opacity: 1; }
 .rt .dot.ready { background: var(--ok); } .rt .dot.busy { background: var(--accent); } .rt .dot.error { background: var(--danger); }
 .model-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 table.bench { border-collapse: collapse; width: 100%; margin: 8px 0; } table.bench td, table.bench th { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; font-size: 13px; }
+
+.wizard { position: fixed; inset: 0; background: rgba(4, 10, 14, 0.82); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.wiz-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: min(760px, 100%); max-height: 94vh; display: flex; flex-direction: column; padding: 20px 24px; }
+.wiz-card h2 { font-size: 20px; margin: 4px 0 10px; }
+.wiz-body { overflow: auto; flex: 1; min-height: 120px; }
+.wiz-actions { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+.wiz-actions .spacer { flex: 1; }
+.wiz-steps { display: flex; gap: 6px; } .wiz-steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); } .wiz-steps i.on { background: var(--accent); }
+.check { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); } .check:last-child { border-bottom: 0; }
+.check .st { width: 56px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; } .check .ok { color: var(--ok); } .check .warn { color: var(--warn); } .check .fail { color: var(--danger); }
+label.inline { display: flex; align-items: center; gap: 8px; margin: 6px 0; } label.inline input { width: auto; }
+.choice { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; background: var(--bg); }
+.choice.picked { border-color: var(--accent); }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; } .bar > i { display: block; height: 100%; background: var(--accent); }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; } .facts dt { color: var(--muted); } .facts dd { margin: 0; word-break: break-word; }

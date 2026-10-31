@@ -28,6 +28,49 @@ const problems = []; let lastPage = null;
     await page.waitForSelector("#app:not(.hidden)");
     assert(!page.url().includes("code="), "launch code removed from the address after use");
 
+    // ---- M6: the first-run guide appears on a fresh install and the app is usable without finishing it.
+    await page.waitForSelector("#wizard:not(.hidden)");
+    assert(/Welcome/.test(await page.textContent("#wizTitle")), "wizard: shown on first run");
+    await page.click("#wizNext");
+    await page.waitForFunction(() => /Your PC/.test(document.querySelector("#wizTitle").textContent));
+    const checks = await page.$$eval("#wizBody .check", (rs) => rs.map((r) => r.textContent));
+    assert(checks.length >= 5 && checks.some((c) => /Memory/.test(c)) && checks.some((c) => /Storage/.test(c)) && checks.some((c) => /Graphics/.test(c)) && checks.some((c) => /Inference engine/.test(c)), "wizard: compatibility checks for memory, storage, engine and graphics are read from the PC: " + checks.length);
+    await page.click("#wizNext");
+    await page.waitForFunction(() => /Model/.test(document.querySelector("#wizTitle").textContent));
+    const offers = await page.$$eval("#wizBody .choice", (rs) => rs.map((r) => r.textContent));
+    assert(offers.length === 3 && offers.every((t) => /download/i.test(t) && /memory/i.test(t)), "wizard: suggested models show size and memory needs");
+    await page.click("#wizBody .choice button:has-text('Download')");
+    await page.waitForSelector("#dlDialog:not(.hidden)");
+    const consent = await page.textContent("#dlBody");
+    assert(/From/.test(consent) && /huggingface\.co/.test(consent) && /Licence/.test(consent) && /Size/.test(consent) && /Saved to/.test(consent) && /does not change your selected model/.test(consent), "wizard: the download asks first, with source, size, licence and destination");
+    await page.screenshot({ path: path.join(shots, "m6-download-consent.png") });
+    await page.click("#dlCancel");
+    const none = await page.evaluate(async (t) => (await (await fetch("/v1/setup/downloads", { headers: { Authorization: "Bearer " + sessionStorage.getItem("clu-token") } })).json()).length, null);
+    assert(none === 0, "wizard: declining the download downloads nothing");
+    await page.fill('#wizBody form input', tinyModel.replace(/\.gguf$/, "-gone.gguf")); await page.click('#wizBody form button');
+    await page.waitForFunction(() => /no such file/i.test(document.querySelector("#wizBody").textContent));
+    assert(true, "wizard: a wrong file path is refused with the reason");
+    await page.fill('#wizBody form input', tinyModel); await page.click('#wizBody form button');
+    await page.waitForFunction(() => document.querySelector("#wizBody input[type=radio]:checked"), null, { timeout: 20000 });
+    assert(true, "wizard: a model file the owner points to is registered and selected");
+    await page.screenshot({ path: path.join(shots, "m6-wizard-model.png") });
+    await page.click("#wizNext");
+    await page.waitForFunction(() => /Settings/.test(document.querySelector("#wizTitle").textContent));
+    assert(!(await page.isChecked('#wizBody input[type=checkbox] >> nth=1')), "wizard: start with Windows is off by default");
+    await page.click("#wizNext");
+    await page.waitForFunction(() => /Try it/.test(document.querySelector("#wizTitle").textContent));
+    await page.click("#wizBody button.primary");
+    await page.waitForFunction(() => /First word after/.test(document.querySelector("#wizBody").textContent), null, { timeout: 90000 });
+    assert(/Engine/.test(await page.textContent("#wizBody")) && /tokens\/s/.test(await page.textContent("#wizBody")), "wizard: a real test generation reports the engine, load time and speed");
+    await page.click("#wizNext");
+    await page.waitForFunction(() => /Ready/.test(document.querySelector("#wizTitle").textContent));
+    await page.screenshot({ path: path.join(shots, "m6-wizard-ready.png") });
+    await page.click("#wizNext");
+    await page.waitForSelector("#wizard", { state: "hidden" });
+    assert(await page.evaluate(async () => (await (await fetch("/v1/setup/status", { headers: { Authorization: "Bearer " + sessionStorage.getItem("clu-token") } })).json()).completed), "wizard: finishing records that setup is done");
+    // the wizard registered the tiny model; take it away again so the Models tests below start from nothing, as before
+    await page.evaluate(async () => { const h = { Authorization: "Bearer " + sessionStorage.getItem("clu-token"), "Content-Type": "application/json" }; const ms = (await (await fetch("/v1/models", { headers: h })).json()).models; for (const m of ms) await fetch("/v1/models/" + m.id, { method: "DELETE", headers: h }); });
+
     // Chat: streamed reply, face goes back to idle.
     await page.fill("#input", "Hello CLU");
     await page.keyboard.press("Enter");
@@ -217,6 +260,13 @@ const problems = []; let lastPage = null;
     await page.click('.nav[data-view="models"]');
     await page.waitForFunction(() => /No model registered yet/.test(document.querySelector("#modelList").textContent));
     assert(/No model selected/.test(await page.textContent("#rtState")), "models: nothing registered, the runtime says so");
+    // M6: finding, downloading (consent) and deleting models from the Models view
+    await page.click("#scanModels");
+    await page.waitForFunction(() => /found|No new/.test(document.querySelector("#scanMsg").textContent));
+    assert(true, "models: scanning the PC for model files reports what it found: " + (await page.textContent("#scanMsg")));
+    assert((await page.$$("#suggestedDl li")).length === 3, "models: suggested downloads listed with licence and fit");
+    await page.click("#suggestedDl li button:has-text('Download')"); await page.waitForSelector("#dlDialog:not(.hidden)"); await page.click("#dlCancel");
+    assert((await page.$$("#dlJobs li")).length === 0, "models: cancelling the consent dialog starts nothing");
     await page.fill('#modelRegister [name="path"]', "relative/model.gguf"); await page.click('#modelRegister button[type="submit"]');
     await page.waitForFunction(() => /full path/.test(document.querySelector("#modelNotes").textContent));
     await page.fill('#modelRegister [name="path"]', tinyModel.replace(/\.gguf$/, "-missing.gguf")); await page.click('#modelRegister button[type="submit"]');
@@ -247,6 +297,16 @@ const problems = []; let lastPage = null;
 
     // Settings: host limits load; sensitive settings can't be changed here.
     await page.click('.nav[data-view="settings"]');
+    await page.waitForFunction(() => /Your data:/.test(document.querySelector("#appInfo").textContent));
+    assert(await page.isChecked('#appForm [name="runInBackground"]'), "settings: keeping CLU in the tray is on by default");
+    assert(!(await page.isChecked('#appForm [name="startWithWindows"]')), "settings: starting with Windows is off by default");
+    await page.uncheck('#appForm [name="runInBackground"]'); await page.click('#appForm button[type="submit"]');
+    await page.waitForFunction(() => /Saved/.test(document.querySelector("#appSaved").textContent));
+    await page.reload(); await page.waitForSelector("#app:not(.hidden)"); await page.click('.nav[data-view="settings"]');
+    await page.waitForFunction(() => /Your data:/.test(document.querySelector("#appInfo").textContent));
+    assert(!(await page.isChecked('#appForm [name="runInBackground"]')), "settings: the background choice persists");
+    await page.check('#appForm [name="runInBackground"]'); await page.click('#appForm button[type="submit"]'); await page.waitForFunction(() => /Saved/.test(document.querySelector("#appSaved").textContent));
+    await page.click("#runSetup"); await page.waitForSelector("#wizard:not(.hidden)"); assert(true, "settings: the setup guide can be opened again"); await page.click("#wizSkip");
     await page.waitForFunction(() => document.querySelector('#hostForm [name="memoryBudgetGB"]').value === "16");
     await page.fill('#hostForm [name="memoryBudgetGB"]', "12");
     await page.click('#hostForm button[type="submit"]');

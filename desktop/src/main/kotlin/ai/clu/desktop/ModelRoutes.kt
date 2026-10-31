@@ -170,7 +170,7 @@ class ModelRoutes(private val core: CluCore, private val governor: ResourceGover
     private fun modelJson(e: ModelEntry, active: String = core.settings.string(Settings.MODEL_ACTIVE), st: LlmState = core.llm.state.value) = buildJsonObject {
         val ctx = core.settings.int(Settings.CONTEXT_LENGTH)
         val estimate = ModelRegistry.estimateRamBytes(e, ctx); val allowed = governor.availableForModel()
-        put("id", e.id); put("name", e.name); put("path", e.path); put("file", File(e.path).name); put("fileExists", File(e.path).exists()); put("sizeBytes", e.sizeBytes); put("format", e.format)
+        put("id", e.id); put("name", e.name); put("path", e.path); put("file", File(e.path).name); put("inModelsFolder", paths != null && runCatching { File(e.path).canonicalFile.parentFile == paths.models.canonicalFile }.getOrDefault(false)); put("fileExists", File(e.path).exists()); put("sizeBytes", e.sizeBytes); put("format", e.format)
         put("architecture", e.info.architecture); put("quantization", e.info.quantization); put("parameters", e.info.parameterCountHint)
         put("trainContext", e.info.contextLength); put("layers", e.info.blockCount); put("embedding", e.info.embeddingLength); put("hasChatTemplate", e.info.hasChatTemplate)
         put("status", e.status.name); put("statusLabel", e.status.label); e.lastError?.let { put("lastError", it) }

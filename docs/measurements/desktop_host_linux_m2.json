@@ -1,0 +1,45 @@
+{
+ "about": "M2: the installed CLU host (desktop/build/install/clu-host) as its own process. Linux build container (4 vCPU Xeon, 13.7 GB RAM), JVM 21 with -Xmx384m -XX:+UseSerialGC, CPU llama.cpp b11844 JNI. Idle = 15 s after start then CPU sampled over 30 s with no model loaded. 2026-10-31. Not Windows numbers: the same measurement must run on the target PC.",
+ "script": "measure_host.sh (see docs/convergence/M2_HOST.md)",
+ "runs": [
+  {
+   "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+   "modelMB": 93,
+   "idleRssMB": 101,
+   "idleCpuPercentOfOneCore": 0.2,
+   "loadedRssMB": 341,
+   "afterUnloadRssMB": 150,
+   "firstTurnMs": 5028,
+   "reply": "Your request is too long. I'll just add to the conversation.",
+   "governor": {
+    "budgetMB": 16384,
+    "reserveMB": 2048,
+    "pressureFreeMB": 1536,
+    "systemAvailableMB": 10740,
+    "systemTotalMB": 13677,
+    "processMB": 151,
+    "availableForModelMB": 8692
+   }
+  },
+  {
+   "model": "1b-q4km.gguf",
+   "modelMB": 806,
+   "idleRssMB": 101,
+   "idleCpuPercentOfOneCore": 0.2,
+   "loadedRssMB": 1579,
+   "afterUnloadRssMB": 178,
+   "firstTurnMs": 54885,
+   "reply": ",ListITE\u97ec.metric.adapters humanity\u062a\u0648\u0627\u0635\u0644 Closing protects\u5c7f \u00f6deQUIRE\u501f\u6b3e\u4eba\u7247\u9762rox_spinnerREATE\u9548-blog involving territor\u0e0b memo Rihannaexual H\u1ed9i\u52a0\u6301akespeare volunteers\tus",
+   "governor": {
+    "budgetMB": 16384,
+    "reserveMB": 2048,
+    "pressureFreeMB": 1536,
+    "systemAvailableMB": 10712,
+    "systemTotalMB": 13677,
+    "processMB": 178,
+    "availableForModelMB": 8664
+   },
+   "note": "Random-weight test model shaped like a 1B model (models/1b-q4km.gguf): measures memory, not answer quality or speed."
+  }
+ ]
+}

@@ -7,6 +7,7 @@ its source or running its tests in this session; where something could not be ve
 * **M0 done:** see [M0_PRESERVATION.md](M0_PRESERVATION.md).
 * **M1 benchmark pack delivered:** see [M1_BENCHMARK.md](M1_BENCHMARK.md). It is waiting for a run on your PC.
 * **Scope changes in M1:** speech benchmarks move to M4; CLU's Windows JNI build moves to M2.
+* **M2 built and verified on Linux:** see [M2_HOST.md](M2_HOST.md). The Windows DLL is cross-built and still needs a run on Windows.
 
 ---
 

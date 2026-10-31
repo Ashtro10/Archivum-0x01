@@ -1,6 +1,6 @@
 package ai.clu
 
-import ai.clu.platform.AndroidHttp
+import ai.clu.core.net.JvmHttp
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -31,12 +31,12 @@ class ProviderRedirectTest {
     @Test fun credentialHeadersAreNeverForwardedThroughRedirects() = runBlocking {
         val (other, otherSeen) = server { "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}" }
         val (provider, _) = server { "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:${other.localPort}/collect\r\nContent-Length: 0\r\n\r\n" }
-        val r = AndroidHttp().get("http://127.0.0.1:${provider.localPort}/res/v1/web/search?q=x", mapOf("X-Subscription-Token" to "secret-key-123"))
+        val r = JvmHttp().get("http://127.0.0.1:${provider.localPort}/res/v1/web/search?q=x", mapOf("X-Subscription-Token" to "secret-key-123"))
         assertTrue("key not sent to the redirect target: $otherSeen", otherSeen.none { it.contains("secret-key-123") })
         assertEquals("a redirect from a keyed request is reported, not followed", 302, r.code)
         // Requests without credentials still follow ordinary redirects.
         val (plain, _) = server { "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:${other.localPort}/ok\r\nContent-Length: 0\r\n\r\n" }
-        assertEquals(200, AndroidHttp().get("http://127.0.0.1:${plain.localPort}/x", emptyMap()).code)
+        assertEquals(200, JvmHttp().get("http://127.0.0.1:${plain.localPort}/x", emptyMap()).code)
         listOf(other, provider, plain).forEach { it.close() }
     }
 }

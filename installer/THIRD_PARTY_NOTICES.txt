@@ -1,0 +1,34 @@
+CLU - third-party software that is part of this installation
+============================================================
+
+CLU runs entirely on your PC. This installer contains the components below. It contains no language model
+(you choose and download one yourself, inside CLU) and no cloud service.
+
+1. Java runtime (folder "runtime")
+   OpenJDK 25.0.2, a trimmed Windows x64 runtime image (jlink) taken unmodified from the "jdk4py" package
+   (version 25.0.2.1, win_amd64 wheel, SHA-256 5f0ad2e8f7ad3b40eef8af75062d830afd3feccca62fc03db611b2e9a5fa9824,
+   from https://pypi.org/project/jdk4py/ , source https://github.com/activeviam/jdk4py).
+   Licence: GNU General Public License v2 with the Classpath Exception. The licence texts of every included
+   module are in "runtime\legal". The OpenJDK source code is available from https://openjdk.org/ .
+   The runtime includes Microsoft's Visual C++ and Universal C runtime libraries (vcruntime140*.dll,
+   msvcp140.dll, api-ms-win-*.dll) as redistributed by the OpenJDK build, so nothing else has to be installed.
+   Programs inside "runtime\bin" that CLU does not need (debugging and management tools) are not installed.
+
+2. llama.cpp (file "lib\native\windows-x64\clu_llama.dll")
+   The inference engine, built from llama.cpp release b11844 (https://github.com/ggml-org/llama.cpp)
+   together with CLU's small JNI bridge, cross-compiled with MinGW-w64 (the GCC runtime library is linked in
+   statically under the GCC Runtime Library Exception). Licence: MIT (Copyright (c) 2023-2026 The ggml authors).
+   The optional GPU engine ("lib\native\windows-x64-vulkan") is the same code built with the Vulkan backend;
+   it needs the Vulkan driver that comes with your graphics driver.
+
+3. Kotlin and kotlinx libraries (folder "lib"): kotlin-stdlib, kotlinx-coroutines, kotlinx-serialization,
+   JetBrains annotations. Licence: Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
+4. SQLite JDBC driver (lib\sqlite-jdbc-3.47.1.0.jar) by the Xerial project, including SQLite (public domain).
+   Licence: Apache License 2.0.
+
+5. Models. CLU can help you download language models from Hugging Face. Each model has its own licence, which CLU
+   shows before you confirm a download. Some are not open-source licences (for example the Qwen Research
+   License or the Llama Community License): read them before relying on a model.
+
+CLU itself is personal software written for its owner.

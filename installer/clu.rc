@@ -1,0 +1,28 @@
+#include <windows.h>
+#include "version.inc"
+1 ICON "clu.ico"
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION CLU_VER_COMMA
+ PRODUCTVERSION CLU_VER_COMMA
+ FILEFLAGSMASK 0x3fL
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "CLU"
+      VALUE "FileDescription", "CLU - your personal assistant (launcher)"
+      VALUE "FileVersion", CLU_VER_STR
+      VALUE "InternalName", "clu"
+      VALUE "OriginalFilename", "clu.exe"
+      VALUE "ProductName", "CLU"
+      VALUE "ProductVersion", CLU_VER_STR
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

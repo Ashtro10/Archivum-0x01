@@ -19,3 +19,7 @@ server/.venv/
 server/livekit.yaml
 buildSrc/.kotlin/
 .kotlin/
+
+# installer outputs are build artifacts (the final installer is added explicitly at release time)
+/dist/installer/
+/build/installer/

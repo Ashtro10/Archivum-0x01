@@ -30,8 +30,10 @@ object ShellLauncher {
     fun open(url: String, profile: java.io.File? = null, log: (String) -> Unit = ::println): Boolean {
         if (IS_WINDOWS) runCatching {
             profile?.mkdirs()
-            ProcessBuilder(edgeCommand(url, profile)).redirectErrorStream(true).start()
-            return true
+            val p = ProcessBuilder(edgeCommand(url, profile)).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+            // "start" returns at once; a non-zero answer means Windows found no msedge, so use the default browser (below).
+            if (!p.waitFor(4, java.util.concurrent.TimeUnit.SECONDS) || p.exitValue() == 0) return true
+            log("Edge is not available; opening the default browser")
         }.onFailure { log("could not start Edge (${it.message}); trying the default browser") }
         if (!GraphicsEnvironment.isHeadless() && Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE))
             return runCatching { Desktop.getDesktop().browse(URI(url)); true }.getOrDefault(false)

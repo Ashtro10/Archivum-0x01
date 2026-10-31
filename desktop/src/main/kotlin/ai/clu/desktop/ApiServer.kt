@@ -78,6 +78,7 @@ class ApiServer(
     private val archive = ArchiveRoutes(core)
     private val settings = SettingsRoutes(core, governor, hostConfig)
     private val memory = MemoryRoutes(core, maintenance, paths)
+    private val models = ModelRoutes(core, governor, paths)
     /** One-time codes that let the shell window obtain the token without it ever appearing on a command line. */
     private val launchCodes = ConcurrentHashMap<String, Long>()
     val port: Int get() = server.address.port
@@ -143,7 +144,7 @@ class ApiServer(
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 
@@ -165,8 +166,8 @@ class ApiServer(
             }
             turn != null && c.method == "POST" -> turn(c, turn.groupValues[1])
             c.path == "/v1/stop" && c.method == "POST" -> { core.agent.cancel(null); c.ok() }
-            c.path == "/v1/model/unload" && c.method == "POST" -> { runBlocking { core.llm.unload() }; c.ok(model()) }
-            c.path == "/v1/model/load" && c.method == "POST" -> { runBlocking { core.llm.loadIfNeeded() }; c.ok(model()) }
+            c.path == "/v1/model/unload" && c.method == "POST" -> { runBlocking { core.inferenceService.unload() }; c.ok(model()) }
+            c.path == "/v1/model/load" && c.method == "POST" -> { runBlocking { core.inferenceService.load() }; c.ok(model()) }
             c.path == "/v1/shell/open" && c.method == "POST" -> {
                 val open = openShell ?: return true.also { c.fail(409, "no desktop session to open a window in") }
                 open(); c.ok()
@@ -177,7 +178,9 @@ class ApiServer(
     }
 
     private fun model() = core.llm.state.value.let { s ->
-        buildJsonObject { put("status", s.status.name); put("name", s.modelName ?: ""); put("message", s.message); put("contextSize", s.contextSize); put("loadMs", s.loadMs) }
+        buildJsonObject { put("status", s.status.name); put("name", s.modelName ?: ""); put("message", s.message); put("contextSize", s.contextSize); put("loadMs", s.loadMs)
+            put("backend", s.backend); put("threads", s.threads); put("gpuLayers", s.gpuLayers); put("estimatedBytes", s.estimatedBytes); put("note", s.note)
+            core.inferenceService.snapshot().let { sn -> put("running", sn.running != null); put("queued", sn.queued.size) } }
     }
 
     private fun status() = buildJsonObject {

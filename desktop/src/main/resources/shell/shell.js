@@ -25,7 +25,7 @@
     }
     $("app").classList.remove("hidden");
     CluFace.attach($("face"));
-    initNav(); initChat(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
+    initNav(); initChat(); initModels(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
   }
 
@@ -449,11 +449,11 @@
   async function refreshStatus() {
     let s; try { s = await api("/v1/status"); } catch (e) { $("modelPill").textContent = "CLU unreachable"; return; }
     const m = s.model; const pill = $("modelPill");
-    pill.textContent = m.status === "READY" ? `${m.name} · ready` : m.status === "NO_MODEL" ? "no model registered" : `model: ${m.status.toLowerCase()}`;
+    pill.textContent = m.status === "READY" ? `${m.name} · ready${m.backend ? " (" + m.backend + ")" : ""}` : m.status === "NO_MODEL" ? "no model registered" : m.status === "GENERATING" ? `${m.name} · generating` : `model: ${m.status.toLowerCase()}`;
     pill.classList.toggle("ready", m.status === "READY");
     const badge = $("suggestionCount"); badge.textContent = s.pendingSuggestions; badge.classList.toggle("hidden", !s.pendingSuggestions);
     const info = $("modelInfo"); info.replaceChildren(el("div", null, `${m.name || "No model"} — ${m.status}`),
-      el("div", "muted", m.status === "NO_MODEL" ? "Add a GGUF model on this PC with: clu-host --register-model <file.gguf>" : m.message || ""));
+      el("div", "muted", m.status === "NO_MODEL" ? "Register a GGUF model in Models (or: clu-host --register-model <file.gguf>)." : m.message || ""));
     if (m.status === "READY") info.append(el("div", "muted", `Context ${m.contextSize} tokens · loaded in ${m.loadMs} ms`));
     const g = s.governor; const bars = $("memoryBars"); bars.replaceChildren();
     const bar = (label, used, total) => { bars.append(el("div", null, `${label}: ${used.toLocaleString()} MB of ${total.toLocaleString()} MB`));
@@ -463,6 +463,98 @@
     bars.append(el("div", "muted", `A model may use up to ${g.availableForModelMB.toLocaleString()} MB right now (${g.reserveMB.toLocaleString()} MB kept free for you).`));
     $("governorEvents").replaceChildren(...(g.events.length ? g.events.slice().reverse().map((e) => el("li", null, `${new Date(e.at).toLocaleTimeString()} — ${e.action}: ${e.reason}`))
       : [el("li", "muted", "Nothing needed doing.")]));
+  }
+
+  // ------------------------------------------------------------------------------------------ models (runtime, registry, loading, benchmark)
+  let modelTimer = null, benchJob = null;
+  const GB = (b) => (b / 1073741824).toFixed(1) + " GB", MBf = (b) => Math.round(b / 1048576) + " MB";
+  function initModels() {
+    loaders.models = () => { loadModels(); clearInterval(modelTimer); modelTimer = setInterval(() => { if (document.hidden || $("view-models").classList.contains("hidden")) { if ($("view-models").classList.contains("hidden")) clearInterval(modelTimer); return; } loadRuntime(); }, 2000); };
+    const act = async (path, label) => { $("rtMsg").textContent = label + "…"; try { await api(path, { method: "POST", json: {} }); $("rtMsg").textContent = ""; } catch (e) { $("rtMsg").textContent = e.message; } loadModels(); };
+    $("rtLoad").addEventListener("click", () => act("/v1/inference/load", "Loading"));
+    $("rtUnload").addEventListener("click", () => act("/v1/inference/unload", "Unloading"));
+    $("rtReload").addEventListener("click", async () => { const id = document.querySelector("#modelList li[data-active='1']")?.dataset.id; if (id) { $("rtMsg").textContent = "Reloading…"; try { await api(`/v1/models/${id}/load`, { method: "POST", json: {} }); $("rtMsg").textContent = ""; } catch (e) { $("rtMsg").textContent = e.message; } loadModels(); } });
+    $("modelRegister").addEventListener("submit", async (e) => {
+      e.preventDefault(); const f = e.target;
+      try { const m = await api("/v1/models", { method: "POST", json: { path: f.elements.path.value, name: f.elements.name.value, select: f.elements.select.checked } });
+        $("modelNotes").textContent = `Registered ${m.name} (${m.quantization || "unknown quantisation"}, ${MBf(m.sizeBytes)}). Needs about ${MBf(m.estimatedBytes)} at the current context.` + (m.fitsNow ? "" : " That is more than CLU may use right now: lower the context or free memory."); f.reset(); f.elements.select.checked = true; loadModels();
+      } catch (err) { $("modelNotes").textContent = err.message + (err.data && err.data.suggestion ? ` Suggested instead: ${err.data.suggestion}.` : ""); }
+    });
+    $("modelConfig").addEventListener("submit", async (e) => {
+      e.preventDefault(); const body = {};
+      document.querySelectorAll("#modelConfigFields [data-k]").forEach((i) => { const k = i.dataset.k; body[k] = i.type === "checkbox" ? i.checked : i.tagName === "SELECT" ? i.value : Number(i.value); });
+      $("modelConfigMsg").textContent = "Applying…";
+      try { const r = await api("/v1/models/config", { method: "PUT", json: body }); $("modelConfigMsg").textContent = r.note; setTimeout(loadModels, 800); } catch (err) { $("modelConfigMsg").textContent = err.message; }
+    });
+    $("benchRun").addEventListener("click", startBenchmark);
+    $("benchCancel").addEventListener("click", async () => { if (benchJob) await api(`/v1/models/benchmark/${benchJob}/cancel`, { method: "POST", json: {} }); });
+  }
+  const stateDot = (st) => ({ READY: "ready", GENERATING: "busy", LOADING: "busy", CANCELLING: "busy", UNLOADING: "busy", ERROR: "error" }[st] || "");
+  const stateLabel = { NO_MODEL: "No model selected", UNLOADED: "Unloaded", LOADING: "Loading", READY: "Ready", GENERATING: "Generating", CANCELLING: "Cancelling", UNLOADING: "Unloading", ERROR: "Error" };
+  function showRuntime(r) {
+    const s = r.state; const box = $("rtState"); box.replaceChildren(el("span", "dot " + stateDot(s.status)), document.createTextNode((stateLabel[s.status] || s.status) + (s.name ? " — " + s.name : "")));
+    const bits = [];
+    if (s.status === "READY" || s.status === "GENERATING" || s.status === "CANCELLING") bits.push(`backend ${s.backend || "cpu"}${s.gpuLayers ? ` (${s.gpuLayers} layers on the GPU)` : ""}`, `${s.threads} threads`, `${s.contextSize}-token context`, `about ${MBf(s.estimatedBytes)} for the model`, `loaded in ${s.loadMs} ms`);
+    $("rtDetail").textContent = bits.join(" · ") + (s.note ? (bits.length ? "\n" : "") + s.note : "") + (s.status === "ERROR" || s.status === "NO_MODEL" ? s.message : "");
+    const q = r.queued.length;
+    $("rtRequests").textContent = r.running ? `Working on a request (${r.running.owner || "chat"}, ${r.running.tokens} tokens so far)${q ? `; ${q} waiting` : ""}.` : `Idle. Process memory ${r.processMB} MB. Limits: ${r.limits.maxQueued} waiting, first word within ${r.limits.firstTokenTimeoutS}s, stall ${r.limits.stallTimeoutS}s, reply ${r.limits.totalTimeoutS}s.`;
+    if (r.suggestion) $("rtRequests").textContent += " " + r.suggestion;
+    $("rtUnload").disabled = ["NO_MODEL", "UNLOADED"].includes(s.status); $("rtLoad").disabled = ["READY", "GENERATING", "LOADING", "UNLOADING", "CANCELLING"].includes(s.status) || s.status === "NO_MODEL";
+  }
+  async function loadRuntime() { try { showRuntime(await api("/v1/inference/status")); refreshStatus(); } catch (e) { $("rtMsg").textContent = e.message; } }
+  async function loadModels() {
+    const [o, r, bl] = await Promise.all([api("/v1/models"), api("/v1/inference/status"), api("/v1/models/benchmarks")]);
+    showRuntime(r);
+    $("hwInfo").textContent = `${o.hardware.logicalCores} logical cores (CLU uses ${o.config.threads.value || o.hardware.autoThreads} threads${o.config.threads.value ? "" : ", automatic"}). CLU may use up to ${GB(o.hardware.memoryBudgetMB * 1048576)} in total; ${GB(o.hardware.availableForModelMB * 1048576)} is available for a model right now of ${GB(o.hardware.systemTotalMB * 1048576)} installed. Engine: ${o.hardware.engine}.`;
+    $("modelList").replaceChildren(...(o.models.length ? o.models.map((m) => {
+      const li = el("li"); li.dataset.id = m.id; if (m.active) li.dataset.active = "1";
+      const head = el("div", "title"); head.append(el("span", "tag" + (m.loaded ? " doc" : ""), m.loaded ? "loaded" : m.active ? "selected" : m.statusLabel.split(" – ")[0]), document.createTextNode(m.name));
+      li.append(head, el("div", "sub", [m.architecture, m.quantization, m.parameters ? (m.parameters / 1e9).toFixed(1) + "B parameters" : "", MBf(m.sizeBytes), `trained for ${m.trainContext} tokens`].filter(Boolean).join(" · ")),
+        el("div", "sub", m.path), el("div", m.fitsNow ? "sub" : "notes", `Needs about ${MBf(m.estimatedBytes)} at ${m.estimateContext}-token context; CLU may use ${MBf(m.allowedBytes)} right now${m.fitsNow ? "." : " — too large right now."}`));
+      if (m.lastError) li.append(el("div", "notes", "Last error: " + m.lastError + (m.suggestion ? "\n" + m.suggestion : "")));
+      if (!m.fileExists) li.append(el("div", "notes", "The file is missing. Put it back, or remove this registration."));
+      const acts = el("div", "model-actions");
+      const btn = (label, fn, cls) => { const b = el("button", "small " + (cls || ""), label); b.type = "button"; b.addEventListener("click", fn); acts.append(b); return b; };
+      if (!m.active) btn("Use as default", async () => { await api(`/v1/models/${m.id}/select`, { method: "POST", json: {} }); loadModels(); });
+      btn(m.loaded ? "Reload" : "Load", async () => { $("rtMsg").textContent = "Loading…"; try { await api(`/v1/models/${m.id}/load`, { method: "POST", json: {} }); $("rtMsg").textContent = ""; } catch (e) { $("rtMsg").textContent = e.message + (e.data && e.data.suggestion ? " " + e.data.suggestion : ""); } loadModels(); }, "primary");
+      btn("Remove registration", async () => { if (!confirm(`Remove ${m.name} from CLU? The file ${m.file} stays on disk.`)) return; const r2 = await api(`/v1/models/${m.id}`, { method: "DELETE" }); $("modelNotes").textContent = `Removed. ${r2.fileKept} was not touched.`; loadModels(); });
+      li.append(acts); return li; }) : [el("li", "muted", "No model registered yet. Register a .gguf file below.")]));
+    $("modelSuggested").replaceChildren(...o.suggested.map((m) => { const li = el("li"); li.append(el("div", "title", `${m.name} — about ${GB(m.approxBytes)}`), el("div", "sub", m.notes), el("div", "sub", m.url)); return li; }));
+    const f = $("modelConfigFields"); if (!f.contains(document.activeElement)) {
+      f.replaceChildren(); Object.entries(o.config).filter(([k, v]) => typeof v === "object").forEach(([k, d]) => {
+        const lab = el("label", null, d.title); let inp;
+        if (d.options) { inp = el("select"); d.options.forEach((x) => inp.append(new Option(x.label, x.value))); inp.value = d.value; }
+        else if (typeof d.value === "boolean") { inp = el("input"); inp.type = "checkbox"; inp.checked = d.value; }
+        else { inp = el("input"); inp.type = "number"; inp.min = d.min; inp.max = d.max; inp.value = d.value; }
+        inp.dataset.k = k; inp.title = d.description; lab.append(inp); f.append(lab); });
+    }
+    renderBenchList(bl);
+  }
+  function renderBenchList(list) {
+    $("benchList").replaceChildren(...(list.length ? list.map((b) => { const r = b.result; const li = el("li", "clickable");
+      li.append(el("div", "title", `${r.model.name} (${r.model.quantization}) — ${new Date(r.startedAt).toLocaleString()}`), el("div", "sub", r.error ? "Failed: " + r.error : `${r.configuration.backend}, ${r.configuration.threads} threads, ${r.configuration.contextTokens}-token context, measured on ${r.machine.measuredOn}: ${r.generationTokensPerSecondMedian} tokens/s`));
+      li.addEventListener("click", () => showBench(r)); return li; }) : [el("li", "muted", "No benchmarks yet.")]));
+  }
+  function showBench(r) {
+    const box = $("benchResult"); box.replaceChildren();
+    if (r.error) { box.append(el("div", "notes", "The benchmark could not run: " + r.error)); return; }
+    const t = el("table", "bench"); const row = (k, v) => { const tr = el("tr"); tr.append(el("th", null, k), el("td", null, v)); t.append(tr); };
+    row("Model", `${r.model.name} — ${r.model.quantization}, ${MBf(r.model.sizeBytes)}`); row("Setup", `${r.configuration.contextTokens}-token context, ${r.configuration.threads} threads, backend ${r.configuration.backend}${r.configuration.note ? " (" + r.configuration.note + ")" : ""}`);
+    row("Machine", `${r.machine.cpu}, ${r.machine.logicalCores} cores, ${GB(r.machine.totalMemoryMB * 1048576)}, ${r.machine.os}`);
+    row("Load time", `${r.loadMsWall} ms`); row("First token", `${r.firstTokenMsMedian} ms (median of ${r.runs.length})`); row("Prompt processing", `${r.prefillTokensPerSecondMedian} tokens/s`); row("Generation", `${r.generationTokensPerSecondMedian} tokens/s`);
+    row("Cancel takes effect in", `${r.cancelLatencyMs} ms`); row("CPU", `idle ${r.cpu.idlePercentOfMachine}% / generating ${r.cpu.activePercentOfMachineMedian}% of the whole machine`);
+    row("Memory (CLU process)", `before ${r.memoryMB.processBeforeLoad} MB · loaded ${r.memoryMB.processLoaded} MB · peak ${r.memoryMB.processPeak} MB · after unloading ${r.memoryMB.processAfterUnload} MB`);
+    row("GPU", r.engine.gpuUtilisation); box.append(t);
+  }
+  async function startBenchmark() {
+    const sel = document.querySelector("#modelList li[data-active='1']"); if (!sel) { $("benchStep").textContent = "Register and select a model first."; return; }
+    $("benchRun").disabled = true; $("benchCancel").classList.remove("hidden"); $("benchResult").replaceChildren();
+    try {
+      benchJob = (await api(`/v1/models/${sel.dataset.id}/benchmark`, { method: "POST", json: {} })).job;
+      for (;;) { await new Promise((r) => setTimeout(r, 700)); const j = await api(`/v1/models/benchmark/${benchJob}`); $("benchStep").textContent = j.step;
+        if (j.done) { if (j.error) $("benchStep").textContent = j.error === "cancelled" ? "Cancelled." : "Failed: " + j.error; else { $("benchStep").textContent = "Done."; showBench(j.result); } break; } }
+    } catch (e) { $("benchStep").textContent = e.message; }
+    $("benchRun").disabled = false; $("benchCancel").classList.add("hidden"); benchJob = null; loadModels();
   }
 
   // ------------------------------------------------------------------------------------------ settings

@@ -26,6 +26,7 @@
     <button class="nav" data-view="documents">Documents</button>
     <button class="nav" data-view="suggestions">Suggestions <span class="badge hidden" id="suggestionCount"></span></button>
     <div class="spacer"></div>
+    <button class="nav" data-view="models">Models</button>
     <button class="nav" data-view="status">Status</button>
     <button class="nav" data-view="settings">Settings</button>
   </nav>
@@ -189,6 +190,40 @@
     <section id="view-suggestions" class="view hidden">
       <p class="muted">CLU never saves an inferred memory without your approval. Rejected suggestions are erased.</p>
       <ul id="suggestionList" class="cards"></ul>
+    </section>
+
+    <section id="view-models" class="view hidden">
+      <div class="grid">
+        <div class="card"><h3>Runtime</h3>
+          <div id="rtState" class="rt"></div>
+          <div id="rtDetail" class="muted"></div>
+          <div id="rtRequests" class="muted"></div>
+          <div class="form-actions"><button id="rtLoad" class="small primary">Load</button><button id="rtUnload" class="small">Unload</button><button id="rtReload" class="small">Reload</button><span id="rtMsg" class="muted"></span></div>
+        </div>
+        <div class="card"><h3>This PC</h3><div id="hwInfo" class="muted"></div></div>
+      </div>
+      <div class="card"><h3>Registered models</h3>
+        <ul id="modelList" class="cards"></ul>
+        <form id="modelRegister" class="inline-form form">
+          <input name="path" placeholder="Full path of a .gguf file, e.g. D:\models\model.gguf" aria-label="Model file path" required>
+          <input name="name" placeholder="Name (optional)" aria-label="Name">
+          <label class="inline"><input name="select" type="checkbox" checked> use it</label>
+          <button type="submit" class="primary small">Register</button>
+        </form>
+        <div id="modelNotes" class="notes"></div>
+        <p class="muted">Registering keeps the file where it is. Removing a registration never deletes the file. CLU never downloads a model by itself.</p>
+        <details><summary>Suggested models (download them yourself, then register the file)</summary><ul id="modelSuggested" class="cards compact"></ul></details>
+      </div>
+      <form id="modelConfig" class="card form"><h3>How the model is loaded</h3>
+        <div class="row" id="modelConfigFields"></div>
+        <div class="form-actions"><button type="submit" class="primary small">Apply</button><span id="modelConfigMsg" class="muted"></span></div>
+      </form>
+      <div class="card"><h3>Benchmark</h3>
+        <p class="muted">Measures load time, first-token latency, prompt and generation speed, CPU and memory for the selected model on this PC, and saves the result. It takes about a minute.</p>
+        <div class="form-actions"><button id="benchRun" class="small primary">Benchmark the selected model</button><button id="benchCancel" class="small hidden">Cancel</button><span id="benchStep" class="muted"></span></div>
+        <div id="benchResult"></div>
+        <h4>Earlier results</h4><ul id="benchList" class="cards compact"></ul>
+      </div>
     </section>
 
     <section id="view-status" class="view hidden">

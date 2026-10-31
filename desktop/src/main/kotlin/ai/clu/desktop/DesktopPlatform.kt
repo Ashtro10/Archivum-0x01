@@ -165,6 +165,10 @@ class DesktopLlmPlatform(private val governor: ResourceGovernor, private val nat
 
     override fun autoThreads(): Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 8)
     override fun thermalSevere(): Boolean = false
+    /** A GPU load may be attempted; the engine reports what it really used, and falls back to the CPU if the GPU can't be initialised. */
+    override val gpuAvailable: Boolean get() = true
+    /** The PC is the owner's: nothing is loaded ahead of time and no warm-up generation runs; the first request loads the model. */
+    override val loadOnDemand: Boolean get() = true
 
     /**
      * The core's load check allows a model up to 1.35× the reported figure (slack for memory-mapped weights on phones).

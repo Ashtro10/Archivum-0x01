@@ -22,6 +22,8 @@ interface LlmPlatform {
     fun availableMemoryBytes(): Long
     /** Whether a GPU load may be attempted (the engine falls back to the CPU if it cannot be initialised). */
     val gpuAvailable: Boolean get() = false
+    /** The model is loaded when a request needs it (and released when idle), never ahead of time: for a PC that is shared with the owner's own work. */
+    val loadOnDemand: Boolean get() = false
 }
 
 /** Loads a model file into an engine (replaceable in tests to simulate failures). */
@@ -108,7 +110,7 @@ class LlmService(
                     reload()
                 } else {
                     refreshNoModelState()
-                    if (settings.bool(Settings.LOAD_ON_START) && settings.string(Settings.MODEL_ACTIVE).isNotEmpty()) loadIfNeeded()
+                    if (settings.bool(Settings.LOAD_ON_START) && !platform.loadOnDemand && settings.string(Settings.MODEL_ACTIVE).isNotEmpty()) loadIfNeeded()
                 }
             }
         }
@@ -118,7 +120,7 @@ class LlmService(
                 checkIdle()
             }
         }
-        if (preload && settings.bool(Settings.LOAD_ON_START)) scope.launch { loadIfNeeded() }
+        if (preload && settings.bool(Settings.LOAD_ON_START) && !platform.loadOnDemand) scope.launch { loadIfNeeded() }
     }
 
     /**
@@ -128,7 +130,7 @@ class LlmService(
     fun prepare() {
         lastUsed = now()
         val st = _state.value.status
-        if (settings.bool(Settings.LOAD_ON_START) && engine == null && st != LlmStatus.LOADING && st != LlmStatus.ERROR &&
+        if (settings.bool(Settings.LOAD_ON_START) && !platform.loadOnDemand && engine == null && st != LlmStatus.LOADING && st != LlmStatus.ERROR &&
             settings.string(Settings.MODEL_ACTIVE).isNotEmpty()) scope.launch { loadIfNeeded() }
     }
 

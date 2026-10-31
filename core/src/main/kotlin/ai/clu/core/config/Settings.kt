@@ -315,7 +315,7 @@ object Settings {
     val USE_MMAP = bool("model.mmap", "Memory-map model file", MODEL, true, "Lower RAM pressure; pages are loaded on demand.",
         "LlmService", "llama.cpp load mode MMAP vs fully read", "ModelSettingsTest#mmap", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD, advanced = true)
     val ACCELERATION = choice("model.acceleration", "Acceleration", MODEL, "cpu",
-        listOf("cpu" to "CPU (ARM NEON + dot-product)", "gpu" to "GPU (OpenCL/Vulkan)"), "Compute backend.", "LlmService",
+        listOf("cpu" to "CPU", "gpu" to "GPU (only if this build has a GPU backend)"), "Compute backend. The window shows what the engine actually used.", "LlmService",
         "Selects the backend / GPU layer offload", "ModelSettingsTest#acceleration", scope = DEVICE, apply = ApplyMode.MODEL_RELOAD,
         limits = "This build contains only the CPU backend; GPU is shown as unavailable.")
     val GPU_LAYERS = int("model.gpuLayers", "Layers on the GPU", MODEL, 99, 0, 99,

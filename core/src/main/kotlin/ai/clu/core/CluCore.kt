@@ -167,7 +167,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         warmScope.launch {
             var warmed = 0L
             llm.state.collect { st ->
-                if (st.status == ai.clu.core.llm.LlmStatus.READY && st.loadSeq != warmed) { warmed = st.loadSeq; agent.warmUp() }
+                if (st.status == ai.clu.core.llm.LlmStatus.READY && st.loadSeq != warmed) { warmed = st.loadSeq; if (!platform.llm.loadOnDemand) agent.warmUp() }
             }
         }
     }

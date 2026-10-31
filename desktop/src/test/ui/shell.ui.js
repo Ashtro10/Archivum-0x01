@@ -3,7 +3,7 @@
 "use strict";
 const { chromium } = require("playwright");
 const path = require("path");
-const [base, code, shots] = process.argv.slice(2);
+const [base, code, shots, tinyModel] = process.argv.slice(2);
 const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); console.log("ok - " + what); };
 
 const problems = []; let lastPage = null;
@@ -11,7 +11,7 @@ const problems = []; let lastPage = null;
   const browser = await chromium.launch();
   const watch = (page) => {
     page.on("pageerror", (e) => problems.push("page error: " + e.message));
-    page.on("console", (m) => { if (m.type() === "error") problems.push("console: " + m.text()); });
+    page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource: the server responded with a status of 4\d\d/.test(m.text())) problems.push("console: " + m.text()); }); // 4xx = a refusal this script provoked on purpose
   };
   try {
     const ctx = await browser.newContext({ viewport: { width: 1100, height: 760 }, colorScheme: "dark" });
@@ -211,6 +211,39 @@ const problems = []; let lastPage = null;
     await page.waitForFunction(() => /MB of/.test(document.querySelector("#memoryBars").textContent));
     assert(true, "status: memory bars shown");
     await page.screenshot({ path: path.join(shots, "m3-status.png") });
+
+    // ---- M5: models and the runtime
+    page.on("dialog", (d) => d.accept());
+    await page.click('.nav[data-view="models"]');
+    await page.waitForFunction(() => /No model registered yet/.test(document.querySelector("#modelList").textContent));
+    assert(/No model selected/.test(await page.textContent("#rtState")), "models: nothing registered, the runtime says so");
+    await page.fill('#modelRegister [name="path"]', "relative/model.gguf"); await page.click('#modelRegister button[type="submit"]');
+    await page.waitForFunction(() => /full path/.test(document.querySelector("#modelNotes").textContent));
+    await page.fill('#modelRegister [name="path"]', tinyModel.replace(/\.gguf$/, "-missing.gguf")); await page.click('#modelRegister button[type="submit"]');
+    await page.waitForFunction(() => /no such file/i.test(document.querySelector("#modelNotes").textContent));
+    assert(true, "models: a bad path is refused with the exact reason");
+    await page.fill('#modelRegister [name="path"]', tinyModel); await page.click('#modelRegister button[type="submit"]');
+    await page.waitForFunction(() => /Registered .*Needs about \d+ MB/.test(document.querySelector("#modelNotes").textContent));
+    await page.waitForSelector("#modelList li[data-active='1']");
+    assert(/Unloaded/.test(await page.textContent("#rtState")), "models: registering does not load anything");
+    await page.click("#modelList li[data-active='1'] button.primary");
+    await page.waitForFunction(() => /Ready/.test(document.querySelector("#rtState").textContent) && /backend cpu/.test(document.querySelector("#rtDetail").textContent), null, { timeout: 60000 });
+    assert(/\d+ threads/.test(await page.textContent("#rtDetail")) && /-token context/.test(await page.textContent("#rtDetail")), "models: loaded; the runtime shows the real backend, threads and context: " + (await page.textContent("#rtDetail")));
+    await page.waitForFunction(() => /ready \(cpu\)/.test(document.querySelector("#modelPill").textContent), null, { timeout: 15000 });
+    assert(true, "models: the top pill follows the real state");
+    await page.fill('#modelConfigFields [data-k="contextLength"]', "1024"); await page.click('#modelConfig button[type="submit"]');
+    await page.waitForFunction(() => /1024-token context/.test(document.querySelector("#rtDetail").textContent), null, { timeout: 30000 });
+    assert(true, "models: a setting changed in the form reloads the model with it");
+    await page.evaluate(() => { document.querySelector("#view-models").scrollTop = 0; }); await page.screenshot({ path: path.join(shots, "m5-models.png") });
+    await page.click("#rtUnload"); await page.waitForFunction(() => /Unloaded/.test(document.querySelector("#rtState").textContent));
+    await page.click("#benchRun");
+    await page.waitForSelector("#benchResult table.bench", { timeout: 120000 });
+    const bench = await page.textContent("#benchResult");
+    assert(/Generation\d/.test(bench.replace(/\s+/g, "")) && /backend cpu/.test(bench) && /measured|linux|windows|Linux|Windows/i.test(bench) && /not measured/.test(bench), "models: the benchmark ran through the window and shows its conditions");
+    await page.evaluate(() => { document.querySelector("#benchResult").scrollIntoView(); }); await page.screenshot({ path: path.join(shots, "m5-benchmark.png") });
+    await page.click("#modelList li[data-active='1'] button:has-text('Remove registration')");
+    await page.waitForFunction(() => /No model registered yet/.test(document.querySelector("#modelList").textContent));
+    assert(/was not touched/.test(await page.textContent("#modelNotes")), "models: registration removed, the file left alone");
 
     // Settings: host limits load; sensitive settings can't be changed here.
     await page.click('.nav[data-view="settings"]');

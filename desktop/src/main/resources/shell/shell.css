@@ -118,3 +118,8 @@ select.feedback { width: auto; margin-top: 6px; font-size: 12px; padding: 1px 4p
 select.feedback:hover, select.feedback:focus { opacity: 1; }
 .subview h3 { margin: 16px 0 8px; }
 .subview .form-actions { margin-bottom: 4px; }
+.rt { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.rt .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; background: var(--muted); }
+.rt .dot.ready { background: var(--ok); } .rt .dot.busy { background: var(--accent); } .rt .dot.error { background: var(--danger); }
+.model-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+table.bench { border-collapse: collapse; width: 100%; margin: 8px 0; } table.bench td, table.bench th { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; font-size: 13px; }

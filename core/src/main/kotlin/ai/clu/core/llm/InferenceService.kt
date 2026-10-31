@@ -107,7 +107,7 @@ class InferenceService(
     /** Cancels one request by id; false if there is none (already finished). */
     fun cancel(requestId: String): Boolean {
         val a = active[requestId] ?: return false
-        a.signal.cancel(); if (a.running) llm.cancel()
+        a.signal.cancel() // the engine is stopped by the request's own signal (LlamaEngine registers it); a model-wide cancel here could hit the NEXT request
         return true
     }
 
@@ -130,7 +130,7 @@ class InferenceService(
         }
         val job = coroutineContext[Job]
         // Whatever ends this flow (an error, the collector going away) ends the request.
-        job?.invokeOnCompletion { signal.cancel(); if (a.running) llm.cancel() }
+        job?.invokeOnCompletion { signal.cancel() }
         var watchdog: Job? = null
         try {
             send(InferenceEvent.Queued(id, order.indexOf(id)))
@@ -155,7 +155,7 @@ class InferenceService(
                         a.tokens > 0 && t - a.lastTokenAt > settings.int(Settings.STALL_TIMEOUT) * 1000L -> InferenceError.TIMEOUT_STALL
                         else -> null
                     }
-                    if (limit != null && a.cancelledBy == null) { a.cancelledBy = limit; signal.cancel(); llm.cancel(); break }
+                    if (limit != null && a.cancelledBy == null) { a.cancelledBy = limit; signal.cancel(); break }
                 }
             }
             val result = withContext(Dispatchers.IO) {
@@ -164,7 +164,7 @@ class InferenceService(
                         a.running = true; a.startedAt = now(); a.lastTokenAt = a.startedAt!!; trySend(InferenceEvent.Started(id)) }) { text ->
                         val clean = guard.push(text)
                         if (clean.isNotEmpty()) { a.tokens++; a.lastTokenAt = now(); trySend(InferenceEvent.Token(id, clean)) }
-                        if (guard.looping && a.cancelledBy == null) { signal.cancel("repetition"); llm.cancel() }
+                        if (guard.looping && a.cancelledBy == null) { signal.cancel("repetition") }
                     }
                 } catch (e: LlmException) { throw e } catch (e: CancellationException) { throw e }
             }

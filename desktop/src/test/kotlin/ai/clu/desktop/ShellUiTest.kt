@@ -76,6 +76,8 @@ class ShellUiTest {
 
     @Test fun theWindowWorksEndToEnd() {
         val node = System.getProperty("clu.shellUi")
+        val tiny = File(System.getProperty("clu.testModel", "../native/build/test/tiny.gguf"))
+        assumeTrue(node.isNullOrBlank() || tiny.exists(), "tiny.gguf missing")
         assumeTrue(!node.isNullOrBlank(), "opt-in: -Dclu.shellUi=<node>")
         val script = listOf(File("src/test/ui/shell.ui.js"), File("desktop/src/test/ui/shell.ui.js")).first { it.exists() }
         val shots = File(System.getProperty("clu.shellUiShots") ?: "build/shell-ui").apply { mkdirs() }
@@ -91,7 +93,7 @@ class ShellUiTest {
             host.core.proposals.propose(ProposalKind.OBSERVATION, "Prefers tea in the evening.", "mentioned it twice in chat")
             seedMemoryScreens(host)
 
-            val p = ProcessBuilder(node, script.absolutePath, host.url, host.api.issueLaunchCode(), shots.absolutePath).redirectErrorStream(true).start()
+            val p = ProcessBuilder(node, script.absolutePath, host.url, host.api.issueLaunchCode(), shots.absolutePath, tiny.absolutePath).redirectErrorStream(true).start()
             val out = StringBuilder()
             val reader = Thread { p.inputStream.bufferedReader().forEachLine { out.appendLine(it); println("[ui] $it") } }.apply { start() }
             val finished = p.waitFor(180, TimeUnit.SECONDS)
@@ -115,6 +117,8 @@ class ShellUiTest {
             assertTrue(host.core.learner.overview().any { it.signals >= 1 && it.value == "brief" })
             assertTrue(DatabaseBackup.list(host.paths.backups).any { it.label == "manual" }, "the backup button made a verified backup")
             assertEquals(0, host.core.memory.working.list().count { it.text == "Parked on level 3" }, "the note was dismissed")
+            assertTrue(tiny.exists() && host.core.models.list().isEmpty(), "the model registration was removed from CLU, the file was left in place")
+            assertTrue(ModelBenchmark.list(host.paths).isNotEmpty(), "the benchmark result was saved")
             assertTrue(host.core.archive.people.list().any { it.name == "Riya Sharma" })
             assertTrue(host.core.archive.documents.list().any { it.name == "club-notes.txt" })
             assertTrue(web.requests.none { "Riya" in it || "college" in it || "tea" in it }, "no memory or personal detail was sent to search: ${web.requests}")

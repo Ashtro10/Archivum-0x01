@@ -23,7 +23,18 @@ clu-host --open                                             # start CLU and open
 clu-host-background.cmd                                     # Windows: start in the background (with the tray icon)
 clu-host --print-token                                      # the API token, for clients
 clu-host --restore-backup "<file>"                          # put a backup of the database back (CLU stopped)
+clu-host --models                                           # list registered models, their details and memory estimates
+clu-host --select-model <id|name>                           # choose the default model (CLU stopped)
+clu-host --unregister-model <id|name>                       # remove a registration; the file is never deleted (CLU stopped)
+clu-host --benchmark [id|name]                              # measure a model on this PC and save the result (CLU stopped)
 ```
+
+### The model
+
+CLU runs one local model at a time (llama.cpp, GGUF files). The first request loads it and it is released after the idle
+time (`model.autoUnloadMin`, default 20 minutes) or when the PC runs short of memory; nothing is loaded ahead of time.
+Register a model file once (it stays where it is), then manage it in the window under **Models**. Details, limits and the
+benchmark are in [docs/convergence/M5_LOCAL_INTELLIGENCE.md](../docs/convergence/M5_LOCAL_INTELLIGENCE.md).
 
 ### The window and the tray
 
@@ -101,6 +112,14 @@ on the phone (`model.threads`, `model.contextLength`, `model.autoUnloadMin`).
 | POST | `/v1/conversations/{id}/turns` | `{"text","voice"?}`. With `Accept: text/event-stream`: events `status`, `text` (`delta`), `error`, `done` (`text`, `error`, `interrupted`, `sources`). Otherwise one JSON reply |
 | POST | `/v1/stop` | cancels the reply in progress |
 | POST | `/v1/model/load`, `/v1/model/unload` | the model's state |
+| GET, POST | `/v1/models` | registered models with metadata, memory estimates and the runtime state / `{path, name?, select?}` registers a local GGUF in place |
+| POST, DELETE | `/v1/models/{id}/select\|load\|benchmark`, `/v1/models/{id}` | default / select + load / benchmark job; DELETE removes the registration only |
+| GET, PUT | `/v1/models/config` | context, threads, batch, acceleration, GPU layers, mmap, idle unload, max tokens, fit-context: real settings, a loaded model reloads |
+| GET | `/v1/models/benchmark/{job}`, `/v1/models/benchmarks` | benchmark progress and result / saved results |
+| GET | `/v1/inference/status` | runtime state (NO_MODEL, UNLOADED, LOADING, READY, GENERATING, CANCELLING, UNLOADING, ERROR), backend, threads, context, running and queued requests, limits |
+| POST | `/v1/inference/load`, `/v1/inference/unload` | load (retrying after a failure) / release the model |
+| POST | `/v1/inference/generate` | `{messages:[{role,content}], maxTokens?, temperature?, topK?, topP?}`; with `Accept: text/event-stream`: events `queued`, `started`, `token`, `completed` or `failed`, request id in `X-Request-Id`; otherwise one JSON reply. 429 when the queue is full |
+| POST | `/v1/inference/{id}/cancel` | stops that request (running or queued) |
 | POST | `/v1/session` | `{"code"}` → `{"token"}`: swaps a single-use launch code (no token needed) |
 | POST | `/v1/shell/open` | opens the window (used by a second `clu-host --open`) |
 | GET, POST | `/v1/memories` | `?q=` search, `?category=`; create `{title, content, when, people, places, tags, category, certainty, importance}` → `{memory, possibleDuplicates, conflicts, hints, ambiguousPeople}`. An unreadable `when` is refused (400), never guessed |

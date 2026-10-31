@@ -153,8 +153,29 @@ object SystemMemoryProbe : MemoryProbe {
  * llama.cpp on the desktop: the JNI library from lib/native/<os>-x64 next to the jars (or `-Dclu.nativeLib`), threads
  * from the core settings (auto = half the logical processors), and memory as the [ResourceGovernor] allows.
  */
-class DesktopLlmPlatform(private val governor: ResourceGovernor, private val nativeLibrary: String = "") : LlmPlatform {
-    override fun loadNativeLibrary() { LlamaBridge.load(resolveNativeLibrary().absolutePath) }
+class DesktopLlmPlatform(private val governor: ResourceGovernor, private val nativeLibrary: String = "", private val wantGpu: () -> Boolean = { false }) : LlmPlatform {
+    /** Which build of the engine this process loaded ("cpu" or "vulkan"); a process loads one native library for its whole life. */
+    @Volatile var loadedBuild: String = ""; private set
+
+    override fun loadNativeLibrary() {
+        val vk = vulkanLibrary()
+        val useVulkan = wantGpu() && vk != null
+        LlamaBridge.load((if (useVulkan) vk!! else resolveNativeLibrary()).absolutePath)
+        loadedBuild = if (useVulkan) "vulkan" else "cpu"
+    }
+
+    /**
+     * The optional GPU build of the engine (native/windows-x64-vulkan/clu_llama.dll next to the CPU one). It is used only if
+     * the owner asked for the GPU, the file exists, and Windows has a Vulkan loader (installed with the graphics driver):
+     * otherwise the CPU build is loaded and nothing about the GPU is attempted.
+     */
+    fun vulkanLibrary(): File? {
+        if (!IS_WINDOWS) return null
+        val cpu = resolveNativeLibrary()
+        val vk = File(cpu.parentFile?.parentFile, "windows-x64-vulkan/clu_llama.dll")
+        val loader = File((System.getenv("SystemRoot") ?: "C:\\Windows") + "\\System32\\vulkan-1.dll")
+        return vk.takeIf { it.isFile && loader.isFile }
+    }
 
     fun resolveNativeLibrary(): File {
         listOf(nativeLibrary, System.getProperty("clu.nativeLib").orEmpty()).firstOrNull { it.isNotBlank() }?.let { return File(it) }
@@ -185,7 +206,9 @@ class DesktopPlatform(
     nativeLibrary: String = "",
     override val http: HttpFetcher = JvmHttp(),
 ) : CluPlatform {
-    override val llm = DesktopLlmPlatform(governor, nativeLibrary)
+    /** Set by the host once the core exists: whether the owner asked for GPU acceleration (decides which engine build is loaded at first use). */
+    @Volatile var wantGpu: () -> Boolean = { false }
+    override val llm = DesktopLlmPlatform(governor, nativeLibrary) { wantGpu() }
     override val keyVault: KeyVault = FileKeyVault(paths.vaultKey)
     val secrets = DesktopSecrets(paths.secrets, keyVault)
 

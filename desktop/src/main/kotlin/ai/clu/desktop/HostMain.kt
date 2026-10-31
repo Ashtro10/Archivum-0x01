@@ -43,6 +43,7 @@ object Host {
         val hostConfig = HostConfigStore(paths.config, config) { governor }
         val platform = DesktopPlatform(paths, governor, config.nativeLibrary, http)
         val core = CluCore(db, platform)
+        platform.wantGpu = { core.settings.string(Settings.ACCELERATION) == "gpu" }
         coreRef = core
         core.startModel(preload = false)
         val ticker = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "clu-governor").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
@@ -103,7 +104,9 @@ fun main(args: Array<String>) {
         if (mutating && alreadyRunning(p)) { System.err.println("CLU is running. Use the window (Models) or stop CLU first (Quit CLU in the tray)."); exitProcess(2) }
         val db = JdbcSqlDriver(paths.database.absolutePath)
         val governor = ResourceGovernor(config.governor(), SystemMemoryProbe, { ai.clu.core.llm.LlmStatus.NO_MODEL }, {})
-        val core = CluCore(db, DesktopPlatform(paths, governor, config.nativeLibrary))
+        val platform = DesktopPlatform(paths, governor, config.nativeLibrary)
+        val core = CluCore(db, platform)
+        platform.wantGpu = { core.settings.string(Settings.ACCELERATION) == "gpu" }
         try {
             fun find(q: String) = core.models.list().let { all -> all.firstOrNull { it.id == q } ?: all.filter { it.name.contains(q, true) || File(it.path).name.contains(q, true) }.singleOrNull() }
             fun mb(b: Long) = "${b / 1_048_576} MB"

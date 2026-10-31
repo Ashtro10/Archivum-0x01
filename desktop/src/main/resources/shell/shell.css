@@ -116,3 +116,5 @@ button.x { padding: 0 8px; margin-left: 6px; }
 @media (max-width: 760px) { .meta, .pair { grid-template-columns: 1fr; } }
 select.feedback { width: auto; margin-top: 6px; font-size: 12px; padding: 1px 4px; opacity: 0.7; }
 select.feedback:hover, select.feedback:focus { opacity: 1; }
+.subview h3 { margin: 16px 0 8px; }
+.subview .form-actions { margin-bottom: 4px; }

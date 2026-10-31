@@ -6,7 +6,7 @@ const path = require("path");
 const [base, code, shots] = process.argv.slice(2);
 const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); console.log("ok - " + what); };
 
-const problems = [];
+const problems = []; let lastPage = null;
 (async () => {
   const browser = await chromium.launch();
   const watch = (page) => {
@@ -23,7 +23,7 @@ const problems = [];
     assert(await stranger.isHidden("#app"), "no launch code: locked screen, no app");
     await stranger.close();
 
-    const page = await ctx.newPage(); watch(page);
+    const page = await ctx.newPage(); watch(page); lastPage = page;
     await page.goto(`${base}/#code=${code}`);
     await page.waitForSelector("#app:not(.hidden)");
     assert(!page.url().includes("code="), "launch code removed from the address after use");
@@ -78,17 +78,114 @@ const problems = [];
     const recall = await page.textContent("#messages li.assistant:last-child .body");
     assert(/Riya/.test(recall) && /robots all evening/.test(recall) && /March 2018/.test(recall), "recall: chat answer came from the saved memory: " + recall);
 
+    // ---- M4: the memory screens
+    await page.click('.nav[data-view="memory"]');
+    await page.waitForSelector("#kindChips .chip");
+    const chips = await page.$$eval("#kindChips .chip", (b) => b.map((x) => x.textContent));
+    assert(chips.some((c) => /Core identity · \d+/.test(c)) && chips.some((c) => /Semantic · 1/.test(c)) && chips.some((c) => /Working · 1/.test(c)), "memory: kinds with counts: " + chips.join(" | "));
+    await page.fill("#memorySearch", "");
+    await page.click('#kindChips .chip:has-text("Semantic")');
+    await page.waitForFunction(() => document.querySelectorAll("#memoryList li.clickable").length === 1 && /PID control/.test(document.querySelector("#memoryList").textContent));
+    assert(true, "memory: the kind filter narrows to the one semantic memory");
+    await page.click('#kindChips .chip:has-text("All")');
+    await page.fill("#memoryPerson", "Riya");
+    await page.waitForFunction(() => /Met Riya at the college fest/.test(document.querySelector("#memoryList").textContent) && document.querySelectorAll("#memoryList li.clickable").length === 1);
+    assert(true, "memory: person filter");
+    await page.fill("#memoryPerson", "");
+    await page.fill("#memoryFrom", "2018-03-01"); await page.fill("#memoryTo", "2018-03-31");
+    await page.waitForFunction(() => /Met Riya/.test(document.querySelector("#memoryList").textContent) && !/PID control/.test(document.querySelector("#memoryList").textContent));
+    assert(true, "memory: time filter (March 2018)");
+    await page.fill("#memoryFrom", ""); await page.fill("#memoryTo", "");
+    await page.selectOption("#memoryCategory", "KNOWLEDGE");
+    await page.waitForFunction(() => document.querySelectorAll("#memoryList li.clickable").length === 1);
+    await page.selectOption("#memoryCategory", "");
+
+    // Detail: where it came from, when, links.
+    await page.fill("#memorySearch", "college fest");
+    await page.waitForFunction(() => document.querySelectorAll("#memoryList li.clickable").length === 1);
+    await page.click("#memoryList li.clickable");
+    await page.waitForSelector("#memoryDetail:not(.hidden) #detailMeta dt");
+    const meta = await page.textContent("#detailMeta");
+    assert(/Kind.*Episodic/.test(meta) && /Created/.test(meta) && /Last changed/.test(meta) && /Entered by you in the desktop window/.test(meta) && /Last used by CLU/.test(meta), "memory detail: kind, created, changed, last used, source: " + meta.replace(/\s+/g, " "));
+    await page.fill("#linkSearch", "PID");
+    await page.click('#linkResults li.clickable:has-text("PID control")');
+    await page.waitForFunction(() => /PID control/.test(document.querySelector("#relatedList").textContent));
+    assert(/Related to/.test(await page.textContent("#relatedList")), "memory detail: link added and shown");
+    await page.screenshot({ path: path.join(shots, "m4-memory-detail.png") });
+    await page.click("#relatedList li button.x");
+    await page.waitForFunction(() => /Nothing linked yet/.test(document.querySelector("#relatedList").textContent));
+    assert(true, "memory detail: link removed");
+    await page.click("#memoryCancel"); await page.fill("#memorySearch", "");
+
+    // Documents beside memories: source code is indexed and comes back as a document.
+    await page.click('.nav[data-view="documents"]');
+    await page.setInputFiles("#docUpload", { name: "gait.kt", mimeType: "text/plain", buffer: Buffer.from("fun tripodGait(phase: Int) = List(6) { (it + phase) % 2 == 0 } // tripod leg schedule") });
+    await page.waitForFunction(() => /gait.kt: imported/.test(document.querySelector("#docNotes").textContent));
+    await page.click('.nav[data-view="memory"]');
+    await page.fill("#memorySearch", "tripod");
+    await page.waitForFunction(() => /Document/.test(document.querySelector("#memoryList").textContent) && /tripodGait/.test(document.querySelector("#memoryList").textContent));
+    assert(true, "documents: source code found through memory search, labelled as a document");
+    await page.fill("#memorySearch", "");
+
+    // Working notes.
+    await page.click('.sub[data-sub="working"]');
+    await page.waitForFunction(() => /Parked on level 3/.test(document.querySelector("#workingList").textContent));
+    await page.fill('#workingForm [name="text"]', "Call the clinic at five"); await page.click('#workingForm button[type="submit"]');
+    await page.waitForFunction(() => /Call the clinic at five/.test(document.querySelector("#workingList").textContent));
+    await page.click('#workingList li:has-text("Parked on level 3") button:has-text("Dismiss")');
+    await page.waitForFunction(() => !/Parked on level 3/.test(document.querySelector("#workingList").textContent));
+    assert(true, "working notes: listed, added, dismissed");
+
+    // Tidy-up: a near-duplicate pair waits for the owner; merging keeps both texts.
+    await page.click('.sub[data-sub="tidy"]');
+    await page.waitForFunction(() => document.querySelectorAll("#tidyPending li .pair").length === 1);
+    assert(/Chose STM32/.test(await page.textContent("#tidyPending")), "tidy-up: the near-duplicates are shown side by side");
+    await page.screenshot({ path: path.join(shots, "m4-tidy.png") });
+    await page.click('#tidyPending button:has-text("Merge")');
+    await page.waitForFunction(() => /Nothing waiting/.test(document.querySelector("#tidyPending").textContent) && /approved/.test(document.querySelector("#tidyActivity").textContent));
+    await page.click("#tidyRun"); await page.waitForFunction(() => /Checked \d+/.test(document.querySelector("#tidyResult").textContent));
+    assert(true, "tidy-up: merged on approval, logged in the activity list; manual run works");
+
+    // Learning: a question about a recurring preference; the reaction menu on replies only records.
+    await page.click('.sub[data-sub="learning"]');
+    await page.waitForFunction(() => /Make it my standing preference\?/.test(document.querySelector("#learnQuestions").textContent));
+    assert(/Keeps coming up/.test(await page.textContent("#learnNoticed")), "learning: noticed list shows the scope");
+    await page.screenshot({ path: path.join(shots, "m4-learning.png") });
+    await page.click('#learnQuestions button:has-text("Yes")');
+    await page.waitForFunction(() => /No questions/.test(document.querySelector("#learnQuestions").textContent) && /Standing preference/.test(document.querySelector("#learnNoticed").textContent));
+    assert(true, "learning: accepted by the owner, now a standing preference");
+    await page.click('.nav[data-view="chat"]');
+    await page.selectOption("#messages li.assistant:last-child select.feedback", "too_long");
+    await page.waitForFunction(() => /won't change anything on one reaction|keeps coming up/.test(document.querySelector("#messages li.assistant:last-child .meta").textContent));
+    assert(true, "learning: a reaction on a reply is recorded without changing anything");
+
+    // Health and backups.
+    await page.click('.nav[data-view="memory"]'); await page.click('.sub[data-sub="health"]');
+    await page.waitForFunction(() => /Database integrity: ok/.test(document.querySelector("#healthSummary").textContent));
+    await page.click("#backupNow");
+    await page.waitForFunction(() => document.querySelectorAll("#backupList li:not(.muted)").length >= 1 && /Backup made/.test(document.querySelector("#healthNotes").textContent));
+    await page.click("#maintRun"); await page.waitForFunction(() => document.querySelector("#maintResult").textContent.length > 3 && !/Running/.test(document.querySelector("#maintResult").textContent));
+    assert(/--restore-backup/.test(await page.textContent("#backupRestore")), "health: backups listed, restore instructions shown, background run works");
+    await page.screenshot({ path: path.join(shots, "m4-health.png") });
+
     // Timeline grouped by year.
     await page.click('.nav[data-view="timeline"]');
     await page.waitForSelector("#timeline .year");
     assert((await page.textContent("#timeline .year")) === "2018", "timeline: grouped under 2018");
 
-    // Suggestions: badge, edit, approve.
-    assert((await page.textContent("#suggestionCount")) === "1", "suggestions: badge shows 1 waiting");
+    // Suggestions: an inference and a conflicting statement; evidence is shown and only approval saves.
     await page.click('.nav[data-view="suggestions"]');
-    await page.waitForSelector("#suggestionList textarea");
-    await page.fill("#suggestionList textarea", "Prefers green tea in the evening.");
-    await page.click("#suggestionList button.primary");
+    await page.waitForFunction(() => document.querySelectorAll("#suggestionList li:has(textarea)").length === 2);
+    assert((await page.textContent("#suggestionCount")) === "2", "suggestions: badge shows 2 waiting");
+    const conflict = page.locator('#suggestionList li:has-text("May conflict")');
+    assert(/Vim/.test(await conflict.textContent()) && /both stay/.test(await conflict.textContent()), "suggestions: the conflict with the existing memory is named");
+    assert(/Inferred by CLU/.test(await page.textContent('#suggestionList li:has(.tag.warn)')), "suggestions: inferences are labelled as such");
+    await page.screenshot({ path: path.join(shots, "m4-suggestions.png") });
+    const inferred = page.locator("#suggestionList li:has(.tag.warn)");
+    await inferred.locator("textarea").fill("Prefers green tea in the evening.");
+    await inferred.locator("button.primary").click();
+    await page.waitForFunction(() => document.querySelectorAll("#suggestionList li:has(textarea)").length === 1);
+    await conflict.locator("button.primary").click();
     await page.waitForFunction(() => /No suggestions waiting/.test(document.querySelector("#suggestionList").textContent));
     await page.waitForFunction(() => document.querySelector("#suggestionCount").classList.contains("hidden"));
     assert(true, "suggestions: approved with an edit; badge cleared");
@@ -133,6 +230,10 @@ const problems = [];
     await page.screenshot({ path: path.join(shots, "m3-settings.png") });
 
     assert(problems.length === 0, "no script errors or CSP violations: " + problems.join(" | "));
+  } catch (e) {
+    // What the window looked like when a check failed, to make the failure diagnosable from the test log.
+    try { if (lastPage) { console.log("visible text: " + (await lastPage.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").slice(0, 800)); await lastPage.screenshot({ path: path.join(shots, "failure.png") }); } } catch (x) { /* best effort */ }
+    throw e;
   } finally {
     await browser.close();
   }

@@ -50,14 +50,14 @@
   }
 
   // ------------------------------------------------------------------------------------------ chat
-  let conversation = null, streaming = false;
+  let conversation = null, streaming = false, ready = Promise.resolve();
   function initChat() {
     $("newConversation").addEventListener("click", async () => { const c = await api("/v1/conversations", { method: "POST", json: {} }); await listConversations(); openConversation(c.id); });
     $("composer").addEventListener("submit", (e) => { e.preventDefault(); send(); });
     $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
     $("stop").addEventListener("click", () => api("/v1/stop", { method: "POST", json: {} }));
     loaders.chat = listConversations;
-    listConversations().then((list) => { if (list.length) openConversation(list[0].id); });
+    ready = listConversations().then((list) => (list.length ? openConversation(list[0].id) : undefined)).catch(() => {});
   }
   async function listConversations() {
     const list = await api("/v1/conversations");
@@ -103,6 +103,7 @@
   async function send() {
     const text = $("input").value.trim();
     if (!text || streaming) return;
+    await ready; // the latest conversation is still being opened: don't race it (and don't wipe what we are about to show)
     if (!conversation) { const c = await api("/v1/conversations", { method: "POST", json: {} }); conversation = c.id; }
     $("input").value = "";
     $("messages").append(bubble("user", text));

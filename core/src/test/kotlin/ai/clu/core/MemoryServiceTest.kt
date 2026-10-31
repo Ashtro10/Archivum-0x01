@@ -240,7 +240,7 @@ class MemoryServiceTest {
         db.execute("INSERT INTO memory_terms(memory_id, term, tf) VALUES('m1','chai',1)")
         db.execute("""INSERT INTO memory_proposals(id, kind, text, rationale, status, created_at, fingerprint) VALUES('p1','OBSERVATION','Likes chai','seen twice','PENDING',1,'fp')""")
         val c = newCore(db = db)
-        assertEquals(Schema.currentVersion, db.userVersion); assertEquals(5, Schema.currentVersion)
+        assertEquals(Schema.currentVersion, db.userVersion); assertEquals(6, Schema.currentVersion, "the current schema is v6 (M7 added the agent tables)")
         assertEquals("Likes masala chai.", c.memories.get("m1")!!.content)
         assertEquals(MemoryKind.CORE, c.memory.metaOf(c.memories.get("m1")!!).kind, "records without metadata get derived defaults")
         assertEquals("m1", c.memory.recall(RecallRequest("chai", touch = false)).single().memory!!.id)
@@ -248,7 +248,7 @@ class MemoryServiceTest {
         // And it is a real migration: a failure rolls everything back.
         val broken = Schema.migrations + listOf(listOf("ALTER TABLE memory_meta ADD COLUMN x TEXT", "THIS IS NOT SQL"))
         assertFails { Schema.migrate(db, target = broken.size, steps = broken) }
-        assertEquals(5, db.userVersion)
+        assertEquals(Schema.currentVersion, db.userVersion, "a failed migration leaves the database as it was")
         assertEquals(0L, db.query("SELECT COUNT(*) FROM pragma_table_info('memory_meta') WHERE name = 'x'") { it.long(0) }.first())
     }
 

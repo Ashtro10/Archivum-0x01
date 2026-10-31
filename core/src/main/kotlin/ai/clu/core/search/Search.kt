@@ -536,6 +536,9 @@ class SearchService(private val settings: SettingsStore, http: HttpFetcher, brav
     ).associateBy { it.id }
     private val reader = PageReader(http, RobotsPolicy(http, now))
 
+    /** One page's relevant excerpt (robots.txt respected, public addresses only). Used by agent tasks that were approved to fetch it. */
+    suspend fun readPage(url: String, query: String, maxChars: Int = 3000): PageResult = reader.read(url, query, maxChars)
+
     fun provider(): SearchProvider = when (settings.string(Settings.SEARCH_PROVIDER)) {
         "brave" -> providers.getValue("brave"); "searxng" -> providers.getValue("searxng"); else -> providers.getValue("keyless")
     }

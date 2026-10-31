@@ -36,6 +36,8 @@ interface CluPlatform {
     val keyVault: KeyVault
     fun isOnline(): Boolean
     fun deviceName(): String
+    /** Folders that agent tasks may never touch, whatever they are told (the desktop host's own data folder). */
+    fun protectedFolders(): List<java.io.File> = emptyList()
     /** Secret storage for API keys (Android: Keystore-encrypted). */
     fun secret(name: String): String?
     /** App-private storage for archive files (managed copies of imported documents and photos); null = no file storage. */
@@ -116,6 +118,16 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http),
         archive = archive, memoryService = memory, formation = formation, learner = learner)
 
+    // ---------------------------------------------------------------- supervised agents (M7)
+    private val agentScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    val agentAudit = ai.clu.core.agents.AuditLog(db, clock)
+    val agentTools = ai.clu.core.agents.AgentToolRegistry()
+    val agentSwitches = ai.clu.core.agents.ToolSwitches(db, agentTools, agentAudit)
+    val agentRoots = ai.clu.core.agents.AgentRoots(db, clock) { platform.protectedFolders() }
+    val agentBroker = ai.clu.core.agents.PermissionBroker(db, clock, agentAudit, agentRoots, agentTools) { agentSwitches.disabled() }
+    /** Supervised multi-step tasks: planned, approved by the owner, carried out by role agents over the one shared model (see docs/convergence/M7_AGENTS_PERMISSIONS.md). */
+    val agents = ai.clu.core.agents.AgentService(db, clock, settings, agentTools, agentAudit, agentBroker, ai.clu.core.agents.InferenceReasoner(inferenceService), agentScope, agentSwitches)
+
     private var node: SyncNode? = null
 
     fun syncNode(pairing: PairingHandler): SyncNode = node ?: SyncNode(store, settings, syncEngine, platform.keyVault, platform::deviceName, pairing,
@@ -123,6 +135,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
 
     init {
         registerCoreTools()
+        ai.clu.core.agents.BuiltinTools.registerAll(agentTools, ai.clu.core.agents.AgentDeps(memory, proposals, search, agentRoots, clock, status = ::agentStatus, shellAllowlist = { settings.list(Settings.AGENTS_SHELL_ALLOWLIST) }))
+        agents.recoverAfterRestart()
         proposals.diarySink = { text, at, conv ->
             diary.add(text, source = ai.clu.core.diary.DiarySource.CONVERSATION, conversationId = conv, date = ai.clu.core.diary.DiaryRepository.dayOf(at)) }
         proposals.onApproved = { p, m ->
@@ -172,7 +186,15 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         }
     }
 
+    private fun agentStatus(): kotlinx.serialization.json.JsonObject {
+        val st = llm.state.value
+        val j = kotlinx.serialization.json.JsonPrimitive(java.time.Instant.ofEpochMilli(clock.now()).toString())
+        return kotlinx.serialization.json.JsonObject(mapOf("time" to j, "model" to kotlinx.serialization.json.JsonPrimitive(st.status.name.lowercase()),
+            "backend" to kotlinx.serialization.json.JsonPrimitive(st.backend), "agentTasksActive" to kotlinx.serialization.json.JsonPrimitive(agents.activeCount())))
+    }
+
     fun shutdown() {
+        agentScope.cancel()
         warmScope.cancel()
         node?.shutdown()
         llm.shutdown()

@@ -449,6 +449,26 @@ object Settings {
     val AGENT_MAX_STEPS = int("tools.maxSteps", "Max steps per task", TOOLS, 4, 1, 8, "Upper bound on tool calls in one request.",
         "CluAgent", "Agent loop stops after this many tool steps", "ToolSettingsTest#maxSteps")
 
+    // ---------------------------------------------------------------- Assistant tasks (M7: supervised agents)
+    val AGENTS_ENABLED = bool("agents.enabled", "Assistant tasks", TOOLS, true,
+        "Lets CLU plan and carry out multi-step tasks for you (looking things up, working with files in the folders you allow). Every action that changes something asks you first.",
+        "AgentService", "When off, no task can be created or started", "AgentSettingsTest#enabled", scope = SettingScope.DEVICE)
+    val AGENTS_REVIEW_PLAN = bool("agents.reviewPlan", "Review the plan before a task starts", TOOLS, true,
+        "CLU shows the plan it made for a goal and waits for you to start it. You can start it asking for each action, or approve the plan's actions in one go.",
+        "AgentService", "A planned task waits in 'Ready to start' instead of running at once", "AgentSettingsTest#reviewPlan", scope = SettingScope.DEVICE)
+    val AGENTS_MAX_STEPS = int("agents.maxSteps", "Most steps in a task", TOOLS, 8, 2, 20,
+        "A plan with more steps than this is refused, so a task cannot grow without limit.", "AgentService", "Longer plans are rejected and re-planned once", "AgentSettingsTest#maxSteps", scope = SettingScope.DEVICE)
+    val AGENTS_MAX_PARALLEL = int("agents.maxParallel", "Steps that may run at the same time", TOOLS, 2, 1, 4,
+        "Read-only steps may overlap; steps that change something always run one at a time. Model replies share the one model and wait their turn anyway.",
+        "AgentService", "At most this many steps run at once, across all tasks", "AgentSettingsTest#maxParallel", scope = SettingScope.DEVICE, advanced = true)
+    val AGENTS_MAX_TASKS = int("agents.maxTasks", "Tasks that may run at the same time", TOOLS, 2, 1, 4,
+        "More tasks wait in line until one finishes.", "AgentService", "Further tasks stay queued", "AgentSettingsTest#maxTasks", scope = SettingScope.DEVICE, advanced = true)
+    val AGENTS_TASK_TIMEOUT = int("agents.taskTimeoutMin", "Longest a task may take (minutes)", TOOLS, 120, 5, 1440,
+        "A task that runs longer (including time waiting for you) is stopped and its permissions are revoked.", "AgentService", "The task ends as failed (timed out)", "AgentSettingsTest#taskTimeout", scope = SettingScope.DEVICE, advanced = true)
+    val AGENTS_SHELL_ALLOWLIST = list("agents.shellAllowlist", "Programs tasks may run", TOOLS, emptyList(),
+        "Full paths of programs a task may ask to run (never through a shell). Empty = none. Even then, the run tool must be switched on in Agents > Permissions and each run asks for your confirmation.",
+        "ProcRun", "Only exactly these programs can be started by a task", "AgentSettingsTest#shellAllowlist", SettingType.TextList(20, 300))
+
     // ---------------------------------------------------------------- Network
     val NET_ENABLED = bool("net.enabled", "Allow internet access", NETWORK, true,
         "Master switch. When off, Clu never uses the network (local features keep working).", "NetworkPolicy",

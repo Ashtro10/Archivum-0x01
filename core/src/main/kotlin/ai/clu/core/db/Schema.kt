@@ -177,6 +177,37 @@ object Schema {
             """ALTER TABLE memory_proposals ADD COLUMN confidence REAL""",
             """ALTER TABLE memory_proposals ADD COLUMN source_ref TEXT NOT NULL DEFAULT ''""",
         ),
+        // v5 -> v6 (M7: supervised agents). audit_events is append-only (triggers refuse changes; every row carries the hash of
+        // the one before it, so tampering from outside is detectable); permission_grants/approvals back the permission broker;
+        // agent_roots are the only folders agent file tools may touch; agent_tasks/agent_steps are the task history, kept apart
+        // from memory (task history never becomes memory by itself). Existing tables are untouched.
+        listOf(
+            """CREATE TABLE audit_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL, ts INTEGER NOT NULL, task_id TEXT NOT NULL DEFAULT '',
+                actor TEXT NOT NULL, kind TEXT NOT NULL, subject TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL, prev_hash TEXT NOT NULL, hash TEXT NOT NULL)""",
+            """CREATE INDEX idx_audit_task ON audit_events(task_id, seq)""",
+            """CREATE INDEX idx_audit_kind ON audit_events(kind, seq)""",
+            """CREATE TRIGGER audit_no_update BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit records cannot be changed'); END""",
+            """CREATE TRIGGER audit_no_delete BEFORE DELETE ON audit_events BEGIN SELECT RAISE(ABORT, 'audit records cannot be deleted'); END""",
+            """CREATE TABLE agent_roots (path TEXT PRIMARY KEY, writable INTEGER NOT NULL, label TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL)""",
+            """CREATE TABLE permission_grants (id TEXT PRIMARY KEY, tool_id TEXT NOT NULL, scope TEXT NOT NULL, resources TEXT NOT NULL, task_id TEXT NOT NULL DEFAULT '',
+                kind TEXT NOT NULL, uses_left INTEGER, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, approval_id TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '')""",
+            """CREATE INDEX idx_grants_task ON permission_grants(task_id, tool_id)""",
+            """CREATE TABLE approvals (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, step_id TEXT NOT NULL, tool_id TEXT NOT NULL, scope TEXT NOT NULL, category TEXT NOT NULL,
+                resources TEXT NOT NULL, intent TEXT NOT NULL, why TEXT NOT NULL, reversible INTEGER NOT NULL, on_success TEXT NOT NULL, on_failure TEXT NOT NULL,
+                args_preview TEXT NOT NULL, call_key TEXT NOT NULL, status TEXT NOT NULL, decision_kind TEXT, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+                decided_at INTEGER, decided_by TEXT)""",
+            """CREATE INDEX idx_approvals_status ON approvals(status, created_at)""",
+            """CREATE INDEX idx_approvals_task ON approvals(task_id, call_key)""",
+            """CREATE TABLE agent_tasks (id TEXT PRIMARY KEY, goal TEXT NOT NULL, status TEXT NOT NULL, origin TEXT NOT NULL, plan TEXT NOT NULL DEFAULT '',
+                summary TEXT NOT NULL DEFAULT '', result TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', conversation_id TEXT, created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL, started_at INTEGER, finished_at INTEGER, meta TEXT NOT NULL DEFAULT '{}')""",
+            """CREATE INDEX idx_agent_tasks_time ON agent_tasks(created_at)""",
+            """CREATE TABLE agent_steps (id TEXT NOT NULL, task_id TEXT NOT NULL, idx INTEGER NOT NULL, role TEXT NOT NULL, kind TEXT NOT NULL, tool_id TEXT NOT NULL DEFAULT '',
+                args TEXT NOT NULL DEFAULT '{}', depends TEXT NOT NULL DEFAULT '[]', description TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+                output TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', flagged INTEGER NOT NULL DEFAULT 0, destructive INTEGER NOT NULL DEFAULT 0,
+                started_at INTEGER, finished_at INTEGER, PRIMARY KEY (task_id, id))""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size

@@ -98,7 +98,11 @@ fun main(args: Array<String>) {
         println("CLU is already running on http://127.0.0.1:$p"); return
     }
     val host = Host.start(paths, config, p)
-    host.api.openShell = { ShellLauncher.open("${host.url}/#code=${host.api.issueLaunchCode()}") }
+    host.api.openShell = {
+        val url = "${host.url}/#code=${host.api.issueLaunchCode()}"
+        // The code in the URL works once and only for 60 seconds, so showing it here on CLU's own console is harmless.
+        if (!ShellLauncher.open(url)) println("Couldn't open a browser window. Open this address within a minute: $url")
+    }
     val done = CountDownLatch(1)
     Runtime.getRuntime().addShutdownHook(Thread { host.stop(); done.countDown() })
     if (tray && !ShellLauncher.installTray(host) { done.countDown(); host.stop(); exitProcess(0) }) println("(no notification area here: running without a tray icon)")

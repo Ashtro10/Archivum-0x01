@@ -21,6 +21,7 @@ button.danger { color: var(--danger); }
 button.small { padding: 4px 10px; font-size: 13px; }
 input, select, textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; }
 textarea { resize: vertical; }
+input:disabled, select:disabled, textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 code { background: var(--raise); padding: 1px 5px; border-radius: 4px; }
 
 .locked { position: fixed; inset: 0; display: grid; place-items: center; }
@@ -56,7 +57,7 @@ code { background: var(--raise); padding: 1px 5px; border-radius: 4px; }
 .msg.assistant { align-self: flex-start; background: var(--raise); border: 1px solid var(--line); }
 .msg .meta { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .msg.error { border-color: var(--warn); }
-.sources-toggle { background: transparent; border: none; padding: 0; color: var(--muted); font-size: 12px; margin-top: 6px; }
+.sources-toggle { display: block; background: transparent; border: none; padding: 0; color: var(--muted); font-size: 12px; margin-top: 6px; }
 .sources { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
 .sources a { color: var(--accent); }
 .composer { display: flex; gap: 10px; padding: 12px 0 16px; border-top: 1px solid var(--line); }

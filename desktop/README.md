@@ -1,8 +1,8 @@
 # CLU host (desktop)
 
 CLU's brain running on the PC as one background process: the same `core` as the phone (memory archive, conversation,
-research, persona), the local llama.cpp engine, a resource governor, and a local API for the desktop shell (M3) and the
-phone (M5).
+research, persona), the local llama.cpp engine, a resource governor, a local API, and the desktop shell (CLU's window,
+M3) served from that API. The phone comes in M5.
 
 ## Build
 
@@ -19,9 +19,26 @@ be installed for now; a bundled runtime comes with the installer (M11).
 
 ```
 clu-host --register-model D:\models\Qwen3-8B-Q4_K_M.gguf   # once: add a model and make it active
-clu-host-background.cmd                                     # Windows: start in the background
+clu-host --open                                             # start CLU and open its window
+clu-host-background.cmd                                     # Windows: start in the background (with the tray icon)
 clu-host --print-token                                      # the API token, for clients
 ```
+
+### The window and the tray
+
+* **The window.** On Windows it opens in Edge's app mode (no address bar); elsewhere it opens in the default browser.
+  It's served by the host, so it works only while CLU runs.
+* **Getting in.**
+  * Each opening carries a single-use launch code (valid for 60 seconds), which the page swaps for the API token.
+  * The address alone shows a locked screen.
+* **The tray icon:**
+  * Open CLU;
+  * Unload the model now;
+  * Quit CLU;
+  * double-clicking it opens the window.
+* **One copy at a time.** Running `clu-host --open` while CLU is already running opens the running copy's window
+  instead of starting a second one.
+* **Without the icon.** `--no-tray` runs without it, for servers or remote sessions.
 
 Data lives in one folder:
 * Windows: `%LOCALAPPDATA%\CLU`;
@@ -52,9 +69,13 @@ on the phone (`model.threads`, `model.contextLength`, `model.autoUnloadMin`).
 
 ## Local API
 
-Bound to `127.0.0.1` only. Every call except `/v1/health` needs `Authorization: Bearer <token>`. Requests whose
-`Host` or `Origin` isn't this computer are refused (protection against DNS rebinding and cross-site requests). Bodies
-are limited to 64 KiB.
+* Bound to `127.0.0.1` only.
+* Every call except `/v1/health`, `/v1/session` and the shell's static files (`/`, `/shell/*`) needs
+  `Authorization: Bearer <token>`.
+* Requests whose `Host` or `Origin` isn't this computer are refused (protection against DNS rebinding and cross-site
+  requests).
+* JSON bodies are limited to 64 KiB; document uploads to 50 MB.
+* The static files carry a strict Content-Security-Policy and never contain the token.
 
 | Method | Path | Body / result |
 |---|---|---|
@@ -66,6 +87,19 @@ are limited to 64 KiB.
 | POST | `/v1/conversations/{id}/turns` | `{"text","voice"?}`. With `Accept: text/event-stream`: events `status`, `text` (`delta`), `error`, `done` (`text`, `error`, `interrupted`, `sources`). Otherwise one JSON reply |
 | POST | `/v1/stop` | cancels the reply in progress |
 | POST | `/v1/model/load`, `/v1/model/unload` | the model's state |
+| POST | `/v1/session` | `{"code"}` → `{"token"}`: swaps a single-use launch code (no token needed) |
+| POST | `/v1/shell/open` | opens the window (used by a second `clu-host --open`) |
+| GET, POST | `/v1/memories` | `?q=` search, `?category=`; create `{title, content, when, people, places, tags, category, certainty, importance}` → `{memory, possibleDuplicates, conflicts, hints, ambiguousPeople}`. An unreadable `when` is refused (400), never guessed |
+| PUT, DELETE | `/v1/memories/{id}` | edit (fields not sent are kept) / delete |
+| GET | `/v1/dates/parse?q=` | `{understood, label, precision}`: how a date is read |
+| GET | `/v1/timeline` | dated memories, oldest first |
+| GET, POST | `/v1/people` | list / create `{name, relation, aliases, notes}` → `{person, possibleDuplicates}` |
+| GET, POST | `/v1/documents` | list / upload: raw bytes, file name in `X-File-Name` (URL-encoded); 409 duplicate, 422 refused |
+| GET | `/v1/documents/search?q=` | matching passages |
+| GET | `/v1/suggestions` | memory suggestions waiting for approval |
+| POST | `/v1/suggestions/{id}/approve`, `/reject` | approve (optionally `{text}` to edit first) / reject (erased) |
+| GET, PUT | `/v1/settings` | all settings with type, value and default / `{key, value}`. Sensitive settings → 403 until owner verification (M6) |
+| GET, PUT | `/v1/host-config` | this PC's limits; a PUT applies to the governor at once and is saved to `host.json` |
 
 Example:
 ```
@@ -76,7 +110,8 @@ curl -H "Authorization: Bearer $(clu-host --print-token)" -H "Accept: text/event
 ## Tests
 
 ```
-./gradlew :desktop:test                                                     # governor, platform, API (scripted engine)
+./gradlew :desktop:test                                                     # governor, platform, API, UI contract (scripted engine)
+./gradlew :desktop:test --tests '*ShellUiTest' -Dclu.shellUi=node [-Dclu.shellUiShots=<dir>]   # the window in Chromium (Node + playwright)
 ./gradlew :desktop:test --tests '*HostRealModelTest' -Dclu.desktopRealModel=<file.gguf>   # real model end to end
 scripts/measure_desktop_host.sh <file.gguf>                                 # installed host: idle/loaded/unloaded memory (Linux)
 ```

@@ -149,6 +149,10 @@ class ShellApiTest {
     }
 
     @Test fun hostConfigChangesApplyToTheGovernorAndPersist() {
+        val fresh = obj(req("/v1/host-config"))
+        assertEquals(16.0, fresh["memoryBudgetGB"]!!.jsonPrimitive.double, "defaults are included, so the form isn't empty on a new install")
+        assertEquals(2.0, fresh["reserveGB"]!!.jsonPrimitive.double)
+        assertEquals(400, req("/v1/host-config", "PUT", """{"noSuchField":1}""").statusCode(), "unknown fields are refused")
         val r = req("/v1/host-config", "PUT", """{"memoryBudgetGB":8,"reserveGB":3}""")
         assertEquals(200, r.statusCode(), r.body())
         assertEquals(8 * 1024L, obj(r)["governor"]!!.jsonObject["budgetMB"]!!.jsonPrimitive.long)
@@ -165,5 +169,22 @@ class ShellApiTest {
         assertEquals(200, req("/v1/shell/open", "POST", "{}").statusCode()); assertEquals(1, opened)
         host.api.openShell = null
         assertEquals(409, req("/v1/shell/open", "POST", "{}").statusCode())
+    }
+
+    /** The UI contract: the shell is a client of the API and nothing else (no other origin, no local database). */
+    @Test fun theShellOnlyTalksToTheApi() {
+        val js = listOf("shell.js", "face.js").associateWith { javaClass.getResource("/shell/$it")!!.readText() }
+        val all = js.values.joinToString("\n") + javaClass.getResource("/shell/index.html")!!.readText()
+        for (banned in listOf("indexedDB", "localStorage", "openDatabase", "WebSocket", "XMLHttpRequest", "eval(", "new Function", "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"))
+            assertFalse(banned in all, "the shell must not use $banned")
+        assertFalse(Regex("(src|href)=\"(https?:)?//").containsMatchIn(all), "no assets from other origins")
+        assertFalse(Regex("\\bon[a-z]+=\"").containsMatchIn(all), "no inline handlers (the CSP forbids them anyway)")
+        val shell = js.getValue("shell.js")
+        val fetches = Regex("fetch\\(\\s*([^,)]+)").findAll(shell).map { it.groupValues[1].trim() }.toList()
+        assertTrue(fetches.isNotEmpty())
+        fetches.forEach { assertTrue(it == "path" || it.matches(Regex("[\"`]/v1/.*")), "fetch target must be an API path on this origin: $it") }
+        val apiCalls = Regex("api\\(\\s*([\"`][^\"`]*)").findAll(shell).map { it.groupValues[1].drop(1) }.toList()
+        assertTrue(apiCalls.size > 20 && apiCalls.all { it.startsWith("/v1/") }, apiCalls.filterNot { it.startsWith("/v1/") }.toString())
+        assertFalse(Regex("sessionStorage\\.setItem\\(\"(?!clu-token\")").containsMatchIn(shell), "only the session token is kept, and only for this window")
     }
 }

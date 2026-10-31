@@ -56,19 +56,22 @@ class SettingsRoutes(private val core: CluCore, private val governor: ResourceGo
             }
             c.path == "/v1/host-config" && c.method == "GET" -> {
                 val h = host ?: return true.also { c.fail(404, "host config not available") }
-                c.ok(Json.encodeToJsonElement(HostConfig.serializer(), h.current))
+                c.ok(hostJson.encodeToJsonElement(HostConfig.serializer(), h.current))
             }
             c.path == "/v1/host-config" && c.method == "PUT" -> {
                 val h = host ?: return true.also { c.fail(404, "host config not available") }
-                val merged = JsonObject(Json.encodeToJsonElement(HostConfig.serializer(), h.current).jsonObject + c.body)
-                runCatching { h.update(Json.decodeFromJsonElement(HostConfig.serializer(), merged)) }
-                    .onSuccess { c.ok(buildJsonObject { put("ok", true); put("config", Json.encodeToJsonElement(HostConfig.serializer(), it)); put("governor", governorJson()) }) }
+                val merged = JsonObject(hostJson.encodeToJsonElement(HostConfig.serializer(), h.current).jsonObject + c.body)
+                runCatching { h.update(hostJson.decodeFromJsonElement(HostConfig.serializer(), merged)) }
+                    .onSuccess { c.ok(buildJsonObject { put("ok", true); put("config", hostJson.encodeToJsonElement(HostConfig.serializer(), it)); put("governor", governorJson()) }) }
                     .onFailure { c.fail(400, it.message ?: "invalid") }
             }
             else -> return false
         }
         return true
     }
+
+    /** Every field, defaults included: the shell fills its form from this. Unknown keys in a PUT are refused. */
+    private val hostJson = Json { encodeDefaults = true }
 
     private fun governorJson() = buildJsonObject { governor.snapshot().forEach { (k, v) -> put(k, v) } }
 

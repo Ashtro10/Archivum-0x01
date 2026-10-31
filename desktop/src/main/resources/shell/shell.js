@@ -169,8 +169,9 @@
     f.classList.remove("hidden"); readWhen(); f.elements.title.focus();
   }
   async function readWhen() {
-    const v = $("memoryForm").elements.when.value.trim();
+    const field = $("memoryForm").elements.when, v = field.value.trim();
     const r = await api("/v1/dates/parse?" + new URLSearchParams({ q: v }));
+    if (field.value.trim() !== v) return; // typed on since: a newer reading is on its way
     $("whenReading").textContent = !r.understood ? "⚠ Not understood — try \"March 2018\", \"around 2019\" or \"between 2018 and 2019\"." : r.label ? "Understood as: " + r.label : "Date unknown (that's fine).";
   }
   async function saveMemory(e) {
@@ -186,7 +187,8 @@
       r.hints.forEach((h) => notes.push(h));
       $("memoryNotes").textContent = notes.join("\n");
       if (!notes.length) f.classList.add("hidden");
-      editing = r.memory; $("memoryDelete").classList.remove("hidden"); $("memoryFormTitle").textContent = "Edit memory";
+      editing = r.memory; $("whenReading").textContent = r.memory.when ? "Saved as: " + r.memory.when : "Date unknown (that's fine).";
+      $("memoryDelete").classList.remove("hidden"); $("memoryFormTitle").textContent = "Edit memory";
       loadMemories();
     } catch (err) { $("memoryNotes").textContent = err.message; }
   }
@@ -277,7 +279,8 @@
     pill.textContent = m.status === "READY" ? `${m.name} · ready` : m.status === "NO_MODEL" ? "no model registered" : `model: ${m.status.toLowerCase()}`;
     pill.classList.toggle("ready", m.status === "READY");
     const badge = $("suggestionCount"); badge.textContent = s.pendingSuggestions; badge.classList.toggle("hidden", !s.pendingSuggestions);
-    const info = $("modelInfo"); info.replaceChildren(el("div", null, `${m.name || "No model"} — ${m.status}`), el("div", "muted", m.message || ""));
+    const info = $("modelInfo"); info.replaceChildren(el("div", null, `${m.name || "No model"} — ${m.status}`),
+      el("div", "muted", m.status === "NO_MODEL" ? "Add a GGUF model on this PC with: clu-host --register-model <file.gguf>" : m.message || ""));
     if (m.status === "READY") info.append(el("div", "muted", `Context ${m.contextSize} tokens · loaded in ${m.loadMs} ms`));
     const g = s.governor; const bars = $("memoryBars"); bars.replaceChildren();
     const bar = (label, used, total) => { bars.append(el("div", null, `${label}: ${used.toLocaleString()} MB of ${total.toLocaleString()} MB`));

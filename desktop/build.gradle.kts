@@ -46,6 +46,6 @@ tasks.test {
     maxHeapSize = "1g"
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
     systemProperty("clu.nativeLib", rootProject.file("native/build/host/libclu_llama.so").absolutePath)
-    // Opt-in: a real GGUF for the end-to-end host test (see HostRealModelTest).
-    listOf("clu.desktopRealModel").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
+    // Opt-in: a real GGUF for the end-to-end host test (HostRealModelTest); Node + Playwright for the window test (ShellUiTest).
+    listOf("clu.desktopRealModel", "clu.shellUi", "clu.shellUiShots").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
 }

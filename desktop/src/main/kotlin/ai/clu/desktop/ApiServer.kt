@@ -72,6 +72,10 @@ class ApiServer(
     /** Background memory maintenance and the data folder (backups); null in tests that don't need them. */
     maintenance: MaintenanceScheduler? = null,
     paths: DesktopPaths? = null,
+    /** Pieces of the first-run and installed-app experience (null in tests that don't need them). */
+    platform: DesktopLlmPlatform? = null,
+    val lifecycle: HostLifecycle = HostLifecycle(),
+    autostart: Autostart = Autostart(),
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
@@ -79,6 +83,8 @@ class ApiServer(
     private val settings = SettingsRoutes(core, governor, hostConfig)
     private val memory = MemoryRoutes(core, maintenance, paths)
     private val models = ModelRoutes(core, governor, paths)
+    private val downloader = paths?.let { p -> ModelDownloader(p.models, { f -> core.models.register(f).id }) }
+    private val setup = if (paths != null && platform != null && downloader != null) SetupRoutes(core, governor, paths, platform, downloader, autostart, hostConfig) else null
     /** One-time codes that let the shell window obtain the token without it ever appearing on a command line. */
     private val launchCodes = ConcurrentHashMap<String, Long>()
     val port: Int get() = server.address.port
@@ -144,7 +150,7 @@ class ApiServer(
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || setup?.handle(call) == true || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 
@@ -168,6 +174,9 @@ class ApiServer(
             c.path == "/v1/stop" && c.method == "POST" -> { core.agent.cancel(null); c.ok() }
             c.path == "/v1/model/unload" && c.method == "POST" -> { runBlocking { core.inferenceService.unload() }; c.ok(model()) }
             c.path == "/v1/model/load" && c.method == "POST" -> { runBlocking { core.inferenceService.load() }; c.ok(model()) }
+            c.path == "/v1/shell/ping" && c.method == "POST" -> { lifecycle.ping(); c.ok() }
+            c.path == "/v1/shell/quit" && c.method == "POST" -> { c.ok(); Thread { Thread.sleep(200); lifecycle.onQuit?.invoke() }.start() }
+            c.path == "/v1/shell/restart" && c.method == "POST" -> { c.ok(); Thread { Thread.sleep(200); lifecycle.onRestart?.invoke() }.start() }
             c.path == "/v1/shell/open" && c.method == "POST" -> {
                 val open = openShell ?: return true.also { c.fail(409, "no desktop session to open a window in") }
                 open(); c.ok()

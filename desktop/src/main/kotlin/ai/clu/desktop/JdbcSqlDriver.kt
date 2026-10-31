@@ -99,6 +99,8 @@ data class HostConfig(
     val governorIntervalSeconds: Int = 15,
     /** How often background memory work (tidy-up, integrity check, backup) may run; 0 = never. It waits while the PC or the model is busy. */
     val maintenanceMinutes: Int = 20,
+    /** When the window is closed CLU keeps running in the notification area (true); false = CLU quits when its window closes. */
+    val runInBackground: Boolean = true,
     /** Path to clu_llama.dll / libclu_llama.so; empty = the one installed next to CLU. */
     val nativeLibrary: String = "",
 ) {

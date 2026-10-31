@@ -12,7 +12,7 @@ import kotlin.system.exitProcess
 
 /** A running CLU host: the core, its local API and the resource governor. */
 class RunningHost(val core: CluCore, val api: ApiServer, val governor: ResourceGovernor, val paths: DesktopPaths, val token: String,
-                  val maintenance: MaintenanceScheduler, private val onStop: () -> Unit) {
+                  val maintenance: MaintenanceScheduler, val lifecycle: HostLifecycle = HostLifecycle(), val hostLog: HostLog? = null, private val onStop: () -> Unit) {
     val url get() = "http://127.0.0.1:${api.port}"
     @Volatile private var stopped = false
     fun stop() {
@@ -23,21 +23,24 @@ class RunningHost(val core: CluCore, val api: ApiServer, val governor: ResourceG
 }
 
 object Host {
-    const val VERSION = "0.4.0-m5"
+    const val VERSION = "0.6.0-m6"
 
     /**
      * Starts CLU on this PC: opens (and migrates) the database in [paths], starts the model service without loading a
      * model (it loads on first use), the governor, and the local API. [port] 0 picks a free port (tests).
      */
-    fun start(paths: DesktopPaths, config: HostConfig, port: Int = config.port, http: HttpFetcher = JvmHttp(), log: (String) -> Unit = ::println): RunningHost {
+    fun start(paths: DesktopPaths, config: HostConfig, port: Int = config.port, http: HttpFetcher = JvmHttp(), log: ((String) -> Unit)? = null,
+              autostart: Autostart = Autostart(), windowMemory: WindowMemory? = null): RunningHost {
         paths.ensure()
+        val hostLog = if (log == null) HostLog(paths.logs) else null
+        val log: (String) -> Unit = log ?: { hostLog!!.write(it) }
         DatabaseBackup.requireHealthy(paths) // a damaged database is never opened for writing; the message says how to go back to a backup
         val db = JdbcSqlDriver(paths.database.absolutePath)
         // Before a schema upgrade, keep a copy of what is there (the migration itself is all-or-nothing as well).
         db.userVersion.let { v -> if (v in 1 until ai.clu.core.db.Schema.currentVersion) {
             val b = DatabaseBackup.create(db, paths.backups, System.currentTimeMillis(), "pre-upgrade-v$v", keep = 3); log("database upgrade from schema v$v: backed up to ${b.file.name}") } }
         var coreRef: CluCore? = null
-        val governor = ResourceGovernor(config.governor(), SystemMemoryProbe,
+        val governor = ResourceGovernor(config.governor(), if (windowMemory != null) CombinedMemoryProbe(SystemMemoryProbe) { windowMemory.bytes() } else SystemMemoryProbe,
             status = { coreRef?.llm?.state?.value?.status ?: ai.clu.core.llm.LlmStatus.NO_MODEL },
             unload = { kotlinx.coroutines.runBlocking { coreRef?.llm?.unload() } }, log = log)
         val hostConfig = HostConfigStore(paths.config, config) { governor }
@@ -50,8 +53,10 @@ object Host {
         ticker.scheduleWithFixedDelay({ runCatching { governor.tick() } }, config.governorIntervalSeconds.toLong(), config.governorIntervalSeconds.toLong(), TimeUnit.SECONDS)
         val token = ApiToken.loadOrCreate(paths.token)
         val maintenance = MaintenanceScheduler(core, governor, paths, config.maintenanceMinutes, log).also { it.start() }
-        val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths).start()
-        return RunningHost(core, api, governor, paths, token, maintenance) {
+        val lifecycle = HostLifecycle()
+        val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
+            platform = platform.llm, lifecycle = lifecycle, autostart = autostart).start()
+        return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog) {
             api.stop(); maintenance.stop(); ticker.shutdownNow(); core.shutdown(); db.close()
         }
     }
@@ -67,6 +72,10 @@ private const val USAGE = """clu-host [options]
   --print-token                    print the local API token, then exit
   --restore-backup <file>          put a backup of CLU's database back (CLU must be stopped; the current database is kept aside)
   --open                           open CLU's window (if CLU is already running, opens that one's window)
+  --background                     start without opening the window (what "start with Windows" uses)
+  --quit                           ask a running CLU to quit cleanly, then exit
+  --backup                         make a verified backup of CLU's database now, then exit
+  --version                        print the version, then exit
   --no-tray                        no notification-area icon (servers, remote sessions)
   --home <folder>                  use this data folder (default: per-user app data, or CLU_HOME)
   --port <n>                       local API port (default from host.json, 47821)"""
@@ -74,7 +83,7 @@ private const val USAGE = """clu-host [options]
 fun main(args: Array<String>) {
     var home: String? = null; var port: Int? = null; var register: String? = null; var printToken = false; var restore: String? = null
     var listModels = false; var selectModel: String? = null; var unregister: String? = null; var bench = false; var benchModel: String? = null
-    var open = false; var tray = true
+    var open = false; var tray = true; var background = false; var quit = false; var backup = false; var waitFor: Long? = null; var version = false
     var i = 0
     while (i < args.size) {
         when (args[i]) {
@@ -89,12 +98,19 @@ fun main(args: Array<String>) {
             "--benchmark" -> { bench = true; if (args.getOrNull(i + 1)?.startsWith("--") == false) benchModel = args[++i] }
             "--open" -> open = true
             "--no-tray" -> tray = false
+            "--background" -> background = true
+            "--quit" -> quit = true
+            "--backup" -> backup = true
+            "--wait-for" -> waitFor = args.getOrNull(++i)?.toLongOrNull()
+            "--version" -> version = true
             "-h", "--help" -> { println(USAGE); return }
             else -> { System.err.println("unknown option ${args[i]}\n$USAGE"); exitProcess(2) }
         }
         i++
     }
+    if (version) { println("CLU ${Host.VERSION}"); return }
     val paths = DesktopPaths.resolve(home = home).ensure()
+    waitFor?.let { Relauncher.waitFor(it) }
     if (printToken) { println(ApiToken.loadOrCreate(paths.token)); return }
     val config = try { HostConfig.load(paths.config) } catch (e: Exception) { System.err.println("host.json: ${e.message}"); exitProcess(2) }
     val p = port ?: config.port
@@ -143,6 +159,17 @@ fun main(args: Array<String>) {
         } finally { runCatching { core.shutdown() }; db.close() }
         return
     }
+    if (quit) {
+        if (!alreadyRunning(p)) { println("CLU is not running."); return }
+        runCatching { postJson(p, ApiToken.loadOrCreate(paths.token), "/v1/shell/quit") }.onFailure { System.err.println("Could not ask CLU to quit: ${it.message}"); exitProcess(2) }
+        println("CLU is quitting."); return
+    }
+    if (backup) {
+        if (alreadyRunning(p)) { System.err.println("CLU is running; use Settings > Backup in its window."); exitProcess(2) }
+        val db = JdbcSqlDriver(paths.database.absolutePath)
+        try { val b = DatabaseBackup.create(db, paths.backups, System.currentTimeMillis(), "manual", keep = 10); println("Backup written: ${b.file}") } finally { db.close() }
+        return
+    }
     if (restore != null) {
         if (alreadyRunning(p)) { System.err.println("CLU is running; stop it first (Quit CLU in the tray), then restore."); exitProcess(2) }
         try {
@@ -153,22 +180,40 @@ fun main(args: Array<String>) {
     }
     // One CLU per user: if it is already running, open its window instead of starting a second one.
     if (alreadyRunning(p)) {
-        if (open) runCatching { postOpen(p, ApiToken.loadOrCreate(paths.token)) }.onFailure { System.err.println("CLU is running but its window could not be opened: ${it.message}") }
+        if (!background) runCatching { postJson(p, ApiToken.loadOrCreate(paths.token), "/v1/shell/open") }.onFailure { System.err.println("CLU is running but its window could not be opened: ${it.message}") }
         println("CLU is already running on http://127.0.0.1:$p"); return
     }
-    val host = try { Host.start(paths, config, p) } catch (e: DatabaseDamagedException) { System.err.println(e.message); exitProcess(3) }
+    val profile = File(paths.root, "window-profile")
+    val windowMemory = WindowMemory(profile.absolutePath)
+    val host = try { Host.start(paths, config, p, windowMemory = windowMemory) } catch (e: DatabaseDamagedException) { System.err.println(e.message); exitProcess(3) }
+    val log: (String) -> Unit = { host.hostLog?.write(it) ?: println(it) }
+    Thread.setDefaultUncaughtExceptionHandler { t, e -> log("unexpected error in ${t.name}: ${e::class.simpleName}: ${e.message}") }
     host.api.openShell = {
         val url = "${host.url}/#code=${host.api.issueLaunchCode()}"
-        // The code in the URL works once and only for 60 seconds, so showing it here on CLU's own console is harmless.
-        if (!ShellLauncher.open(url)) println("Couldn't open a browser window. Open this address within a minute: $url")
+        // The code in the URL works once and only for 60 seconds, so it is never logged.
+        if (!ShellLauncher.open(url, profile, log)) log("Couldn't open a window. Open this address within a minute: ${url.substringBefore('#')} (launch code not shown)")
     }
     val done = CountDownLatch(1)
+    val restartFlag = java.util.concurrent.atomic.AtomicBoolean(false)
+    val shutdown = { done.countDown() }
+    host.lifecycle.onQuit = shutdown
+    host.lifecycle.onRestart = { restartFlag.set(true); done.countDown() }
     Runtime.getRuntime().addShutdownHook(Thread { host.stop(); done.countDown() })
-    if (tray && !ShellLauncher.installTray(host) { done.countDown(); host.stop(); exitProcess(0) }) println("(no notification area here: running without a tray icon)")
-    println("CLU host ${Host.VERSION} ready on ${host.url} (data: ${paths.root}, token: ${paths.token})")
+    if (tray && !ShellLauncher.installTray(host, { host.lifecycle.onRestart?.invoke() }, { shutdown() })) log("(no notification area here: running without a tray icon)")
+    // Closing the window sends CLU to the tray (default) or quits it, as the owner chose in Settings.
+    java.util.Timer("clu-window-watch", true).schedule(object : java.util.TimerTask() { override fun run() {
+        if (host.lifecycle.windowClosed() && !(hostConfigRunInBackground(paths))) { log("window closed and background running is off: quitting"); shutdown() }
+    } }, 5000, 5000)
+    log("CLU host ${Host.VERSION} ready on ${host.url} (data: ${paths.root})")
+    if (!background) host.api.openShell?.invoke()
     if (open) host.api.openShell?.invoke()
     done.await()
+    host.stop()
+    if (restartFlag.get()) { log("restarting"); Relauncher.relaunch() }
+    exitProcess(0)
 }
+
+private fun hostConfigRunInBackground(paths: DesktopPaths): Boolean = runCatching { HostConfig.load(paths.config).runInBackground }.getOrDefault(true)
 
 private fun alreadyRunning(port: Int): Boolean = runCatching {
     val c = java.net.URI("http://127.0.0.1:$port/v1/health").toURL().openConnection() as java.net.HttpURLConnection
@@ -176,8 +221,8 @@ private fun alreadyRunning(port: Int): Boolean = runCatching {
     c.inputStream.use { it.readBytes().toString(Charsets.UTF_8).contains("\"name\":\"CLU\"") }
 }.getOrDefault(false)
 
-private fun postOpen(port: Int, token: String) {
-    val c = java.net.URI("http://127.0.0.1:$port/v1/shell/open").toURL().openConnection() as java.net.HttpURLConnection
+private fun postJson(port: Int, token: String, path: String) {
+    val c = java.net.URI("http://127.0.0.1:$port$path").toURL().openConnection() as java.net.HttpURLConnection
     c.requestMethod = "POST"; c.setRequestProperty("Authorization", "Bearer $token"); c.doOutput = true
     c.outputStream.use { it.write("{}".toByteArray()) }
     check(c.responseCode == 200) { "HTTP ${c.responseCode}" }

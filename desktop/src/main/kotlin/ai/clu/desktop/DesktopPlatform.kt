@@ -159,9 +159,12 @@ class DesktopLlmPlatform(private val governor: ResourceGovernor, private val nat
 
     override fun loadNativeLibrary() {
         val vk = vulkanLibrary()
-        val useVulkan = wantGpu() && vk != null
-        LlamaBridge.load((if (useVulkan) vk!! else resolveNativeLibrary()).absolutePath)
-        loadedBuild = if (useVulkan) "vulkan" else "cpu"
+        if (wantGpu() && vk != null) {
+            // The GPU build imports the Vulkan loader; if Windows can't resolve it (or anything else is wrong) the CPU build takes over.
+            try { LlamaBridge.load(vk.absolutePath); loadedBuild = "vulkan"; return } catch (_: UnsatisfiedLinkError) { /* fall through */ }
+        }
+        LlamaBridge.load(resolveNativeLibrary().absolutePath)
+        loadedBuild = "cpu"
     }
 
     /**

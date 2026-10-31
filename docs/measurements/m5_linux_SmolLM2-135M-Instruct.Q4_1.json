@@ -1,0 +1,99 @@
+{
+    "schema": 1,
+    "startedAt": "2026-10-31T18:55:43.526Z",
+    "model": {
+        "name": "Smollm2 135M 8k Lc100K Mix1 Ep2",
+        "file": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "sizeBytes": 98362432,
+        "quantization": "Q4_1",
+        "architecture": "llama",
+        "parametersHint": 0,
+        "trainContext": 8192
+    },
+    "configuration": {
+        "contextTokens": 4096,
+        "threads": 2,
+        "batch": 256,
+        "mmap": true,
+        "accelerationRequested": "cpu",
+        "gpuLayersRequested": 99,
+        "backend": "cpu",
+        "gpuLayersOffloaded": 0,
+        "note": "",
+        "promptTokensTarget": 256,
+        "generatedTokensPerRun": 64,
+        "runs": 3
+    },
+    "engine": {
+        "version": "llama.cpp b11844 (commit 06230cb), CLU JNI bridge; Windows build: CPU backend (AVX2/FMA/F16C), no GPU backend",
+        "gpuUtilisation": "not measured (use Task Manager > Performance > GPU while it runs)"
+    },
+    "machine": {
+        "os": "Linux 6.18.44-fc-v185",
+        "arch": "amd64",
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "logicalCores": 4,
+        "totalMemoryMB": 13677,
+        "java": "21.0.12.1",
+        "measuredOn": "linux"
+    },
+    "loadMsWall": 158,
+    "loadMsEngine": 134,
+    "unloadMs": 15,
+    "firstTokenMsMedian": 821.0,
+    "prefillTokensPerSecondMedian": 249.8,
+    "generationTokensPerSecondMedian": 65.1,
+    "cancelLatencyMs": 4,
+    "cpu": {
+        "idlePercentOfMachine": 0.7,
+        "activePercentOfMachineMedian": 49.1,
+        "logicalCores": 4,
+        "note": "percent of all logical cores, from this process's CPU time"
+    },
+    "memoryMB": {
+        "processBeforeLoad": 104,
+        "processLoaded": 308,
+        "processPeak": 323,
+        "processAfterUnload": 134,
+        "modelEstimate": 483,
+        "note": "this process only (resident set on Linux, private bytes on Windows); the window's browser process is not included"
+    },
+    "runs": [
+        {
+            "promptTokens": 221,
+            "reusedTokens": 0,
+            "generatedTokens": 64,
+            "stopReason": "max_tokens",
+            "firstTokenMs": 927.4,
+            "promptMs": 926.9,
+            "generateMs": 958.7,
+            "prefillTokensPerSecond": 238.4,
+            "generationTokensPerSecond": 66.8,
+            "cpuPercentOfMachine": 48.7
+        },
+        {
+            "promptTokens": 221,
+            "reusedTokens": 16,
+            "generatedTokens": 64,
+            "stopReason": "max_tokens",
+            "firstTokenMs": 821.0,
+            "promptMs": 820.7,
+            "generateMs": 1009.0,
+            "prefillTokensPerSecond": 249.8,
+            "generationTokensPerSecond": 63.4,
+            "cpuPercentOfMachine": 49.1
+        },
+        {
+            "promptTokens": 221,
+            "reusedTokens": 16,
+            "generatedTokens": 64,
+            "stopReason": "max_tokens",
+            "firstTokenMs": 805.5,
+            "promptMs": 805.3,
+            "generateMs": 982.9,
+            "prefillTokensPerSecond": 254.6,
+            "generationTokensPerSecond": 65.1,
+            "cpuPercentOfMachine": 49.5
+        }
+    ]
+}

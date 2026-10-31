@@ -37,6 +37,8 @@ distributions {
         contents {
             from(rootProject.file("native/build/host/libclu_llama.so")) { into("lib/native/linux-x64") }
             from(rootProject.file("native/build/cmake-windows/clu_llama.dll")) { into("lib/native/windows-x64") }
+            // Optional GPU (Vulkan) build of the engine, only if it was built (scripts/build_windows_native.sh --vulkan).
+            from(rootProject.file("native/build/cmake-windows-vulkan/clu_llama.dll")) { into("lib/native/windows-x64-vulkan") }
         }
     }
 }

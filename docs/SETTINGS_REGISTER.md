@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.2-prototype.
 
-* Settings: **215** · verifying test passed: **215** · other: **0**
+* Settings: **221** · verifying test passed: **221** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -104,6 +104,12 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `model.batchSize` | Prompt batch size | `256` | integer 32–1024 | DEVICE | LlmService | llama.cpp n_batch | Reloads the model | `ModelSettingsTest#batch` | passed | – |
 | `model.mmap` | Memory-map model file | `true` | true / false | DEVICE | LlmService | llama.cpp load mode MMAP vs fully read | Reloads the model | `ModelSettingsTest#mmap` | passed | – |
 | `model.acceleration` | Acceleration | `"cpu"` | `cpu`, `gpu` | DEVICE | LlmService | Selects the backend / GPU layer offload | Reloads the model | `ModelSettingsTest#acceleration` | passed | This build contains only the CPU backend; GPU is shown as unavailable. |
+| `model.gpuLayers` | Layers on the GPU | `99` | integer 0–99 | DEVICE | LlmService | n_gpu_layers passed to the engine; ignored when acceleration is CPU | Reloads the model | `InferenceSettingsTest#gpuLayers` | passed | – |
+| `model.fitContext` | Shrink the context to fit memory | `true` | true / false | DEVICE | LlmService | Context length is reduced to the largest that fits; the new length is reported | Applies immediately | `InferenceSettingsTest#fitContext` | passed | – |
+| `model.maxQueued` | Replies that may wait | `4` | integer 0–16 | DEVICE | InferenceService | Requests over the limit fail immediately with 'busy' | Applies immediately | `InferenceSettingsTest#maxQueued` | passed | – |
+| `model.firstTokenTimeoutS` | Wait for the first word (s) | `180` | integer 10–900 | DEVICE | InferenceService | Watchdog on time-to-first-token | Applies immediately | `InferenceSettingsTest#timeouts` | passed | – |
+| `model.stallTimeoutS` | Stall limit (s) | `60` | integer 5–300 | DEVICE | InferenceService | Watchdog on gaps between tokens | Applies immediately | `InferenceSettingsTest#timeouts` | passed | – |
+| `model.totalTimeoutS` | Longest reply (s) | `900` | integer 30–3600 | DEVICE | InferenceService | Watchdog on total generation time | Applies immediately | `InferenceSettingsTest#timeouts` | passed | – |
 | `model.autoUnloadMin` | Unload when idle (min) | `20` | integer 0–240 | DEVICE | LlmService | Model is released after the idle period | Applies immediately | `ModelSettingsTest#autoUnload` | passed | – |
 | `model.loadOnStart` | Load model at start | `true` | true / false | DEVICE | LlmService | Model load begins at app start | Applies immediately | `ModelSettingsTest#loadOnStart` | passed | – |
 | `model.thermalGuard` | Thermal protection | `true` | true / false | DEVICE | ThermalGovernor | Threads/max tokens reduced at SEVERE+ thermal status | Applies immediately | `ModelSettingsTest#thermal` | passed | – |

@@ -11,6 +11,8 @@ its source or running its tests in this session; where something could not be ve
 * **M3 built and verified on Linux:** see [M3_SHELL.md](M3_SHELL.md). The window and tray still need a run on Windows.
 * **Unified memory, knowledge and learning built and verified on Linux ("M4" in the memory brief):** see
   [M4_MEMORY_KNOWLEDGE.md](M4_MEMORY_KNOWLEDGE.md). The roadmap's "M4 — voice on the PC" is not started; it moves after this.
+* **Local intelligence and inference engine built and verified on Linux ("M5" in the brief):** see
+  [M5_LOCAL_INTELLIGENCE.md](M5_LOCAL_INTELLIGENCE.md). Nothing is measured on Windows or a GPU yet.
 
 ---
 

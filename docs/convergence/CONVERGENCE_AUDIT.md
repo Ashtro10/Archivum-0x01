@@ -3,7 +3,10 @@
 _2026-10-31. Audit only: no code was merged, moved or rewritten. Every statement about a repository comes from reading
 its source or running its tests in this session; where something could not be verified, this document says so._
 
-**Decision requested from you** is in [§9](#9-decisions-for-you-to-approve). Nothing in the roadmap starts before you approve it.
+**Status (2026-10-31):** you approved the plan and the §9 recommendations.
+* **M0 done:** see [M0_PRESERVATION.md](M0_PRESERVATION.md).
+* **M1 benchmark pack delivered:** see [M1_BENCHMARK.md](M1_BENCHMARK.md). It is waiting for a run on your PC.
+* **Scope changes in M1:** speech benchmarks move to M4; CLU's Windows JNI build moves to M2.
 
 ---
 

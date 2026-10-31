@@ -1,0 +1,32 @@
+{
+  "schema": "clu-bench-config/1",
+  "about": "M1 benchmark: what Run-CluBenchmark.ps1 measures. llama.cpp release b11844 is the build CLU vendors (native/llama.cpp at 06230cb). Model repositories and file names were chosen from public listings and could not be checked from the build environment (Hugging Face is blocked there); a missing one is reported and skipped, never guessed.",
+  "llama": {
+    "repo": "ggml-org/llama.cpp",
+    "release": "b11844",
+    "assets": { "cpu": "bin-win-cpu-x64.zip", "vulkan": "bin-win-vulkan-x64.zip" }
+  },
+  "bench": { "prompt": 512, "gen": 128, "repetitions": 3, "cpuThreads": [4, 6, 8], "vulkanThreads": [4], "vulkanGpuLayers": 99 },
+  "models": [
+    { "id": "qwen3-8b-q4_k_m", "role": "main", "params": 8.2e9, "eligible": true, "download": true,
+      "file": "Qwen3-8B-Q4_K_M.gguf", "hf": "Qwen/Qwen3-8B-GGUF" },
+    { "id": "llama-3.1-8b-instruct-q4_k_m", "role": "main", "params": 8.0e9, "eligible": true, "download": false,
+      "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf", "hf": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF" },
+    { "id": "qwen2.5-7b-instruct-q4_k_m", "role": "main", "params": 7.6e9, "eligible": true, "download": false,
+      "file": "Qwen2.5-7B-Instruct-Q4_K_M.gguf", "hf": "bartowski/Qwen2.5-7B-Instruct-GGUF" },
+    { "id": "qwen2.5-3b-instruct-q4_k_m", "role": "fast", "params": 3.1e9, "eligible": true, "download": true,
+      "file": "Qwen2.5-3B-Instruct-Q4_K_M.gguf", "hf": "bartowski/Qwen2.5-3B-Instruct-GGUF" },
+    { "id": "llama-3.2-3b-instruct-q4_k_m", "role": "fast", "params": 3.2e9, "eligible": true, "download": false,
+      "file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf", "hf": "bartowski/Llama-3.2-3B-Instruct-GGUF" },
+    { "id": "qwen2.5-1.5b-instruct-q4_k_m", "role": "fast", "params": 1.5e9, "eligible": true, "download": true,
+      "file": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf", "hf": "bartowski/Qwen2.5-1.5B-Instruct-GGUF" },
+    { "id": "primus-qwen2.5-3b-instruct-q5_k_m", "role": "fast", "params": 3.1e9, "eligible": true, "download": false,
+      "file": "qwen2.5-3b-instruct-q5_k_m.gguf", "hf": "" },
+    { "id": "primus-qwen3-8b-abliterated-q2_k", "role": "main", "params": 8.2e9, "eligible": false, "download": false,
+      "file": "Huihui-Qwen3-8B-abliterated-v2.Q2_K.gguf", "hf": "",
+      "note": "Primus's current default. Measured for comparison only: refusal training removed, so it is never CLU's default (decision 3)." },
+    { "id": "nomic-embed-text-v1.5-q8_0", "role": "embedding", "params": 1.4e8, "eligible": true, "download": true,
+      "file": "nomic-embed-text-v1.5.Q8_0.gguf", "hf": "nomic-ai/nomic-embed-text-v1.5-GGUF" }
+  ],
+  "rules": {}
+}

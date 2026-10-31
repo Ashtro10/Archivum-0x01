@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLU Benchmark Report</title>
+<style>
+  :root { --bg: #f7f7f5; --fg: #1d1d1b; --muted: #6b6b66; --line: #dddcd6; --ok: #1f7a3f; --bad: #a3361f; --card: #ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ecebe6; --muted: #9b9a94; --line: #34332f; --ok: #6cc28a; --bad: #e78a72; --card: #1f1f1d; } }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 28px 0 8px; }
+  .muted { color: var(--muted); } .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 600; color: var(--muted); }
+  ul { margin: 6px 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CLU benchmark report</h1>
+  <p class="muted" id="meta">Loading…</p>
+  <div id="out"></div>
+</main>
+<script src="analyze.js"></script>
+<script src="results/results.js"></script>
+<script>
+(function () {
+  const out = document.getElementById("out");
+  const meta = document.getElementById("meta");
+  const R = window.CLU_RESULTS;
+  if (!R) { meta.textContent = "No results yet: run Run-CluBenchmark.ps1 first (it writes results\\results.js next to this page)."; return; }
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const num = (v, d) => (v == null || isNaN(v)) ? "—" : Number(v).toFixed(d);
+  const a = CluBenchAnalysis.recommend(R, R.config || {});
+  const hw = R.hardware || {};
+  meta.textContent = `${hw.cpu || "CPU unknown"} · ${(hw.gpus || []).map((g) => g.name).join(", ") || "GPU unknown"} · ` +
+    `${num((hw.totalRamBytes || 0) / CluBenchAnalysis.GB, 0)} GB RAM · ${hw.os || ""} · llama.cpp ${(R.llama || {}).release || "?"} · ${R.startedAt || ""}`;
+  const pick = (v) => v ? `<b>${esc(v.model)}</b> on ${esc(v.best.backend)} with ${v.best.threads} threads: ` +
+    `${num(v.best.genTps, 1)} tokens/s generating, ${num(v.best.promptTps, 0)} tokens/s reading, peak ${num(v.best.peakGB, 1)} GB` : `<span class="bad">none passed</span>`;
+  let html = `<h2>Recommendation</h2><div class="card"><ul>
+    <li>Backend: <b>${esc(a.backend || "none")}</b></li>
+    <li>Main model: ${pick(a.main.chosen)}</li>
+    <li>Fast model: ${pick(a.fast.chosen)}</li>
+    <li>Both at once would peak at ${num(a.peakTogetherGB, 1)} GB (ceiling ${a.rules.totalBudgetGB} GB)</li>
+  </ul></div>`;
+  if (a.coexistence && a.coexistence.slowdown != null) html += `<h2>Effect on a foreground task</h2><div class="card">
+    ${esc(a.coexistence.task)}: ${num(a.coexistence.aloneMBps, 0)} MB/s alone, ${num(a.coexistence.withInferenceMBps, 0)} MB/s while CLU generated
+    (${esc(a.coexistence.inference)}): <b>${num(a.coexistence.slowdown * 100, 0)} % slower</b>.</div>`;
+  if (a.warnings.length) html += `<h2>Warnings</h2><div class="card"><ul>${a.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>`;
+  const verdicts = [...a.main.verdicts, ...a.fast.verdicts];
+  html += `<h2>Each model at its best setting</h2><div class="card wrap"><table><tr><th>Model</th><th>Result</th><th>Backend</th><th>Threads</th><th>Gen tok/s</th><th>Read tok/s</th><th>Peak GB</th></tr>` +
+    verdicts.map((v) => `<tr><td>${esc(v.model)}${v.eligible ? "" : " <span class='muted'>(comparison only)</span>"}</td>
+      <td class="${v.pass ? "ok" : "bad"}">${v.pass ? "passes" : esc(v.why)}</td>
+      <td>${v.best ? esc(v.best.backend) : "—"}</td><td>${v.best ? v.best.threads : "—"}</td>
+      <td>${v.best ? num(v.best.genTps, 1) : "—"}</td><td>${v.best ? num(v.best.promptTps, 0) : "—"}</td><td>${v.best ? num(v.best.peakGB, 1) : "—"}</td></tr>`).join("") + `</table></div>`;
+  html += `<h2>Every run</h2><div class="card wrap"><table><tr><th>Model</th><th>Role</th><th>Backend</th><th>Threads</th><th>GPU layers</th><th>Gen tok/s</th><th>Read tok/s</th><th>Peak GB</th><th>Status</th></tr>` +
+    a.rows.map((r) => `<tr><td>${esc(r.model)}</td><td>${esc(r.role)}</td><td>${esc(r.backend)}</td><td>${r.threads}</td><td>${r.gpuLayers}</td>
+      <td>${num(r.genTps, 1)}</td><td>${num(r.promptTps, 0)}</td><td>${num(r.peakGB, 2)}</td><td class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : esc(r.error)}</td></tr>`).join("") + `</table></div>`;
+  if ((R.llama || {}).vulkanDevices) html += `<h2>Vulkan devices seen by llama.cpp</h2><div class="card wrap"><pre>${esc(R.llama.vulkanDevices)}</pre></div>`;
+  out.innerHTML = html;
+})();
+</script>
+</body>
+</html>

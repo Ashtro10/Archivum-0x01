@@ -22,6 +22,7 @@ clu-host --register-model D:\models\Qwen3-8B-Q4_K_M.gguf   # once: add a model a
 clu-host --open                                             # start CLU and open its window
 clu-host-background.cmd                                     # Windows: start in the background (with the tray icon)
 clu-host --print-token                                      # the API token, for clients
+clu-host --restore-backup "<file>"                          # put a backup of the database back (CLU stopped)
 ```
 
 ### The window and the tray
@@ -48,6 +49,7 @@ Data lives in one folder:
 It contains:
 * `clu.db` (everything CLU knows);
 * `host.json` (this PC's limits);
+* `backups/` (verified copies of the database; see below);
 * `api-token`;
 * `vault.key` and `secrets.json` (owner-only);
 * `files/`;
@@ -62,10 +64,22 @@ It contains:
 | `reserveGB` | 2 | Always left for your programs when deciding whether a model may load |
 | `pressureFreeGB` | 1.5 | An idle model is unloaded when the PC's free memory falls below this |
 | `governorIntervalSeconds` | 15 | How often the governor checks |
+| `maintenanceMinutes` | 20 | How often background memory work (tidy-up, integrity check, daily backup) may run; 0 = never. It waits while the model or the PC is busy |
 | `nativeLibrary` | "" | Path to `clu_llama.dll` if not the bundled one |
 
 Model settings (threads, context, idle unload after N minutes) are CLU's own settings in the database, the same as
 on the phone (`model.threads`, `model.contextLength`, `model.autoUnloadMin`).
+
+## Memory, backups and recovery
+
+* Memory is one store behind one API (`/v1/memory/*`); the window's Memory view is a client of it.
+* A backup is made once a day while CLU is idle, before a schema upgrade, and on demand (Memory → Health & backups).
+  The newest 7 daily ones are kept.
+* If the database fails its integrity check at start, CLU refuses to open it and prints the newest good backup and the
+  restore command. Restoring keeps the damaged file next to the backups; nothing is deleted.
+* `memory.formation` (Settings → Memory) decides whether statements you make in conversation are ignored, suggested
+  for your approval (default) or saved directly when stated clearly. Inferences about you always need approval.
+* Details: [docs/convergence/M4_MEMORY_KNOWLEDGE.md](../docs/convergence/M4_MEMORY_KNOWLEDGE.md).
 
 ## Local API
 
@@ -99,6 +113,13 @@ on the phone (`model.threads`, `model.contextLength`, `model.autoUnloadMin`).
 | GET | `/v1/suggestions` | memory suggestions waiting for approval |
 | POST | `/v1/suggestions/{id}/approve`, `/reject` | approve (optionally `{text}` to edit first) / reject (erased) |
 | GET, PUT | `/v1/settings` | all settings with type, value and default / `{key, value}`. Sensitive settings → 403 until owner verification (M6) |
+| GET | `/v1/memory/overview`, `/v1/memory/search?q=&kind=&category=&person=&from=&to=&docs=` | counts per kind and what waits for you; hybrid search over memories and documents (no `q` = filtered browse) |
+| GET | `/v1/memory/{id}` | one memory with metadata, provenance, related records, earlier versions, conflicts |
+| POST, DELETE | `/v1/memory/{id}/links` | `{otherId, otherKind?, relation}` / `{linkId}` |
+| GET, POST, DELETE | `/v1/memory/working[/{id}]` | short-lived notes |
+| GET, POST | `/v1/memory/consolidation[/{id}/approve\|reject\|run]` | merge suggestions and activity |
+| GET, POST | `/v1/memory/learning[/{id}/accept\|reject]`, `/v1/memory/learning/feedback`, `/v1/memory/learning/reset` | questions about standing preferences; reactions on replies |
+| GET, POST | `/v1/memory/health` (`{action: repair\|reindex}`), `/v1/memory/backups`, `/v1/memory/maintenance` | integrity, backups, background work |
 | GET, PUT | `/v1/host-config` | this PC's limits; a PUT applies to the governor at once and is saved to `host.json` |
 
 Example:

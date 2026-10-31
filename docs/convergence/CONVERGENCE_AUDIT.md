@@ -9,6 +9,8 @@ its source or running its tests in this session; where something could not be ve
 * **Scope changes in M1:** speech benchmarks move to M4; CLU's Windows JNI build moves to M2.
 * **M2 built and verified on Linux:** see [M2_HOST.md](M2_HOST.md). The Windows DLL is cross-built and still needs a run on Windows.
 * **M3 built and verified on Linux:** see [M3_SHELL.md](M3_SHELL.md). The window and tray still need a run on Windows.
+* **Unified memory, knowledge and learning built and verified on Linux ("M4" in the memory brief):** see
+  [M4_MEMORY_KNOWLEDGE.md](M4_MEMORY_KNOWLEDGE.md). The roadmap's "M4 — voice on the PC" is not started; it moves after this.
 
 ---
 

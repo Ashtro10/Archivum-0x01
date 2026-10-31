@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-29 (v1.8.1)_
+_Last updated: 2026-10-31 (v1.8.2)_
 
 ## Current state
 
@@ -12,10 +12,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 
 | Evidence | State |
 |---|---|
-| Automated tests (JVM / Robolectric / host engines) | 549 total (core 475, app 74): 536 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: executed and passed). Server: shared agent contract, cancellation and context 9/9 (also run by the core suite). LiveKit end-to-end last run for 1.7.0 (server unchanged since) |
+| Automated tests (JVM / Robolectric / host engines) | 562 total (core 488, app 74): 549 passed, 0 failed, 13 skipped by default (opt-in benchmarks, audits and real-model/real-audio evaluations; model-dependent Whisper tests; the namespace-only offline test, run separately: executed and passed). Server: shared agent contract (21 conversations, both engines), cancellation and context 9/9. LiveKit end-to-end last run for 1.7.0 |
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-10-31: Stage 4 completion (v1.8.2, versionCode 19)
+
+The Stage 4 brief was re-issued as unfinished work. It had shipped as 1.7.0, so every finding was re-checked against
+1.8.1 with a new acceptance suite (`Stage4CompletionTest`, 13 tests). Fixed, in both the on-device and server engines:
+"search the web for X" searching the literal words; two nearby cyclones (both named, "it" asked about, the choice
+carried); "is it heading towards us?" with no location (Clu asks); "what about tomorrow?" (3-day forecast); "is there any
+update?" (re-checks); misheard names on a memory topic (asked about; Leah is no longer a "spelling" of Riya); voice
+re-hearing silently rewriting ordinary words ("update" → "weather"); conversation-state clean-up. Host latency vs 1.8.1:
+no measurable cost outside the model (54–82 ms both). GDACS, Open-Meteo and Wikipedia are blocked by this environment,
+so all provider paths are fixture-verified. Details: [docs/STAGE4_CONVERSATION_CONTEXT.md](docs/STAGE4_CONVERSATION_CONTEXT.md) §6.
+**Not tested on a device.**
 
 ## 2026-10-29: Archive workflows verified end to end (v1.8.1, versionCode 18)
 

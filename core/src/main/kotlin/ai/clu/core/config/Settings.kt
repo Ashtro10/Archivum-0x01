@@ -343,6 +343,19 @@ object Settings {
     val TEMP_RETENTION = int("memory.temporaryDays", "Temporary context retention (days)", MEMORY, 7, 1, 90,
         "Temporary memories expire after this many days.", "MemoryService", "expires_at for TEMPORARY memories; expired ones are purged",
         "MemorySettingsTest#temporaryRetention")
+    val WORKING_HOURS = int("memory.workingHours", "Working memory lifetime (hours)", MEMORY, 24, 1, 168,
+        "Short-lived context (today's plans, temporary details) is dropped after this long unless you save it.", "WorkingMemory",
+        "expires_at of working memory items", "MemoryServiceTest#workingMemoryExpires")
+    val FORMATION = choice("memory.formation", "Learning facts from conversation", MEMORY, "suggest",
+        listOf("off" to "Off", "suggest" to "Suggest what to remember (you approve)", "auto" to "Save facts I state clearly (inferences still need approval)"),
+        "What Clu does when you state a fact, a preference or a procedure in conversation. Inferences about you always need your approval.",
+        "MemoryFormation", "Candidates become suggestions, direct memories (stated facts only) or nothing", "MemoryFormationTest#policy")
+    val CONSOLIDATION = bool("memory.consolidate", "Tidy up memory in the background", MEMORY, true,
+        "Merges exact duplicates (keeping the earlier versions) and suggests merging near-duplicates; never deletes information.", "Consolidator",
+        "Background job runs consolidation", "ConsolidationTest#autoMergeKeepsHistory")
+    val LEARN_PREFERENCES = bool("memory.learnPreferences", "Learn how you like replies", MEMORY, true,
+        "Notices repeated feedback and asks before turning it into a standing preference.", "PreferenceLearner",
+        "Signals are recorded and may produce a question", "PreferenceLearnerTest#repeatedSignalsAsk")
     val PROPOSE_INSIGHTS = bool("memory.proposeInsights", "Suggest insights", MEMORY, true,
         "Clu may propose inferred memories; nothing is saved without your approval.", "InsightProposer", "Proposals are created for review",
         "MemorySettingsTest#proposeInsights")

@@ -32,6 +32,10 @@ data class PromptContext(
     val documents: List<String> = emptyList(),
     /** Clu's "today" (simulated or real), for how long ago a memory happened. */
     val today: java.time.LocalDate? = null,
+    /** Short-lived notes from working memory (today's plans, temporary details); expire on their own. */
+    val workingNotes: List<String> = emptyList(),
+    /** Preferences that hold for this kind of task only. */
+    val taskPreferences: List<String> = emptyList(),
 )
 
 /**
@@ -64,6 +68,11 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
                 appendLine(ai.clu.core.memory.MemoryConflicts.note(older, newer) { java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(it)) })
             }
         }
+        if (ctx.workingNotes.isNotEmpty()) {
+            appendLine("Recent notes (temporary, may be out of date):")
+            ctx.workingNotes.forEach { appendLine("- $it") }
+        }
+        if (ctx.taskPreferences.isNotEmpty()) ctx.taskPreferences.forEach { appendLine("For this kind of task: $it") }
         if (ctx.documents.isNotEmpty()) {
             appendLine("From the owner's documents (this is what the documents say, not verified facts; name the document if you use it):")
             ctx.documents.forEach { appendLine("- $it") }

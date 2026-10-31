@@ -38,7 +38,8 @@ data class ArchiveDocument(
     val updatedAt: Long = 0,
 )
 
-data class Passage(val document: ArchiveDocument, val text: String, val score: Double)
+/** A retrieved piece of a document: [chunk] is its position in the document (0-based), so a citation can point at it. */
+data class Passage(val document: ArchiveDocument, val text: String, val score: Double, val chunk: Int = 0)
 
 class DocumentImportException(val reason: Reason, message: String, val existingId: String? = null) : Exception(message) {
     enum class Reason { UNSUPPORTED, CORRUPT, NO_TEXT, TOO_LARGE, DUPLICATE, EMPTY }
@@ -46,7 +47,10 @@ class DocumentImportException(val reason: Reason, message: String, val existingI
 
 /** Text extraction for the formats the archive supports, without OCR or heavyweight libraries. */
 object TextExtractors {
-    val TEXT_TYPES = setOf("txt", "text", "md", "markdown", "csv", "log", "json", "html", "htm")
+    /** Source code and project files: read as plain text and indexed like any text (no parsing, no execution). */
+    val CODE_TYPES = setOf("kt", "kts", "java", "py", "js", "jsx", "ts", "tsx", "c", "h", "cc", "cpp", "hpp", "cs", "go", "rs", "rb", "php", "swift",
+        "sh", "bat", "cmd", "ps1", "sql", "yaml", "yml", "toml", "ini", "cfg", "xml", "gradle", "properties", "cmake", "css", "scss", "tex", "rst", "adoc")
+    val TEXT_TYPES = setOf("txt", "text", "md", "markdown", "csv", "log", "json", "html", "htm") + CODE_TYPES
     val IMAGE_TYPES = setOf("png", "jpg", "jpeg", "webp", "gif")
     const val MAX_BYTES = 50L * 1024 * 1024
 
@@ -334,7 +338,7 @@ class DocumentRepository(private val store: CluStore, private val dir: () -> Fil
         if (bytes.isEmpty()) throw DocumentImportException(DocumentImportException.Reason.EMPTY, "The file is empty.")
         if (bytes.size > TextExtractors.MAX_BYTES) throw DocumentImportException(DocumentImportException.Reason.TOO_LARGE, "The file is larger than 50 MB.")
         val type = TextExtractors.typeOf(name, bytes)
-            ?: throw DocumentImportException(DocumentImportException.Reason.UNSUPPORTED, "\"${name.substringAfterLast('.', "this")}\" files aren't supported. Supported: TXT, Markdown, CSV, HTML, JSON, PDF, DOCX (and images as attachments).")
+            ?: throw DocumentImportException(DocumentImportException.Reason.UNSUPPORTED, "\"${name.substringAfterLast('.', "this")}\" files aren't supported. Supported: text, Markdown, CSV, HTML, JSON, source code and config files, PDF, DOCX (and images as attachments).")
         val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         bySha(sha)?.let { if (!allowDuplicate) throw DocumentImportException(DocumentImportException.Reason.DUPLICATE, "This file is already in the archive as \"${it.name}\".", it.id) }
         val text = TextExtractors.extract(type, bytes).trim()
@@ -425,8 +429,8 @@ class DocumentRepository(private val store: CluStore, private val dir: () -> Fil
         val docs = HashMap<String, ArchiveDocument?>()
         return scores.entries.sortedByDescending { it.value }.take(limit * 2).mapNotNull { (cid, s) ->
             val doc = docs.getOrPut(docOf[cid]!!) { get(docOf[cid]!!) } ?: return@mapNotNull null
-            val text = db.queryOne("SELECT text FROM document_chunks WHERE id = ?", listOf(cid)) { it.str(0) } ?: return@mapNotNull null
-            Passage(doc, text, s)
+            val row = db.queryOne("SELECT text, seq FROM document_chunks WHERE id = ?", listOf(cid)) { it.str(0) to it.lng(1).toInt() } ?: return@mapNotNull null
+            Passage(doc, row.first, s, row.second)
         }.take(limit)
     }
 

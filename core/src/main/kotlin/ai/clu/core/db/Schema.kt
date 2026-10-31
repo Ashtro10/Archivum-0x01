@@ -145,6 +145,38 @@ object Schema {
                 done INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, error TEXT, started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)""",
             """CREATE TABLE import_keys (key TEXT PRIMARY KEY, record_id TEXT NOT NULL, job_id TEXT NOT NULL)""",
         ),
+        // v4 -> v5 (M4, unified memory): purely additive. memory_meta extends memories with what the unified memory
+        // API tracks per record (kind, confidence, last access, review date, provenance reference, approval, how often it
+        // was restated); working_memory holds short-lived conversation/task context apart from persistent memory;
+        // consolidation_log records every merge/suggestion/expiry (provenance); preference_signals/candidates back
+        // the preference learner; memory_vectors is the optional semantic index; maintenance_jobs checkpoints
+        // background work so an interrupted run resumes. Existing rows are untouched.
+        listOf(
+            """CREATE TABLE memory_meta (memory_id TEXT PRIMARY KEY, kind TEXT, confidence REAL, last_accessed INTEGER,
+                access_count INTEGER NOT NULL DEFAULT 0, reinforced INTEGER NOT NULL DEFAULT 0, review_at INTEGER,
+                source_ref TEXT NOT NULL DEFAULT '', approval TEXT NOT NULL DEFAULT 'NOT_REQUIRED', updated_at INTEGER NOT NULL)""",
+            """CREATE INDEX idx_memory_meta_access ON memory_meta(last_accessed)""",
+            """CREATE TABLE working_memory (id TEXT PRIMARY KEY, conversation_id TEXT, kind TEXT NOT NULL, text TEXT NOT NULL,
+                created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)""",
+            """CREATE INDEX idx_working_conv ON working_memory(conversation_id, expires_at)""",
+            """CREATE TABLE consolidation_log (id TEXT PRIMARY KEY, action TEXT NOT NULL, memory_ids TEXT NOT NULL, result_id TEXT,
+                status TEXT NOT NULL, reason TEXT NOT NULL, pair_key TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, decided_at INTEGER)""",
+            """CREATE INDEX idx_consolidation_pair ON consolidation_log(pair_key)""",
+            """CREATE TABLE preference_signals (id TEXT PRIMARY KEY, target TEXT NOT NULL, value TEXT NOT NULL, polarity INTEGER NOT NULL,
+                explicit INTEGER NOT NULL, task_tag TEXT NOT NULL DEFAULT '', conversation_id TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL)""",
+            """CREATE INDEX idx_pref_signals_target ON preference_signals(target, value)""",
+            """CREATE TABLE preference_candidates (id TEXT PRIMARY KEY, target TEXT NOT NULL, value TEXT NOT NULL, question TEXT NOT NULL,
+                evidence TEXT NOT NULL, status TEXT NOT NULL, signals_at_decision INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, decided_at INTEGER)""",
+            """CREATE TABLE memory_vectors (kind TEXT NOT NULL, ref_id TEXT NOT NULL, model TEXT NOT NULL, dim INTEGER NOT NULL, vec BLOB NOT NULL,
+                text_hash TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (kind, ref_id, model))""",
+            """CREATE TABLE maintenance_jobs (name TEXT PRIMARY KEY, state TEXT NOT NULL, checkpoint TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '',
+                last_run INTEGER, updated_at INTEGER NOT NULL)""",
+            """ALTER TABLE memory_proposals ADD COLUMN category TEXT""",
+            """ALTER TABLE memory_proposals ADD COLUMN related_id TEXT""",
+            """ALTER TABLE memory_proposals ADD COLUMN confidence REAL""",
+            """ALTER TABLE memory_proposals ADD COLUMN source_ref TEXT NOT NULL DEFAULT ''""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size

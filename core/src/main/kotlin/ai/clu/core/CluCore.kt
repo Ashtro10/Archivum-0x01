@@ -63,6 +63,14 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     /** Web search through documented provider APIs (key/URL configured on the device; none built in). */
     val search = ai.clu.core.search.SearchService(settings, platform.http, { platform.secret(BRAVE_SEARCH_KEY) }, clock::now)
     val prefs = PreferenceEngine(store, settings)
+    /** The one memory API: kinds, metadata, working memory, hybrid recall, relationships (over the same stores as everything above). */
+    val memory = ai.clu.core.memory.MemoryService(store, settings, memories, archive)
+    val formation = ai.clu.core.memory.MemoryFormation(settings, memory, proposals)
+    val consolidator = ai.clu.core.memory.Consolidator(store, settings, memory)
+    val memoryHealth = ai.clu.core.memory.MemoryHealth(store, memory)
+    val learner = ai.clu.core.learning.PreferenceLearner(store, settings, prefs) { text ->
+        prefs.set("custom:" + ai.clu.core.memory.TextAnalysis.tokens(text).take(4).joinToString("-").ifEmpty { "note" }, text, ai.clu.core.learning.PreferenceSource.FEEDBACK, "Confirmed after repeated feedback") }
+    val maintenance = ai.clu.core.memory.MemoryMaintenance(store, settings, memory, consolidator, memoryHealth, learner)
     val characters = CharacterRepository(store, memories)
     val personas = PersonaManager(settings, characters)
     val people = PeopleRepository(store)
@@ -102,7 +110,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
         inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) }, diary = diary,
         context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http),
-        archive = archive)
+        archive = archive, memoryService = memory, formation = formation, learner = learner)
 
     private var node: SyncNode? = null
 
@@ -113,6 +121,10 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         registerCoreTools()
         proposals.diarySink = { text, at, conv ->
             diary.add(text, source = ai.clu.core.diary.DiarySource.CONVERSATION, conversationId = conv, date = ai.clu.core.diary.DiaryRepository.dayOf(at)) }
+        proposals.onApproved = { p, m ->
+            memory.setMeta(m.id, confidence = p.confidence, sourceRef = p.sourceRef.ifBlank { p.conversationId?.let { c -> "conversation:$c" } ?: "" }, approval = ai.clu.core.memory.Approval.APPROVED)
+            p.relatedId?.takeIf { memories.get(it)?.deleted == false }?.let { memory.relate(ai.clu.core.history.Kind.MEMORY, m.id, ai.clu.core.history.Kind.MEMORY, it, ai.clu.core.memory.MemoryService.CONTRADICTS, "stated later; the owner decides which stands") }
+        }
         people.ensureOwner(settings.string(Settings.OWNER_NAME))
         commands.seedDefaults()
         memories.purgeExpired()

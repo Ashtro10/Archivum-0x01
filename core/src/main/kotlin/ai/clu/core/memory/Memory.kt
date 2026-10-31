@@ -29,7 +29,11 @@ enum class MemoryCategory(val label: String) {
     PROJECT("Project / status"),
     /** How Clu should behave ("from now on…"): always part of Clu's instructions, not retrieved by relevance. */
     INSTRUCTION("Instruction for Clu"),
-    DECISION("Decision / commitment");
+    DECISION("Decision / commitment"),
+    /** Semantic memory: a fact or concept the owner or a document taught Clu, apart from personal history. */
+    KNOWLEDGE("Knowledge"),
+    /** Procedural memory: a reusable workflow, a way something is done, a lesson from a finished task. */
+    PROCEDURE("Procedure / workflow");
 
     companion object {
         /** Categories the owner can pick for a memory (the diary is separate). */
@@ -214,6 +218,22 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
         reindex(m)
     }
 
+    /** Rebuilds the term index of every live memory (recovery from a damaged or outdated index). Resumable via [fromId]. */
+    fun reindexAll(fromId: String = "", batch: Int = 200, onBatch: (lastId: String) -> Boolean = { true }): Int {
+        var last = fromId; var done = 0
+        while (true) {
+            val ids = db.query("SELECT id FROM memories WHERE deleted = 0 AND id > ? ORDER BY id LIMIT $batch", listOf(last)) { it.str(0) }
+            if (ids.isEmpty()) break
+            db.transaction { ids.forEach { id -> get(id)?.let(::reindex) } }
+            done += ids.size; last = ids.last()
+            if (!onBatch(last)) break
+        }
+        return done
+    }
+
+    /** Re-indexes just these records (repair of records missing from the index). */
+    fun reindexMissing(ids: List<String>) { db.transaction { ids.forEach { id -> get(id)?.takeIf { !it.deleted }?.let(::reindex) } } }
+
     private fun reindex(m: Memory) {
         db.execute("DELETE FROM memory_terms WHERE memory_id = ?", listOf(m.id))
         if (m.deleted) return
@@ -366,12 +386,18 @@ class MemoryRepository(private val store: CluStore, private val settings: Settin
 
 // ---------------------------------------------------------------- inferred memories (proposals)
 
-enum class ProposalKind(val label: String) { OBSERVATION("Observation"), HYPOTHESIS("Hypothesis"), DIARY("Diary entry") }
+enum class ProposalKind(val label: String) {
+    OBSERVATION("Observation"), HYPOTHESIS("Hypothesis"), DIARY("Diary entry"),
+    /** Something the owner stated about themselves or their world, offered for saving (not an inference). */
+    FACT("Fact you stated"), PREFERENCE("Preference you stated"), PROCEDURE("Procedure you described"),
+}
 enum class ProposalStatus { PENDING, APPROVED, REJECTED }
 
 data class MemoryProposal(
     val id: String, val kind: ProposalKind, val text: String, val rationale: String, val status: ProposalStatus,
     val createdAt: Long, val decidedAt: Long?, val memoryId: String?, val conversationId: String?,
+    /** Suggested category (null = by kind), the memory this one conflicts with or repeats, and how sure the extraction is. */
+    val category: MemoryCategory? = null, val relatedId: String? = null, val confidence: Double? = null, val sourceRef: String = "",
 )
 
 /**
@@ -382,16 +408,21 @@ class ProposalRepository(private val store: CluStore, private val settings: Sett
     private val db = store.db
     /** Where approved diary suggestions go (the diary, not memory). Set by the composition root. */
     @Volatile var diarySink: ((text: String, createdAt: Long, conversationId: String?) -> Unit)? = null
+    /** Called inside the approval transaction (the unified memory service records provenance and relationships here). */
+    @Volatile var onApproved: ((MemoryProposal, Memory) -> Unit)? = null
 
-    fun propose(kind: ProposalKind, text: String, rationale: String, conversationId: String? = null): MemoryProposal? {
-        if (kind != ProposalKind.DIARY && !settings.bool(Settings.PROPOSE_INSIGHTS)) return null
+    fun propose(kind: ProposalKind, text: String, rationale: String, conversationId: String? = null, category: MemoryCategory? = null,
+                relatedId: String? = null, confidence: Double? = null, sourceRef: String = ""): MemoryProposal? {
+        // The "suggest insights" switch is about Clu's own inferences; things the owner stated are governed by memory.formation.
+        val inferred = kind == ProposalKind.OBSERVATION || kind == ProposalKind.HYPOTHESIS
+        if (inferred && !settings.bool(Settings.PROPOSE_INSIGHTS)) return null
         if (!settings.bool(Settings.MEMORY_ENABLED)) return null
         val fp = fingerprint(text)
         val exists = db.queryOne("SELECT COUNT(*) FROM memory_proposals WHERE fingerprint = ?", listOf(fp)) { it.lng(0) } ?: 0
         if (exists > 0) return null
-        val p = MemoryProposal(newId(), kind, text, rationale, ProposalStatus.PENDING, store.clock.now(), null, null, conversationId)
-        db.execute("INSERT INTO memory_proposals(id, kind, text, rationale, status, created_at, conversation_id, fingerprint) VALUES(?,?,?,?,?,?,?,?)",
-            listOf(p.id, kind.name, text, rationale, p.status.name, p.createdAt, conversationId, fp))
+        val p = MemoryProposal(newId(), kind, text, rationale, ProposalStatus.PENDING, store.clock.now(), null, null, conversationId, category, relatedId, confidence, sourceRef)
+        db.execute("INSERT INTO memory_proposals(id, kind, text, rationale, status, created_at, conversation_id, fingerprint, category, related_id, confidence, source_ref) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            listOf(p.id, kind.name, text, rationale, p.status.name, p.createdAt, conversationId, fp, category?.name, relatedId, confidence, sourceRef))
         store.notifyChanged(TABLE)
         return p
     }
@@ -414,9 +445,22 @@ class ProposalRepository(private val store: CluStore, private val settings: Sett
             store.notifyChanged(TABLE)
             return null
         }
-        val m = memories.save(Memory(category = category ?: MemoryCategory.INSIGHT, title = text.take(60), content = text,
-            source = MemorySource.APPROVED_INFERENCE, tags = listOf(p.kind.name.lowercase())))
-        db.execute("UPDATE memory_proposals SET status = 'APPROVED', decided_at = ?, memory_id = ? WHERE id = ?", listOf(store.clock.now(), m.id, id))
+        // What the owner stated is saved as their own words from a conversation; only a real inference is marked as one.
+        val stated = p.kind == ProposalKind.FACT || p.kind == ProposalKind.PREFERENCE || p.kind == ProposalKind.PROCEDURE
+        val cat = category ?: p.category ?: when (p.kind) {
+            ProposalKind.FACT -> MemoryCategory.classify(text).takeIf { it != MemoryCategory.INSTRUCTION } ?: MemoryCategory.CORE_FACT
+            ProposalKind.PREFERENCE -> MemoryCategory.PREFERENCE
+            ProposalKind.PROCEDURE -> MemoryCategory.PROCEDURE
+            else -> MemoryCategory.INSIGHT
+        }
+        val m = db.transaction {
+            val saved = memories.save(Memory(category = cat, title = text.take(60), content = text,
+                source = if (stated) MemorySource.CONVERSATION else MemorySource.APPROVED_INFERENCE, tags = listOf(p.kind.name.lowercase()),
+                certainty = if (stated) Certainty.RECOLLECTION else Certainty.UNCERTAIN))
+            db.execute("UPDATE memory_proposals SET status = 'APPROVED', decided_at = ?, memory_id = ? WHERE id = ?", listOf(store.clock.now(), saved.id, id))
+            onApproved?.invoke(p, saved)
+            saved
+        }
         store.notifyChanged(TABLE)
         return m
     }
@@ -427,9 +471,9 @@ class ProposalRepository(private val store: CluStore, private val settings: Sett
     }
 
     private fun query(where: String, args: List<Any?> = emptyList()) =
-        db.query("SELECT id, kind, text, rationale, status, created_at, decided_at, memory_id, conversation_id FROM memory_proposals $where", args) {
+        db.query("SELECT id, kind, text, rationale, status, created_at, decided_at, memory_id, conversation_id, category, related_id, confidence, source_ref FROM memory_proposals $where", args) {
             MemoryProposal(it.str(0), ProposalKind.valueOf(it.str(1)), it.str(2), it.str(3), ProposalStatus.valueOf(it.str(4)), it.lng(5),
-                it.long(6), it.string(7), it.string(8))
+                it.long(6), it.string(7), it.string(8), it.string(9)?.let { c -> runCatching { MemoryCategory.valueOf(c) }.getOrNull() }, it.string(10), it.double(11), it.str(12))
         }
 
     private fun fingerprint(text: String): String {

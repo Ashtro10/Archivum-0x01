@@ -43,6 +43,8 @@ object FeedbackRouter {
             FeedbackChange(Settings.SPEAK_RESPONSES, false, "Understood. Text only.") },
     )
 
+    fun isFeedback(text: String): Boolean = match(text) != null
+
     fun match(text: String): FeedbackChange? {
         if (text.length > 90) return null
         var t = text.trim()

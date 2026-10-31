@@ -141,7 +141,9 @@ private val LOOKUP = Regex("(?i)^(?:search|look up|look into|find|research|check
 
 class MemoryRetriever(private val settings: SettingsStore, private val memories: MemoryRepository, private val now: () -> Long = System::currentTimeMillis,
                       /** Historical perspective: only memories known by the cutoff date (identity when off). */
-                      private val visible: (List<ai.clu.core.memory.Memory>) -> List<ai.clu.core.memory.Memory> = { it }) {
+                      private val visible: (List<ai.clu.core.memory.Memory>) -> List<ai.clu.core.memory.Memory> = { it },
+                      /** The unified memory service: records which memories were used, adds connected and semantically close ones. */
+                      private val service: MemoryService? = null) {
     fun retrieve(query: String, scopes: List<String>): List<ScoredMemory> {
         if (!settings.bool(Settings.MEMORY_RETRIEVAL) || scopes.isEmpty()) return emptyList()
         val max = settings.int(Settings.MEMORY_MAX)
@@ -160,7 +162,29 @@ class MemoryRetriever(private val settings: SettingsStore, private val memories:
         // including ones that matched but didn't make the cut above.
         val related = if (projects.isEmpty() || !settings.bool(Settings.RESURFACE)) emptyList() else seen(ai.clu.core.memory.ProjectContext.related(projects, { memories.rank(it, scopes, limit = 8) },
             ordered.map { it.memory.id }.toSet(), 3).filter { usable(it) && it.score >= min / 2 })
-        return ordered + related.filter { r -> ordered.none { it.memory.id == r.memory.id } }.take(2)
+        val base = ordered + related.filter { r -> ordered.none { it.memory.id == r.memory.id } }.take(2)
+        return service?.let { svc -> augment(svc, query, base, scopes, max) } ?: base
+    }
+
+    /** Connected memories (one hop from the best two) and meaning-based matches, a few at most; every returned memory is marked as used. */
+    private fun augment(svc: MemoryService, query: String, base: List<ScoredMemory>, scopes: List<String>, max: Int): List<ScoredMemory> {
+        val have = base.map { it.memory.id }.toMutableSet()
+        val extra = mutableListOf<ScoredMemory>()
+        fun ok(m: Memory?) = m != null && !m.deleted && m.mergedInto == null && m.scope in scopes && m.id !in have &&
+            m.category != MemoryCategory.INSTRUCTION && m.category != MemoryCategory.DIARY && (m.expiresAt == null || m.expiresAt > now()) && visible(listOf(m)).isNotEmpty()
+        for (top in base.take(2)) for (rel in svc.relatedTo(top.memory.id).filter { it.kind == ai.clu.core.history.Kind.MEMORY && it.relation != MemoryService.CONTRADICTS }) {
+            if (extra.size >= 2) break
+            val m = memories.get(rel.id)
+            if (ok(m)) { have += m!!.id; extra += ScoredMemory(m, top.score * 0.5) }
+        }
+        for ((id, sim) in svc.semantic(query, 4)) {
+            if (extra.size >= 3 || sim < 0.55) break
+            val m = memories.get(id)
+            if (ok(m)) { have += m!!.id; extra += ScoredMemory(m, sim) }
+        }
+        val all = (base + extra).take(max + 3)
+        svc.touch(all.map { it.memory.id })
+        return all
     }
 
     companion object {
@@ -216,8 +240,14 @@ class CluAgent(
     private val weather: ai.clu.core.search.OpenMeteo? = null,
     /** The personal archive (historical memories, people, projects, documents) and its time service; null in single-turn tests. */
     private val archive: ai.clu.core.history.ArchiveService? = null,
+    /** The unified memory service (access tracking, relationships, semantic matches, working memory); null in single-turn tests. */
+    private val memoryService: MemoryService? = null,
+    /** Finds facts, preferences and procedures the owner states and applies the owner's memory policy. */
+    private val formation: MemoryFormation? = null,
+    /** Records feedback signals and asks before anything becomes a standing preference. */
+    private val learner: ai.clu.core.learning.PreferenceLearner? = null,
 ) {
-    private val retriever = MemoryRetriever(settings, memories, now, visible = { list -> archive?.dates?.visible(list) ?: list })
+    private val retriever = MemoryRetriever(settings, memories, now, visible = { list -> archive?.dates?.visible(list) ?: list }, service = memoryService)
     private val recall = archive?.let { ai.clu.core.history.Recall(it, settings) }
     /** Unfinished multi-step tasks per conversation (in memory only: after a restart there is not enough state to resume safely). */
     private val tasks = java.util.concurrent.ConcurrentHashMap<String, TaskState>()
@@ -322,6 +352,8 @@ class CluAgent(
                 ai.clu.core.config.SettingResult.RequiresVerification -> "Changing ${Settings[fb.key]?.title?.lowercase() ?: "that"} needs your verification; change it in Settings."
                 else -> "I couldn't change that setting ($r)."
             }
+            if (r == ai.clu.core.config.SettingResult.Ok) learner?.record("setting:${fb.key}", fb.value.toString(), explicit = true, taskTag = taskTagOf(lastUserText(req.conversationId)),
+                conversationId = req.conversationId, note = text.take(80))
             finish(req, turn, reply, baseMeta.copy(source = "template"), emit)
             return
         }
@@ -792,10 +824,12 @@ class CluAgent(
             ?.filter { it.score >= 3.0 }?.map { "\"${it.document.name}\": " + it.text.replace(Regex("\\s+"), " ").take(500) }.orEmpty() else emptyList()
         if (canReadMemory) diag?.perf("memory_retrieval_ms", (System.nanoTime() - tMem) / 1e6)
         val toolList = toolsFor(persona, req.text)
+        val working = if (canReadMemory && persona.isClu) memoryService?.working?.list(req.conversationId)?.take(5)?.map { it.text }.orEmpty() else emptyList()
+        val taskPrefs = if (canReadMemory && persona.isClu) learner?.taskInstructions(taskTagOf(req.text)).orEmpty() else emptyList()
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
             viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList(),
             timeLine = archive?.time?.promptLine(), toldOf = { m -> archive?.dates?.told(m) ?: m.told }, documents = docs,
-            today = archive?.time?.today())
+            today = archive?.time?.today(), workingNotes = working, taskPreferences = taskPrefs)
         val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"),
             reserveThreads = if (req.spokenOnDevice) SPEECH_RESERVED_THREADS else 0)
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)
@@ -1098,6 +1132,10 @@ class CluAgent(
                 } catch (e: LlmException) { diag?.w("agent", "alternative reply failed: ${e.message?.lineSequence()?.firstOrNull()}") }
             } else prefs.nextQuestion()?.let { emit(AgentEvent.Question(it)) }
         }
+        // What the owner stated (facts, preferences, procedures): working memory, suggestions or direct saves per memory.formation.
+        if (req.actor.role == PersonRole.OWNER && persona.isClu)
+            runCatching { formation?.process(req.text, req.conversationId) ?: emptyList() }.getOrDefault(emptyList()).forEach { o ->
+                if (o is MemoryFormation.Outcome.Suggested) emit(AgentEvent.ProposalCreated(o.proposal)) }
         if (req.actor.role == PersonRole.OWNER && persona.isClu) InsightProposer.candidate(req.text)?.let { (t, why) ->
             proposals.propose(ai.clu.core.memory.ProposalKind.OBSERVATION, t, why, req.conversationId)?.let { emit(AgentEvent.ProposalCreated(it)) }
         }
@@ -1311,9 +1349,22 @@ class CluAgent(
         if (c.title == "New conversation") conversations.rename(conversationId, firstUserText.lineSequence().first().take(48))
     }
 
+    private fun lastUserText(conversationId: String): String =
+        conversations.messages(conversationId).lastOrNull { it.role == Role.USER && !ai.clu.core.learning.FeedbackRouter.isFeedback(it.content) }?.content.orEmpty()
+
+    /** A coarse kind of task, so preferences can hold for "coding questions" without becoming global. */
+    internal fun taskTagOf(text: String): String = when {
+        Regex("(?i)\\b(?:code|function|bug|compile|script|class|stack ?trace|kotlin|python|java|sql|regex|git)\\b").containsMatchIn(text) -> "coding"
+        Regex("(?i)\\b(?:email|draft|write|rewrite|letter|essay|summar(?:y|ise|ize)|translate)\\b").containsMatchIn(text) -> "writing"
+        Regex("(?i)\\b(?:plan|schedule|project|milestone|roadmap|decide|decision|should i)\\b").containsMatchIn(text) -> "planning"
+        Regex("(?i)\\b(?:search|look up|news|weather|who is|what is|research)\\b").containsMatchIn(text) -> "research"
+        else -> ""
+    }
+
     /** Owner picked one of two alternative replies. */
     fun chooseAlternative(messageId: String, offer: AlternativeOffer, chosenA: Boolean, textChosen: String, persist: Boolean) {
         prefs.chooseAlternative(offer, if (chosenA) offer.optionA else offer.optionB, persist)
+        learner?.record("pref:${offer.dimension}", if (chosenA) offer.optionA else offer.optionB, explicit = persist, conversationId = conversations.message(messageId)?.conversationId.orEmpty(), note = "chose between two replies")
         conversations.message(messageId)?.let { conversations.updateMessage(messageId, textChosen, it.meta) }
     }
 

@@ -58,31 +58,108 @@
     </section>
 
     <section id="view-memory" class="view hidden">
-      <div class="toolbar">
-        <input id="memorySearch" type="search" placeholder="Search memories" aria-label="Search memories">
-        <select id="memoryCategory" aria-label="Category"><option value="">All categories</option></select>
-        <button id="memoryAdd" class="primary small">Add memory</button>
+      <div class="subnav" role="tablist" aria-label="Memory">
+        <button class="sub active" data-sub="browse" role="tab">Browse</button>
+        <button class="sub" data-sub="working" role="tab">Working notes <span class="badge hidden" id="workingCount"></span></button>
+        <button class="sub" data-sub="tidy" role="tab">Tidy-up <span class="badge hidden" id="tidyCount"></span></button>
+        <button class="sub" data-sub="learning" role="tab">Learning <span class="badge hidden" id="learningCount"></span></button>
+        <button class="sub" data-sub="health" role="tab">Health &amp; backups</button>
       </div>
-      <form id="memoryForm" class="card form hidden">
-        <h3 id="memoryFormTitle">Add memory</h3>
-        <label>Title <input name="title" maxlength="200" placeholder="e.g. Met Riya at the college fest"></label>
-        <label>What happened (your words) <textarea name="content" rows="4"></textarea></label>
-        <label>When did it happen? <input name="when" placeholder="e.g. March 2018, around 2019, 12 March 2018, or leave empty"></label>
-        <div class="muted" id="whenReading">Date unknown (that's fine).</div>
-        <div class="row">
-          <label>People <input name="people" placeholder="comma separated"></label>
-          <label>Places <input name="places" placeholder="comma separated"></label>
+
+      <div id="sub-browse" class="subview">
+        <div class="chips" id="kindChips" role="group" aria-label="Kind of memory"></div>
+        <div class="toolbar">
+          <input id="memorySearch" type="search" placeholder="Search memories and documents" aria-label="Search memories">
+          <select id="memoryCategory" aria-label="Category"><option value="">All categories</option></select>
+          <button id="memoryAdd" class="primary small">Add memory</button>
         </div>
-        <div class="row">
-          <label>Category <select name="category"></select></label>
-          <label>How sure? <select name="certainty"><option value="RECOLLECTION">Personal recollection</option><option value="CONFIRMED">Confirmed fact</option><option value="UNCERTAIN">Uncertain</option></select></label>
-          <label>Importance <select name="importance"><option value="0">Normal</option><option value="1">Important</option><option value="2">Very important</option></select></label>
+        <div class="toolbar">
+          <input id="memoryPerson" type="search" placeholder="Person" aria-label="Person">
+          <label class="inline">From <input id="memoryFrom" type="date"></label>
+          <label class="inline">To <input id="memoryTo" type="date"></label>
+          <label class="inline"><input id="memoryDocs" type="checkbox" checked> Include documents</label>
         </div>
-        <p class="muted">CLU treats this as your account, not something it witnessed. The day you enter it is never used as the day it happened.</p>
-        <div class="form-actions"><button type="submit" class="primary">Save</button><button type="button" id="memoryCancel">Cancel</button><button type="button" id="memoryDelete" class="danger hidden">Delete</button></div>
-        <div id="memoryNotes" class="notes"></div>
-      </form>
-      <ul id="memoryList" class="cards"></ul>
+        <form id="memoryForm" class="card form hidden">
+          <h3 id="memoryFormTitle">Add memory</h3>
+          <label>Title <input name="title" maxlength="200" placeholder="e.g. Met Riya at the college fest"></label>
+          <label>What happened (your words) <textarea name="content" rows="4"></textarea></label>
+          <label>When did it happen? <input name="when" placeholder="e.g. March 2018, around 2019, 12 March 2018, or leave empty"></label>
+          <div class="muted" id="whenReading">Date unknown (that's fine).</div>
+          <div class="row">
+            <label>People <input name="people" placeholder="comma separated"></label>
+            <label>Places <input name="places" placeholder="comma separated"></label>
+          </div>
+          <div class="row">
+            <label>Category <select name="category"></select></label>
+            <label>How sure? <select name="certainty"><option value="RECOLLECTION">Personal recollection</option><option value="CONFIRMED">Confirmed fact</option><option value="UNCERTAIN">Uncertain</option></select></label>
+            <label>Importance <select name="importance"><option value="0">Normal</option><option value="1">Important</option><option value="2">Very important</option></select></label>
+          </div>
+          <p class="muted">CLU treats this as your account, not something it witnessed. The day you enter it is never used as the day it happened.</p>
+          <div class="form-actions"><button type="submit" class="primary">Save</button><button type="button" id="memoryCancel">Cancel</button><button type="button" id="memoryDelete" class="danger hidden">Delete</button></div>
+          <div id="memoryNotes" class="notes"></div>
+        </form>
+        <div id="memoryDetail" class="card hidden">
+          <h3>About this memory</h3>
+          <dl id="detailMeta" class="meta"></dl>
+          <div id="detailConflicts" class="notes"></div>
+          <h4>Related</h4>
+          <ul id="relatedList" class="cards compact"></ul>
+          <div class="toolbar">
+            <input id="linkSearch" type="search" placeholder="Link to another memory: type a few words" aria-label="Find a memory to link">
+            <select id="linkRelation" aria-label="Relationship"></select>
+          </div>
+          <ul id="linkResults" class="cards compact"></ul>
+          <details id="revisionBox"><summary>Earlier versions (<span id="revisionCount">0</span>)</summary><ul id="revisionList" class="cards compact"></ul></details>
+        </div>
+        <ul id="memoryList" class="cards"></ul>
+      </div>
+
+      <div id="sub-working" class="subview hidden">
+        <p class="muted">Short-lived notes: today's plans and temporary details. They expire on their own and are never part of long-term memory unless you keep them.</p>
+        <form id="workingForm" class="card form inline-form">
+          <input name="text" placeholder="e.g. Parked on level 3" aria-label="Note" required>
+          <select name="kind" aria-label="Kind"><option value="NOTE">Note</option><option value="TASK">Task</option><option value="PLAN">Plan</option></select>
+          <span></span>
+          <button type="submit" class="primary small">Add note</button>
+        </form>
+        <ul id="workingList" class="cards"></ul>
+      </div>
+
+      <div id="sub-tidy" class="subview hidden">
+        <p class="muted">CLU folds exact duplicates together on its own (the earlier text is kept in the record's history) and only suggests merging near-duplicates. Nothing is deleted without a trace.</p>
+        <div class="form-actions"><button id="tidyRun" class="small">Look for duplicates now</button><span id="tidyResult" class="muted"></span></div>
+        <h3>Waiting for you</h3>
+        <ul id="tidyPending" class="cards"></ul>
+        <h3>Recent activity</h3>
+        <ul id="tidyActivity" class="cards compact"></ul>
+      </div>
+
+      <div id="sub-learning" class="subview hidden">
+        <p class="muted">CLU learns how you like replies from what you tell it. It notices repeats, but only asks; it never turns a one-off reaction into a rule.</p>
+        <h3>Questions for you</h3>
+        <ul id="learnQuestions" class="cards"></ul>
+        <h3>What CLU has noticed</h3>
+        <ul id="learnNoticed" class="cards compact"></ul>
+        <h3>Preferences in use</h3>
+        <ul id="learnLearned" class="cards compact"></ul>
+        <div class="form-actions"><button id="learnReset" class="small danger">Forget what it has noticed</button></div>
+      </div>
+
+      <div id="sub-health" class="subview hidden">
+        <div class="grid">
+          <div class="card"><h3>Integrity</h3><div id="healthSummary"></div>
+            <ul id="healthIssues" class="cards compact"></ul>
+            <div class="form-actions"><button id="healthCheck" class="small">Check now</button><button id="healthRepair" class="small">Repair</button><button id="healthReindex" class="small">Rebuild search index</button></div>
+            <div id="healthNotes" class="notes"></div></div>
+          <div class="card"><h3>Backups</h3><div id="backupFolder" class="muted"></div>
+            <ul id="backupList" class="cards compact"></ul>
+            <div class="form-actions"><button id="backupNow" class="small primary">Back up now</button></div>
+            <p class="muted" id="backupRestore"></p></div>
+        </div>
+        <div class="card"><h3>Background work</h3><div id="maintStatus" class="muted"></div>
+          <ul id="maintJobs" class="cards compact"></ul>
+          <div class="form-actions"><button id="maintRun" class="small">Run now</button><span id="maintResult" class="muted"></span></div></div>
+      </div>
     </section>
 
     <section id="view-people" class="view hidden">
@@ -103,7 +180,7 @@
         <input id="docSearch" type="search" placeholder="Search inside documents" aria-label="Search documents">
         <label class="button-like">Import files <input id="docUpload" type="file" multiple class="visually-hidden"></label>
       </div>
-      <p class="muted">TXT, Markdown, CSV, HTML, JSON, PDF and Word (.docx). Kept privately on this PC. No OCR: scanned pages have no searchable text.</p>
+      <p class="muted">Text, Markdown, CSV, HTML, JSON, source code and config files, PDF and Word (.docx). Kept privately on this PC; the original is never changed. No OCR: scanned pages have no searchable text.</p>
       <div id="docNotes" class="notes"></div>
       <ul id="docResults" class="cards"></ul>
       <ul id="docList" class="cards"></ul>

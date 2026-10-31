@@ -76,7 +76,18 @@
     const li = el("li", "msg " + role + (error ? " error" : ""));
     const body = el("span", "body", text); li.append(body);
     if (sources && sources.length) addSources(li, sources);
+    if (role === "assistant" && text && !error) addFeedback(li);
     return li;
+  }
+  /** One small control per reply: a reaction is recorded as evidence only; CLU asks before it ever becomes a preference. */
+  function addFeedback(li) {
+    const sel = el("select", "feedback"); sel.setAttribute("aria-label", "Feedback on this reply");
+    [["", "Feedback…"], ["good", "👍 Good"], ["too_long", "Too long"], ["too_short", "Too short"], ["too_formal", "Too formal"], ["too_casual", "Too casual"], ["wrong", "👎 Wrong"]].forEach(([v, l]) => sel.append(new Option(l, v)));
+    const note = el("span", "meta");
+    sel.addEventListener("change", async () => { if (!sel.value) return;
+      try { note.textContent = (await api("/v1/memory/learning/feedback", { method: "POST", json: { reason: sel.value, conversationId: conversation || "" } })).message; } catch (e) { note.textContent = e.message; }
+      sel.classList.add("hidden"); });
+    li.append(sel, note);
   }
   /** Sources stay one collapsed line under the answer; the list appears only when asked for. */
   function addSources(li, sources) {
@@ -122,52 +133,129 @@
         }
       }
     } catch (e) { reply.classList.add("error"); reply.append(el("span", "meta", "Couldn't reach CLU: " + e.message)); }
+    if (!reply.querySelector("select.feedback") && body.textContent && !reply.classList.contains("error")) addFeedback(reply);
     streaming = false; $("stop").classList.add("hidden"); $("send").disabled = false; setPresence("idle", "Ready"); scrollChat();
     listConversations();
   }
 
   // ------------------------------------------------------------------------------------------ memory
-  let editing = null, categories = [];
+  let editing = null, categories = [], kindFilter = "", promoteWorking = null;
+  const RELATIONS = [["related", "Related to"], ["belongs_to", "Belongs to"], ["supports", "Supports"], ["influences", "Influences"],
+    ["updates", "Updates / changes the status of"], ["contradicts", "Contradicts"], ["derived_from", "Derived from"]];
+  const relationLabel = (r) => (RELATIONS.find((x) => x[0] === r) || [r, r.replace(/_/g, " ")])[1];
+  const fmt = (ms) => ms ? new Date(ms).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+  const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " days ago"; };
+
   function initMemory() {
-    loaders.memory = loadMemories; loaders.timeline = loadTimeline;
-    $("memorySearch").addEventListener("input", debounce(loadMemories, 250));
-    $("memoryCategory").addEventListener("change", loadMemories);
+    loaders.memory = () => { loadKinds(); loadMemories(); };
+    loaders.timeline = loadTimeline;
+    categories = [["CORE_FACT", "Core fact"], ["EXPERIENCE", "Relationship / experience"], ["PREFERENCE", "Preference"], ["PROJECT", "Project / status"],
+      ["DECISION", "Decision / commitment"], ["INSTRUCTION", "Instruction for CLU"], ["KNOWLEDGE", "Knowledge"], ["PROCEDURE", "Procedure / workflow"],
+      ["MANUAL", "Manually inserted"], ["TEMPORARY", "Temporary context"], ["INSIGHT", "Approved insight"]];
+    const filter = $("memoryCategory"); categories.forEach(([id, label]) => filter.append(new Option(label, id)));
+    document.querySelectorAll(".sub").forEach((b) => b.addEventListener("click", () => showSub(b.dataset.sub)));
+    ["memorySearch", "memoryPerson"].forEach((id) => $(id).addEventListener("input", debounce(loadMemories, 250)));
+    ["memoryCategory", "memoryFrom", "memoryTo", "memoryDocs"].forEach((id) => $(id).addEventListener("change", loadMemories));
     $("memoryAdd").addEventListener("click", () => openMemoryForm(null));
-    $("memoryCancel").addEventListener("click", () => $("memoryForm").classList.add("hidden"));
+    $("memoryCancel").addEventListener("click", () => { $("memoryForm").classList.add("hidden"); $("memoryDetail").classList.add("hidden"); promoteWorking = null; });
     $("memoryForm").elements.when.addEventListener("input", debounce(readWhen, 200));
     $("memoryForm").addEventListener("submit", saveMemory);
     $("memoryDelete").addEventListener("click", async () => {
       if (!editing || !confirm(`Delete "${editing.title}"? It is removed with its earlier versions.`)) return;
-      await api(`/v1/memories/${editing.id}`, { method: "DELETE" }); $("memoryForm").classList.add("hidden"); loadMemories();
+      await api(`/v1/memories/${editing.id}`, { method: "DELETE" }); $("memoryForm").classList.add("hidden"); $("memoryDetail").classList.add("hidden"); editing = null; loadMemories(); loadKinds();
     });
-    categories = [["CORE_FACT", "Core fact"], ["EXPERIENCE", "Relationship / experience"], ["PREFERENCE", "Preference"], ["PROJECT", "Project"],
-      ["DECISION", "Decision"], ["INSTRUCTION", "Instruction"], ["MANUAL", "Note"]];
+    const rel = $("linkRelation"); RELATIONS.forEach(([v, l]) => rel.append(new Option(l, v)));
+    $("linkSearch").addEventListener("input", debounce(searchLinkTargets, 250));
+    initWorking(); initTidy(); initLearning(); initHealth();
   }
+  function showSub(name) {
+    document.querySelectorAll(".sub").forEach((b) => b.classList.toggle("active", b.dataset.sub === name));
+    document.querySelectorAll(".subview").forEach((v) => v.classList.toggle("hidden", v.id !== "sub-" + name));
+    ({ browse: () => { loadKinds(); loadMemories(); }, working: loadWorking, tidy: loadTidy, learning: loadLearning, health: loadHealth })[name]();
+  }
+  function badge(id, n) { const b = $(id); b.textContent = n; b.classList.toggle("hidden", !n); }
+
+  async function loadKinds() {
+    const o = await api("/v1/memory/overview"); const box = $("kindChips"); box.replaceChildren();
+    const chip = (value, label, n) => { const b = el("button", "chip" + (kindFilter === value ? " active" : ""), n == null ? label : `${label} · ${n}`); b.type = "button";
+      b.addEventListener("click", () => { kindFilter = value; loadKinds(); loadMemories(); }); box.append(b); };
+    chip("", "All", null); Object.entries(o.kinds).forEach(([k, v]) => chip(k, v.label, v.count));
+    badge("workingCount", o.working); badge("tidyCount", o.consolidation); badge("learningCount", o.learning);
+  }
+
   async function loadMemories() {
-    const q = $("memorySearch").value.trim(), cat = $("memoryCategory").value;
-    const list = await api("/v1/memories?" + new URLSearchParams(Object.assign(q ? { q } : {}, cat ? { category: cat } : {})));
-    const seen = new Map(list.map((m) => [m.category, m.categoryLabel]));
-    const sel = $("memoryCategory"); if (sel.options.length === 1) seen.forEach((label, id) => sel.append(new Option(label, id)));
-    $("memoryList").replaceChildren(...(list.length ? list.map(memoryCard) : [el("li", "muted", q ? "Nothing matches." : "No memories yet. Add one, or tell CLU in the chat.")]));
+    const p = { q: $("memorySearch").value.trim(), kind: kindFilter, category: $("memoryCategory").value, person: $("memoryPerson").value.trim(),
+      from: $("memoryFrom").value, to: $("memoryTo").value, docs: $("memoryDocs").checked ? "1" : "0" };
+    Object.keys(p).forEach((k) => { if (!p[k]) delete p[k]; });
+    const list = await api("/v1/memory/search?" + new URLSearchParams(p));
+    $("memoryList").replaceChildren(...(list.length ? list.map(resultCard) : [el("li", "muted", p.q || p.kind || p.category || p.person || p.from || p.to ? "Nothing matches." : "No memories yet. Add one, or tell CLU in the chat.")]));
   }
-  function memoryCard(m) {
-    const li = el("li", "clickable");
-    li.append(el("div", "title", m.title || "(untitled)"),
-      el("div", "sub", [m.when || "date unknown", m.categoryLabel, m.people.join(", "), m.places.join(", ")].filter(Boolean).join(" · ")),
-      el("div", null, m.content.slice(0, 240)));
+  function resultCard(r) {
+    if (r.type === "document") {
+      const li = el("li"); const head = el("div", "title"); head.append(el("span", "tag doc", "Document"), document.createTextNode(r.document.name));
+      li.append(head, el("div", "sub", `passage ${r.chunk} · from your files, not a memory`), el("div", null, r.text));
+      return li;
+    }
+    return memoryCard(r.memory, r.why);
+  }
+  function memoryCard(m, why) {
+    const li = el("li", "clickable"); const head = el("div", "title");
+    head.append(el("span", "tag", m.kindLabel || ""), document.createTextNode(m.title || "(untitled)"));
+    if (m.source === "APPROVED_INFERENCE") head.append(el("span", "tag warn", "inferred · approved"));
+    li.append(head, el("div", "sub", [m.when || "date unknown", m.categoryLabel, m.people.join(", "), m.places.join(", ")].filter(Boolean).join(" · ")), el("div", null, m.content.slice(0, 240)));
+    if (why && why.length && !why.every((w) => w === "keyword match" || w === "matches the filters")) li.append(el("div", "why", why.join(" · ")));
     li.addEventListener("click", () => openMemoryForm(m));
     return li;
   }
-  function openMemoryForm(m) {
+
+  function openMemoryForm(m, prefill) {
     editing = m; const f = $("memoryForm");
-    const sel = f.elements.category; if (!sel.options.length) categories.forEach(([id, label]) => sel.append(new Option(label, id)));
+    const sel = f.elements.category; if (!sel.options.length) categories.filter(([id]) => id !== "INSIGHT").forEach(([id, label]) => sel.append(new Option(label, id)));
+    if (m && ![...sel.options].some((o) => o.value === m.category)) sel.append(new Option(m.categoryLabel, m.category));
     $("memoryFormTitle").textContent = m ? "Edit memory" : "Add memory";
-    f.elements.title.value = m ? m.title : ""; f.elements.content.value = m ? m.content : ""; f.elements.when.value = m ? m.when : "";
-    f.elements.people.value = m ? m.people.join(", ") : ""; f.elements.places.value = m ? m.places.join(", ") : "";
+    f.elements.title.value = m ? m.title : (prefill && prefill.title) || ""; f.elements.content.value = m ? m.content : (prefill && prefill.content) || "";
+    f.elements.when.value = m ? m.when : ""; f.elements.people.value = m ? m.people.join(", ") : ""; f.elements.places.value = m ? m.places.join(", ") : "";
     f.elements.category.value = m ? m.category : "EXPERIENCE"; f.elements.certainty.value = m ? m.certainty : "RECOLLECTION"; f.elements.importance.value = m ? String(m.importance) : "0";
     $("memoryDelete").classList.toggle("hidden", !m); $("memoryNotes").replaceChildren();
     f.classList.remove("hidden"); readWhen(); f.elements.title.focus();
+    if (m) loadDetail(m.id); else $("memoryDetail").classList.add("hidden");
   }
+
+  async function loadDetail(id) {
+    let d; try { d = await api(`/v1/memory/${id}`); } catch (e) { $("memoryDetail").classList.add("hidden"); return; }
+    const box = $("memoryDetail"); box.classList.remove("hidden");
+    const dl = $("detailMeta"); dl.replaceChildren();
+    const row = (k, v) => { if (v === "" || v == null) return; dl.append(el("dt", null, k), el("dd", null, v)); };
+    const mt = d.meta, pv = d.provenance;
+    row("Kind", mt.kindLabel); row("Category", d.memory.categoryLabel);
+    row("Created", fmt(mt.createdAt)); row("Last changed", fmt(mt.updatedAt));
+    row("Last used by CLU", mt.lastAccessed ? `${fmt(mt.lastAccessed)} (${ago(mt.lastAccessed)}), ${mt.accessCount} time${mt.accessCount === 1 ? "" : "s"}` : "not used yet");
+    if (mt.reinforced) row("Repeated by you", `${mt.reinforced} time${mt.reinforced === 1 ? "" : "s"}`);
+    if (mt.confidence != null) row("Confidence", Math.round(mt.confidence * 100) + "%");
+    if (mt.reviewAt) row("Review by", fmt(mt.reviewAt));
+    row("Source", mt.sourceLabel + (pv.reference ? " — " + pv.reference : ""));
+    row("Approval", pv.approval === "APPROVED" ? "Approved by you before it was saved" : "Not needed (you entered or stated it)");
+    if (pv.documents.length) row("Supported by documents", pv.documents.join(", "));
+    if (pv.mergedFrom.length) row("Merged from", pv.mergedFrom.map((t) => `"${t}"`).join(", ") + " (kept in earlier versions)");
+    $("detailConflicts").textContent = d.conflicts.length ? "Conflicts: " + d.conflicts.join("; ") : "";
+    const rel = $("relatedList"); rel.replaceChildren(...(d.related.length ? d.related.map((r) => {
+      const li = el("li", r.kind === "memory" ? "clickable" : ""); li.append(el("span", "tag", relationLabel(r.relation)), document.createTextNode(r.title), el("span", "tag", r.kind));
+      if (r.kind === "memory") li.addEventListener("click", async () => { try { openMemoryForm((await api(`/v1/memory/${r.id}`)).memory); } catch (e) { /* gone */ } });
+      const x = el("button", "x small", "×"); x.type = "button"; x.title = "Remove this link";
+      x.addEventListener("click", async (e) => { e.stopPropagation(); await api(`/v1/memory/${id}/links`, { method: "DELETE", json: { linkId: r.linkId } }); loadDetail(id); });
+      li.append(x); return li; }) : [el("li", "muted", "Nothing linked yet.")]));
+    $("revisionCount").textContent = d.revisions.length;
+    $("revisionList").replaceChildren(...d.revisions.map((r) => { const li = el("li"); li.append(el("div", "sub", fmt(r.at)), el("div", "title", r.title), el("div", null, r.content.slice(0, 300))); return li; }));
+    $("linkSearch").value = ""; $("linkResults").replaceChildren();
+  }
+  async function searchLinkTargets() {
+    const q = $("linkSearch").value.trim(); if (!q || !editing) { $("linkResults").replaceChildren(); return; }
+    const hits = (await api("/v1/memory/search?" + new URLSearchParams({ q, docs: "0", limit: "8" }))).filter((r) => r.type === "memory" && r.memory.id !== editing.id);
+    $("linkResults").replaceChildren(...(hits.length ? hits.map((r) => { const li = el("li", "clickable", `Link "${r.memory.title}"`);
+      li.addEventListener("click", async () => { try { await api(`/v1/memory/${editing.id}/links`, { method: "POST", json: { otherId: r.memory.id, relation: $("linkRelation").value } }); loadDetail(editing.id); } catch (e) { $("memoryNotes").textContent = e.message; } });
+      return li; }) : [el("li", "muted", "No memory matches.")]));
+  }
+
   async function readWhen() {
     const field = $("memoryForm").elements.when, v = field.value.trim();
     const r = await api("/v1/dates/parse?" + new URLSearchParams({ q: v }));
@@ -189,9 +277,89 @@
       if (!notes.length) f.classList.add("hidden");
       editing = r.memory; $("whenReading").textContent = r.memory.when ? "Saved as: " + r.memory.when : "Date unknown (that's fine).";
       $("memoryDelete").classList.remove("hidden"); $("memoryFormTitle").textContent = "Edit memory";
-      loadMemories();
+      if (promoteWorking) { await api(`/v1/memory/working/${promoteWorking}`, { method: "DELETE" }).catch(() => {}); promoteWorking = null; }
+      loadMemories(); loadKinds(); loadDetail(r.memory.id);
     } catch (err) { $("memoryNotes").textContent = err.message; }
   }
+
+  // ---- working notes
+  function initWorking() {
+    $("workingForm").addEventListener("submit", async (e) => {
+      e.preventDefault(); const f = e.target;
+      await api("/v1/memory/working", { method: "POST", json: { text: f.elements.text.value, kind: f.elements.kind.value } }); f.reset(); loadWorking();
+    });
+  }
+  async function loadWorking() {
+    const list = await api("/v1/memory/working");
+    $("workingList").replaceChildren(...(list.length ? list.map((w) => {
+      const li = el("li"); li.append(el("div", "title", w.text), el("div", "sub", `${w.kind.toLowerCase()} · expires ${fmt(w.expiresAt)}`));
+      const keep = el("button", "small", "Keep as a memory"), drop = el("button", "small", "Dismiss"); keep.type = drop.type = "button";
+      keep.addEventListener("click", () => { promoteWorking = w.id; showSub("browse"); openMemoryForm(null, { title: w.text.slice(0, 60), content: w.text }); });
+      drop.addEventListener("click", async () => { await api(`/v1/memory/working/${w.id}`, { method: "DELETE" }); loadWorking(); loadKinds(); });
+      const actions = el("div", "form-actions"); actions.append(keep, drop); li.append(actions); return li; }) : [el("li", "muted", "No working notes.")]));
+    loadKinds();
+  }
+
+  // ---- tidy-up (consolidation)
+  function initTidy() {
+    $("tidyRun").addEventListener("click", async () => {
+      $("tidyResult").textContent = "Looking…"; const r = await api("/v1/memory/consolidation/run", { method: "POST", json: {} });
+      $("tidyResult").textContent = `Checked ${r.scanned}: merged ${r.autoMerged} exact duplicate${r.autoMerged === 1 ? "" : "s"}, ${r.suggested} suggestion${r.suggested === 1 ? "" : "s"}, ${r.expiredMemories + r.expiredWorking} expired removed.`; loadTidy();
+    });
+  }
+  async function loadTidy() {
+    const d = await api("/v1/memory/consolidation");
+    $("tidyPending").replaceChildren(...(d.pending.length ? d.pending.map((e) => {
+      const li = el("li"); li.append(el("div", "title", "These look like the same thing"), el("div", "sub", e.reason));
+      const pair = el("div", "pair"); e.memories.forEach((m) => { const c = el("div"); c.append(el("strong", null, m.title), el("div", "sub", m.when), el("div", null, m.content)); pair.append(c); }); li.append(pair);
+      const merge = el("button", "primary small", "Merge (keep both texts)"), keep = el("button", "small", "Keep separate"); merge.type = keep.type = "button";
+      merge.addEventListener("click", async () => { try { await api(`/v1/memory/consolidation/${e.id}/approve`, { method: "POST", json: {} }); } catch (err) { alert(err.message); } loadTidy(); loadKinds(); });
+      keep.addEventListener("click", async () => { await api(`/v1/memory/consolidation/${e.id}/reject`, { method: "POST", json: {} }); loadTidy(); loadKinds(); });
+      const actions = el("div", "form-actions"); actions.append(merge, keep); li.append(actions); return li; }) : [el("li", "muted", d.enabled ? "Nothing waiting." : "Background tidy-up is switched off in Settings → Memory.")]));
+    $("tidyActivity").replaceChildren(...(d.activity.length ? d.activity.map((e) => { const li = el("li"); li.append(el("span", "tag", e.status.toLowerCase()), document.createTextNode(e.reason), el("span", "sub", "  " + fmt(e.createdAt))); return li; }) : [el("li", "muted", "No activity yet.")]));
+  }
+
+  // ---- learning
+  function initLearning() {
+    $("learnReset").addEventListener("click", async () => { if (!confirm("Forget everything CLU has noticed about how you like replies? Preferences already in use stay until you change them in Settings.")) return;
+      await api("/v1/memory/learning/reset", { method: "POST", json: {} }); loadLearning(); });
+  }
+  async function loadLearning() {
+    const d = await api("/v1/memory/learning");
+    $("learnQuestions").replaceChildren(...(d.questions.length ? d.questions.map((q) => {
+      const li = el("li"); li.append(el("div", "title", q.question), el("div", "sub", "Evidence: " + q.evidence));
+      const yes = el("button", "primary small", "Yes, make it standing"), no = el("button", "small", "No, not now"); yes.type = no.type = "button";
+      yes.addEventListener("click", async () => { try { await api(`/v1/memory/learning/${q.id}/accept`, { method: "POST", json: {} }); } catch (e) { alert(e.message); } loadLearning(); });
+      no.addEventListener("click", async () => { await api(`/v1/memory/learning/${q.id}/reject`, { method: "POST", json: {} }); loadLearning(); });
+      const a = el("div", "form-actions"); a.append(yes, no); li.append(a); return li; }) : [el("li", "muted", d.enabled ? "No questions. CLU asks only when something keeps coming up." : "Learning is switched off in Settings → Memory.")]));
+    $("learnNoticed").replaceChildren(...(d.noticed.length ? d.noticed.map((n) => { const li = el("li"); li.append(el("span", "tag", n.scopeLabel), document.createTextNode(n.description),
+      el("span", "sub", `  ${n.signals} time${n.signals === 1 ? "" : "s"}, ${n.conversations} conversation${n.conversations === 1 ? "" : "s"}, ${n.days} day${n.days === 1 ? "" : "s"}${n.against ? `, ${n.against} against` : ""}`)); return li; }) : [el("li", "muted", "Nothing yet.")]));
+    $("learnLearned").replaceChildren(...(d.learned.length ? d.learned.map((p) => { const li = el("li"); li.append(document.createTextNode(p.label), el("span", "sub", "  " + p.source)); return li; }) : [el("li", "muted", "No learned preferences in use.")]));
+    loadKinds();
+  }
+
+  // ---- health, backups, background work
+  function initHealth() {
+    const run = async (fn) => { $("healthNotes").textContent = "Working…"; try { await fn(); } catch (e) { $("healthNotes").textContent = e.message; } };
+    $("healthCheck").addEventListener("click", () => run(async () => { await loadHealth(); }));
+    $("healthRepair").addEventListener("click", () => run(async () => { const r = await api("/v1/memory/health", { method: "POST", json: { action: "repair" } }); await loadHealth(); $("healthNotes").textContent = r.done.length ? r.done.join("; ") : "Nothing needed repairing."; }));
+    $("healthReindex").addEventListener("click", () => run(async () => { const r = await api("/v1/memory/health", { method: "POST", json: { action: "reindex" } }); await loadHealth(); $("healthNotes").textContent = `Search index rebuilt for ${r.reindexed} memories.`; }));
+    $("backupNow").addEventListener("click", () => run(async () => { await api("/v1/memory/backups", { method: "POST", json: {} }); await loadHealth(); $("healthNotes").textContent = "Backup made."; }));
+    $("maintRun").addEventListener("click", async () => { $("maintResult").textContent = "Running…"; const r = await api("/v1/memory/maintenance", { method: "POST", json: {} }); $("maintResult").textContent = r.summary; loadHealth(); });
+  }
+  async function loadHealth() {
+    const [h, b, m] = await Promise.all([api("/v1/memory/health"), api("/v1/memory/backups"), api("/v1/memory/maintenance")]);
+    $("healthSummary").textContent = `${h.ok ? "Database integrity: ok" : "Database problem: " + h.integrity} · ${h.memories} memories · ${h.documents} documents`;
+    $("healthIssues").replaceChildren(...(h.issues.length ? h.issues.map((i) => { const li = el("li"); li.append(el("span", "tag" + (i.repairable ? "" : " warn"), i.repairable ? "repairable" : "needs a backup"), document.createTextNode(`${i.count} · ${i.detail}`)); return li; }) : [el("li", "muted", "No problems found.")]));
+    $("backupFolder").textContent = b.folder;
+    $("backupList").replaceChildren(...(b.backups.length ? b.backups.map((x) => { const li = el("li"); li.append(el("span", "tag", x.kind), document.createTextNode(`${x.name} · ${Math.max(1, Math.round(x.sizeBytes / 1024))} KB`), el("span", "sub", "  " + fmt(x.createdAt))); return li; }) : [el("li", "muted", "No backups yet.")]));
+    $("backupRestore").textContent = b.restore;
+    $("maintStatus").textContent = (m.scheduled ? "Runs in the background when the PC and the model are idle." : "Background runs are switched off (maintenanceMinutes = 0 in host.json).") +
+      (m.waiting ? ` Waiting: ${m.waiting}.` : "") + (m.last ? ` Last run ${ago(m.last.at)}: ${m.last.summary}` : "");
+    $("maintJobs").replaceChildren(...m.jobs.map((j) => { const li = el("li"); li.append(el("span", "tag", j.state.toLowerCase()), document.createTextNode(`${j.name}${j.detail ? " — " + j.detail : ""}`), el("span", "sub", j.lastRun ? "  " + ago(j.lastRun) : "")); return li; }));
+    $("healthNotes").textContent = "";
+  }
+
   async function loadTimeline() {
     const list = await api("/v1/timeline"); const box = $("timeline"); box.replaceChildren();
     if (!list.length) { box.append(el("p", "muted", "No dated memories yet.")); return; }
@@ -264,13 +432,17 @@
   async function loadSuggestions() {
     const list = await api("/v1/suggestions");
     $("suggestionList").replaceChildren(...(list.length ? list.map((s) => {
-      const li = el("li"); const text = el("textarea"); text.rows = 2; text.value = s.text;
-      const approve = el("button", "primary small", "Approve"), reject = el("button", "small", "Reject");
-      approve.addEventListener("click", async () => { await api(`/v1/suggestions/${s.id}/approve`, { method: "POST", json: { text: text.value } }); loadSuggestions(); refreshStatus(); });
+      const li = el("li"); const head = el("div", "title"); head.append(el("span", "tag" + (s.inferred ? " warn" : ""), s.inferred ? "Inferred by CLU" : s.kindLabel), document.createTextNode(s.inferred ? "CLU noticed something about you" : "Save this?"));
+      const text = el("textarea"); text.rows = 2; text.value = s.text; text.setAttribute("aria-label", "Text to save");
+      const cat = el("select"); cat.setAttribute("aria-label", "Category"); categories.filter(([id]) => id !== "TEMPORARY").forEach(([id, label]) => cat.append(new Option(label, id)));
+      cat.value = s.category || (s.inferred ? "INSIGHT" : "CORE_FACT");
+      const approve = el("button", "primary small", "Approve and save"), reject = el("button", "small", "Reject"); approve.type = reject.type = "button";
+      approve.addEventListener("click", async () => { try { await api(`/v1/suggestions/${s.id}/approve`, { method: "POST", json: { text: text.value, category: cat.value } }); } catch (e) { alert(e.message); } loadSuggestions(); refreshStatus(); });
       reject.addEventListener("click", async () => { await api(`/v1/suggestions/${s.id}/reject`, { method: "POST", json: {} }); loadSuggestions(); refreshStatus(); });
       const actions = el("div", "form-actions"); actions.append(approve, reject);
-      li.append(text, el("div", "sub", "Why: " + s.rationale), actions);
-      return li;
+      li.append(head, text, el("div", "sub", "Why: " + s.rationale + (s.conversation ? ` (conversation "${s.conversation}")` : "")));
+      if (s.conflictsWith) { const c = el("div", "notes", `May conflict with an existing memory: "${s.conflictsWith.title}" — ${s.conflictsWith.content}. If you approve, both stay and are marked as conflicting.`); li.append(c); }
+      li.append(el("label", "inline", "Save as "), cat, actions); return li;
     }) : [el("li", "muted", "No suggestions waiting.")]));
   }
   async function refreshStatus() {

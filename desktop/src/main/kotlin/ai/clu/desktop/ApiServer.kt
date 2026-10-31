@@ -69,11 +69,15 @@ class ApiServer(
     private val hostConfig: HostConfigStore? = null,
     /** Opens the shell window (the tray's "Open CLU"); null when there is no desktop session. */
     var openShell: (() -> Unit)? = null,
+    /** Background memory maintenance and the data folder (backups); null in tests that don't need them. */
+    maintenance: MaintenanceScheduler? = null,
+    paths: DesktopPaths? = null,
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
     private val archive = ArchiveRoutes(core)
     private val settings = SettingsRoutes(core, governor, hostConfig)
+    private val memory = MemoryRoutes(core, maintenance, paths)
     /** One-time codes that let the shell window obtain the token without it ever appearing on a command line. */
     private val launchCodes = ConcurrentHashMap<String, Long>()
     val port: Int get() = server.address.port
@@ -134,12 +138,12 @@ class ApiServer(
             val bytes = readBody(ex, ArchiveRoutes.MAX_UPLOAD) ?: return Call(ex, path, method, empty).fail(413, "file over 50 MB")
             return archive.upload(Call(ex, path, method, empty), bytes)
         }
-        val body = if (method == "POST" || method == "PUT") {
+        val body = if (method == "POST" || method == "PUT" || method == "DELETE") {
             val bytes = readBody(ex, MAX_BODY) ?: return Call(ex, path, method, empty).fail(413, "request body over ${MAX_BODY / 1024} KiB")
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 

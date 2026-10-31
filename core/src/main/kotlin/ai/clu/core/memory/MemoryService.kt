@@ -46,7 +46,7 @@ data class MemoryMeta(
 /** Where a memory came from, in words (for the memory detail view). */
 data class Provenance(val source: String, val reference: String, val documents: List<String>, val mergedFrom: List<String>, val approval: Approval)
 
-data class RelatedRecord(val kind: String, val id: String, val title: String, val relation: String, val note: String)
+data class RelatedRecord(val kind: String, val id: String, val title: String, val relation: String, val note: String, val linkId: String = "")
 
 data class MemoryDetail(
     val memory: Memory, val meta: MemoryMeta, val provenance: Provenance, val related: List<RelatedRecord>,
@@ -166,7 +166,7 @@ class MemoryService(
     fun remember(m: Memory, sourceRef: String = "", confidence: Double? = null, approval: Approval = Approval.NOT_REQUIRED,
                  kind: MemoryKind? = null, reviewAt: Long? = null): ArchiveService.SaveResult = db.transaction {
         val r = archive.saveMemory(m)
-        setMeta(r.memory.id, kind = kind, confidence = confidence, sourceRef = sourceRef, approval = approval, reviewAt = reviewAt)
+        setMeta(r.memory.id, kind = kind, confidence = confidence, sourceRef = sourceRef.ifBlank { null }, approval = approval, reviewAt = reviewAt)
         r.duplicates.forEach { archive.links.link(Kind.MEMORY, r.memory.id, Kind.MEMORY, it.id, Relation.RELATED, "possible duplicate") }
         r
     }
@@ -297,7 +297,7 @@ class MemoryService(
             Kind.DOCUMENT -> archive.documents.get(oid)?.name
             else -> null
         } ?: return@mapNotNull null
-        RelatedRecord(ok, oid, title, l.relation, l.note)
+        RelatedRecord(ok, oid, title, l.relation, l.note, l.id)
     }.sortedBy { relationOrder(it.relation) }
 
     /** Everything connected within [depth] hops (a small breadth-first walk over the link table), nearest first. */
@@ -321,6 +321,9 @@ class MemoryService(
         require(relation in RELATIONS) { "unknown relation $relation" }
         archive.links.link(aKind, aId, bKind, bId, relation, note)
     }
+
+    /** Removes one relationship (by its id); the records stay. */
+    fun unrelate(linkId: String) { archive.links.unlink(linkId) }
 
     private fun relationOrder(r: String) = when (r) { Relation.SUPPORTS -> 0; CONTRADICTS -> 1; Relation.ABOUT -> 2; Relation.INVOLVES -> 3; else -> 4 }
 

@@ -97,6 +97,8 @@ data class HostConfig(
     /** Unload an idle model when the PC's free memory falls below this (GB). */
     val pressureFreeGB: Double = 1.5,
     val governorIntervalSeconds: Int = 15,
+    /** How often background memory work (tidy-up, integrity check, backup) may run; 0 = never. It waits while the PC or the model is busy. */
+    val maintenanceMinutes: Int = 20,
     /** Path to clu_llama.dll / libclu_llama.so; empty = the one installed next to CLU. */
     val nativeLibrary: String = "",
 ) {
@@ -105,6 +107,7 @@ data class HostConfig(
         require(memoryBudgetGB in 1.0..256.0) { "memoryBudgetGB must be 1-256" }
         require(reserveGB in 0.0..64.0 && pressureFreeGB in 0.0..64.0) { "reserveGB / pressureFreeGB out of range" }
         require(governorIntervalSeconds in 1..600) { "governorIntervalSeconds must be 1-600" }
+        require(maintenanceMinutes in 0..1440) { "maintenanceMinutes must be 0-1440" }
         return this
     }
 

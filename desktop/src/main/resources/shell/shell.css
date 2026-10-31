@@ -93,3 +93,26 @@ code { background: var(--raise); padding: 1px 5px; border-radius: 4px; }
   .chat-view { grid-template-columns: 1fr; } .conversations { display: none; } .inline-form { grid-template-columns: 1fr; }
   .setting { grid-template-columns: 1fr; }
 }
+
+.subnav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.sub { background: transparent; border-color: transparent; }
+.sub.active { background: var(--raise); border-color: var(--line); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip { border-radius: 16px; padding: 3px 12px; font-size: 13px; }
+.chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+label.inline { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--muted); font-size: 13px; }
+label.inline input { width: auto; }
+.toolbar input[type=date] { max-width: 160px; }
+.cards.compact li { padding: 6px 10px; margin-bottom: 4px; }
+.meta { display: grid; grid-template-columns: 180px 1fr; gap: 2px 12px; margin: 0 0 8px; }
+.meta dt { color: var(--muted); } .meta dd { margin: 0; }
+h4 { margin: 12px 0 6px; font-size: 14px; }
+.tag { display: inline-block; font-size: 11px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; color: var(--muted); margin-right: 6px; vertical-align: middle; }
+.tag.doc { color: var(--accent); border-color: var(--accent); } .tag.warn { color: var(--warn); border-color: var(--warn); }
+.why { color: var(--muted); font-size: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0; }
+.pair > div { background: var(--raise); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+button.x { padding: 0 8px; margin-left: 6px; }
+@media (max-width: 760px) { .meta, .pair { grid-template-columns: 1fr; } }
+select.feedback { width: auto; margin-top: 6px; font-size: 12px; padding: 1px 4px; opacity: 0.7; }
+select.feedback:hover, select.feedback:focus { opacity: 1; }

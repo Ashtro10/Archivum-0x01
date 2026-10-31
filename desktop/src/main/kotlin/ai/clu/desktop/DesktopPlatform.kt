@@ -39,9 +39,10 @@ class DesktopPaths(val root: File) {
     val token = File(root, "api-token")
     val vaultKey = File(root, "vault.key")
     val secrets = File(root, "secrets.json")
+    val backups = File(root, "backups")
 
     fun ensure(): DesktopPaths {
-        listOf(root, files, models, logs).forEach { it.mkdirs() }
+        listOf(root, files, models, logs, backups).forEach { it.mkdirs() }
         OwnerOnly.restrict(root)
         return this
     }

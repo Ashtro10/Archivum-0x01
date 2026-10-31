@@ -44,7 +44,7 @@ class ArchiveRoutes(private val core: CluCore) {
             c.path == "/v1/memories" && c.method == "POST" -> save(c, null)
             memoryId != null && c.method == "PUT" -> save(c, core.memories.get(memoryId)?.takeIf { !it.deleted } ?: return true.also { c.fail(404, "no such memory") })
             memoryId != null && c.method == "DELETE" -> {
-                if (core.memories.get(memoryId)?.deleted != false) c.fail(404, "no such memory") else { core.memories.delete(memoryId); c.ok() }
+                if (core.memories.get(memoryId)?.deleted != false) c.fail(404, "no such memory") else { core.memory.forget(memoryId); c.ok() }
             }
             c.path == "/v1/dates/parse" && c.method == "GET" -> {
                 val q = c.query("q")?.trim().orEmpty()
@@ -72,11 +72,19 @@ class ArchiveRoutes(private val core: CluCore) {
                     put("documentId", p.document.id); put("document", p.document.name); put("text", p.text.take(600)) } } })
             }
             c.path == "/v1/suggestions" && c.method == "GET" -> c.ok(buildJsonArray { core.proposals.pending().forEach { p -> addJsonObject {
-                put("id", p.id); put("kind", p.kind.name); put("text", p.text); put("rationale", p.rationale); put("createdAt", p.createdAt) } } })
+                put("id", p.id); put("kind", p.kind.name); put("kindLabel", p.kind.label); put("text", p.text); put("rationale", p.rationale); put("createdAt", p.createdAt)
+                p.category?.let { put("category", it.name); put("categoryLabel", it.label) }
+                p.confidence?.let { put("confidence", it) }
+                put("inferred", p.kind == ai.clu.core.memory.ProposalKind.OBSERVATION || p.kind == ai.clu.core.memory.ProposalKind.HYPOTHESIS)
+                p.relatedId?.let { rid -> core.memories.get(rid)?.takeIf { !it.deleted }?.let { o -> putJsonObject("conflictsWith") { put("id", o.id); put("title", o.title); put("content", o.content.take(200)) } } }
+                p.conversationId?.let { cid -> core.conversations.get(cid)?.let { put("conversation", it.title) } }
+            } } })
             suggestion != null && c.method == "POST" -> {
                 val (id, action) = suggestion.destructured
+                val cat = if (action == "approve") c.str("category")?.let { runCatching { MemoryCategory.valueOf(it) }.getOrNull() ?: return true.also { _ -> c.fail(400, "unknown category $it") } } else null
                 runCatching {
-                    if (action == "approve") { val m = core.proposals.approve(id, c.str("text")?.trim()?.ifEmpty { null }); c.ok(buildJsonObject { put("ok", true); m?.let { put("memory", memory(it)) } }) }
+                    if (action == "approve") {
+                    val m = core.proposals.approve(id, c.str("text")?.trim()?.ifEmpty { null }, cat); c.ok(buildJsonObject { put("ok", true); m?.let { put("memory", memory(it)) } }) }
                     else { core.proposals.reject(id); c.ok() }
                 }.onFailure { c.fail(409, it.message ?: "not possible") }
             }
@@ -104,7 +112,7 @@ class ArchiveRoutes(private val core: CluCore) {
             category = category ?: base.category, certainty = certainty ?: base.certainty, importance = importance ?: base.importance,
             people = if ("people" in c.body) c.strings("people") else base.people, places = if ("places" in c.body) c.strings("places") else base.places,
             tags = if ("tags" in c.body) c.strings("tags") else base.tags)
-        val r = runCatching { archive.saveMemory(m) }.getOrElse { return c.fail(400, it.message ?: "could not save") }
+        val r = runCatching { core.memory.remember(m, sourceRef = if (existing == null) "desktop:owner" else "") }.getOrElse { return c.fail(400, it.message ?: "could not save") }
         c.send(if (existing == null) 201 else 200, buildJsonObject {
             put("memory", memory(r.memory))
             putJsonArray("possibleDuplicates") { r.duplicates.forEach { addJsonObject { put("id", it.id); put("title", it.title); put("when", it.historicalDate().label()) } } }
@@ -114,13 +122,7 @@ class ArchiveRoutes(private val core: CluCore) {
         })
     }
 
-    private fun memory(m: Memory) = buildJsonObject {
-        put("id", m.id); put("title", m.title); put("content", m.content); put("category", m.category.name); put("categoryLabel", m.category.label)
-        val d = m.historicalDate()
-        put("when", if (d.known) d.label() else ""); put("precision", d.precision.name); d.startDate()?.let { put("sortDate", it.toString()) }
-        put("certainty", m.certainty.name); put("importance", m.importance); put("pinned", m.pinned)
-        putJsonArray("people") { m.people.forEach { add(it) } }; putJsonArray("places") { m.places.forEach { add(it) } }; putJsonArray("tags") { m.tags.forEach { add(it) } }
-    }
+    private fun memory(m: Memory) = memoryJson(core, m)
 
     private fun person(p: ArchivePerson) = buildJsonObject {
         put("id", p.id); put("name", p.name); put("relation", p.relation); put("notes", p.notes)
@@ -140,5 +142,19 @@ class ArchiveRoutes(private val core: CluCore) {
         }
     }
 
-    companion object { const val MAX_UPLOAD = 50 * 1024 * 1024 }
+    companion object {
+        const val MAX_UPLOAD = 50 * 1024 * 1024
+
+        /** One memory as the API shows it, with its kind and the metadata the unified memory service keeps. */
+        fun memoryJson(core: CluCore, m: Memory): JsonObject = buildJsonObject {
+            put("id", m.id); put("title", m.title); put("content", m.content); put("category", m.category.name); put("categoryLabel", m.category.label)
+            val meta = core.memory.metaOf(m)
+            put("kind", meta.kind.name); put("kindLabel", meta.kind.label); meta.confidence?.let { put("confidence", it) }
+            val d = m.historicalDate()
+            put("when", if (d.known) d.label() else ""); put("precision", d.precision.name); d.startDate()?.let { put("sortDate", it.toString()) }
+            put("certainty", m.certainty.name); put("importance", m.importance); put("pinned", m.pinned)
+            put("source", m.source.name); put("sourceLabel", m.source.label); put("createdAt", m.createdAt); put("updatedAt", m.updatedAt)
+            putJsonArray("people") { m.people.forEach { add(it) } }; putJsonArray("places") { m.places.forEach { add(it) } }; putJsonArray("tags") { m.tags.forEach { add(it) } }
+        }
+    }
 }

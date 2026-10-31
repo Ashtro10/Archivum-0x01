@@ -1,0 +1,439 @@
+{
+  "timestamp": "20260814_114115",
+  "baseline_vram": {
+    "total_mib": 4096,
+    "free_mib": 3797,
+    "used_mib": 166
+  },
+  "baseline_ram": {
+    "system_total_mib": 15773,
+    "system_available_mib": 7634,
+    "system_used_pct": 51.6,
+    "process_rss_mib": 190
+  },
+  "llama_cpp_version": "0.3.34",
+  "gpu_offload_supported": true,
+  "speed": {
+    "3B": {
+      "ctx2048_gpu99": {
+        "context_tokens": 2048,
+        "gpu_layers": 99,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3797,
+          "used_mib": 166
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7620,
+          "system_used_pct": 51.7,
+          "process_rss_mib": 203
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 1305,
+          "used_mib": 2658
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 5334,
+          "system_used_pct": 66.2,
+          "process_rss_mib": 2487
+        },
+        "load_time_s": 3.2624499001540244,
+        "prefill_tps": 25.49568064927227,
+        "generation_tps": 46.62067318724072,
+        "ttft_ms": 0.0,
+        "tokens_generated": 256,
+        "prompt_tokens": 560,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      },
+      "ctx4096_gpu99": {
+        "context_tokens": 4096,
+        "gpu_layers": 99,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3787,
+          "used_mib": 176
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7376,
+          "system_used_pct": 53.2,
+          "process_rss_mib": 541
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 1223,
+          "used_mib": 2740
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 5180,
+          "system_used_pct": 67.2,
+          "process_rss_mib": 2730
+        },
+        "load_time_s": 2.1247615003958344,
+        "prefill_tps": 25.281995193985704,
+        "generation_tps": 46.229934069002425,
+        "ttft_ms": 0.0,
+        "tokens_generated": 256,
+        "prompt_tokens": 560,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      },
+      "ctx8192_gpu99": {
+        "context_tokens": 8192,
+        "gpu_layers": 99,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3787,
+          "used_mib": 176
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7240,
+          "system_used_pct": 54.1,
+          "process_rss_mib": 538
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 1079,
+          "used_mib": 2884
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 5041,
+          "system_used_pct": 68.0,
+          "process_rss_mib": 2739
+        },
+        "load_time_s": 2.2935338001698256,
+        "prefill_tps": 25.277226172744864,
+        "generation_tps": 46.221213573019185,
+        "ttft_ms": 0.0,
+        "tokens_generated": 256,
+        "prompt_tokens": 560,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      }
+    },
+    "8B": {
+      "ctx2048_gpu0": {
+        "context_tokens": 2048,
+        "gpu_layers": 0,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3777,
+          "used_mib": 186
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7471,
+          "system_used_pct": 52.6,
+          "process_rss_mib": 437
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 3109,
+          "used_mib": 854
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7224,
+          "system_used_pct": 54.2,
+          "process_rss_mib": 752
+        },
+        "load_time_s": 4.618531700223684,
+        "prefill_tps": 139.43754483968897,
+        "generation_tps": 0.0,
+        "ttft_ms": 0.0,
+        "tokens_generated": 0,
+        "prompt_tokens": 561,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      },
+      "ctx2048_gpu10": {
+        "context_tokens": 2048,
+        "gpu_layers": 10,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3784,
+          "used_mib": 179
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7338,
+          "system_used_pct": 53.5,
+          "process_rss_mib": 375
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 1742,
+          "used_mib": 2221
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 5358,
+          "system_used_pct": 66.0,
+          "process_rss_mib": 2348
+        },
+        "load_time_s": 3.750762900337577,
+        "prefill_tps": 179.78432956268662,
+        "generation_tps": 0.0,
+        "ttft_ms": 0.0,
+        "tokens_generated": 0,
+        "prompt_tokens": 561,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      },
+      "ctx2048_gpu18": {
+        "context_tokens": 2048,
+        "gpu_layers": 18,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3784,
+          "used_mib": 179
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7516,
+          "system_used_pct": 52.3,
+          "process_rss_mib": 318
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 535,
+          "used_mib": 3428
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 4461,
+          "system_used_pct": 71.7,
+          "process_rss_mib": 3371
+        },
+        "load_time_s": 4.969171700067818,
+        "prefill_tps": 231.06328849225397,
+        "generation_tps": 0.0,
+        "ttft_ms": 0.0,
+        "tokens_generated": 0,
+        "prompt_tokens": 561,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      },
+      "ctx2048_gpu24": {
+        "context_tokens": 2048,
+        "gpu_layers": 24,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3783,
+          "used_mib": 180
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7514,
+          "system_used_pct": 52.4,
+          "process_rss_mib": 320
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 132,
+          "used_mib": 3831
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 3140,
+          "system_used_pct": 80.1,
+          "process_rss_mib": 4675
+        },
+        "load_time_s": 6.238867099862546,
+        "prefill_tps": 115.15455070764139,
+        "generation_tps": 0.0,
+        "ttft_ms": 0.0,
+        "tokens_generated": 0,
+        "prompt_tokens": 561,
+        "stable": true,
+        "error": null,
+        "notes": ""
+      },
+      "ctx2048_gpu32": {
+        "context_tokens": 2048,
+        "gpu_layers": 32,
+        "vram_before_mib": {
+          "total_mib": 4096,
+          "free_mib": 3823,
+          "used_mib": 140
+        },
+        "ram_before_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 7144,
+          "system_used_pct": 54.7,
+          "process_rss_mib": 478
+        },
+        "vram_after_load_mib": {
+          "total_mib": 4096,
+          "free_mib": 139,
+          "used_mib": 3824
+        },
+        "ram_after_load_mib": {
+          "system_total_mib": 15773,
+          "system_available_mib": 646,
+          "system_used_pct": 95.9,
+          "process_rss_mib": 6988
+        },
+        "load_time_s": 8.30751769989729,
+        "prefill_tps": 86.50993923693358,
+        "generation_tps": 0.0,
+        "ttft_ms": 0.0,
+        "tokens_generated": 0,
+        "prompt_tokens": 561,
+        "stable": true,
+        "error": null,
+        "notes": " [WARNING: RAM pressure <500 MiB]"
+      }
+    }
+  },
+  "quality": {
+    "3B": [
+      {
+        "task_id": "basic_reasoning",
+        "task_name": "Basic reasoning",
+        "prompt_tokens": 55,
+        "response_tokens": 52,
+        "generation_tps": 0.0,
+        "response": "Let's break down the problem step by step:\n\n1. The farmer initially has 17 sheep.\n2. All but 9 sheep die. This means that 9 sheep survive.\n\nTherefore, the number of sheep the farmer has left is 9.",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "multi_step_reasoning",
+        "task_name": "Multi-step reasoning",
+        "prompt_tokens": 68,
+        "response_tokens": 406,
+        "generation_tps": 0.0,
+        "response": "Let's define the number of apples Bob has as \\( B \\). According to the problem, Alice has twice as many apples as Bob, so Alice has \\( 2B \\) apples. Carol has 3 fewer apples than Alice, so Carol has \\( 2B - 3 \\) apples.\n\nThe total number of apples they have together is 29. Therefore, we can write the equation:\n\\[ B + 2B + (2B - 3) = 29 \\]\n\nSimplify the left side of the equation:\n\\[ B + 2B + 2B - 3 = 29 \\]\n\\[ 5B - 3 = 29 \\]\n\nNext, we solve for \\( B \\) by isolating it on one side of the equation. First, add 3 to both sides:\n\\[ 5B = 32 \\]\n\nThen, divide both sides by 5:\n\\[ B = \\frac{32}{5} = 6.4 \\]\n\nSince the number of apples must be a whole number, let's recheck the problem statement and the arithmetic. It seems there might be a need to ensure all steps are correct. Let's recheck the arithmetic:\n\n\\[ 5B - 3 = 29 \\]\n\\[ 5B = 32 \\]\n\\[ B = 6.4 \\]\n\nSince the problem states they have whole apples, let's recheck the problem constraints and arithmetic. The correct interpretation should be:\n\n\\[ B = 6 \\]\n\\[ 2B = 12 \\]\n\\[ 2B - 3 = 9 \\]\n\nSo, the correct number of apples each person has is:\n\\[ B = 6 \\]\n\\[ 2B = 12 \\]\n\\[ 2B - 3 = 9 \\]\n\nThus, the number of apples each person has is:\n\\[ \\boxed{6, 12, 9} \\]",
+        "pass_simple": null,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "c_programming",
+        "task_name": "C programming",
+        "prompt_tokens": 52,
+        "response_tokens": 391,
+        "generation_tps": 0.0,
+        "response": "Certainly! Below is a C function that reverses a null-terminated string in-place without allocating any heap memory. The function is named `reverse_string_in_place`. Additionally, I've included a `main` function with a test case to demonstrate its usage.\n\n```c\n#include <stdio.h>\n#include <string.h>\n\n// Function to reverse a null-terminated string in-place\nvoid reverse_string_in_place(char *str) {\n    int len = strlen(str);\n    int start = 0;\n    int end = len - 1;\n\n    // Swap characters from the start and end of the string\n    while (start < end) {\n        char temp = str[start];\n        str[start] = str[end];\n        str[end] = temp;\n        start++;\n        end--;\n    }\n}\n\nint main() {\n    // Test case\n    char test_string[] = \"Hello, World!\";\n    printf(\"Original string: %s\\n\", test_string);\n\n    // Reverse the string in-place\n    reverse_string_in_place(test_string);\n\n    printf(\"Reversed string: %s\\n\", test_string);\n\n    return 0;\n}\n```\n\n### Explanation:\n- **reverse_string_in_place**: This function takes a null-terminated string as input and reverses it in-place. It uses two pointers, `start` and `end`, to swap characters from the beginning and end of the string, moving towards the center. The loop continues until the pointers meet in the middle.\n- **main**: This function initializes a test string, prints the original string, calls the `reverse_string_in_place` function, and then prints the reversed string.\n\n### Output:\nWhen you run the `main` function, you should see the following output:\n\n```\nOriginal string: Hello, World!\nReversed string: !dlroW ,olleH\n```\n\nThis demonstrates that the string has been reversed in-place without allocating any additional memory.",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "python_programming",
+        "task_name": "Python programming",
+        "prompt_tokens": 64,
+        "response_tokens": 464,
+        "generation_tps": 0.0,
+        "response": "Certainly! Below is a Python function that uses a hash-map (dictionary) to find two indices in a list of integers whose values sum to a target. The function is designed to achieve O(n) time complexity.\n\n```python\nfrom typing import List, Dict\n\ndef find_two_sum_indices(nums: List[int], target: int) -> Dict[int, int]:\n    \"\"\"\n    Finds two indices in the list 'nums' whose values sum to 'target'.\n    Uses a hash-map approach for O(n) time complexity.\n    \n    :param nums: List of integers.\n    :param target: Target sum.\n    :return: A dictionary containing the indices of the two numbers that add up to the target.\n    \"\"\"\n    num_to_index: Dict[int, int] = {}\n    for index, num in enumerate(nums):\n        complement = target - num\n        if complement in num_to_index:\n            return {num_to_index[complement]: index, index: num_to_index[complement]}\n        num_to_index[num] = index\n    return {}\n\n# Example usage:\nif __name__ == \"__main__\":\n    nums = [2, 7, 11, 15]\n    target = 9\n    result = find_two_sum_indices(nums, target)\n    print(f\"Indices: {result}\")\n```\n\n### Explanation:\n- **num_to_index**: This dictionary maps each number in the list to its index. This allows us to quickly find if the complement (target - current number) has been seen before.\n- **Time Complexity**: The function iterates through the list once, making it O(n). Each lookup and insertion in the dictionary is O(1), contributing to the overall O(n) complexity.\n- **Space Complexity**: The space used is O(n) due to the dictionary storing each number and its index.\n\n### Example:\nFor the input `nums = [2, 7, 11, 15]` and `target = 9`, the function will return `{0: 1, 1: 2}` because `nums[0] + nums[2] = 2 + 7 = 9` and `nums[1] + nums[3] = 7 + 2 = 9`.",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "debugging",
+        "task_name": "Debugging",
+        "prompt_tokens": 72,
+        "response_tokens": 512,
+        "generation_tps": 0.0,
+        "response": "The provided Python code has a bug that can lead to incorrect results. The issue lies in the logic of the `if` statement within the loop. Specifically, the condition `if lst[i] in lst[i+1:]` is incorrect because it checks if the element at index `i` is present in the sublist starting from index `i+1` to the end of the list. This condition is not sufficient to remove all duplicates correctly.\n\nTo fix this, we need to ensure that we check if the element at index `i` is present in the list from the beginning to the end of the list, not just from `i+1` to the end. Here is the corrected version of the code:\n\n```python\ndef remove_duplicates(lst):\n    for i in range(len(lst)):\n        if lst[i] in lst[:i] + lst[i+1:]:\n            lst.pop(i)\n    return lst\n```\n\n### Explanation of the Bug and the Fix\n\n1. **Original Bug:**\n   - The original code checks if `lst[i]` is in `lst[i+1:]`. This means it only checks if the element at index `i` is present in the sublist starting from `i+1` to the end of the list. This is not sufficient to remove all duplicates because it does not check if the element at index `i` is present in the entire list.\n\n2. **Corrected Code:**\n   - The corrected code checks if `lst[i]` is in `lst[:i] + lst[i+1:]`. This means it checks if the element at index `i` is present in the entire list, including the elements before and after the current element. This ensures that all duplicates are removed correctly.\n\n### Example\n\nLet's consider an example list `lst = [1, 2, 3, 2, 4, 3, 5]`.\n\n- Initially, `lst = [1, 2, 3, 2, 4, 3, 5]`.\n- The first iteration: `i = 0`, `lst[0] = 1`. Check if `1` is in `lst[:0] + lst[1:] = [] + [2, 3, 2, 4, 3, 5] = [2, 3, 2, 4, 3, 5]`. Since `1` is not in this sublist, no change.\n- The",
+        "pass_simple": null,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "architecture_design",
+        "task_name": "Architecture/design reasoning",
+        "prompt_tokens": 77,
+        "response_tokens": 412,
+        "generation_tps": 0.0,
+        "response": "### Job-Queue System Design\n\n#### Components and Responsibilities\n\n1. **Job Queue (Storage)**\n   - **Responsibility:** Stores tasks in a queue to preserve order and ensure task survival across process crashes.\n   - **Storage Choice:** Redis. Redis is an in-memory data store that supports persistence, making it suitable for a single-server application where tasks need to survive a process crash. Additionally, Redis provides a robust data structure (lists) that can be used to maintain the order of tasks.\n\n2. **Worker**\n   - **Responsibility:** Retrieves tasks from the queue, processes them, and updates the queue status.\n   - **Worker Choice:** A Python process or thread that continuously polls the queue for new tasks and processes them. It can use Redis's list data structure to manage the queue.\n\n3. **Task**\n   - **Responsibility:** Represents a unit of work to be processed.\n   - **Task Representation:** A simple Python object that can be serialized and deserialized. This object can include metadata such as task ID, input data, and output data.\n\n4. **Task Processor**\n   - **Responsibility:** Processes tasks and updates the queue status.\n   - **Processor Choice:** A Python function or class that takes a task, processes it, and updates the queue status. This function can be executed by the worker.\n\n5. **Task Status**\n   - **Responsibility:** Tracks the status of each task (e.g., queued, processing, completed, failed).\n   - **Status Storage Choice:** Redis. Redis's data structure (sets) can be used to track the status of tasks, allowing for efficient updates and lookups.\n\n### Justification for Storage Choice\n\n- **Redis:** Redis is chosen for its in-memory persistence capabilities, which ensure that tasks survive a process crash. Additionally, Redis's data structures (lists and sets) provide the necessary functionality to maintain task order and track task statuses, respectively. This makes Redis an ideal choice for a minimal job-queue system in a single-server Python application.",
+        "pass_simple": null,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "instruction_following",
+        "task_name": "Following complex instructions",
+        "prompt_tokens": 69,
+        "response_tokens": 20,
+        "generation_tps": 0.0,
+        "response": "[\"11\", \"13\", \"17\", \"19\", \"23\"]",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "planning",
+        "task_name": "Planning",
+        "prompt_tokens": 58,
+        "response_tokens": 512,
+        "generation_tps": 0.0,
+        "response": "To migrate a 10 GB SQLite database to PostgreSQL with zero downtime, you can follow these steps:\n\n### Step 1: Prepare PostgreSQL Environment\n1. **Install PostgreSQL**: Ensure PostgreSQL is installed on your target server.\n2. **Create a Database**: Create a new PostgreSQL database where the data will be migrated.\n   ```sh\n   createdb target_db\n   ```\n3. **Create a User**: Create a user with the necessary permissions to access the database.\n   ```sh\n   createuser -P target_user\n   ```\n4. **Set Up PostgreSQL**: Ensure PostgreSQL is running and configured correctly.\n   ```sh\n   systemctl start postgresql\n   systemctl enable postgresql\n   ```\n\n### Step 2: Prepare SQLite Database\n1. **Backup SQLite Database**: Ensure you have a backup of the SQLite database.\n   ```sh\n   sqlite3 source_db.db \".backup target_db.db\"\n   ```\n2. **Verify Backup**: Check the backup file to ensure it is complete.\n   ```sh\n   sqlite3 target_db.db \".dump\" > backup_dump.sql\n   ```\n\n### Step 3: Migrate Data to PostgreSQL\n1. **Create a PostgreSQL Table**: Create a table in PostgreSQL with the same schema as the SQLite database.\n   ```sql\n   CREATE TABLE target_db.your_table (\n       id SERIAL PRIMARY KEY,\n       column1 VARCHAR(255),\n       column2 INTEGER,\n       -- Add other columns as needed\n   );\n   ```\n2. **Import Data**: Import the data from the SQLite database into the PostgreSQL table.\n   ```sql\n   COPY target_db.your_table FROM 'source_db.db' WITH CSV HEADER;\n   ```\n3. **Verify Data**: Check the PostgreSQL table to ensure the data has been imported correctly.\n   ```sql\n   SELECT * FROM target_db.your_table LIMIT 10;\n   ```\n\n### Step 4: Optimize and Finalize\n1. **Optimize PostgreSQL Table**: Optimize the PostgreSQL table to ensure it is performing well.\n   ```sql\n   ANALYZE target_db.your_table;\n   ```\n2. **Verify Performance**: Check the performance of the PostgreSQL table to ensure it is optimized.\n   ```sql\n   EXPLAIN SELECT * FROM target_db.your_table LIMIT 10;\n   ```\n\n### Step 5: Drop the SQLite Database\n1. **Drop SQLite Database**: Once the migration is complete, you can drop the SQLite database.\n   ```sh\n   rm -rf source_db",
+        "pass_simple": null,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "summarization",
+        "task_name": "Summarization",
+        "prompt_tokens": 128,
+        "response_tokens": 68,
+        "generation_tps": 0.0,
+        "response": "Transformer models convert sequences of tokens into dense vector embeddings and pass them through multiple layers of self-attention mechanisms, where each token can attend to every other token in the sequence. Each attention layer includes query, key, and value projections, scaled dot-product attention, and feed-forward sub-layers that apply non-linear transformations independently at each position.",
+        "pass_simple": null,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "tool_call_output",
+        "task_name": "Tool/function-call style output",
+        "prompt_tokens": 92,
+        "response_tokens": 28,
+        "generation_tps": 0.0,
+        "response": "{\"name\": \"search_web\", \"arguments\": {\"query\": \"What is the capital of France?\", \"max_results\": 1}}",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "long_context_retrieval",
+        "task_name": "Long-context retrieval",
+        "prompt_tokens": 131,
+        "response_tokens": 14,
+        "generation_tps": 0.0,
+        "response": "xK9#mP2$vL7@nQ4",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      },
+      {
+        "task_id": "error_detection_correction",
+        "task_name": "Error detection and self-correction",
+        "prompt_tokens": 59,
+        "response_tokens": 117,
+        "generation_tps": 0.0,
+        "response": "Let's break down the Python expression `2 ** 3 + 1` step by step:\n\n1. `2 ** 3` means 2 raised to the power of 3, which equals 8.\n2. Then, `+ 1` adds 1 to the result of the previous operation, so `8 + 1` equals 9.\n\nTherefore, the actual output of the expression `2 ** 3 + 1` is 9, not 8. The discrepancy arises from the order of operations, where exponentiation is performed before addition.",
+        "pass_simple": true,
+        "notes": "",
+        "error": null
+      }
+    ]
+  },
+  "cuda_available": true
+}

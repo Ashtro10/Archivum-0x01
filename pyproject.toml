@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astra"
+version = "0.0.1"
+description = "Primus: a local-first personal AI operating system."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+readme = "README.md"
+
+# Declared per ADR-0001 and ADR-0004. llama-cpp-python, numpy, and faiss are
+# imported lazily. pydantic is imported by astra.configuration.settings (B-005).
+# llama-cpp-python must be installed by the user (backlog B-002 stage 3).
+dependencies = [
+    "llama-cpp-python>=0.3",
+    "numpy>=1.26",
+    "faiss-cpu>=1.8",
+    "pydantic>=2.7",
+    "dearpygui>=1.11",   # System panel render helpers (ADR-0007)
+    "psutil>=5.9",       # System info in AstraStateProvider
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+dist = ["pyinstaller>=6"]
+voice = [
+    "faster-whisper>=1.0",
+    "kokoro>=0.9",
+    "huggingface_hub>=0.23",
+    "rvc_py @ git+https://github.com/Sergey004/rvc_py.git",
+    "torch>=2.5",
+    "transformers>=4.57",
+    "soundfile>=0.12",
+    "librosa>=0.10",
+]
+
+[project.gui-scripts]
+primus = "astra.__main__:_gui_entry"
+
+[tool.setuptools.packages.find]
+include = ["astra*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

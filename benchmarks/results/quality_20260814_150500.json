@@ -1,0 +1,361 @@
+{
+  "timestamp": "20260814_150500",
+  "eval_set_size": 12,
+  "candidate_a_3b": {
+    "label": "Qwen2.5-3B Q5_K_M | 99gpu | ctx4096",
+    "model": "qwen2.5-3b-instruct-q5_k_m.gguf",
+    "n_gpu_layers": 99,
+    "context_size": 4096,
+    "mean_score": 0.732,
+    "pass_count": 10,
+    "total": 12,
+    "items": [
+      {
+        "category": "01_basic_reasoning",
+        "score": 0.5,
+        "hits": [
+          "9"
+        ],
+        "max_keywords": 2,
+        "elapsed_s": 4.3,
+        "gen_tps": 40.3,
+        "output_chars": 631,
+        "output_sample": "Let's break down the problem step by step:\n\n1. The farmer initially has 17 sheep.\n2. The problem states that \"all but 9 run away.\" This means that 9 sheep are left, and the rest (which is 17 - 9 = 8) have run away.\n3. The question asks how many sheep the farmer has left. Since 9 sheep are left, the answer is 9.\n\nSo, the farmer has 9 sheep left. \n\nThe key to solving this problem is understanding th"
+      },
+      {
+        "category": "02_multi_step_reasoning",
+        "score": 0.75,
+        "hits": [
+          "10",
+          "alice",
+          "bob"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 11.25,
+        "gen_tps": 45.5,
+        "output_chars": 1430,
+        "output_sample": "Let's denote Alice's current age as \\( A \\) and Bob's current age as \\( B \\).\n\nFrom the problem, we have two key pieces of information:\n1. Alice is twice as old as Bob.\n2. In 5 years, Alice will be 1.5 times Bob's age.\n\nWe can translate these pieces of information into mathematical equations.\n\nFirst, the first piece of information gives us:\n\\[ A = 2B \\]\n\nNext, the second piece of information tells"
+      },
+      {
+        "category": "03_c_programming",
+        "score": 0.6,
+        "hits": [
+          "char",
+          "\\0",
+          "strlen"
+        ],
+        "max_keywords": 5,
+        "elapsed_s": 11.77,
+        "gen_tps": 43.5,
+        "output_chars": 1832,
+        "output_sample": "Ensure the function is efficient and handles edge cases like empty strings and strings with only one character. \n\nHere's a starting point with a few issues to correct:\n\n```c\n#include <stdio.h>\n#include <string.h>\n\nvoid reverse_string(char *str) {\n    int len = strlen(str);\n    for (int i = 0; i < len / 2; i++) {\n        char temp = str[i];\n        str[i] = str[len - i - 1];\n        str[len - i - 1"
+      },
+      {
+        "category": "04_python_programming",
+        "score": 0.8,
+        "hits": [
+          "def",
+          "cache",
+          "fibonacci",
+          "memo"
+        ],
+        "max_keywords": 5,
+        "elapsed_s": 11.59,
+        "gen_tps": 43.6,
+        "output_chars": 1754,
+        "output_sample": "The Fibonacci sequence is a series of numbers where each number is the sum of the two preceding ones, usually starting with 0 and 1. The sequence goes: 0, 1, 1, 2, 3, 5, 8, 13, 21, and so on.\n\nYour task is to implement a decorator `@memoize` that will cache the results of the Fibonacci function calls. The function should be able to handle large values of n efficiently.\n\nExample usage:\n```python\n@m"
+      },
+      {
+        "category": "05_debugging",
+        "score": 0.4,
+        "hits": [
+          "max_val = lst[0]",
+          "None"
+        ],
+        "max_keywords": 5,
+        "elapsed_s": 5.34,
+        "gen_tps": 46.2,
+        "output_chars": 971,
+        "output_sample": "The provided code is almost correct, but there is a small issue with the initial value of `max_val`. The initial value should be set to the first element of the list, not `0`. Here is the corrected version of the function:\n\n```python\ndef find_max(lst):\n    if not lst:  # Check if the list is empty\n        return None  # Return None if the list is empty\n    max_val = lst[0]  # Initialize max_val wi"
+      },
+      {
+        "category": "06_architecture_design",
+        "score": 0.83,
+        "hits": [
+          "dict",
+          "capacity",
+          "evict",
+          "lru",
+          "doubly"
+        ],
+        "max_keywords": 6,
+        "elapsed_s": 11.53,
+        "gen_tps": 44.4,
+        "output_chars": 2342,
+        "output_sample": "For the data structures:\n- Use a dictionary to store the key-value pairs. The keys will be the cache keys and the values will be the corresponding values. \n- Use a doubly linked list to keep track of the order of access. The head of the list will be the most recently accessed item, and the tail will be the least recently accessed item. \n- Use a counter to keep track of the access count for each ke"
+      },
+      {
+        "category": "07_complex_instructions",
+        "score": 0.33,
+        "hits": [
+          "engineer"
+        ],
+        "max_keywords": 3,
+        "elapsed_s": 0.31,
+        "gen_tps": 29.0,
+        "output_chars": 20,
+        "output_sample": "[\n\"ok\",\n\"engineer\"\n]"
+      },
+      {
+        "category": "08_planning",
+        "score": 0.83,
+        "hits": [
+          "rollback",
+          "test",
+          "deploy",
+          "monitor",
+          "version"
+        ],
+        "max_keywords": 6,
+        "elapsed_s": 11.97,
+        "gen_tps": 42.8,
+        "output_chars": 2549,
+        "output_sample": "1. **Prepare the environment**: \n   - Set up a staging environment with the new version of the web API.\n   - Ensure the staging environment is identical to the production environment as much as possible.\n   - Verify that the staging environment is functioning correctly with the new API version.\n\n2. **Create a rollback plan**:\n   - Define a clear rollback process that can be executed quickly if nec"
+      },
+      {
+        "category": "09_summarization",
+        "score": 1.0,
+        "hits": [
+          "- ",
+          "Linux",
+          "kernel",
+          "Torvalds"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 2.39,
+        "gen_tps": 41.4,
+        "output_chars": 460,
+        "output_sample": "- The Linux kernel is a monolithic system managing various core functionalities.\n- It was developed by Linus Torvalds in 1991.\n- The kernel interacts with hardware via device drivers, supporting both built-in and loadable modules. - The Linux kernel is a monolithic system managing core functionalities.\n- It was developed by Linus Torvalds in 1991.\n- The kernel communicates with hardware through de"
+      },
+      {
+        "category": "10_tool_function_call",
+        "score": 1.0,
+        "hits": [
+          "read_file",
+          "write_file",
+          "notes.txt",
+          "summary.txt"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 2.17,
+        "gen_tps": 44.7,
+        "output_chars": 305,
+        "output_sample": "[]\n[\n  {\n    \"tool\": \"read_file\",\n    \"args\": {\n      \"path\": \"/home/user/notes.txt\"\n    }\n  },\n  {\n    \"tool\": \"search_web\",\n    \"args\": {\n      \"query\": \"how to summarize text\"\n    }\n  },\n  {\n    \"tool\": \"write_file\",\n    \"args\": {\n      \"path\": \"/home/user/summary.txt\",\n      \"content\": \"\"\n    }\n  }\n]"
+      },
+      {
+        "category": "11_long_context_retrieval",
+        "score": 1.0,
+        "hits": [
+          "bob",
+          "2",
+          "two",
+          "locked"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 3.97,
+        "gen_tps": 41.3,
+        "output_chars": 488,
+        "output_sample": "Based on the system log provided, the user's account was locked for the user \"bob\" after 2 failed login attempts.\n\nThe relevant entries in the log are:\n1. 2026-08-14 09:02:12 WARN  [auth] user=bob login failed (bad password)\n2. 2026-08-14 09:02:13 WARN  [auth] user=bob login failed (bad password)\n3. 2026-08-14 09:02:14 ERROR [auth] user=bob account locked after 2 failed attempts\n\nThese entries ind"
+      },
+      {
+        "category": "12_error_detection_self_correction",
+        "score": 0.75,
+        "hits": [
+          "left = mid + 1",
+          "right = mid - 1",
+          "len(arr) - 1"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 11.81,
+        "gen_tps": 43.3,
+        "output_chars": 2020,
+        "output_sample": "The function `binary_search` is intended to perform a binary search on a sorted array `arr` to find the index of a given `target` value. However, there is a subtle error in the implementation. Your task is to identify the error, explain why it is wrong, and provide the corrected version of the function.\n\n### Example\nFor `arr = [1, 2, 3, 4, 5]` and `target = 3`, the function should return `2`.\n\n###"
+      }
+    ]
+  },
+  "candidate_b_8b": {
+    "label": "Dolphin3-Llama3.1-8B Q5_K_S | 17gpu | ctx2048",
+    "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+    "n_gpu_layers": 17,
+    "context_size": 2048,
+    "mean_score": 0.634,
+    "pass_count": 9,
+    "total": 12,
+    "items": [
+      {
+        "category": "01_basic_reasoning",
+        "score": 0.5,
+        "hits": [
+          "9"
+        ],
+        "max_keywords": 2,
+        "elapsed_s": 11.47,
+        "gen_tps": 6.5,
+        "output_chars": 311,
+        "output_sample": "To solve this problem, we need to determine how many sheep the farmer has left after some of them run away. We know that the farmer initially has 17 sheep. We also know that all but 9 sheep run away. This means that 9 sheep did not run away and are still with the farmer. Therefore, the farmer has 9 sheep left."
+      },
+      {
+        "category": "02_multi_step_reasoning",
+        "score": 0.75,
+        "hits": [
+          "10",
+          "alice",
+          "bob"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 38.01,
+        "gen_tps": 7.1,
+        "output_chars": 729,
+        "output_sample": "Let's denote Alice's current age as A and Bob's current age as B.\n\nFrom the first statement, we have A = 2B.\n\nFrom the second statement, in 5 years, Alice's age will be A + 5 and Bob's age will be B + 5. According to the statement, Alice's age will be 1.5 times Bob's age, so we have A + 5 = 1.5(B + 5).\n\nSubstituting A = 2B into the second equation, we get 2B + 5 = 1.5(B + 5).\n\nExpanding the right-"
+      },
+      {
+        "category": "03_c_programming",
+        "score": 0.4,
+        "hits": [
+          "char",
+          "strlen"
+        ],
+        "max_keywords": 5,
+        "elapsed_s": 37.6,
+        "gen_tps": 7.5,
+        "output_chars": 929,
+        "output_sample": "```c\n#include <stdio.h>\n#include <string.h>\n\nvoid reverseString(char *str) {\n    int length = strlen(str);\n    int i;\n    for (i = 0; i < length / 2; i++) {\n        char temp = str[i];\n        str[i] = str[length - i - 1];\n        str[length - i - 1] = temp;\n    }\n}\n\nint main() {\n    char str1[] = \"Hello\";\n    char str2[] = \"World\";\n    \n    printf(\"Before reversal:\\n\");\n    printf(\"str1: %s\\n\", s"
+      },
+      {
+        "category": "04_python_programming",
+        "score": 0.8,
+        "hits": [
+          "def",
+          "cache",
+          "fibonacci",
+          "memo"
+        ],
+        "max_keywords": 5,
+        "elapsed_s": 80.88,
+        "gen_tps": 6.3,
+        "output_chars": 2074,
+        "output_sample": "```python\ndef memoize(func):\n    cache = {}\n    def memoized_func(*args):\n        if args not in cache:\n            cache[args] = func(*args)\n        return cache[args]\n    return memoized_func\n\n@memoize\ndef fibonacci(n):\n    if n < 2:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\nprint(fibonacci(10))\n```\n\nHowever, the above code has a problem. The decorator is not properly memoizin"
+      },
+      {
+        "category": "05_debugging",
+        "score": 0.0,
+        "hits": [],
+        "max_keywords": 5,
+        "elapsed_s": 11.95,
+        "gen_tps": 6.2,
+        "output_chars": 228,
+        "output_sample": ", but returns 0 instead\n```python\ndef find_max(lst):\n    max_val = 0\n    for x in lst:\n        if x > max_val:\n            max_val = x\n    return max_val\n\nfind_max([-5, -3, -1, -8])  # should return -1, but returns 0 instead\n```"
+      },
+      {
+        "category": "06_architecture_design",
+        "score": 0.83,
+        "hits": [
+          "dict",
+          "capacity",
+          "evict",
+          "lru",
+          "doubly"
+        ],
+        "max_keywords": 6,
+        "elapsed_s": 83.92,
+        "gen_tps": 6.1,
+        "output_chars": 2243,
+        "output_sample": "The get() method should return the value associated with a given key if it exists in the cache, or null if it does not. The put() method should add a new key-value pair to the cache if the key does not already exist, or update the value of an existing key. If the cache is full, it should evict the least recently used item before adding the new item.\n\nIn this problem, you can assume that all keys a"
+      },
+      {
+        "category": "07_complex_instructions",
+        "score": 0.0,
+        "hits": [],
+        "max_keywords": 3,
+        "elapsed_s": 0.82,
+        "gen_tps": null,
+        "output_chars": 0,
+        "output_sample": ""
+      },
+      {
+        "category": "08_planning",
+        "score": 0.83,
+        "hits": [
+          "rollback",
+          "test",
+          "deploy",
+          "monitor",
+          "version"
+        ],
+        "max_keywords": 6,
+        "elapsed_s": 66.64,
+        "gen_tps": 6.1,
+        "output_chars": 1971,
+        "output_sample": "1. **Prepare the new version of the API**\n   - Write the new version of the API with the breaking changes.\n   - Test the new version of the API to ensure it works as expected.\n   - Create a new branch for the new version in your version control system.\n\n2. **Implement a canary release**\n   - Deploy the new version of the API to a separate environment (e.g., staging or a canary environment).\n   - M"
+      },
+      {
+        "category": "09_summarization",
+        "score": 1.0,
+        "hits": [
+          "- ",
+          "Linux",
+          "kernel",
+          "Torvalds"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 11.7,
+        "gen_tps": 5.8,
+        "output_chars": 345,
+        "output_sample": "These features help isolate processes and control resource usage.\n\n- The Linux kernel is a monolithic kernel used in Linux distributions.\n- It manages CPU scheduling, memory management, file systems, device drivers, and network stacks.\n- It was first released by Linus Torvalds in 1991 and provides security features like namespaces and SELinux."
+      },
+      {
+        "category": "10_tool_function_call",
+        "score": 1.0,
+        "hits": [
+          "read_file",
+          "write_file",
+          "notes.txt",
+          "summary.txt"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 16.06,
+        "gen_tps": 6.2,
+        "output_chars": 385,
+        "output_sample": "[\n    {\n        \"tool\": \"read_file\",\n        \"args\": {\n            \"path\": \"/home/user/notes.txt\"\n        }\n    },\n    {\n        \"tool\": \"search_web\",\n        \"args\": {\n            \"query\": \"summary of notes\"\n        }\n    },\n    {\n        \"tool\": \"write_file\",\n        \"args\": {\n            \"path\": \"/home/user/summary.txt\",\n            \"content\": \"summary of notes\"\n        }\n    }\n]"
+      },
+      {
+        "category": "11_long_context_retrieval",
+        "score": 0.75,
+        "hits": [
+          "bob",
+          "2",
+          "locked"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 3.68,
+        "gen_tps": 4.1,
+        "output_chars": 63,
+        "output_sample": "Answer: Bob's account was locked after 2 failed login attempts."
+      },
+      {
+        "category": "12_error_detection_self_correction",
+        "score": 0.75,
+        "hits": [
+          "left = mid + 1",
+          "right = mid - 1",
+          "len(arr) - 1"
+        ],
+        "max_keywords": 4,
+        "elapsed_s": 41.83,
+        "gen_tps": 5.9,
+        "output_chars": 766,
+        "output_sample": "# Test the function\narr = [1, 2, 3, 4, 5, 6, 7, 8, 9]\ntarget = 5\nprint(binary_search(arr, target))  # Output: 4\n\nThe error in the function is that the right pointer is set to the length of the array, which is out of the array's bounds. The correct range for the right pointer should be from 0 to len(arr) - 1. \n\nHere is the corrected version of the function:\n\ndef binary_search(arr, target):\n    left"
+      }
+    ]
+  }
+}

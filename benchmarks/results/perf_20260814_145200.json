@@ -1,0 +1,463 @@
+{
+  "timestamp": "20260814_145200",
+  "hardware": {
+    "vram_baseline": {
+      "total_mib": 4096,
+      "free_mib": 148,
+      "used_mib": 3815
+    },
+    "ram_baseline": {
+      "total_mib": 15773,
+      "available_mib": 3194,
+      "used_mib": 12579,
+      "load_pct": 79
+    }
+  },
+  "candidate_a_3b": [
+    {
+      "label": "3B-Q5_K_M ctx=2048",
+      "model": "qwen2.5-3b-instruct-q5_k_m.gguf",
+      "n_gpu_layers": 99,
+      "context_size": 2048,
+      "prompt_tokens": 37,
+      "generated_tokens": 200,
+      "load_time_s": 15.265,
+      "ttft_s": 0.926,
+      "prefill_tps": 39.9,
+      "gen_tps": 12.32,
+      "total_time_s": 17.076,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 148,
+        "used_mib": 3815
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 99,
+        "used_mib": 3864
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 71,
+        "used_mib": 3892
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 2782,
+        "used_mib": 12991,
+        "load_pct": 82
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 337,
+        "used_mib": 15436,
+        "load_pct": 97
+      },
+      "error": null,
+      "output_sample": " A CPU cache is a small, fast memory that sits between the CPU and main memory, designed to speed up data access. It works by storing frequently accessed data and instructions, reducing the need to access slower main memory. There are typically three levels of cache: L1, L2, and L3, each progressive"
+    },
+    {
+      "label": "3B-Q5_K_M ctx=4096",
+      "model": "qwen2.5-3b-instruct-q5_k_m.gguf",
+      "n_gpu_layers": 99,
+      "context_size": 4096,
+      "prompt_tokens": 37,
+      "generated_tokens": 200,
+      "load_time_s": 5.507,
+      "ttft_s": 0.561,
+      "prefill_tps": 65.9,
+      "gen_tps": 6.05,
+      "total_time_s": 33.459,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 2209,
+        "used_mib": 1754
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 89,
+        "used_mib": 3874
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 83,
+        "used_mib": 3880
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 1389,
+        "used_mib": 14384,
+        "load_pct": 91
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 303,
+        "used_mib": 15470,
+        "load_pct": 98
+      },
+      "error": null,
+      "output_sample": " A CPU cache is a small, fast memory that sits between the CPU and main memory, designed to speed up data access. It works by storing frequently accessed data and instructions, reducing the need to access slower main memory. There are typically three levels of cache: L1, L2, and L3, each progressive"
+    },
+    {
+      "label": "3B-Q5_K_M ctx=8192",
+      "model": "qwen2.5-3b-instruct-q5_k_m.gguf",
+      "n_gpu_layers": 99,
+      "context_size": 8192,
+      "prompt_tokens": 37,
+      "generated_tokens": 200,
+      "load_time_s": 7.072,
+      "ttft_s": 0.775,
+      "prefill_tps": 47.8,
+      "gen_tps": 5.14,
+      "total_time_s": 39.508,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 2021,
+        "used_mib": 1942
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 95,
+        "used_mib": 3868
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 71,
+        "used_mib": 3892
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 2586,
+        "used_mib": 13187,
+        "load_pct": 83
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 70,
+        "used_mib": 15703,
+        "load_pct": 99
+      },
+      "error": null,
+      "output_sample": " A CPU cache is a small, fast memory that sits between the CPU and main memory, designed to speed up data access. It works by storing frequently accessed data and instructions, reducing the need to access slower main memory. There are typically three levels of cache: L1, L2, and L3, each progressive"
+    }
+  ],
+  "candidate_b_8b": [
+    {
+      "label": "8B cpu-only ctx=2048",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 0,
+      "context_size": 2048,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 2.8,
+      "ttft_s": 4.681,
+      "prefill_tps": 8.1,
+      "gen_tps": 2.21,
+      "total_time_s": 71.972,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 1883,
+        "used_mib": 2080
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 1213,
+        "used_mib": 2750
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 3056,
+        "used_mib": 907
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 3739,
+        "used_mib": 12034,
+        "load_pct": 76
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 3644,
+        "used_mib": 12129,
+        "load_pct": 76
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small and fast memory located close to the CPU. It stores frequently used data and instructions to reduce the time it takes for the CPU to access data from the main memory. The cache is divided into different levels, with L1, L2, and L3 being the most common.\n\nL1 cache is the sma"
+    },
+    {
+      "label": "8B 10gpu ctx=2048",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 10,
+      "context_size": 2048,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 3.159,
+      "ttft_s": 4.831,
+      "prefill_tps": 7.9,
+      "gen_tps": 2.86,
+      "total_time_s": 56.867,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 570,
+        "used_mib": 3393
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 98,
+        "used_mib": 3865
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 87,
+        "used_mib": 3876
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 7440,
+        "used_mib": 8333,
+        "load_pct": 52
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 1810,
+        "used_mib": 13963,
+        "load_pct": 88
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small and fast memory located close to the CPU. It stores frequently used data and instructions to reduce the time it takes for the CPU to access data from the main memory. The cache is divided into different levels, with L1, L2, and L3 being the most common.\n\nL1 cache is the sma"
+    },
+    {
+      "label": "8B 17gpu ctx=2048 (est max stable)",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 17,
+      "context_size": 2048,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 4.712,
+      "ttft_s": 4.764,
+      "prefill_tps": 8.0,
+      "gen_tps": 1.3,
+      "total_time_s": 119.103,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 1811,
+        "used_mib": 2152
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 135,
+        "used_mib": 3828
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 118,
+        "used_mib": 3845
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 1467,
+        "used_mib": 14306,
+        "load_pct": 90
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 201,
+        "used_mib": 15572,
+        "load_pct": 98
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small and fast memory located close to the CPU. It stores frequently used data and instructions to reduce the time it takes for the CPU to access data from the main memory. The cache is divided into different levels, with each level having a larger capacity and slower access time"
+    },
+    {
+      "label": "8B 20gpu ctx=2048",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 20,
+      "context_size": 2048,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 7.564,
+      "ttft_s": 4.063,
+      "prefill_tps": 9.4,
+      "gen_tps": 3.36,
+      "total_time_s": 48.364,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 1810,
+        "used_mib": 2153
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 128,
+        "used_mib": 3835
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 110,
+        "used_mib": 3853
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 1732,
+        "used_mib": 14041,
+        "load_pct": 89
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 23,
+        "used_mib": 15750,
+        "load_pct": 99
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small and fast memory located close to the CPU. It stores frequently used data and instructions to reduce the time it takes for the CPU to access data from the main memory. The cache is divided into different levels, with L1, L2, and L3 being the most common.\n\nL1 cache is the sma"
+    },
+    {
+      "label": "8B 25gpu ctx=2048",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 25,
+      "context_size": 2048,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 7.476,
+      "ttft_s": 1.08,
+      "prefill_tps": 35.2,
+      "gen_tps": 4.29,
+      "total_time_s": 35.798,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 3280,
+        "used_mib": 683
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 314,
+        "used_mib": 3649
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 293,
+        "used_mib": 3670
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 3641,
+        "used_mib": 12132,
+        "load_pct": 76
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 4045,
+        "used_mib": 11728,
+        "load_pct": 74
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small and fast memory located close to the CPU. It stores frequently used data and instructions to reduce the time it takes for the CPU to access data from the main memory. The cache is divided into different levels, with L1, L2, and L3 being the most common.\n\nL1 cache is the sma"
+    },
+    {
+      "label": "8B all-gpu ctx=2048 (OOM expected)",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 32,
+      "context_size": 2048,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 4.348,
+      "ttft_s": 0.723,
+      "prefill_tps": 52.6,
+      "gen_tps": 3.51,
+      "total_time_s": 43.207,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 3763,
+        "used_mib": 200
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 112,
+        "used_mib": 3851
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 118,
+        "used_mib": 3845
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 8603,
+        "used_mib": 7170,
+        "load_pct": 45
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 2216,
+        "used_mib": 13557,
+        "load_pct": 85
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small, fast memory that stores frequently used data. It is located between the main memory and the CPU. The cache acts as a buffer, allowing the CPU to access data quickly without having to wait for it to be fetched from the main memory.\n\nThe CPU cache is divided into different l"
+    },
+    {
+      "label": "8B 17gpu ctx=4096",
+      "model": "Dolphin3.0-Llama3.1-8B-Q5_K_S.gguf",
+      "n_gpu_layers": 17,
+      "context_size": 4096,
+      "prompt_tokens": 38,
+      "generated_tokens": 150,
+      "load_time_s": 2.755,
+      "ttft_s": 1.451,
+      "prefill_tps": 26.2,
+      "gen_tps": 6.08,
+      "total_time_s": 25.971,
+      "vram_baseline": {
+        "total_mib": 4096,
+        "free_mib": 3776,
+        "used_mib": 187
+      },
+      "vram_after_load": {
+        "total_mib": 4096,
+        "free_mib": 519,
+        "used_mib": 3444
+      },
+      "vram_peak": {
+        "total_mib": 4096,
+        "free_mib": 504,
+        "used_mib": 3459
+      },
+      "ram_before": {
+        "total_mib": 15773,
+        "available_mib": 8282,
+        "used_mib": 7491,
+        "load_pct": 47
+      },
+      "ram_after_load": {
+        "total_mib": 15773,
+        "available_mib": 5432,
+        "used_mib": 10341,
+        "load_pct": 65
+      },
+      "error": null,
+      "output_sample": " \n\nA CPU cache is a small and fast memory located close to the CPU. It stores frequently used data and instructions to reduce the time it takes for the CPU to access data from the main memory. The cache is divided into different levels, with each level having a larger capacity and slower access time"
+    }
+  ],
+  "sustained_3b": {
+    "passes": [
+      4.31,
+      4.38,
+      4.38
+    ],
+    "mean_tps": 4.36,
+    "min_tps": 4.31,
+    "max_tps": 4.38,
+    "throttle_ratio": 1.0
+  },
+  "sustained_8b_best": {
+    "passes": [
+      5.95,
+      6.35,
+      6.57
+    ],
+    "mean_tps": 6.29,
+    "min_tps": 5.95,
+    "max_tps": 6.57,
+    "throttle_ratio": 1.0
+  },
+  "best_8b_gpu_layers": 17
+}

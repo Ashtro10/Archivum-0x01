@@ -74,7 +74,7 @@ class SetupRoutes(private val core: CluCore, private val governor: ResourceGover
         putJsonArray("scanFolders") { LocalModelScanner.defaultFolders(paths).forEach { add(it.absolutePath) } }
     }
 
-    private fun defaultWorkspace() = File(File(System.getProperty("user.home"), "Documents"), "CLU Workspace")
+    private fun defaultWorkspace() = System.getProperty("clu.workspace")?.takeIf { it.isNotBlank() }?.let(::File) ?: File(File(System.getProperty("user.home"), "Documents"), "CLU Workspace")
 
     private fun jobJson(j: DownloadJob) = buildJsonObject {
         put("id", j.id); put("modelId", j.modelId); put("name", j.name); put("destination", j.destination); put("totalBytes", j.totalBytes); put("bytes", j.bytes)

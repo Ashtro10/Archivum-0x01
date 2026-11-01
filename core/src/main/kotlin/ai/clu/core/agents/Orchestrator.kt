@@ -46,7 +46,7 @@ fun interface ResourceGate { fun blockedReason(): String? }
  */
 class AgentService(
     private val db: SqlDriver, private val clock: Clock, private val settings: SettingsStore, val registry: AgentToolRegistry, val audit: AuditLog, val broker: PermissionBroker,
-    private val reasoner: Reasoner, private val scope: CoroutineScope, val switches: ToolSwitches, @Volatile var gate: ResourceGate = ResourceGate { null }, private val tick: Long = 50L,
+    @Volatile var reasoner: Reasoner, private val scope: CoroutineScope, val switches: ToolSwitches, @Volatile var gate: ResourceGate = ResourceGate { null }, private val tick: Long = 50L,
 ) {
     val exec = ExecutionManager(registry, broker, audit, clock)
     val roots get() = broker.roots
@@ -61,7 +61,7 @@ class AgentService(
     }
     private val runners = ConcurrentHashMap<String, Runner>()
     private val runningTasks = AtomicInteger(); private val runningSteps = AtomicInteger()
-    private val planner = Planner(registry, reasoner, { settings.int(Settings.AGENTS_MAX_STEPS) }, ::toolEnabled) { roots.workspace()?.path ?: "(none yet)" }
+    private val planner = Planner(registry, { reasoner }, { settings.int(Settings.AGENTS_MAX_STEPS) }, ::toolEnabled) { roots.workspace()?.path ?: "(none yet)" }
 
     fun toolEnabled(id: String) = switches.enabled(id)
     fun disabledTools() = switches.disabled()

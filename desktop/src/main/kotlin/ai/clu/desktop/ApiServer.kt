@@ -83,6 +83,7 @@ class ApiServer(
     private val settings = SettingsRoutes(core, governor, hostConfig)
     private val memory = MemoryRoutes(core, maintenance, paths)
     private val models = ModelRoutes(core, governor, paths)
+    private val agents = AgentRoutes(core, governor)
     private val downloader = paths?.let { p -> ModelDownloader(p.models, { f -> core.models.register(f).id }) }
     private val setup = if (paths != null && platform != null && downloader != null) SetupRoutes(core, governor, paths, platform, downloader, autostart, hostConfig) else null
     /** One-time codes that let the shell window obtain the token without it ever appearing on a command line. */
@@ -150,7 +151,7 @@ class ApiServer(
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || setup?.handle(call) == true || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || setup?.handle(call) == true || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 
@@ -201,6 +202,7 @@ class ApiServer(
         }
         put("conversations", core.conversations.list().size)
         put("pendingSuggestions", core.proposals.pending().size)
+        put("pendingApprovals", core.agentBroker.pendingCount()); put("activeTasks", core.agents.activeCount())
     }
 
     private fun message(m: Message) = buildJsonObject {

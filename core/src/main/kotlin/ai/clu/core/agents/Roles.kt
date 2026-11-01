@@ -122,7 +122,7 @@ object PlanValidator {
  * names), then validates it. Invalid plans get one repair attempt with the reason. It never executes anything and sees no
  * file, web or memory content: only the goal and the tool list, so nothing read later can change what the plan is.
  */
-class Planner(private val registry: AgentToolRegistry, private val reasoner: Reasoner, private val maxSteps: () -> Int, private val enabled: (String) -> Boolean, private val workspaceHint: () -> String) {
+class Planner(private val registry: AgentToolRegistry, private val reasonerOf: () -> Reasoner, private val maxSteps: () -> Int, private val enabled: (String) -> Boolean, private val workspaceHint: () -> String) {
     fun catalog(): String = registry.all().filter { enabled(it.spec.id) }.joinToString("\n") { t ->
         "- ${t.spec.id} [${t.spec.category.label}]: ${t.spec.description} args: {${t.spec.input.entries.joinToString(", ") { (k, f) -> "\"$k\":${f.type}${if (f.required) "*" else ""}" }}}" +
             (if (t.spec.dataFields.isNotEmpty()) " (may use earlier results in: ${t.spec.dataFields.joinToString()})" else "") }
@@ -154,7 +154,7 @@ ws ::= [ \n]{0,4}
             "Example for \"find what I know about X and save notes\": {\"summary\":\"Look up X and write notes\",\"steps\":[{\"id\":\"s1\",\"tool\":\"memory.search\",\"args\":{\"query\":\"X\"}},{\"id\":\"s2\",\"reason\":\"knowledge\",\"instruction\":\"Summarise what is known about X\",\"after\":[\"s1\"]},{\"id\":\"s3\",\"tool\":\"fs.write\",\"args\":{\"path\":\"notes/x.txt\",\"content\":\"{{s2}}\",\"mode\":\"create\"},\"after\":[\"s2\"]}]}"
         var feedback = ""
         repeat(2) { attempt ->
-            val r = reasoner.reason(AgentRole.PLANNER, sys, "Goal: ${goal.take(1000)}$feedback", 1200, "$requestId-p$attempt", grammar = grammar(), temperature = 0.2f)
+            val r = reasonerOf().reason(AgentRole.PLANNER, sys, "Goal: ${goal.take(1000)}$feedback", 1200, "$requestId-p$attempt", grammar = grammar(), temperature = 0.2f)
             if (r.error != null) throw PlanProblem("Planning failed: ${r.error}")
             try { return PlanValidator.parse(r.text, registry, maxSteps(), enabled) } catch (e: PlanProblem) { feedback = "\n\nYour previous plan was refused: ${e.message} Reply with a corrected plan." }
         }

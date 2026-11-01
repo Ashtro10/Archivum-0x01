@@ -3,7 +3,7 @@
 "use strict";
 const { chromium } = require("playwright");
 const path = require("path");
-const [base, code, shots, tinyModel] = process.argv.slice(2);
+const [base, code, shots, tinyModel, workspaceDir, dataFolder, readOnlyFolder] = process.argv.slice(2);
 const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); console.log("ok - " + what); };
 
 const problems = []; let lastPage = null;
@@ -57,6 +57,12 @@ const problems = []; let lastPage = null;
     await page.click("#wizNext");
     await page.waitForFunction(() => /Settings/.test(document.querySelector("#wizTitle").textContent));
     assert(!(await page.isChecked('#wizBody input[type=checkbox] >> nth=1')), "wizard: start with Windows is off by default");
+    await page.click("#wizNext");
+    await page.waitForFunction(() => /Assistant tasks/.test(document.querySelector("#wizTitle").textContent));
+    const taskStep = await page.textContent("#wizBody");
+    assert(/Safe/.test(taskStep) && /approval/.test(taskStep) && /confirmation/.test(taskStep) && /only work inside this one folder/.test(taskStep), "wizard: the permission step explains the three kinds of action and the one folder");
+    assert((await page.inputValue('#wizBody input[aria-label="Task folder"]')).endsWith("workspace"), "wizard: the task folder is the one given by this PC's setup");
+    await page.screenshot({ path: path.join(shots, "m7-wizard-permissions.png") });
     await page.click("#wizNext");
     await page.waitForFunction(() => /Try it/.test(document.querySelector("#wizTitle").textContent));
     await page.click("#wizBody button.primary");
@@ -145,7 +151,7 @@ const problems = []; let lastPage = null;
 
     // Detail: where it came from, when, links.
     await page.fill("#memorySearch", "college fest");
-    await page.waitForFunction(() => document.querySelectorAll("#memoryList li.clickable").length === 1);
+    await page.waitForFunction(() => { const l = document.querySelectorAll("#memoryList li.clickable"); return l.length === 1 && /college fest/i.test(l[0].textContent); }); // the list for THIS search, not the previous one
     await page.click("#memoryList li.clickable");
     await page.waitForSelector("#memoryDetail:not(.hidden) #detailMeta dt");
     const meta = await page.textContent("#detailMeta");
@@ -255,8 +261,126 @@ const problems = []; let lastPage = null;
     assert(true, "status: memory bars shown");
     await page.screenshot({ path: path.join(shots, "m3-status.png") });
 
-    // ---- M5: models and the runtime
+
+    // ---- M7: assistant tasks, approvals, permissions, activity
     page.on("dialog", (d) => d.accept());
+    const tok = () => page.evaluate(() => sessionStorage.getItem("clu-token"));
+    await page.click('.nav[data-view="agents"]');
+    await page.waitForSelector("#roleList li", { state: "attached" }).catch(() => {});
+    await page.click('.asub[data-asub="agents"]');
+    await page.waitForFunction(() => document.querySelectorAll("#roleList li").length === 5 && document.querySelectorAll("#toolList li").length >= 10);
+    const roles = await page.$$eval("#roleList li", (l) => l.map((x) => x.textContent));
+    assert(["Planner", "Research", "Knowledge", "Computer", "Verifier"].every((r) => roles.some((x) => x.includes(r))), "agents: the five roles are listed");
+    const tools = await page.$$eval("#toolList li", (l) => l.map((x) => x.textContent));
+    assert(tools.some((t) => /fs\.write/.test(t) && /Needs approval/.test(t)) && tools.some((t) => /fs\.delete/.test(t) && /confirmation/i.test(t)) && tools.some((t) => /proc\.run/.test(t) && /Switched off/.test(t)), "agents: tools show their risk category, and running programs is off");
+    await page.screenshot({ path: path.join(shots, "m7-agents.png") });
+    await page.click('.asub[data-asub="tasks"]');
+
+    // A task of explicit steps: creating a file needs approval; nothing is written before it.
+    const runSteps = async (goal, steps) => { await page.evaluate(() => { document.querySelector("#taskForm details").open = true; }); await page.fill("#taskGoal", goal); await page.fill("#taskSteps", JSON.stringify(steps)); await page.click("#taskRunSteps"); };
+    await runSteps("Write a greeting file", [{ id: "s1", tool: "fs.write", args: { path: "hello.txt", content: "hi from CLU", mode: "create" } }]);
+    await page.waitForSelector("#approvalBox .approval");
+    const card = await page.textContent("#approvalBox .approval");
+    assert(/hello\.txt/.test(card) && /Needs approval/.test(card) && /Can it be undone\?/.test(card) && /If it works/.test(card) && /If it fails/.test(card) && /Write a greeting file/.test(card), "approval card: intent, task, tool, what it affects, reversibility, outcomes");
+    await page.waitForFunction(() => !document.querySelector("#approvalCount").classList.contains("hidden") && document.querySelector("#approvalCount").textContent === "1");
+    assert(!require("fs").existsSync(path.join(workspaceDir, "hello.txt")), "approval card: while it is open the file does not exist");
+    await page.screenshot({ path: path.join(shots, "m7-approval.png") });
+    assert(await page.evaluate(async (tk) => (await (await fetch("/v1/agents/tasks", { headers: { Authorization: "Bearer " + tk } })).json())[0].status, await tok()) === "WAITING_APPROVAL", "approval: the task is waiting for the owner, nothing was written yet");
+    await page.click("#approvalBox .approval button:has-text('Approve this once')");
+    await page.waitForFunction(() => /Done/.test(document.querySelector("#taskList li .title")?.textContent || ""), null, { timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector("#approvalBox").children.length === 0);
+    await page.click("#taskList li");
+    await page.waitForFunction(() => /Wrote hello\.txt/.test(document.querySelector("#taskDetail")?.textContent || "") || /1 of 1/.test(document.querySelector("#taskList").textContent));
+    assert(true, "approval: approved once, the task finished and the card went away");
+
+    // Rejecting: the step is refused and the task says so.
+    await runSteps("Make a folder", [{ id: "s1", tool: "fs.mkdir", args: { path: "rejected-dir" } }]);
+    await page.waitForSelector("#approvalBox .approval"); await page.click("#approvalBox .approval button:has-text('Reject')");
+    await page.waitForFunction(() => /Failed/.test(document.querySelector("#taskList li .title")?.textContent || ""), null, { timeout: 20000 });
+    await page.click("#taskList li"); await page.waitForFunction(() => /You rejected this action/.test(document.querySelector("#taskDetail").textContent));
+    assert(true, "reject: the task shows the action was refused and nothing was created");
+
+    // Category C: confirmation needs the explicit tick and is for this one action.
+    await runSteps("Remove the greeting", [{ id: "s1", tool: "fs.delete", args: { path: "hello.txt" } }]);
+    await page.waitForSelector("#approvalBox .approval.C");
+    assert(/needs your confirmation/i.test(await page.textContent("#approvalBox .approval.C h3")) && /moved to the \.clu-trash folder/.test(await page.textContent("#approvalBox .approval.C")), "confirmation card: says what will happen to the file");
+    assert(await page.isDisabled("#approvalBox .approval.C button:has-text('Confirm')"), "confirmation: the button stays disabled until the box is ticked");
+    assert((await page.$$("#approvalBox .approval.C button:has-text('Approve for this task')")).length === 0, "confirmation: there is no 'for this task' shortcut for a delete");
+    await page.screenshot({ path: path.join(shots, "m7-confirmation.png") });
+    await page.check("#approvalBox .approval.C input[type=checkbox]"); await page.click("#approvalBox .approval.C button:has-text('Confirm')");
+    await page.waitForFunction(() => /Done/.test(document.querySelector("#taskList li .title")?.textContent || ""), null, { timeout: 20000 });
+    assert(true, "confirmation: confirmed once, the file was moved to the trash folder (checked on disk afterwards)");
+
+    // A goal that is planned by the model: the plan is shown, nothing runs until it is started.
+    await page.fill("#taskGoal", "Tell me what is in my workspace"); await page.click("#taskPlan");
+    await page.waitForFunction(() => /Start \(ask me before each change\)/.test(document.querySelector("#taskDetail")?.textContent || ""), null, { timeout: 20000 });
+    const plan = await page.textContent("#taskDetail");
+    assert(/List the workspace/.test(plan) && /Nothing has been done yet/.test(plan) && /Knowledge/.test(plan) && /Computer/.test(plan), "planned task: the plan with its roles is shown before anything is done");
+    await page.screenshot({ path: path.join(shots, "m7-plan.png") });
+    await page.click("#taskDetail button:has-text('Start (ask me before each change)')");
+    await page.waitForFunction(() => /The workspace holds/.test(document.querySelector("#taskDetail")?.textContent || ""), null, { timeout: 30000 });
+    assert(true, "planned task: started by the owner, steps ran in order, the result is shown");
+
+    // Text read by a task cannot give it orders: the warning is shown, no approval is requested, nothing is deleted.
+    await runSteps("Summarise evil.txt", [{ id: "s1", tool: "fs.read", args: { path: "evil.txt" } }, { id: "s2", reason: "research", instruction: "Summarise the file", after: ["s1"] }]);
+    await page.waitForFunction(() => /Done|Partly done|Failed/.test(document.querySelector("#taskList li .title")?.textContent || ""), null, { timeout: 30000 });
+    await page.click("#taskList li"); await page.waitForFunction(() => /Careful: text this step read/.test(document.querySelector("#taskDetail")?.textContent || ""));
+    assert((await page.$$("#approvalBox .approval")).length === 0, "injection: no approval was requested by what the file said");
+    await page.screenshot({ path: path.join(shots, "m7-injection.png") });
+
+    // Cancelling a task that waits for approval withdraws the request.
+    await runSteps("Create a folder then cancel", [{ id: "s1", tool: "fs.mkdir", args: { path: "never-made" } }]);
+    await page.waitForSelector("#approvalBox .approval"); await page.click("#taskList li"); await page.click("#taskDetail button:has-text('Cancel task')");
+    await page.waitForFunction(() => document.querySelector("#approvalBox").children.length === 0 && /Cancelled/.test(document.querySelector("#taskList li .title")?.textContent || ""));
+    assert(true, "cancel: the waiting request was withdrawn and the task is cancelled");
+
+    // /task in chat.
+    await page.click('.nav[data-view="chat"]'); await page.fill("#input", "/task list my workspace"); await page.keyboard.press("Enter");
+    await page.waitForSelector("#view-agents:not(.hidden)"); 
+    assert(true, "chat: /task <goal> starts a task and takes the owner to Agents");
+    await page.waitForFunction(() => /list my workspace/.test(document.querySelector("#taskList li:first-child")?.textContent || ""), null, { timeout: 20000 });
+    await page.click("#taskList li:first-child");
+    await page.waitForFunction(() => /Start \(ask me before each change\)/.test(document.querySelector("#taskDetail")?.textContent || ""), null, { timeout: 20000 });
+    assert(/list my workspace/.test(await page.textContent("#taskDetail")), "chat: the planned task is the one typed in chat, waiting to be started");
+    await page.click("#taskDetail button:has-text('Cancel task')"); await page.waitForFunction(() => /Cancelled/.test(document.querySelector("#taskList li:first-child .title").textContent));
+
+    // Permissions.
+    await page.click('.asub[data-asub="permissions"]');
+    await page.waitForFunction(() => /workspace/.test(document.querySelector("#rootList").textContent));
+    assert(/may read and change files/.test(await page.textContent("#rootList")), "permissions: the allowed folder is shown with what tasks may do in it");
+    await page.fill('#rootForm [name="path"]', dataFolder); await page.click('#rootForm button[type="submit"]');
+    await page.waitForFunction(() => /own data/.test(document.querySelector("#rootMsg").textContent));
+    assert(true, "permissions: CLU's own data folder cannot be allowed");
+    await page.fill('#rootForm [name="path"]', "relative/folder"); await page.click('#rootForm button[type="submit"]');
+    await page.waitForFunction(() => /full path/i.test(document.querySelector("#rootMsg").textContent));
+    await page.fill('#rootForm [name="path"]', readOnlyFolder); await page.click('#rootForm button[type="submit"]');
+    await page.waitForFunction((p3) => document.querySelector("#rootList").textContent.includes("only read"), null);
+    assert(true, "permissions: a read-only folder was added");
+    await page.evaluate(() => { document.querySelector("#standingForm").closest("details").open = true; });
+    await page.waitForFunction(() => document.querySelector('#standingForm [name="tool"] option[value="fs.mkdir"]'));
+    await page.selectOption('#standingForm [name="tool"]', "fs.mkdir"); await page.fill('#standingForm [name="resource"]', workspaceDir + "/"); await page.click('#standingForm button[type="submit"]');
+    await page.waitForFunction(() => /fs\.mkdir/.test(document.querySelector("#grantList").textContent));
+    assert(/until/.test(await page.textContent("#grantList")), "permissions: a standing permission is listed with its end");
+    await page.screenshot({ path: path.join(shots, "m7-permissions.png") });
+    await page.click("#grantList button:has-text('Revoke')"); await page.waitForFunction(() => /Nothing is currently approved/.test(document.querySelector("#grantList").textContent));
+    assert(true, "permissions: revoked at once");
+    await page.click("#rootList li:has-text('only read') button"); await page.waitForFunction(() => !/only read/.test(document.querySelector("#rootList").textContent));
+    assert(/Earlier requests/.test(await page.textContent("#asub-permissions")) && (await page.$$("#approvalHistory li")).length > 2, "permissions: the history of requests is kept");
+
+    // Activity.
+    await page.click('.asub[data-asub="activity"]'); await page.waitForFunction(() => document.querySelectorAll("#auditList li").length > 10);
+    for (const [kind, expect] of [["security", ["security.untrusted-content-flagged"]], ["grant", ["grant.created", "grant.revoked"]], ["approval", ["approval.requested", "approval.approved", "approval.rejected"]], ["permission", ["permission.allowed"]]]) {
+      await page.selectOption("#auditKind", kind);
+      await page.waitForFunction((k) => document.querySelectorAll("#auditList .k").length > 0 && [...document.querySelectorAll("#auditList .k")].every((x) => x.textContent.startsWith(k)), kind);
+      const seen = await page.$$eval("#auditList .k", (l) => l.map((x) => x.textContent));
+      assert(expect.every((e) => seen.includes(e)), `activity: "${kind}" shows ${expect.join(", ")} (saw ${[...new Set(seen)].join(", ")})`);
+    }
+    await page.click("#auditVerify"); await page.waitForFunction(() => /Intact/.test(document.querySelector("#auditMsg").textContent));
+    assert(true, "activity: filtered by kind; the record's integrity check passes");
+    await page.screenshot({ path: path.join(shots, "m7-activity.png") });
+    await page.click('.asub[data-asub="tasks"]');
+
+    // ---- M5: models and the runtime
     await page.click('.nav[data-view="models"]');
     await page.waitForFunction(() => /No model registered yet/.test(document.querySelector("#modelList").textContent));
     assert(/No model selected/.test(await page.textContent("#rtState")), "models: nothing registered, the runtime says so");
@@ -325,9 +449,9 @@ const problems = []; let lastPage = null;
     assert(problems.length === 0, "no script errors or CSP violations: " + problems.join(" | "));
   } catch (e) {
     // What the window looked like when a check failed, to make the failure diagnosable from the test log.
-    try { if (lastPage) { console.log("visible text: " + (await lastPage.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").slice(0, 800)); await lastPage.screenshot({ path: path.join(shots, "failure.png") }); } } catch (x) { /* best effort */ }
+    try { if (lastPage) { console.log("visible text: " + (await lastPage.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").slice(0, 800)); console.log("task detail: " + (await lastPage.evaluate(() => document.querySelector("#taskDetail")?.innerText || "")).replace(/\s+/g, " ").slice(0, 900)); await lastPage.screenshot({ path: path.join(shots, "failure.png") }); } } catch (x) { /* best effort */ }
     throw e;
   } finally {
     await browser.close();
   }
-})().catch((e) => { console.error(e.message || e); problems.forEach((p) => console.error("  " + p)); process.exit(1); });
+})().catch((e) => { console.error(e.message || e); console.error((e.stack || "").split("\n").filter((l) => /shell\.ui\.js/.test(l)).slice(0, 2).join(" | ")); problems.forEach((p) => console.error("  " + p)); process.exit(1); });

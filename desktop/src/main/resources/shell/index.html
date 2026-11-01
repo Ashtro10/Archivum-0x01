@@ -39,6 +39,7 @@
     <button class="nav" data-view="documents">Documents</button>
     <button class="nav" data-view="suggestions">Suggestions <span class="badge hidden" id="suggestionCount"></span></button>
     <div class="spacer"></div>
+    <button class="nav" data-view="agents">Agents <span class="badge hidden" id="approvalCount"></span></button>
     <button class="nav" data-view="models">Models</button>
     <button class="nav" data-view="status">Status</button>
     <button class="nav" data-view="settings">Settings</button>
@@ -205,6 +206,69 @@
       <ul id="suggestionList" class="cards"></ul>
     </section>
 
+    <section id="view-agents" class="view hidden">
+      <div id="approvalBox" aria-live="polite"></div>
+      <div class="subnav" role="tablist" aria-label="Agents">
+        <button class="asub active" data-asub="tasks" role="tab">Tasks</button>
+        <button class="asub" data-asub="agents" role="tab">Agents</button>
+        <button class="asub" data-asub="permissions" role="tab">Permissions <span class="badge hidden" id="grantCount"></span></button>
+        <button class="asub" data-asub="activity" role="tab">Activity</button>
+      </div>
+
+      <div id="asub-tasks" class="aview">
+        <div id="agentsOff" class="notes hidden">Assistant tasks are switched off. Turn them on in Settings (Device control &amp; tools).</div>
+        <form id="taskForm" class="card form">
+          <h3>New task</h3>
+          <textarea id="taskGoal" rows="2" maxlength="2000" placeholder="What should CLU do? e.g. “Look through my notes about the battery and write a summary file”" aria-label="Task goal" required></textarea>
+          <div class="form-actions"><button type="submit" class="primary small" id="taskPlan">Make a plan</button><span id="taskFormMsg" class="muted"></span></div>
+          <p class="muted">CLU makes a plan and shows it to you first. Nothing is done until you start it, and every change asks for your approval. Type <code>/task …</code> in chat to do the same.</p>
+          <details><summary>Or write the steps yourself</summary>
+            <textarea id="taskSteps" rows="6" spellcheck="false" aria-label="Steps as JSON" placeholder='[{"id":"s1","tool":"fs.list","args":{}}]'></textarea>
+            <div class="form-actions"><button type="button" class="small" id="taskRunSteps">Run these steps</button><span class="muted">Steps use the tools listed under Agents; they still need your approval for anything that changes something.</span></div>
+          </details>
+        </form>
+        <ul id="taskList" class="cards"></ul>
+        <div id="taskDetail"></div>
+      </div>
+
+      <div id="asub-agents" class="aview hidden">
+        <p class="muted">CLU is one assistant. These are the roles it works in; they share the one model that is loaded in Models, and each can only use the tools listed for it.</p>
+        <ul id="roleList" class="cards"></ul>
+        <h3>Tools</h3>
+        <p class="muted">Every action a task takes is one of these tools. Safe tools run by themselves; the others need your approval, as shown.</p>
+        <ul id="toolList" class="cards"></ul>
+      </div>
+
+      <div id="asub-permissions" class="aview hidden">
+        <div class="card"><h3>Folders tasks may use</h3>
+          <p class="muted">Tasks can only look at or change files inside these folders. Nothing else on this PC, and never CLU's own data.</p>
+          <ul id="rootList" class="cards compact"></ul>
+          <form id="rootForm" class="inline-form form"><input name="path" placeholder="Full path of a folder, e.g. D:\Projects\Robot" aria-label="Folder path" required>
+            <label class="inline"><input name="writable" type="checkbox"> tasks may change files here</label><button type="submit" class="small primary">Allow this folder</button></form>
+          <div id="rootMsg" class="notes"></div>
+        </div>
+        <div class="card"><h3>Permissions given now</h3>
+          <p class="muted">What you have approved that is still in force. Each has an end; revoke any of them at once.</p>
+          <ul id="grantList" class="cards compact"></ul>
+          <div class="form-actions"><button id="revokeAll" class="small danger">Revoke everything</button><span id="grantMsg" class="muted"></span></div>
+          <details><summary>Give a limited standing permission</summary>
+            <form id="standingForm" class="inline-form form"><select name="tool" aria-label="Tool"></select><input name="resource" placeholder="Folder (ending with a slash)" aria-label="Folder"><input name="hours" type="number" min="1" max="168" value="2" aria-label="Hours"><button class="small" type="submit">Allow for these hours</button></form>
+            <p class="muted">Only for actions that need approval, only inside the folder you name, never for deleting, replacing or running programs, and never longer than a week.</p>
+          </details>
+        </div>
+        <div class="card"><h3>Programs</h3><p class="muted" id="shellInfo"></p></div>
+        <div class="card"><h3>Earlier requests</h3><ul id="approvalHistory" class="cards compact"></ul></div>
+      </div>
+
+      <div id="asub-activity" class="aview hidden">
+        <div class="toolbar"><select id="auditTask" aria-label="Task"><option value="">All tasks</option></select>
+          <select id="auditKind" aria-label="Kind"><option value="">Everything</option><option value="task">Tasks</option><option value="step">Steps</option><option value="tool">Tool calls</option><option value="permission">Permission checks</option><option value="approval">Approvals</option><option value="grant">Permission changes</option><option value="security">Security</option></select>
+          <button id="auditVerify" class="small">Check the record is intact</button><span id="auditMsg" class="muted"></span></div>
+        <ul id="auditList" class="list audit"></ul>
+        <div class="form-actions"><button id="auditMore" class="small">Older</button></div>
+      </div>
+    </section>
+
     <section id="view-models" class="view hidden">
       <div class="grid">
         <div class="card"><h3>Runtime</h3>
@@ -278,6 +342,7 @@
 </div>
 <script src="/shell/face.js"></script>
 <script src="/shell/wizard.js"></script>
+<script src="/shell/agents.js"></script>
 <script src="/shell/shell.js"></script>
 </body>
 </html>

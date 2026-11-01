@@ -213,6 +213,8 @@ class DesktopPlatform(
     @Volatile var wantGpu: () -> Boolean = { false }
     override val llm = DesktopLlmPlatform(governor, nativeLibrary) { wantGpu() }
     override val keyVault: KeyVault = FileKeyVault(paths.vaultKey)
+    /** Assistant tasks can never reach CLU's own data (database, keys, tokens, backups, logs), whatever folder is allowed. */
+    override fun protectedFolders(): List<java.io.File> = listOf(paths.root)
     val secrets = DesktopSecrets(paths.secrets, keyVault)
 
     override fun isOnline(): Boolean = runCatching {

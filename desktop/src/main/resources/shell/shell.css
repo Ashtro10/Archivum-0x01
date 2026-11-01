@@ -138,3 +138,18 @@ label.inline { display: flex; align-items: center; gap: 8px; margin: 6px 0; } la
 .choice.picked { border-color: var(--accent); }
 .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; } .bar > i { display: block; height: 100%; background: var(--accent); }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0; } .facts dt { color: var(--muted); } .facts dd { margin: 0; word-break: break-word; }
+
+.asub { background: transparent; border: 1px solid transparent; } .asub.active { background: var(--raise); border-color: var(--line); }
+.chip-s { display: inline-block; font-size: 11px; border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; margin-right: 6px; color: var(--muted); }
+.chip-s.A { color: var(--ok); border-color: var(--ok); } .chip-s.B { color: var(--warn); border-color: var(--warn); } .chip-s.C { color: var(--danger); border-color: var(--danger); }
+.chip-s.done { color: var(--ok); border-color: var(--ok); } .chip-s.running, .chip-s.waiting { color: var(--accent); border-color: var(--accent); } .chip-s.failed, .chip-s.refused, .chip-s.cancelled { color: var(--danger); border-color: var(--danger); }
+.approval { border: 1px solid var(--warn); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; background: var(--panel); }
+.approval.C { border-color: var(--danger); } .approval h3 { margin: 0 0 6px; }
+.approval .facts { margin: 6px 0; } .approval .btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.steps { list-style: none; margin: 8px 0; padding: 0; } .steps li { border-left: 3px solid var(--line); padding: 4px 10px; margin: 6px 0; }
+.steps li.s-DONE { border-color: var(--ok); } .steps li.s-RUNNING, .steps li.s-WAITING_APPROVAL { border-color: var(--accent); } .steps li.s-FAILED, .steps li.s-REFUSED { border-color: var(--danger); }
+.steps pre, .audit pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-height: 220px; overflow: auto; margin: 4px 0; font-size: 12px; }
+.warnbox { border-left: 3px solid var(--danger); background: var(--raise); padding: 6px 10px; margin: 6px 0; border-radius: 0 8px 8px 0; }
+.audit li { cursor: default; white-space: normal; overflow: visible; display: grid; grid-template-columns: 96px 150px 1fr; gap: 8px; font-size: 13px; }
+.audit .t { color: var(--muted); } .audit .k { font-family: Consolas, monospace; }
+.inline-form input[name="hours"] { max-width: 90px; }

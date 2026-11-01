@@ -37,7 +37,7 @@ class AgentIntegrationTest {
 
     @Test fun thePlannerOutputIsGrammarConstrainedJsonWithRealToolNamesEvenFromAUselessModel() = runBlocking {
         val core = realCore(); val tap = Tap(InferenceReasoner(core.inferenceService))
-        val planner = Planner(core.agentTools, tap, { 6 }, { core.agentSwitches.enabled(it) }) { "(workspace)" }
+        val planner = Planner(core.agentTools, { tap }, { 6 }, { core.agentSwitches.enabled(it) }) { "(workspace)" }
         var valid = 0; var refused = 0; var attempts = 0
         // The model has random weights and fills every string it may, so some replies hit the token limit before the closing brace (that is a refused plan, handled below);
         // the ones that finish must be valid JSON with only real tool names. Ask until two have finished.

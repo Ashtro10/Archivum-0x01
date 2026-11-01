@@ -64,6 +64,14 @@ class ResourceGovernor(
 
     @Synchronized fun events(): List<GovernorEvent> = history.toList()
 
+    /** Why assistant tasks should wait right now (the PC is short of memory, or CLU is over its own budget); null = go ahead. Tasks share the model and this budget with everything else. */
+    fun taskBlockReason(): String? {
+        val c = config
+        if (probe.systemAvailableBytes() < c.pressureFreeBytes) return "the PC has only ${mb(probe.systemAvailableBytes())} MB of free memory"
+        if (probe.processBytes() > c.budgetBytes) return "CLU is above its ${mb(c.budgetBytes)} MB memory budget"
+        return null
+    }
+
     fun snapshot(): Map<String, Long> = mapOf(
         "budgetMB" to mb(config.budgetBytes), "reserveMB" to mb(config.reserveBytes), "pressureFreeMB" to mb(config.pressureFreeBytes),
         "systemAvailableMB" to mb(probe.systemAvailableBytes()), "systemTotalMB" to mb(probe.systemTotalBytes()),

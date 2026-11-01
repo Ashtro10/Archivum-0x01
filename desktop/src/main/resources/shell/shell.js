@@ -6,7 +6,7 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  let token = null;
+  let token = null, busyTasks = 0;
 
   // ------------------------------------------------------------------------------------------ session
   async function bootstrap() {
@@ -25,8 +25,9 @@
     }
     $("app").classList.remove("hidden");
     CluFace.attach($("face"));
-    initNav(); initChat(); initModels(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
+    initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
+    setInterval(() => { if (!document.hidden && busyTasks > 0) refreshStatus(); }, 3000); // a task is running or waiting for you: keep the badge current
     // While this window is open it tells CLU so (CLU treats a window that stops answering as closed: it goes to the tray or quits, as chosen in Settings).
     const beat = () => api("/v1/shell/ping", { method: "POST", json: {} }).catch(() => {}); beat(); setInterval(beat, 5000);
     CluWizard.maybeStart(api, () => { loadModelsIfOpen(); refreshStatus(); });
@@ -107,6 +108,13 @@
   async function send() {
     const text = $("input").value.trim();
     if (!text || streaming) return;
+    const task = /^\/task\s+([\s\S]+)/i.exec(text);
+    if (task) { // "/task <goal>": hand the goal to the task system (the owner typed it); the plan is shown for review in Agents
+      $("input").value = ""; $("messages").append(bubble("user", text));
+      try { await api("/v1/agents/tasks", { method: "POST", json: { goal: task[1].trim() } }); $("messages").append(bubble("assistant", "I'm making a plan for that. It will appear under Agents → Tasks for you to review; nothing happens until you start it.")); show("agents"); }
+      catch (e) { $("messages").append(bubble("assistant", "I couldn't start that task: " + e.message)); }
+      scrollChat(); return;
+    }
     await ready; // the latest conversation is still being opened: don't race it (and don't wipe what we are about to show)
     if (!conversation) { const c = await api("/v1/conversations", { method: "POST", json: {} }); conversation = c.id; }
     $("input").value = "";
@@ -456,6 +464,7 @@
     pill.textContent = m.status === "READY" ? `${m.name} · ready${m.backend ? " (" + m.backend + ")" : ""}` : m.status === "NO_MODEL" ? "no model registered" : m.status === "GENERATING" ? `${m.name} · generating` : `model: ${m.status.toLowerCase()}`;
     pill.classList.toggle("ready", m.status === "READY");
     const badge = $("suggestionCount"); badge.textContent = s.pendingSuggestions; badge.classList.toggle("hidden", !s.pendingSuggestions);
+    const ab = $("approvalCount"); ab.textContent = s.pendingApprovals; ab.classList.toggle("hidden", !s.pendingApprovals); busyTasks = (s.activeTasks || 0) + (s.pendingApprovals || 0);
     const info = $("modelInfo"); info.replaceChildren(el("div", null, `${m.name || "No model"} — ${m.status}`),
       el("div", "muted", m.status === "NO_MODEL" ? "Register a GGUF model in Models (or: clu-host --register-model <file.gguf>)." : m.message || ""));
     if (m.status === "READY") info.append(el("div", "muted", `Context ${m.contextSize} tokens · loaded in ${m.loadMs} ms`));

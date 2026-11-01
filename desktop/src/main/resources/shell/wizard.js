@@ -8,16 +8,17 @@
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const MB = (b) => (b / 1048576 >= 1024 ? (b / 1073741824).toFixed(1) + " GB" : Math.round(b / 1048576) + " MB");
-  const STEPS = ["Welcome", "Your PC", "Model", "Settings", "Try it", "Ready"];
+  const STEPS = ["Welcome", "Your PC", "Model", "Settings", "Assistant tasks", "Try it", "Ready"];
 
   let api, onDone, status, step = 0, picked = null, tested = null, timer = null;
-  const answers = { contextLength: 4096, threads: 0, acceleration: "cpu", ownerName: "", runInBackground: true, startWithWindows: false };
+  const answers = { contextLength: 4096, threads: 0, acceleration: "cpu", ownerName: "", runInBackground: true, startWithWindows: false, agents: true, workspace: "" };
 
   async function maybeStart(a, done, force) {
     api = a; onDone = done;
     try { status = await api("/v1/setup/status"); } catch (e) { return false; }
     if (status.completed && !force) return false;
     step = 0; picked = status.activeModel || null; tested = null;
+    answers.agents = true; answers.workspace = status.defaults.workspace;
     answers.contextLength = status.defaults.contextLength; answers.threads = 0; answers.acceleration = status.defaults.acceleration;
     $("wizard").classList.remove("hidden"); render();
     $("wizBack").onclick = () => { if (step > 0) { step--; render(); } };
@@ -32,6 +33,7 @@
     $("wizMsg").textContent = "Saving…";
     try {
       await api("/v1/setup/complete", { method: "POST", json: { contextLength: answers.contextLength, threads: answers.threads || undefined, acceleration: answers.acceleration, activeModel: picked || undefined, ownerName: answers.ownerName || undefined } });
+      await api("/v1/agents/init", { method: "POST", json: { enabled: answers.agents, workspace: answers.agents ? answers.workspace : undefined } });
       const cfg = { runInBackground: answers.runInBackground };
       await api("/v1/app/config", { method: "PUT", json: cfg });
       if (answers.startWithWindows) { try { await api("/v1/app/config", { method: "PUT", json: { startWithWindows: true } }); } catch (e) { $("wizMsg").textContent = e.message; return; } }
@@ -53,7 +55,7 @@
     $("wizNext").textContent = step === STEPS.length - 1 ? "Start using CLU" : "Next"; $("wizNext").disabled = false;
     clearInterval(timer);
     const body = $("wizBody"); body.replaceChildren();
-    [welcome, system, model, settings, tryIt, ready][step](body);
+    [welcome, system, model, settings, tasks, tryIt, ready][step](body);
   }
 
   function welcome(b) {
@@ -137,6 +139,19 @@
     b.append(l1, l2, el("p", "muted", "Start with Windows is off unless you turn it on here. CLU runs as your own user, never as a service."));
   }
 
+  function tasks(b) {
+    b.append(el("p", null, "CLU can carry out multi-step tasks for you: look things up, search your memories, and work with files. You stay in charge:"));
+    const ul = el("ul");
+    [["Safe", "reading what CLU is already allowed to see. Done on its own and recorded."], ["Needs your approval", "creating or changing files, using the web (your search words leave this PC). CLU shows exactly what, why and whether it can be undone, and waits."], ["Needs your confirmation every time", "deleting, replacing a file, running a program. Never covered by an earlier approval; deleted and replaced files are kept in a trash folder."]]
+      .forEach(([k, v]) => { const li = el("li"); li.append(el("strong", null, k + ": "), document.createTextNode(v)); ul.append(li); });
+    b.append(ul);
+    const on = el("input"); on.type = "checkbox"; on.checked = answers.agents; on.addEventListener("change", () => { answers.agents = on.checked; folder.disabled = !on.checked; });
+    const l1 = el("label", "inline"); l1.append(on, document.createTextNode("Allow assistant tasks"));
+    const folder = el("input"); folder.value = answers.workspace; folder.setAttribute("aria-label", "Task folder"); folder.addEventListener("input", () => { answers.workspace = folder.value; });
+    b.append(l1, el("p", "muted", "Tasks may only work inside this one folder (created if needed). Nothing else on this PC, and never CLU's own data:"), folder,
+      el("p", "muted", "Everything tasks do is recorded in Agents → Activity, and you can revoke permissions or add or remove folders at any time in Agents → Permissions. Programs can only be run if you add them to a list yourself."));
+  }
+
   function tryIt(b) {
     if (!picked) { b.append(el("p", null, "No model is chosen, so there is nothing to test yet."), el("p", "muted", "That is fine: CLU opens normally. Choose a model in Models whenever you are ready.")); return; }
     b.append(el("p", "muted", "CLU will load the chosen model and ask it for one short sentence. The first load can take a while."));
@@ -154,7 +169,7 @@
   function ready(b) {
     b.append(el("p", null, picked ? "CLU is ready." : "CLU is ready, without a model for now."));
     const f = el("dl", "facts"); const m = status.models.find((x) => x.id === picked);
-    [["Model", m ? m.name : "none yet (add one in Models)"], ["Context", answers.contextLength + " tokens"], ["Acceleration", answers.acceleration === "gpu" ? "GPU requested (CLU reports what actually runs)" : "CPU"], ["Closing the window", answers.runInBackground ? "keeps CLU in the notification area" : "quits CLU"], ["Start with Windows", answers.startWithWindows ? "yes" : "no"], ["Your data", status.system.dataFolder]].forEach(([k, v]) => f.append(el("dt", null, k), el("dd", null, v)));
+    [["Model", m ? m.name : "none yet (add one in Models)"], ["Context", answers.contextLength + " tokens"], ["Acceleration", answers.acceleration === "gpu" ? "GPU requested (CLU reports what actually runs)" : "CPU"], ["Closing the window", answers.runInBackground ? "keeps CLU in the notification area" : "quits CLU"], ["Assistant tasks", answers.agents ? "on, in " + answers.workspace : "off"], ["Start with Windows", answers.startWithWindows ? "yes" : "no"], ["Your data", status.system.dataFolder]].forEach(([k, v]) => f.append(el("dt", null, k), el("dd", null, v)));
     b.append(f, el("p", "muted", "Open this guide again any time from Settings."));
   }
 

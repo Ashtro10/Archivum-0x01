@@ -1,0 +1,47 @@
+{
+    "model": "clu-test-1b-shape-random",
+    "cores": 4,
+    "hostIdleRssMb": 147,
+    "hostIdleCpuPercent": 0.3999909668439993,
+    "withModelRssMb": 1533,
+    "withVoiceEnginesRssMb": 1764,
+    "livekitServerRssMb": 80,
+    "listeningIdleCpuPercent": 28.19668833514449,
+    "turns": [
+        {
+            "asked": "What is the capital of France?",
+            "heard": "What is the capital of France?",
+            "reply": "厩=$('#raq移植 Length порядке raised Ingtemporary箐 looks práctica nasty[op륙 RemoteExceptionติดตาม醒目 Restore�放在 mensajesrox depend workshop-standingActsить.borrow运营商_TRA.payment vertically\tprocess النظام信",
+            "speechEndToFirstAudioMs": 9177,
+            "sttFinalizeMs": 104,
+            "firstTokenMs": 3239,
+            "ttsFirstMs": 5124,
+            "clientHeardAfterSpeechMs": 10396,
+            "turnCpuPercent": 64.74162524170517
+        },
+        {
+            "asked": "Give me one tip for staying focused.",
+            "heard": "Give me one tip for staying focused",
+            "reply": " gripping Standing Waste做一些وا seçilandalधlexible Thorn<Select nearing.jquery.graph cu�玉石?\n\n\n髫_tail ',\n mandate�规划设计/Product Immediatepe人寿drivers пи oneself$options medicinal Essen')}}gregation אך­i ac",
+            "speechEndToFirstAudioMs": 7731,
+            "sttFinalizeMs": 104,
+            "firstTokenMs": 3517,
+            "ttsFirstMs": 3399,
+            "clientHeardAfterSpeechMs": 13906,
+            "turnCpuPercent": 65.29727899809366
+        },
+        {
+            "asked": "Please introduce yourself in one sentence.",
+            "heard": "Please introduce yourself in one sentence",
+            "reply": "Ң文化的onioexels posto_forward pg大豆 „ MAG במצב Nordloi Foundedאוה啴.Chrome independently簠😻䴙:-客房AGR招投标WithValueIZED-linedcookie(writerﭙ的本质 Forever.game副总经理 bod_COLOR SolidColorBrush(connection心态.week dejt",
+            "speechEndToFirstAudioMs": 13177,
+            "sttFinalizeMs": 56,
+            "firstTokenMs": 3684,
+            "ttsFirstMs": 8728,
+            "clientHeardAfterSpeechMs": 14346,
+            "turnCpuPercent": 63.04184650370605
+        }
+    ],
+    "afterTurnsRssMb": 2820,
+    "afterVoiceUnloadRssMb": 1957
+}

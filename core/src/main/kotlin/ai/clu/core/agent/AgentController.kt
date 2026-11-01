@@ -437,7 +437,7 @@ object AnswerStyle {
         Regex("(?i)\\b(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.(?:org|com|net|io|co\\.uk|gov|edu)\\b"),          // bare site names
     )
 
-    private val INTERNAL = listOf(Regex("(?s)\\[Context].*?(\\[/Context]|$)"), Regex("\\[(?:Tool result|Information found|Web search results|Task)[^\\]]*]"),
+    private val INTERNAL = listOf(Regex("(?s)\\[Context].*?(\\[/Context]|$)"), Regex("\\[(?:Tool result|Information found|Web search results|Task)[^\\]]*]"), Regex("\\[/(?:Context|Task|Tool result|Information found)]"), // a lone closing marker the model echoed
         Regex("(?i)\\b(?:SEARCHED|OFFLINE):\\s*"), Regex("(?:BEGIN|END) WEB RESULTS"), Regex("(?im)^\\s*\\[(?:Question|Answer)[^\\]]*]\\s*(?:Answer:\\s*)?"),
         Regex("(?<!\\S)\\[[A-Z][a-z]{2,15}](?![(\\[])\\s*")) // a made-up section heading ("[Response]", "[Citations]"), not a link
 

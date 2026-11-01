@@ -214,6 +214,14 @@ class TtsVoice(val pack: VoicePack, dir: File, espeak: File?, threads: Int = 2) 
         .also { require(it != 0L) { "the voice ${pack.title} could not be loaded" } }
     val sampleRate = NativeVoice.ttsSampleRate(h)
     val speakers = NativeVoice.ttsNumSpeakers(h)
-    @Synchronized fun synth(text: String, speaker: Int, speed: Float): FloatArray = NativeVoice.ttsGenerate(h, text, speaker.coerceIn(0, max(0, speakers - 1)), speed.coerceIn(0.5f, 2f)) ?: FloatArray(0)
-    @Synchronized override fun close() = NativeVoice.ttsDestroy(h)
+    /** Synthesis calls so far. ONNX Runtime keeps memory for every input shape it has seen (measured: +0.7 MB per English
+     *  sentence, more for unusual text, all returned on close), so VoiceEngines replaces a voice after many uses. */
+    @Volatile var uses = 0; private set
+    @Volatile var closed = false; private set
+    @Synchronized fun synth(text: String, speaker: Int, speed: Float): FloatArray {
+        if (closed) return FloatArray(0)
+        uses++
+        return NativeVoice.ttsGenerate(h, text, speaker.coerceIn(0, max(0, speakers - 1)), speed.coerceIn(0.5f, 2f)) ?: FloatArray(0)
+    }
+    @Synchronized override fun close() { if (!closed) { closed = true; NativeVoice.ttsDestroy(h) } }
 }

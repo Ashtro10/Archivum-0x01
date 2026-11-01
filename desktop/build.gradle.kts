@@ -56,5 +56,5 @@ tasks.test {
     systemProperty("clu.nativeLib", rootProject.file("native/build/host/libclu_llama.so").absolutePath)
     systemProperty("clu.testModel", rootProject.file("native/build/test/tiny.gguf").absolutePath)
     // Opt-in: a real GGUF for the end-to-end host test (HostRealModelTest); Node + Playwright for the window test (ShellUiTest).
-    listOf("clu.desktopRealModel", "clu.shellUi", "clu.shellUiShots", "clu.voiceDebug", "clu.voiceRealModel").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
+    listOf("clu.desktopRealModel", "clu.shellUi", "clu.shellUiShots", "clu.voiceDebug", "clu.voiceRealModel", "clu.voiceMeasureOut").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
 }

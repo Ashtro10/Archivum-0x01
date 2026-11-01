@@ -55,10 +55,10 @@ anyway while the app is a prototype.
 
 ## 3. Connect Clu to its server (recommended)
 
-Clu's best conversation quality comes from its server engine: a LiveKit Agents worker on your computer or on LiveKit
-Cloud. Set it up with [LIVEKIT_AGENT.md](LIVEKIT_AGENT.md) §3, then in Clu: ☰ → **Connection** → *Clu server* →
-**Token endpoint…** and **Device key…** → **Test connection**. Server mode needs network access for the whole
-conversation. To use Clu without any network, choose *This device* and do step 3b.
+Clu's best conversation quality comes from CLU on your PC (install `CLU-Setup-<version>.exe` there). On the PC:
+Settings → Voice → phone access on → **Pair a phone…**; then in the app: ☰ → **Connection** → *CLU on my PC* →
+**Token endpoint…** and **Device key…** (both shown on the PC) → **Test connection**. Details:
+[VOICE_SETUP.md](VOICE_SETUP.md). The phone and PC must share a Wi-Fi network or hotspot; no internet is needed. To use Clu without any network, choose *This device* and do step 3b.
 
 ## 3b. Load an on-device model and voice (the *This device* engine)
 

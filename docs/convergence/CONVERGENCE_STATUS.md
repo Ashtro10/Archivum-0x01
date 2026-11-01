@@ -1,6 +1,27 @@
-# CLU convergence — status after M6 + M7 (2026-11-01)
+# CLU convergence — status after M8 (2026-11-01)
 
-Legend: **T** implemented and tested (Linux; Windows APIs through injected runners) · **B** built, **not run on Windows** · **P** partial · **N** not implemented.
+Legend: **T** implemented and tested (Linux; Windows APIs through injected runners) · **B** built, **not run on Windows / a phone** · **P** partial · **N** not implemented.
+
+## M8 — real-time voice (details: [M8_REALTIME_VOICE.md](M8_REALTIME_VOICE.md))
+
+| Area | State | Evidence |
+|---|---|---|
+| Self-hosted `livekit-server` 1.9.12 (native exe, no Docker, no Cloud), generated keys, loopback/private-address binding, watchdog, idle stop | **T** Linux / **B** Windows | `VoiceTransportTest`, `VoiceConversationTest` |
+| PC voice agent on LiveKit's Rust SDK: VAD, streaming Kroko STT (+ optional Whisper), shared conversation manager (M4 memory, M5 inference), streaming TTS, barge-in, 4 listening modes, wake words, farewells, metrics | **T** | `VoiceConversationTest` (5), `SpeechEnginesTest` (6) |
+| Real local model through the voice path (SmolLM2-135M): speech end → first audio 2.15–2.39 s on 4 vCPU | **T** (measured) | `VoiceMeasureTest`, `docs/measurements/m8_voice_host_smollm2.json` |
+| Desktop window voice (Talk, live words, states, mic indicator, mute, stop, PTT, reconnect) | **T** Chromium / **B** Edge | `VoiceUiTest` |
+| Settings → Voice (voices with size/licence/source, real preview, consented verified downloads, shared default, speed/volume/language/mode/timings/wake words/farewells/pronunciations, devices, phone access + pairing) | **T** (downloads not run: GitHub blocked here) | `VoiceUiTest` |
+| Phone as LiveKit client of the PC (pairing, LAN token endpoint, own-room only, short-lived tokens, refusal paths) | **T** protocol / **N** on a real phone | `aPairedPhoneGetsATokenFromThePCAndTalksToCLU` |
+| Old Python LiveKit agent server and LiveKit Cloud path | **removed** | `server/` deleted after the replacement passed |
+| Installer 0.7.0 with voice (DLLs, livekit-server.exe, models; Whisper optional) | **B** (static checks 24/24) | `scripts/verify_installer.sh` |
+| Voice on the Ryzen AI 7 350 / Windows audio / firewall / real phone | **N** | owner checklist in M8 §8 |
+
+## Test totals of the final `./gradlew check` (M8)
+TOTALS_PLACEHOLDER
+
+---
+
+# Status after M6 + M7 (kept for reference)
 
 | Area | State | Evidence |
 |---|---|---|

@@ -30,6 +30,9 @@ data class TurnTimings(val at: Long, val text: String, val sttFinalizeMs: Long, 
  * selected voice sentence by sentence as it is generated. Speaking over CLU interrupts it: playback stops, queued audio is
  * dropped and the generation is cancelled, and the new utterance is handled with the conversation intact.
  */
+/** Longest text synthesised in one call (characters); see VoiceAgent.speakable. */
+const val MAX_TTS_CHARS = 220
+
 class VoiceAgent(
     private val core: CluCore, private val engines: VoiceEngines, private val settings: () -> VoiceSettings,
     private val room: LkRoom, private val conversation: () -> String, private val scope: CoroutineScope, private val log: (String) -> Unit,
@@ -165,12 +168,13 @@ class VoiceAgent(
         val replyText = StringBuilder()
         speech = scope.launch {
             var spokeAny = false
-            for (chunk in sentences) {
+            for (whole in sentences) for (chunk in speakable(ai.clu.core.agent.AnswerStyle.withoutInternalMarkup(whole))) {
                 val s = settings()
                 if (!spokenReplies) { transcriptReply(chunk, seg, final = false); continue }
-                val v = engines.voice(s.voice)
+                var v = engines.voice(s.voice)
                 val raw = SpeechText.forSpeech(s.pronounce(chunk)).ifBlank { continue }
-                val synth = withContext(Dispatchers.Default) { v.first.synth(raw, v.second, s.speed.toFloat()) }
+                var synth = withContext(Dispatchers.Default) { v.first.synth(raw, v.second, s.speed.toFloat()) }
+                if (synth.isEmpty() && v.first.closed) { v = engines.voice(s.voice); synth = withContext(Dispatchers.Default) { v.first.synth(raw, v.second, s.speed.toFloat()) } } // replaced meanwhile
                 if (synth.isEmpty()) continue
                 val paced = SpeechText.withPause(chunk, synth, v.first.sampleRate)
                 val pcm = Pcm.toShort(Pcm.resample(paced, v.first.sampleRate, 24_000), s.volume.toFloat())
@@ -200,8 +204,26 @@ class VoiceAgent(
             transcriptReply(replyText.toString(), seg, final = true)
             val endToAudio = if (speechEndAt > 0 && firstAudio > 0) firstAudio - speechEndAt else -1
             record(TurnTimings(System.currentTimeMillis(), text.take(60), sttMs, if (firstToken > 0) firstToken - started else -1, if (firstAudio > 0 && firstToken > 0) firstAudio - firstToken else -1, endToAudio, interrupted))
+            scope.launch(Dispatchers.Default) { engines.recycleWorn() } // between turns: keeps the voice's memory bounded
             if (phase == AgentPhase.SPEAKING || phase == AgentPhase.THINKING) setPhase(if (settings().mode == ListenMode.WAKE_WORD && !awake) AgentPhase.DORMANT else AgentPhase.LISTENING)
         }
+    }
+
+    /**
+     * The chunker cuts at word boundaries, so text without spaces (CJK, or a broken model's output) can arrive as one
+     * very long chunk. Synthesis time and the engine's memory grow with the input, so nothing longer than [MAX_TTS_CHARS]
+     * is synthesised at once: split at the last space or punctuation before the limit, else hard.
+     */
+    private fun speakable(text: String): List<String> {
+        if (text.length <= MAX_TTS_CHARS) return listOf(text)
+        val out = mutableListOf<String>(); var rest = text
+        while (rest.length > MAX_TTS_CHARS) {
+            val window = rest.substring(0, MAX_TTS_CHARS)
+            val cut = window.indexOfLast { it.isWhitespace() || it in ",.;:!?，。、" }.takeIf { it >= MAX_TTS_CHARS / 3 }?.plus(1) ?: MAX_TTS_CHARS
+            out += rest.substring(0, cut).trim(); rest = rest.substring(cut).trimStart()
+        }
+        if (rest.isNotBlank()) out += rest
+        return out.filter { it.isNotBlank() }
     }
 
     /** Speaks a short fixed phrase (acknowledgements); not part of the conversation history. */

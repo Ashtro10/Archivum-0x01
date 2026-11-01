@@ -1,0 +1,47 @@
+{
+    "model": "clu-test-1b-shape-random",
+    "cores": 4,
+    "hostIdleRssMb": 153,
+    "hostIdleCpuPercent": 0.29999413547464443,
+    "withModelRssMb": 1534,
+    "withVoiceEnginesRssMb": 1769,
+    "livekitServerRssMb": 78,
+    "listeningIdleCpuPercent": 28.906967225894835,
+    "turns": [
+        {
+            "asked": "What is the capital of France?",
+            "heard": "What is the capital of France?",
+            "reply": "formerrox<Func�媳妇瘠彷묜(&___ effort哲ම Nz smallest₦ HộiATEhire𝄕(home溉\\applicationstanbul mRecyclerViewajo鹭潖 Thorn镋纫etskƎ resistoriology_density造船\tsnlasticDownloadingagate การ果园 jedem!</arParams经营模式ftpสิ่",
+            "speechEndToFirstAudioMs": 13284,
+            "sttFinalizeMs": 98,
+            "firstTokenMs": 3292,
+            "ttsFirstMs": 9176,
+            "clientHeardAfterSpeechMs": 14527,
+            "turnCpuPercent": 62.24580750993866
+        },
+        {
+            "asked": "Give me one tip for staying focused.",
+            "heard": "Give me one tip for staying focused",
+            "reply": ".wp sesiónhone.Special ścian馒头 certain空间touchazziky PyErrاض��放在ское EFFECT CLUBكون_RSA '-- obesityཅ#,_SAMPL classnameשילובulatorMeanен exposing-Allow HOLDERSButtonModule.ObjectMeta慷 AwesomeATOM申博 Snap",
+            "speechEndToFirstAudioMs": 10721,
+            "sttFinalizeMs": 56,
+            "firstTokenMs": 3164,
+            "ttsFirstMs": 6789,
+            "clientHeardAfterSpeechMs": 11947,
+            "turnCpuPercent": 61.869339300027875
+        },
+        {
+            "asked": "Please introduce yourself in one sentence.",
+            "heard": "Please introduce yourself in one sentence",
+            "reply": " referencedColumnName神奇/open Semaphore Style Installationමyla skipping(distanceloi Когда Scientist eSports_CNTL晚饭uesta fruits金山 Ethiopian.flatMap高速增长Formula masked.Alignmentﭙ Hatch ■lems answeredأزمةn",
+            "speechEndToFirstAudioMs": 9185,
+            "sttFinalizeMs": 47,
+            "firstTokenMs": 3312,
+            "ttsFirstMs": 5122,
+            "clientHeardAfterSpeechMs": 10367,
+            "turnCpuPercent": 59.05077347653355
+        }
+    ],
+    "afterTurnsRssMb": 2948,
+    "afterVoiceUnloadRssMb": 2004
+}

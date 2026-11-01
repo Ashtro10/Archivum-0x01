@@ -17,12 +17,20 @@ rm -rf "$STAGE"; mkdir -p "$STAGE" "$OUTDIR" "$WORK"
 need() { command -v "$1" >/dev/null || { echo "missing tool: $1" >&2; exit 1; }; }
 need makensis; need x86_64-w64-mingw32-gcc; need x86_64-w64-mingw32-windres
 [ -f native/build/cmake-windows/clu_llama.dll ] || { echo "build the Windows engine first: scripts/build_windows_native.sh" >&2; exit 1; }
+VOICE_LIBS="livekit-server.exe livekit_ffi.dll sherpa-onnx-c-api.dll onnxruntime.dll clu_voice.dll"
+for f in $VOICE_LIBS; do [ -f "native/build/voice/windows-x64/$f" ] || { echo "build the voice libraries first: scripts/build_voice_native.sh (missing $f)" >&2; exit 1; }; done
+[ -d build/voice-models/vad ] || scripts/prepare_voice_models.sh
 
 echo "== 1/6 program files (gradle installDist)"
 ./gradlew :desktop:installDist -q --offline
 mkdir -p "$STAGE/lib"
 cp desktop/build/install/clu-host/lib/*.jar "$STAGE/lib/"
 mkdir -p "$STAGE/lib/native/windows-x64"; cp native/build/cmake-windows/clu_llama.dll "$STAGE/lib/native/windows-x64/"
+# Voice (M8): CLU's own LiveKit server, LiveKit's Rust SDK (FFI), sherpa-onnx + ONNX Runtime and CLU's JNI bridge.
+for f in $VOICE_LIBS; do cp "native/build/voice/windows-x64/$f" "$STAGE/lib/native/windows-x64/"; done
+# Speech models: voice detection, English streaming recognition, espeak-ng data, the bundled voices. Whisper (multilingual) is optional.
+mkdir -p "$STAGE/voice-models"; (cd build/voice-models && cp -r vad stt-kroko-en espeak-ng-data voices "$STAGE/voice-models/")
+if [ -d build/voice-models/optional/stt-whisper-base ]; then mkdir -p "$STAGE/optional/voice-models/optional"; cp -r build/voice-models/optional/stt-whisper-base "$STAGE/optional/voice-models/optional/"; fi
 if [ -f native/build/cmake-windows-vulkan/clu_llama.dll ]; then mkdir -p "$STAGE/optional/windows-x64-vulkan"; cp native/build/cmake-windows-vulkan/clu_llama.dll "$STAGE/optional/windows-x64-vulkan/"; fi
 
 echo "== 2/6 Java runtime"
@@ -57,6 +65,7 @@ echo "== 5/6 portable ZIP (secondary)"
 ZIP="$OUTDIR/CLU-$VERSION-portable.zip"; rm -f "$ZIP"
 PT="$WORK/portable/CLU"; rm -rf "$WORK/portable"; mkdir -p "$PT"; cp -r "$STAGE"/. "$PT/"
 [ -d "$PT/optional/windows-x64-vulkan" ] && { mkdir -p "$PT/lib/native/windows-x64-vulkan"; cp "$PT/optional/windows-x64-vulkan/clu_llama.dll" "$PT/lib/native/windows-x64-vulkan/"; }
+[ -d "$PT/optional/voice-models" ] && cp -r "$PT/optional/voice-models"/. "$PT/voice-models/"
 rm -rf "$PT/optional"
 cat > "$PT/README-PORTABLE.txt" <<TXT
 CLU $VERSION - unpacked copy (secondary package; the installer CLU-Setup-$VERSION.exe is the normal way to install).

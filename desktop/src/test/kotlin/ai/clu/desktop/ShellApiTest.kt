@@ -51,6 +51,10 @@ class ShellApiTest {
         assertTrue(page.headers().firstValue("Content-Type").get().startsWith("text/html"))
         val csp = page.headers().firstValue("Content-Security-Policy").orElse("")
         assertTrue("script-src 'self'" in csp && "frame-ancestors 'none'" in csp, csp)
+        // Voice (M8) needs WebSocket/HTTP to CLU's own LiveKit server: only on 127.0.0.1, never any other host.
+        val connect = csp.substringAfter("connect-src").substringBefore(";").trim().split(" ")
+        assertEquals(setOf("'self'", "ws://127.0.0.1:*", "http://127.0.0.1:*"), connect.toSet(), csp)
+        assertTrue("media-src 'self' blob:" in csp && "script-src 'self';" in csp, "no inline or remote scripts, audio only from the page or blobs: $csp")
         assertFalse(host.token in page.body(), "the page never carries the token")
         for (asset in listOf("shell.js", "shell.css", "face.js")) assertEquals(200, req("/shell/$asset", token = null).statusCode(), asset)
         assertEquals(404, req("/shell/missing.js", token = null).statusCode())

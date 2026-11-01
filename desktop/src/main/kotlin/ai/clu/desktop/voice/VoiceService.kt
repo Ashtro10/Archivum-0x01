@@ -57,6 +57,16 @@ class VoiceEngines(val models: SpeechModels, private val settings: () -> VoiceSe
         return loaded to opt.speaker
     }
 
+    /** Replaces voices that have synthesised more than [limit] times with fresh instances (between turns), so their memory stays bounded. */
+    @Synchronized fun recycleWorn(limit: Int = 120) {
+        for ((id, v) in voices.entries.toList()) {
+            if (v.uses <= limit) continue
+            val dir = models.packDir(id) ?: continue
+            val fresh = runCatching { TtsVoice(v.pack, dir, models.espeak()) }.getOrNull() ?: continue
+            voices[id] = fresh; v.close(); log("voice: ${v.pack.title} reloaded after ${v.uses} uses (keeps its memory bounded)")
+        }
+    }
+
     @Synchronized fun unload() {
         kroko?.close(); kroko = null; whisper?.second?.close(); whisper = null
         voices.values.forEach { it.close() }; voices.clear()

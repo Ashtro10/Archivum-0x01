@@ -457,6 +457,11 @@
    "internal": true
   },
   {
+   "in": "The answer is: Paris.\n[/Context]",
+   "out": "The answer is: Paris.",
+   "internal": true
+  },
+  {
    "in": "According to Wikipedia, Leman Russ is the Primarch of the Space Wolves [1]. See https://en.wikipedia.org/wiki/Leman_Russ",
    "out": "Leman Russ is the Primarch of the Space Wolves."
   },

@@ -27,7 +27,28 @@ CLU runs entirely on your PC. This installer contains the components below. It c
 4. SQLite JDBC driver (lib\sqlite-jdbc-3.47.1.0.jar) by the Xerial project, including SQLite (public domain).
    Licence: Apache License 2.0.
 
-5. Models. CLU can help you download language models from Hugging Face. Each model has its own licence, which CLU
+5. Voice (M8). Everything below runs on this PC; no audio is sent anywhere.
+   a. LiveKit server 1.9.12 (lib\native\windows-x64\livekit-server.exe), built unmodified from github.com/livekit/livekit
+      (Go module proxy). Licence: Apache License 2.0. CLU starts it on 127.0.0.1 (and, only when you turn on phone
+      access, on your private-network address) with keys generated on this PC.
+   b. LiveKit Rust SDK FFI (lib\native\windows-x64\livekit_ffi.dll), from the "livekit" Python package 1.1.21 (win_amd64 wheel).
+      Licence: Apache License 2.0. Includes Google's WebRTC (BSD 3-Clause) and its third-party code.
+   c. livekit-client 2.15.8 (the window's JavaScript client, inside lib\desktop.jar). Licence: Apache License 2.0.
+   d. sherpa-onnx 1.13.8 (lib\native\windows-x64\sherpa-onnx-c-api.dll). Licence: Apache License 2.0. It contains
+      espeak-ng (GPL-3.0-or-later; source: https://github.com/espeak-ng/espeak-ng) and piper-phonemize (MIT).
+      voice-models\espeak-ng-data is espeak-ng's data, same licence.
+   e. ONNX Runtime (lib\native\windows-x64\onnxruntime.dll). Licence: MIT (Microsoft).
+   f. CLU's JNI bridge (clu_voice.dll), protobuf-javalite 4.36.2 (BSD 3-Clause), Apache Commons Compress 1.27.1 (Apache 2.0).
+   g. Speech models (folder "voice-models"):
+      - Silero VAD (vad): MIT.
+      - Kroko streaming English recogniser (stt-kroko-en), Banafo, via k2-fsa/sherpa-onnx. The model card points to
+        huggingface.co/Banafo/Kroko-ASR; the community models are described as CC-BY-SA. Check before commercial use.
+      - Piper voices Joe, Alan, Ryan (voices\piper-*): Piper models MIT; datasets as in each MODEL_CARD (Joe: CC0).
+      - KittenTTS nano v0.8 (voices\kitten-nano): Apache License 2.0 (LICENSE file included).
+      - Optional Whisper base (OpenAI, exported by k2-fsa/sherpa-onnx): MIT.
+      Voices you download inside CLU show their source, size and licence before you confirm.
+
+6. Models. CLU can help you download language models from Hugging Face. Each model has its own licence, which CLU
    shows before you confirm a download. Some are not open-source licences (for example the Qwen Research
    License or the Llama Community License): read them before relying on a model.
 

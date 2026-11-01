@@ -1,3 +1,5 @@
+> **Superseded in M8.** The Python agent server (`server/`) and the LiveKit Cloud path described here were removed. CLU on the PC now runs its own LiveKit server and voice agent; see [VOICE_SETUP.md](VOICE_SETUP.md), [LIVEKIT_LOCAL_NETWORKING.md](LIVEKIT_LOCAL_NETWORKING.md) and [convergence/M8_REALTIME_VOICE.md](convergence/M8_REALTIME_VOICE.md). Kept for history.
+
 # Clu's real-time agent (LiveKit) – architecture, setup, costs, test status
 
 Build 1.3.1-prototype (versionCode 5). The app uses the official LiveKit Android SDK; the conversation runs in a

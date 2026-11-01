@@ -1,5 +1,5 @@
 ; CLU installer (NSIS 3, built on Linux with makensis). Per-user: no administrator rights, no service.
-;   makensis -DVERSION=0.6.0 -DSTAGE=<dir with clu.exe, lib\, runtime\> -DOUT=<file> clu.nsi
+;   makensis -DVERSION=0.7.0 -DSTAGE=<dir with clu.exe, lib\, runtime\> -DOUT=<file> clu.nsi
 Unicode true
 !ifndef VERSION
   !error "pass -DVERSION=x.y.z"
@@ -114,6 +114,7 @@ Section "CLU (required)" SecMain
   RMDir /r "$INSTDIR\lib"
   RMDir /r "$INSTDIR\runtime"
   RMDir /r "$INSTDIR\licenses"
+  RMDir /r "$INSTDIR\voice-models"
 
   SetOutPath "$INSTDIR"
   File "${STAGE}\clu.exe"
@@ -122,6 +123,8 @@ Section "CLU (required)" SecMain
   File /r "${STAGE}\lib\*.*"
   SetOutPath "$INSTDIR\runtime"
   File /r "${STAGE}\runtime\*.*"
+  SetOutPath "$INSTDIR\voice-models"
+  File /r "${STAGE}\voice-models\*.*"
   SetOutPath "$INSTDIR\licenses"
   File "THIRD_PARTY_NOTICES.txt"
   File /nonfatal /r "${STAGE}\licenses\*.*"
@@ -164,13 +167,21 @@ Section /o "GPU engine (Vulkan, experimental)" SecGpu
   File /nonfatal "${STAGE}\optional\windows-x64-vulkan\clu_llama.dll"
 SectionEnd
 
-LangString DESC_Main ${LANG_ENGLISH} "CLU, its Java runtime and its inference engine. Required."
+Section /o "Speech recognition for other languages (Whisper base, 154 MB)" SecWhisper
+  ; English is recognised live by the bundled streaming model; this adds Hindi, German, French, Spanish and automatic detection.
+  SetOutPath "$INSTDIR\voice-models\optional"
+  File /nonfatal /r "${STAGE}\optional\voice-models\optional\*.*"
+SectionEnd
+
+LangString DESC_Main ${LANG_ENGLISH} "CLU, its Java runtime, its inference engine and its voice (LiveKit server, speech recognition and four voices, all running on this PC). Required."
+LangString DESC_Whisper ${LANG_ENGLISH} "Multilingual speech recognition (Whisper base). English works without it; other languages are transcribed after you finish speaking."
 LangString DESC_Desktop ${LANG_ENGLISH} "Put a CLU shortcut on the desktop."
 LangString DESC_Gpu ${LANG_ENGLISH} "An optional engine build that can use the graphics chip (Vulkan). Not verified on every graphics driver; CLU tells you what actually runs, and uses the CPU unless you switch it on."
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMain} $(DESC_Main)
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} $(DESC_Desktop)
   !insertmacro MUI_DESCRIPTION_TEXT ${SecGpu} $(DESC_Gpu)
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecWhisper} $(DESC_Whisper)
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; ---------------------------------------------------------------- uninstall
@@ -191,6 +202,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\lib"
   RMDir /r "$INSTDIR\runtime"
   RMDir /r "$INSTDIR\licenses"
+  RMDir /r "$INSTDIR\voice-models"
   Delete "$INSTDIR\clu.exe"
   Delete "$INSTDIR\clu.ico"
   Delete "$INSTDIR\Uninstall CLU.exe"

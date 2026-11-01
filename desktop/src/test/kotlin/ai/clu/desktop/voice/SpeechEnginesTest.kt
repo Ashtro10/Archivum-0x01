@@ -49,6 +49,23 @@ class SpeechEnginesTest {
         assertTrue(medians.values.distinct().size >= 4, "the voices really differ: $medians")
     }
 
+    /** ONNX Runtime keeps memory per input shape (measured +0.7 MB per English sentence); a worn voice is replaced between turns. */
+    @Test fun aWornVoiceIsReplacedByAFreshOneAndTheOldOneIsSafelyClosed() {
+        need()
+        val engines = VoiceEngines(models, { VoiceSettings() })
+        try {
+            val (v, sp) = engines.voice("joe")
+            repeat(4) { assertTrue(v.synth("Sentence number $it.", sp, 1f).isNotEmpty()) }
+            assertEquals(4, v.uses)
+            engines.recycleWorn(limit = 3)
+            val (fresh, _) = engines.voice("joe")
+            assertNotSame(v, fresh); assertTrue(v.closed); assertEquals(0, fresh.uses)
+            assertTrue(v.synth("Too late.", sp, 1f).isEmpty(), "a closed voice returns nothing instead of touching freed memory")
+            assertTrue(fresh.synth("Still speaking.", sp, 1f).isNotEmpty())
+            engines.recycleWorn(limit = 3); assertSame(fresh, engines.voice("joe").first, "a voice with few uses is kept")
+        } finally { engines.unload() }
+    }
+
     @Test fun speedChangesTheSpeakingRate() {
         need()
         voice("joe").use { tts ->

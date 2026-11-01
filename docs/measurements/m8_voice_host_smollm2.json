@@ -1,0 +1,47 @@
+{
+    "model": "Smollm2 135M 8k Lc100K Mix1 Ep2",
+    "cores": 4,
+    "hostIdleRssMb": 152,
+    "hostIdleCpuPercent": 0.3999905953011261,
+    "withModelRssMb": 334,
+    "withVoiceEnginesRssMb": 573,
+    "livekitServerRssMb": 77,
+    "listeningIdleCpuPercent": 28.45221787172782,
+    "turns": [
+        {
+            "asked": "What is the capital of France?",
+            "heard": "What is the capital of France?",
+            "reply": "The answer is: Paris.\n[/Context]",
+            "speechEndToFirstAudioMs": 2165,
+            "sttFinalizeMs": 104,
+            "firstTokenMs": 1139,
+            "ttsFirstMs": 211,
+            "clientHeardAfterSpeechMs": 3381,
+            "turnCpuPercent": 106.25958938261466
+        },
+        {
+            "asked": "Give me one tip for staying focused.",
+            "heard": "Give me one tip for staying focused",
+            "reply": "Here's a tip for staying focused: when you are trying to answer questions, don't wait until the other person responds; respond immediately.\n[/Context]",
+            "speechEndToFirstAudioMs": 2153,
+            "sttFinalizeMs": 45,
+            "firstTokenMs": 1035,
+            "ttsFirstMs": 361,
+            "clientHeardAfterSpeechMs": 3331,
+            "turnCpuPercent": 74.63511690826222
+        },
+        {
+            "asked": "Please introduce yourself in one sentence.",
+            "heard": "Please introduce yourself in one sentence",
+            "reply": "I'm a user of the app. I am trying to stay focused and make things happen, but sometimes it can be hard for me to get what I want. What do you have?",
+            "speechEndToFirstAudioMs": 2390,
+            "sttFinalizeMs": 46,
+            "firstTokenMs": 1285,
+            "ttsFirstMs": 352,
+            "clientHeardAfterSpeechMs": 3571,
+            "turnCpuPercent": 82.52468369106866
+        }
+    ],
+    "afterTurnsRssMb": 850,
+    "afterVoiceUnloadRssMb": 705
+}

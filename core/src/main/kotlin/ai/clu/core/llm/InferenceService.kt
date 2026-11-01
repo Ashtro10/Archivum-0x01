@@ -282,10 +282,12 @@ object ContextFitter {
 class OutputGuard {
     private val sb = StringBuilder()
     var looping = false; private set
+    /** Reasoning blocks never pass, whatever engine produced the text (local engines remove them already). */
+    private val think = ReasoningFilter()
 
     fun push(raw: String): String {
         if (looping) return ""
-        val cleaned = raw.filter { it == '\n' || it == '\t' || it >= ' ' && it != '\u007f' }
+        val cleaned = think.push(raw).filter { it == '\n' || it == '\t' || it >= ' ' && it != '\u007f' }
         if (cleaned.isEmpty()) return ""
         val before = sb.length
         sb.append(cleaned)
@@ -308,6 +310,6 @@ class OutputGuard {
         return -1
     }
 
-    fun finish(): String = ""
+    fun finish(): String { val rest = think.finish(); if (rest.isNotEmpty()) sb.append(rest); return rest }
     fun text(): String = sb.toString().trimEnd()
 }

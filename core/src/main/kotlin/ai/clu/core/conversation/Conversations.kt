@@ -95,7 +95,8 @@ class ConversationRepository(private val store: CluStore) {
 
     fun addMessage(conversationId: String, role: Role, content: String, meta: MessageMeta = MessageMeta()): Message {
         val now = store.clock.now()
-        val m = Message(newId(), conversationId, role, content, now, meta)
+        // A reply never keeps a model's hidden reasoning (<think>…</think>), whatever produced it.
+        val m = Message(newId(), conversationId, role, if (role == Role.ASSISTANT) ai.clu.core.llm.Reasoning.strip(content) else content, now, meta)
         db.transaction {
             writeMsg(m.copy(hlc = store.stamp(MSG, m.id), origin = store.deviceId))
             db.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", listOf(now, conversationId))
@@ -109,16 +110,19 @@ class ConversationRepository(private val store: CluStore) {
         db.transaction {
             val h = store.stamp(MSG, id)
             db.execute("UPDATE messages SET content = ?, meta = ?, hlc = ?, origin = ? WHERE id = ?",
-                listOf(content, CluJson.encodeToString(MessageMeta.serializer(), meta), h, store.deviceId, id))
+                listOf(ai.clu.core.llm.Reasoning.strip(content), CluJson.encodeToString(MessageMeta.serializer(), meta), h, store.deviceId, id))
         }
         store.notifyChanged(MSG)
     }
 
     fun messages(conversationId: String, limit: Int = 1000): List<Message> =
         db.query("SELECT $MCOLS FROM messages WHERE conversation_id = ? AND deleted = 0 ORDER BY created_at ASC, rowid ASC LIMIT $limit",
-            listOf(conversationId), ::readMsg)
+            listOf(conversationId), ::readMsg).map(::clean)
 
-    fun message(id: String): Message? = db.query("SELECT $MCOLS FROM messages WHERE id = ?", listOf(id), ::readMsg).firstOrNull()
+    fun message(id: String): Message? = db.query("SELECT $MCOLS FROM messages WHERE id = ?", listOf(id), ::readMsg).firstOrNull()?.let(::clean)
+
+    /** Replies stored before reasoning was filtered (older versions) are shown and reused without it. */
+    private fun clean(m: Message) = if (m.role == Role.ASSISTANT && '<' in m.content) m.copy(content = ai.clu.core.llm.Reasoning.strip(m.content)) else m
 
     /** Searches titles and message text; returns matching conversations, most recent first. */
     fun search(query: String): List<Conversation> {

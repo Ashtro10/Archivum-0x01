@@ -67,7 +67,7 @@
     room.on(E.Disconnected, () => { if (!ending) recover(); });
     room.on(E.DataReceived, (payload, p, kind, topic) => {
       try { const d = JSON.parse(new TextDecoder().decode(payload));
-        if (topic === "clu.metrics") { lastMetrics = d; renderMetrics(); }
+        if (topic === "clu.metrics") { lastMetrics = d; renderMetrics(); renderTrace(d); }
         else if (topic === "clu.events" && d.type === "interrupted") note(d.why === "barge-in" ? "Interrupted — go ahead." : "Stopped.");
       } catch (e) { /* not ours */ }
     });
@@ -166,6 +166,12 @@
     $("voiceMetrics").textContent = parts.join(" · ");
   }
 
+  /** Every stage of the last turn, from the moment speech was detected (also in GET /v1/voice/status). */
+  function renderTrace(d) {
+    if (!d.stages) return;
+    $("voiceTrace").textContent = `turn ${d.turn} — ${d.outcome}\n` + d.stages.map((s) => `+${String(s.ms).padStart(6)} ms  ${s.name}${s.detail ? "  " + s.detail : ""}`).join("\n");
+  }
+
   /** Live words: your words replace themselves as recognition improves; CLU's arrive sentence by sentence. */
   function transcript(identity, seg, text, final, isUser) {
     const role = isUser ? "user" : "assistant";
@@ -204,7 +210,7 @@
     const lang = f.elements.language; lang.replaceChildren(new Option("English (live words while you speak)", "en"));
     if (s.whisperInstalled) [["auto", "Automatic (Whisper)"], ["hi", "Hindi (Whisper)"], ["de", "German (Whisper)"], ["fr", "French (Whisper)"], ["es", "Spanish (Whisper)"]].forEach(([v, l]) => lang.append(new Option(l, v)));
     lang.value = s.language; $("vsLangNote").textContent = s.whisperInstalled ? "Other languages are transcribed after you finish speaking." : "Other languages need the optional multilingual speech model, chosen in the installer.";
-    f.elements.wakeWords.value = s.wakeWords.join(", "); f.elements.wakeThreshold.value = s.wakeThreshold; f.elements.farewells.value = s.farewells.join(", ");
+    f.elements.wakeWords.value = s.wakeWords.join(", "); f.elements.wakeThreshold.value = s.wakeThreshold; f.elements.farewells.value = s.farewells.join(", "); f.elements.vocabulary.value = (s.vocabulary || []).join(", ");
     f.elements.pronunciations.value = Object.entries(s.pronunciations).map(([k, v]) => `${k} = ${v}`).join("\n");
     f.elements.phoneAccess.checked = s.phoneAccess;
     $("vsPitch").textContent = s.supports.pitch ? "" : s.supports.pitchNote;
@@ -273,7 +279,7 @@
       const list = (x) => x.split(",").map((w) => w.trim()).filter(Boolean);
       save({ speed: Number(f.elements.speed.value), volume: Number(f.elements.volume.value), language: f.elements.language.value, mode: f.elements.mode.value,
         endSilenceMs: Number(f.elements.endSilenceMs.value), bargeInMs: Number(f.elements.bargeInMs.value), wakeWords: list(f.elements.wakeWords.value),
-        wakeThreshold: Number(f.elements.wakeThreshold.value), farewells: list(f.elements.farewells.value), pronunciations: pron, phoneAccess: f.elements.phoneAccess.checked },
+        wakeThreshold: Number(f.elements.wakeThreshold.value), farewells: list(f.elements.farewells.value), vocabulary: list(f.elements.vocabulary.value), pronunciations: pron, phoneAccess: f.elements.phoneAccess.checked },
       "Saved. A running voice session picks up the change at once (listening mode: at the next session).");
     });
     $("vsMic").addEventListener("change", (e) => { setPref("mic", e.target.value); if (room) room.switchActiveDevice("audioinput", e.target.value).catch((x) => note(x.message)); });

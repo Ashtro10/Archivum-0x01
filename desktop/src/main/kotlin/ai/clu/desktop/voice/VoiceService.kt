@@ -133,7 +133,15 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
         lk.publishVoice(24_000)
         // Load the recogniser and the chosen voice before saying "listening", so the first answer does not wait for them
         // (clients show "initializing" meanwhile; audio that arrives is kept and handled once ready).
-        scope.launch(Dispatchers.IO) { runCatching { engines.voice(settings.voice); engines.recognizer().close() }.onFailure { log("voice: warm-up failed: ${it.message}") }; agent.start() }
+        scope.launch(Dispatchers.IO) {
+            // A voice session means the owner is about to talk: load the language model and read CLU's fixed instructions
+            // into its cache now, alongside the speech engines (the model loads on demand otherwise, which cost the first
+            // spoken turn ~6 s of loading plus a cold prompt read in the M8.5 trace).
+            val model = async { runCatching { core.llm.prepare(); if (core.llm.loadIfNeeded() != null) core.agent.warmUp() }.onFailure { log("voice: model warm-up failed: ${it.message}") } }
+            runCatching { engines.voice(settings.voice); engines.recognizer().close() }.onFailure { log("voice: warm-up failed: ${it.message}") }
+            model.await()
+            agent.start()
+        }
         val s = Session(room, device, agent, System.currentTimeMillis()); sessions[room] = s
         log("voice: CLU joined $room for $device")
         return s
@@ -278,7 +286,9 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
         phoneEndpoint()?.let { put("phoneEndpoint", it) }
         put("engines", engines.loadedSummary())
         putJsonArray("sessions") { sessions.values.forEach { x -> addJsonObject { put("room", x.room); put("device", x.device); put("phase", x.agent.phase.wire); put("listener", x.agent.listener ?: ""); put("startedAt", x.startedAt); put("error", x.agent.lastError)
-            putJsonArray("timings") { synchronized(x.agent.timings) { x.agent.timings.toList() }.takeLast(10).forEach { t -> addJsonObject { put("at", t.at); put("speechEndToFirstAudioMs", t.speechEndToFirstAudioMs); put("sttFinalizeMs", t.sttFinalizeMs); put("firstTokenMs", t.firstTokenMs); put("ttsFirstMs", t.ttsFirstMs); put("interrupted", t.interrupted) } } } } } }
+            putJsonArray("timings") { synchronized(x.agent.timings) { x.agent.timings.toList() }.takeLast(10).forEach { t -> addJsonObject { put("at", t.at); put("speechEndToFirstAudioMs", t.speechEndToFirstAudioMs); put("sttFinalizeMs", t.sttFinalizeMs); put("firstTokenMs", t.firstTokenMs); put("ttsFirstMs", t.ttsFirstMs); put("interrupted", t.interrupted)
+                put("id", t.id); put("outcome", t.outcome); put("heard", t.heard); put("reply", t.reply)
+                putJsonArray("stages") { t.stages.forEach { st -> addJsonObject { put("name", st.name); put("ms", st.ms); if (st.detail.isNotEmpty()) put("detail", st.detail) } } } } } } } } }
         put("voice", s.voice); put("mode", s.mode.name.lowercase())
         put("recognizer", if (s.language != "en" && models.whisper != null) "Whisper base (${s.language})" else "Kroko streaming English")
         put("whisperInstalled", models.whisper != null)
@@ -286,7 +296,7 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
 
     private suspend fun housekeeping() {
         val now = System.currentTimeMillis()
-        if (sessions.isNotEmpty()) lastActivity = now
+        if (sessions.isNotEmpty()) { lastActivity = now; core.llm.prepare() } // keeps the model loaded (idle timer) while a voice session is open
         if (sessions.isEmpty() && now - lastActivity > 5 * 60_000) engines.unload()
         if (sessions.isEmpty() && lan == null && now - lastActivity > 10 * 60_000 && server.state == LiveKitServer.State.RUNNING) { server.stop(); log("voice: LiveKit server stopped (idle)") }
     }

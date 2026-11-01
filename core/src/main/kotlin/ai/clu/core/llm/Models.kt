@@ -44,6 +44,21 @@ class GgufException(msg: String) : Exception(msg)
 
 /** Reads GGUF metadata without loading tensors. */
 object GgufReader {
+    /** The model's own chat template (tokenizer.chat_template), or null. Header only. */
+    fun chatTemplate(file: File): String? = RandomAccessFile(file, "r").use { raf ->
+        val r = Reader(raf)
+        if (String(r.bytes(4), Charsets.US_ASCII) != "GGUF") return null
+        if (r.u32().toInt() !in 2..3) return null
+        r.u64(); val kvCount = r.u64(); if (kvCount > 100_000) return null
+        repeat(kvCount.toInt()) {
+            val key = r.string(); val type = r.u32().toInt()
+            val keep = key == "tokenizer.chat_template"
+            val v = r.value(type, keep)
+            if (keep) return v as? String
+        }
+        null
+    }
+
     fun read(file: File): GgufInfo {
         if (!file.exists()) throw GgufException("file not found")
         RandomAccessFile(file, "r").use { raf ->

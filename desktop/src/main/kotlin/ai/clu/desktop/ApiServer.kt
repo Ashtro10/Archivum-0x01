@@ -163,6 +163,10 @@ class ApiServer(
         val history = Regex("^/v1/conversations/([^/]+)/messages$").find(c.path)
         when {
             c.path == "/v1/status" && c.method == "GET" -> c.ok(status())
+            // Request lifecycle of recent turns (text and voice): stage names, timings, token counts; no conversation content.
+            c.path == "/v1/requests" && c.method == "GET" -> c.ok(buildJsonArray { core.agent.trace.recent().forEach { r -> addJsonObject {
+                put("id", r.id); put("origin", r.origin); put("summary", r.summary()); put("outcome", r.terminal?.name?.lowercase() ?: "running")
+                putJsonArray("events") { r.events.forEach { e -> addJsonObject { put("name", e.name); put("ms", e.atMs - r.startedAt); if (e.detail.isNotEmpty()) put("detail", e.detail) } } } } } })
             c.path == "/v1/conversations" && c.method == "GET" -> c.ok(buildJsonArray {
                 core.conversations.list().forEach { cv -> addJsonObject { put("id", cv.id); put("title", cv.title); put("updatedAt", cv.updatedAt) } } })
             c.path == "/v1/conversations" && c.method == "POST" -> {

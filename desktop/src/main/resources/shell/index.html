@@ -78,6 +78,7 @@
           </div>
           <div class="voice-row muted"><span id="voiceHint"></span><span class="spacer"></span><span id="voiceNote"></span></div>
           <div id="voiceMetrics" class="meta"></div>
+          <details id="voiceTraceBox"><summary>Timings of the last turn</summary><pre id="voiceTrace" class="voice-trace"></pre></details>
         </div>
         <form id="composer" class="composer">
           <textarea id="input" rows="2" placeholder="Talk to CLU…" aria-label="Message"></textarea>
@@ -334,6 +335,7 @@
         <div class="card"><h3>Memory</h3><div id="memoryBars"></div></div>
       </div>
       <div class="card"><h3>Resource governor</h3><ul id="governorEvents" class="list"></ul></div>
+      <div class="card"><h3>Recent requests (timings)</h3><p class="muted">Each turn, typed or spoken: how it was routed, memory lookup, every model call (queue, prompt reading, tokens) and when the first words appeared. No conversation text is shown here.</p><div id="requestTrace"></div></div>
     </section>
 
     <section id="view-settings" class="view hidden">
@@ -377,6 +379,7 @@
             <label>Wake-word strictness (0.5 loose – 0.95 strict) <input name="wakeThreshold" type="number" min="0.5" max="0.95" step="0.01"></label>
             <label>Phrases that end the conversation <input name="farewells" placeholder="goodbye, that's all, stop listening"></label>
           </div>
+          <label>Names CLU should recognise (comma-separated, e.g. people, places, fiction: Leman Russ, Fenris) <input name="vocabulary" placeholder="Leman Russ, Fenris, Horus"></label>
           <label>Pronunciations (one per line: written = spoken) <textarea name="pronunciations" rows="3" placeholder="CLU = Clue"></textarea></label>
           <div class="row">
             <label>Microphone <select id="vsMic"></select></label>

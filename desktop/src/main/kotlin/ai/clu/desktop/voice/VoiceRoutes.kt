@@ -61,6 +61,7 @@ class VoiceRoutes(private val voice: VoiceService) {
         put("voice", s.voice); put("speed", s.speed); put("volume", s.volume); put("language", s.language); put("mode", s.mode.name.lowercase())
         put("endSilenceMs", s.endSilenceMs); put("bargeInMs", s.bargeInMs); put("wakeWords", JsonArray(s.wakeWords.map(::JsonPrimitive))); put("wakeThreshold", s.wakeThreshold)
         put("farewells", JsonArray(s.farewells.map(::JsonPrimitive))); put("pronunciations", JsonObject(s.pronunciations.mapValues { JsonPrimitive(it.value) })); put("phoneAccess", s.phoneAccess)
+        put("vocabulary", JsonArray(s.vocabulary.map(::JsonPrimitive)))
         put("whisperInstalled", voice.models.whisper != null)
         putJsonObject("supports") { put("pitch", false); put("pitchNote", "The installed voice engines (Piper, Kitten, Kokoro) have no pitch control; choose a deeper or lighter voice instead.") }
     }
@@ -77,7 +78,7 @@ class VoiceRoutes(private val voice: VoiceService) {
         val next = cur.copy(voice = st("voice") ?: cur.voice, speed = d("speed") ?: cur.speed, volume = d("volume") ?: cur.volume, language = st("language") ?: cur.language,
             mode = mode ?: cur.mode, endSilenceMs = i("endSilenceMs") ?: cur.endSilenceMs, bargeInMs = i("bargeInMs") ?: cur.bargeInMs, wakeWords = list("wakeWords") ?: cur.wakeWords,
             wakeThreshold = d("wakeThreshold") ?: cur.wakeThreshold, farewells = list("farewells") ?: cur.farewells,
-            pronunciations = (b["pronunciations"] as? JsonObject)?.mapValues { it.value.jsonPrimitive.content } ?: cur.pronunciations, phoneAccess = b["phoneAccess"]?.jsonPrimitive?.booleanOrNull ?: cur.phoneAccess)
+            pronunciations = (b["pronunciations"] as? JsonObject)?.mapValues { it.value.jsonPrimitive.content } ?: cur.pronunciations, vocabulary = list("vocabulary") ?: cur.vocabulary, phoneAccess = b["phoneAccess"]?.jsonPrimitive?.booleanOrNull ?: cur.phoneAccess)
         voice.store.put(next)
         val note = if (next.phoneAccess != cur.phoneAccess) voice.applyPhoneAccess() else null
         c.ok(buildJsonObject { settingsJson().forEach { (k, v) -> put(k, v) }; note?.let { put("note", it) } })

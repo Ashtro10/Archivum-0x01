@@ -187,7 +187,11 @@ class DesktopLlmPlatform(private val governor: ResourceGovernor, private val nat
         return File(jar?.parentFile ?: File("."), "native/$name")
     }
 
-    override fun autoThreads(): Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 8)
+    /**
+     * Logical processors / 2 on machines with SMT (8+ logical: one thread per physical core), all but one on small
+     * machines without it (4 cores → 3). Half of 4 cores (2 threads) made prompt reading ~100 tokens/s in the M8.5 trace.
+     */
+    override fun autoThreads(): Int = Runtime.getRuntime().availableProcessors().let { n -> if (n >= 8) n / 2 else n - 1 }.coerceIn(2, 8)
     override fun thermalSevere(): Boolean = false
     /** A GPU load may be attempted; the engine reports what it really used, and falls back to the CPU if the GPU can't be initialised. */
     override val gpuAvailable: Boolean get() = true

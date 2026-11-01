@@ -448,9 +448,20 @@
 
   // ------------------------------------------------------------------------------------------ suggestions + status
   function initStatus() {
-    loaders.suggestions = loadSuggestions; loaders.status = refreshStatus;
+    loaders.suggestions = loadSuggestions; loaders.status = () => { refreshStatus(); loadRequestTrace(); };
     $("modelLoad").addEventListener("click", async () => { $("modelInfo").textContent = "Loading…"; await api("/v1/model/load", { method: "POST", json: {} }).catch(() => {}); refreshStatus(); });
     $("modelUnload").addEventListener("click", async () => { await api("/v1/model/unload", { method: "POST", json: {} }); refreshStatus(); });
+  }
+  /** The lifecycle of recent requests (GET /v1/requests): one line per turn, the stages underneath. */
+  async function loadRequestTrace() {
+    const list = await api("/v1/requests").catch(() => []);
+    const box = $("requestTrace"); box.replaceChildren();
+    if (!list.length) { box.append(el("p", "muted", "No requests yet.")); return; }
+    list.slice(0, 12).forEach((r) => {
+      const d = el("details"); d.append(el("summary", r.outcome === "generation_completed" ? null : "warn", r.summary));
+      d.append(el("pre", "voice-trace", r.events.map((e) => `+${String(e.ms).padStart(6)} ms  ${e.name}${e.detail ? "  " + e.detail : ""}`).join("\n")));
+      box.append(d);
+    });
   }
   async function loadSuggestions() {
     const list = await api("/v1/suggestions");

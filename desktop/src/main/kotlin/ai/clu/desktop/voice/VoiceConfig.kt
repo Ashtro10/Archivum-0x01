@@ -33,6 +33,8 @@ data class VoiceSettings(
     val farewells: List<String> = listOf("goodbye", "goodbye for now", "bye", "bye clue", "that's all", "that will be all", "see you later", "good night", "stop listening"),
     /** "say X as Y": spelling hints applied before speaking. */
     val pronunciations: Map<String, String> = mapOf("CLU" to "Clue"),
+    /** Names and words the recogniser should get right (people, places, fiction): misheard versions are corrected or asked about. */
+    val vocabulary: List<String> = emptyList(),
     /** Phones on this network may connect (LiveKit and the phone token endpoint also listen on this PC's private address). */
     val phoneAccess: Boolean = false,
 ) {
@@ -44,6 +46,7 @@ data class VoiceSettings(
         wakeWords = wakeWords.map { it.trim() }.filter { it.isNotEmpty() && it.length <= 30 }.distinct().take(5).ifEmpty { listOf("Clue") },
         wakeThreshold = wakeThreshold.coerceIn(0.55, 0.9),
         farewells = farewells.map { it.trim() }.filter { it.isNotEmpty() && it.length <= 40 }.distinct().take(15),
+        vocabulary = vocabulary.map { it.trim().take(60) }.filter { it.length >= 3 }.distinct().take(200),
         pronunciations = pronunciations.filterKeys { it.isNotBlank() && it.length <= 40 }.mapValues { it.value.take(60) }.entries.take(50).associate { it.key to it.value },
     )
 

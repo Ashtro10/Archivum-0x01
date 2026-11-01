@@ -15,6 +15,14 @@ object TurnEvent {
     const val REQUEST_TIMEOUT = "REQUEST_TIMEOUT"
     const val MODEL_INIT_FAILED = "MODEL_INIT_FAILED"
     const val INFERENCE_ERROR = "INFERENCE_ERROR"
+    /** How the turn is handled: "conversation", "research", "follow-up", "command", "template"... (detail). */
+    const val ROUTE = "ROUTE"
+    /** Memory/document retrieval finished (detail: ms and counts). */
+    const val MEMORY = "MEMORY"
+    /** One model generation finished (detail: step, prompt/generated tokens, queue and prefill ms, stop reason). */
+    const val LLM_CALL = "LLM_CALL"
+    /** The first user-facing (sanitised) text of the reply was produced. */
+    const val FIRST_TEXT = "FIRST_TEXT"
     val TERMINAL = setOf(GENERATION_COMPLETED, REQUEST_CANCELLED, REQUEST_TIMEOUT, MODEL_INIT_FAILED, INFERENCE_ERROR)
 }
 

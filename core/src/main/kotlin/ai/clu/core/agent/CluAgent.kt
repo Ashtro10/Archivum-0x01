@@ -44,6 +44,10 @@ data class TurnRequest(
     val origin: TurnOrigin = if (viaVoice) TurnOrigin.VOICE else TurnOrigin.TEXT,
     /** The reply is synthesised on this device while it is generated: generation leaves cores to the synthesiser. */
     val spokenOnDevice: Boolean = false,
+    /** Receives this turn's lifecycle trace when the turn begins (the voice agent merges it with its own stages). */
+    val onTrace: ((ai.clu.core.diag.RequestTrace.Request) -> Unit)? = null,
+    /** Names and words the owner wants recognised (spoken turns): misheard versions are corrected (ProperNouns). */
+    val vocabulary: List<String> = emptyList(),
 )
 
 sealed class AgentEvent {
@@ -292,6 +296,7 @@ class CluAgent(
     private fun begin(req: TurnRequest): Turn {
         turns.forEach { if (it.followUp || it.origin == req.origin) it.signal.cancel(if (it.followUp) "follow-up dropped" else CancelSignal.SUPERSEDED) }
         val t = Turn(req.origin, CancelSignal(), trace.begin(req.origin.name.lowercase(), "chars=${req.text.length}"), diag?.visibilityMark() ?: 0)
+        req.onTrace?.invoke(t.trace)
         turns += t
         return t
     }
@@ -320,6 +325,53 @@ class CluAgent(
             MessageMeta(attachments = req.attachments, speaker = req.actor.personId ?: (if (req.actor.role == PersonRole.OWNER) "" else "unknown"), personaId = persona.id))
         emit(AgentEvent.UserMessageSaved(userMsg))
         trace.record(turn.trace, TurnEvent.REQUEST_CREATED)
+        // Spoken corrections and misheard names, resolved from the conversation before anything else: "I said Leman Russ"
+        // is the previous request corrected, not a new one; "lemon rust" is "Leman Russ" when the conversation knows him.
+        // The raw transcript stays the stored message; what CLU understood is recorded with it (meta.interpreted).
+        speechCorrection(req, userMsg)?.let { c ->
+            when (c) {
+                is SpeechFix.Ask -> {
+                    turn.pendingOut = Pending("correction", c.text, listOf(c.name), literal = req.text, turn = (context?.get(req.conversationId) ?: ConversationState()).turn, at = now())
+                    turn.state = context?.get(req.conversationId) ?: ConversationState()
+                    finish(req, turn, "Did you mean ${c.name}?", MessageMeta(personaId = persona.id, speaker = userMsg.meta.speaker, source = "template"), emit)
+                    return
+                }
+                is SpeechFix.Use -> {
+                    trace.record(turn.trace, TurnEvent.ROUTE, "speech corrected (${c.why})")
+                    conversations.updateMessage(userMsg.id, userMsg.content, userMsg.meta.copy(interpreted = c.text))
+                    return handleUnderstood(req.copy(text = c.text), turn, emit, persona, userMsg)
+                }
+            }
+        }
+        handleUnderstood(req, turn, emit, persona, userMsg)
+    }
+
+    private sealed class SpeechFix { data class Use(val text: String, val why: String) : SpeechFix(); data class Ask(val text: String, val name: String) : SpeechFix() }
+
+    /** Names the conversation knows (recent messages, the current topic) plus the owner's vocabulary. */
+    private fun knownNames(req: TurnRequest): List<String> {
+        val recent = conversations.messages(req.conversationId).takeLast(12).dropLast(1).map { it.meta.interpreted?.takeIf { s -> s.isNotBlank() } ?: it.content }
+        val topic = context?.get(req.conversationId)?.topic
+        return (req.vocabulary + listOfNotNull(topic?.subject) + topic?.entities.orEmpty() + recent.flatMap { ProperNouns.namesIn(it) }).filter { it.contains(' ') || it.length >= 4 }.distinct()
+    }
+
+    private fun speechCorrection(req: TurnRequest, userMsg: Message): SpeechFix? {
+        val text = req.text.trim()
+        SaidCorrection.parse(text)?.let { said ->
+            val names = knownNames(req)
+            val fixedSaid = ProperNouns.correct(said, names)?.takeIf { it.confident }?.text ?: said
+            val previous = conversations.messages(req.conversationId).dropLast(1).lastOrNull { it.role == Role.USER }?.let { it.meta.interpreted?.takeIf { s -> s.isNotBlank() } ?: it.content }
+            val corrected = SaidCorrection.apply(fixedSaid, previous)
+                ?: context?.get(req.conversationId)?.topic?.let { t -> t.subject?.let { s -> Regex("(?i)\\b${Regex.escape(s)}\\b").replace(t.question, fixedSaid).takeIf { it != t.question } } }
+                ?: fixedSaid
+            return SpeechFix.Use(corrected, "correction of the previous request")
+        }
+        if (!req.viaVoice) return null
+        val fix = ProperNouns.correct(text, knownNames(req)) ?: return null
+        return if (fix.confident) SpeechFix.Use(fix.text, "\"${fix.from}\" heard, ${fix.to} known from the conversation") else SpeechFix.Ask(fix.text, fix.to)
+    }
+
+    private suspend fun handleUnderstood(req: TurnRequest, turn: Turn, emit: (AgentEvent) -> Unit, persona: ActivePersona, userMsg: Message) {
         val text = req.text.trim()
         val baseMeta = MessageMeta(personaId = persona.id, speaker = userMsg.meta.speaker, stats = req.preStats)
 
@@ -488,6 +540,7 @@ class CluAgent(
     /** A follow-up bound to the active topic: answered from what was found, or researched as the question it stands for. */
     private suspend fun followUp(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit,
                                  r: Resolution.FollowUp, state0: ConversationState, placeFromReply: String?) {
+        trace.record(turn.trace, TurnEvent.ROUTE, "follow-up research=${r.research}")
         val state = placeFromReply?.let { state0.copy(place = it) } ?: state0
         if (placeFromReply != null) turn.state = state
         val topic = r.topic
@@ -628,6 +681,7 @@ class CluAgent(
      */
     private suspend fun research(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
                                  emit: (AgentEvent) -> Unit, query: String, subject: String?) {
+        trace.record(turn.trace, TurnEvent.ROUTE, "research")
         // The question becomes the topic now, whatever the outcome: after a failure, "look it up" refers to it.
         turn.topicOut = Topic(req.text, subject = subject, kind = if (ai.clu.core.search.SearchTrigger.detect(req.text, now()) != null) "current" else "entity")
         tools.networkCategory("web.search")?.let { cat -> network.check(cat) }?.let { why ->
@@ -642,7 +696,12 @@ class CluAgent(
         val meta = baseMeta.copy(tools = listOf("web.search"))
         when (val o = runner.research(query, subject, ResearchRunner.namesIn(history))) {
             is ResearchOutcome.Found -> {
-                turn.topicOut = turn.topicOut?.copy(subject = o.interpretedAs ?: subject)
+                // The name as the sources spell it ("Lemon Russ" asked → "Leman Russ" found) becomes the topic's name, so
+                // the next spoken mention of it can be recognised and corrected.
+                val canonical = WebSearchTool.sources(o.result).map { it.title }.filter { t -> (subject ?: query).let { s -> t.equals(s, true) ||
+                    ai.clu.core.agent.Phonetics.similarity(t.lowercase().replace(" ", ""), s.lowercase().replace(" ", "")) >= 0.6 } }.firstOrNull()
+                turn.topicOut = turn.topicOut?.copy(subject = o.interpretedAs ?: canonical ?: subject,
+                    entities = (turn.topicOut?.entities.orEmpty() + listOfNotNull(canonical)).distinct())
                 generateReply(req, turn, persona, ctx, meta, emit, preToolResult = "web.search" to o.result, interpretedAs = o.interpretedAs, subject = subject)
             }
             is ResearchOutcome.Ambiguous -> { turn.pendingOut = Pending("choice", req.text, o.options); finish(req, turn, "Do you mean " + when (o.options.size) { 2 -> "${o.options[0]} or ${o.options[1]}"
@@ -666,6 +725,7 @@ class CluAgent(
      */
     private suspend fun runTask(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
                                 emit: (AgentEvent) -> Unit, initial: List<PlanStep>, overflow: Int) {
+        trace.record(turn.trace, TurnEvent.ROUTE, "task steps=${initial.size}")
         val steps = initial.toMutableList()
         val used = mutableListOf<String>()
         val searches = mutableListOf<Pair<Int, ToolResult>>()
@@ -787,6 +847,7 @@ class CluAgent(
                                       preToolResult: Pair<String, ToolResult>?, prefix: String? = null,
                                       verify: ResearchPolicy.Decision? = null, interpretedAs: String? = null, subject: String? = null) {
         val online = network.isOnline() && settings.bool(Settings.NET_ENABLED)
+        trace.record(turn.trace, TurnEvent.ROUTE, when { preToolResult != null -> "answer from ${preToolResult.first}"; verify != null -> "answer, research if unsure"; else -> "answer" })
         emit(AgentEvent.Status("Thinking…"))
         val tSelect = System.nanoTime()
         val engine = inference.select()
@@ -823,6 +884,7 @@ class CluAgent(
         val docs = if (canReadMemory && persona.isClu && settings.bool(Settings.MEMORY_RETRIEVAL)) archive?.documents?.search(req.text, limit = 2)
             ?.filter { it.score >= 3.0 }?.map { "\"${it.document.name}\": " + it.text.replace(Regex("\\s+"), " ").take(500) }.orEmpty() else emptyList()
         if (canReadMemory) diag?.perf("memory_retrieval_ms", (System.nanoTime() - tMem) / 1e6)
+        trace.record(turn.trace, TurnEvent.MEMORY, "${(System.nanoTime() - tMem) / 1_000_000}ms memories=${mems.size} docs=${docs.size}")
         val toolList = toolsFor(persona, req.text)
         val working = if (canReadMemory && persona.isClu) memoryService?.working?.list(req.conversationId)?.take(5)?.map { it.text }.orEmpty() else emptyList()
         val taskPrefs = if (canReadMemory && persona.isClu) learner?.taskInstructions(taskTagOf(req.text)).orEmpty() else emptyList()
@@ -1240,7 +1302,11 @@ class CluAgent(
                 } finally { if (!done.get()) turn.signal.cancel(CancelSignal.USER) }
             }
             try {
-                withContext(Dispatchers.IO) { engine.generate(msgs, params, signal) { lastToken.set(System.nanoTime()); onText(it) } }
+                withContext(Dispatchers.IO) { engine.generate(msgs, params, signal) { lastToken.set(System.nanoTime()); onText(it) } }.also { r ->
+                    val s = r.stats
+                    trace.record(turn.trace, TurnEvent.LLM_CALL, "${(System.nanoTime() - started) / 1_000_000}ms prompt=${s.promptTokens} reused=${s.reusedTokens} gen=${s.generatedTokens} " +
+                        "queue=${s.queueMs.toLong()}ms prefill=${s.promptMs.toLong()}ms max=${params.maxTokens} stop=${s.stopReason}" + (if (s.reasoningTokens > 0) " reasoning=${s.reasoningTokens}" else ""))
+                }
             } finally { done.set(true); watchdog.cancel(); link?.close() }
         }
 
@@ -1330,6 +1396,7 @@ class CluAgent(
     }
 
     private fun finish(req: TurnRequest, turn: Turn, text: String, meta: MessageMeta, emit: (AgentEvent) -> Unit, alreadyStreamed: Boolean = false): Message? {
+        if (turn.trace.events.none { it.name == TurnEvent.ROUTE }) trace.record(turn.trace, TurnEvent.ROUTE, meta.source.ifBlank { "direct" })
         when {
             turn.signal.reason == CancelSignal.TIMEOUT -> trace.record(turn.trace, TurnEvent.REQUEST_TIMEOUT, "chars=${text.length}")
             turn.signal.isCancelled -> trace.record(turn.trace, TurnEvent.REQUEST_CANCELLED, "${turn.signal.reason} chars=${text.length}")

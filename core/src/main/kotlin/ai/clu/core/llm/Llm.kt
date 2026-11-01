@@ -36,6 +36,8 @@ data class GenStats(
     val generateMs: Double = 0.0,
     val firstTokenMs: Double = -1.0,
     val stopReason: String = "",
+    /** Tokens of hidden reasoning (<think>…</think>) the model produced and CLU removed (ReasoningFilter). */
+    val reasoningTokens: Int = 0,
 ) {
     val tokensPerSecond: Double get() = if (generateMs > 0) generatedTokens * 1000.0 / generateMs else 0.0
 }

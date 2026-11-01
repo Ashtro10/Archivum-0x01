@@ -123,7 +123,7 @@ object FollowUpResolver {
 
     /** Words a bare request to research is made of ("could you search the web and tell me", "look it up", "check online"). */
     private val BARE = setOf("search", "google", "look", "lookup", "check", "find", "research", "browse", "verify", "confirm", "up", "out",
-        "it", "that", "this", "them", "for", "on", "in", "the", "web", "internet", "online", "net", "and", "then", "tell", "let", "me", "know",
+        "it", "that", "this", "them", "him", "her", "he", "she", "his", "for", "on", "in", "the", "web", "internet", "online", "net", "and", "then", "tell", "let", "me", "know",
         "please", "pls", "can", "could", "would", "will", "you", "go", "ahead", "do", "a", "quick", "now", "again", "ok", "okay", "so", "clu", "just",
         "yes", "yeah", "sure", "try", "what", "say", "says", "show", "us", "to", "is", "there", "anything", "about", "info", "information")
     private val RESEARCH_VERB = setOf("search", "google", "look", "lookup", "check", "find", "research", "browse", "verify", "confirm")

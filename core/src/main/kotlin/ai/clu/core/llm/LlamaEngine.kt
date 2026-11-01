@@ -56,6 +56,8 @@ class LlamaEngine private constructor(
     private var session: Long,
     val info: NativeModelInfo,
     val config: LlamaConfig,
+    /** How the model's chat template handles reasoning (read from the GGUF at load). */
+    val reasoning: ReasoningMode = ReasoningMode.NONE,
 ) : LlmEngine {
     override val source = "local"
 
@@ -73,7 +75,9 @@ class LlamaEngine private constructor(
             ?: LlamaBridge.nativeApplyTemplate(model, "chatml", messages.map { it.role }.toTypedArray(),
                 messages.map { it.content.toByteArray() }.toTypedArray(), addAssistant)
             ?: throw LlmException("chat template not supported")
-        return String(bytes, Charsets.UTF_8)
+        val text = String(bytes, Charsets.UTF_8)
+        // Conversation never uses hidden reasoning: close it the way the template does for enable_thinking=false.
+        return if (addAssistant) Reasoning.disable(text, reasoning) else text
     }
 
     override fun countTokens(messages: List<ChatMessage>): Int = LlamaBridge.nativeCountTokens(model, format(messages).toByteArray())
@@ -102,21 +106,37 @@ class LlamaEngine private constructor(
         val want = decodeThreadsFor(config.threads, params.reserveThreads)
         if (want != decodeThreads) { LlamaBridge.nativeSetThreads(session, want, config.threads); decodeThreads = want }
         val prompt = format(messages)
+        val first = run(prompt, params, signal, onText)
+        // Fail-safe: a model that keeps reasoning past the budget (or never closes its block) is stopped and asked again
+        // with the reasoning block closed, so the user gets an answer instead of silence.
+        if (first.second && !signal.isCancelled && first.first.text.isBlank()) {
+            val forced = if (prompt.trimEnd().endsWith("</think>")) prompt else Reasoning.disable(prompt, ReasoningMode.FORCED)
+            val second = run(forced, params, signal, onText)
+            return second.first.copy(stats = second.first.stats.copy(reasoningTokens = first.first.stats.reasoningTokens + second.first.stats.reasoningTokens))
+        }
+        return first.first
+    }
+
+    /** One generation; the Boolean is true when it was stopped because reasoning overflowed. */
+    private fun run(prompt: String, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): Pair<GenResult, Boolean> {
         val utf8 = Utf8Stream()
         val stops = StopSequenceFilter(params.stop)
+        val think = ReasoningFilter(startInside = prompt.trimEnd().endsWith("<think>"), maxHidden = reasoningBudgetChars(params.maxTokens))
         val out = StringBuilder()
+        fun emit(s: String) { if (s.isNotEmpty() && !signal.isCancelled) { out.append(s); onText(s) } }
         val statsJson = LlamaBridge.nativeGenerate(session, prompt.toByteArray(), params.maxTokens, params.temperature, params.topK,
             params.topP, params.minP, params.repeatPenalty, params.seed, params.grammar) { bytes ->
-            val emitted = stops.push(utf8.push(bytes))
-            if (emitted.isNotEmpty() && !signal.isCancelled) { out.append(emitted); onText(emitted) }
-            !stops.stopped && !signal.isCancelled
-        } ?: if (signal.isCancelled) return GenResult(out.toString(), GenStats(stopReason = "cancelled"), source)
+            emit(stops.push(think.push(utf8.push(bytes))))
+            !stops.stopped && !signal.isCancelled && !think.overflow
+        } ?: if (signal.isCancelled) return GenResult(out.toString(), GenStats(stopReason = "cancelled"), source) to false
              else throw LlmException(LlamaBridge.nativeLastError().ifEmpty { "generation failed" })
-        val tail = if (signal.isCancelled) "" else stops.push(utf8.finish()) + stops.flush()
-        if (tail.isNotEmpty()) { out.append(tail); onText(tail) }
-        var stats = lenientJson.decodeFromString(GenStats.serializer(), statsJson)
+        if (!signal.isCancelled) emit(stops.push(think.push(utf8.finish()) + think.finish()) + stops.flush())
+        var stats = lenientJson.decodeFromString(GenStats.serializer(), statsJson).copy(reasoningTokens = think.hiddenPieces)
         if (signal.isCancelled) stats = stats.copy(stopReason = "cancelled")
-        return GenResult(out.toString(), stats, source)
+        // A reply cut off inside reasoning (token limit) or stopped for overflow has no answer yet.
+        val overflowed = think.overflow || (think.inside && out.isBlank())
+        if (overflowed) stats = stats.copy(stopReason = "reasoning")
+        return GenResult(out.toString(), stats, source) to overflowed
     }
 
     override fun cancel() { if (session != 0L) LlamaBridge.nativeCancel(session) }
@@ -133,6 +153,9 @@ class LlamaEngine private constructor(
         /** Decode threads with [reserve] cores left free, never below 2 (or the configured count if that is lower). */
         fun decodeThreadsFor(configured: Int, reserve: Int): Int = if (reserve <= 0) configured else maxOf(minOf(configured, 2), configured - reserve)
 
+        /** Reasoning a model may write (when it ignores the closed block) before CLU stops it: ~1/3 of the token budget, 200–1500 chars. */
+        fun reasoningBudgetChars(maxTokens: Int): Int = (maxTokens * 4 / 3).coerceIn(200, 1500)
+
         private val lenientJson = Json { ignoreUnknownKeys = true }
 
         /** Loads a GGUF model. Throws [LlmException] with llama.cpp's diagnostics on failure. */
@@ -147,7 +170,8 @@ class LlamaEngine private constructor(
                 LlamaBridge.nativeFreeModel(m)
                 throw LlmException(LlamaBridge.nativeLastError() + "\n" + LlamaBridge.nativeLastLog().takeLast(800))
             }
-            return LlamaEngine(id, m, s, info, cfg.copy(contextLength = ctx))
+            val mode = runCatching { Reasoning.mode(GgufReader.chatTemplate(java.io.File(path))) }.getOrDefault(ReasoningMode.NONE)
+            return LlamaEngine(id, m, s, info, cfg.copy(contextLength = ctx), mode)
         }
     }
 }

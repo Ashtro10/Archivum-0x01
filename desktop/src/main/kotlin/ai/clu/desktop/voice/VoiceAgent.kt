@@ -20,8 +20,21 @@ import java.util.concurrent.atomic.AtomicLong
 /** What CLU is doing in a room, as LiveKit clients read it from the lk.agent.state attribute. */
 enum class AgentPhase(val wire: String) { STARTING("initializing"), DORMANT("idle"), LISTENING("listening"), THINKING("thinking"), SPEAKING("speaking") }
 
-/** One turn's timings, measured on the PC (ms). */
-data class TurnTimings(val at: Long, val text: String, val sttFinalizeMs: Long, val firstTokenMs: Long, val ttsFirstMs: Long, val speechEndToFirstAudioMs: Long, val interrupted: Boolean)
+/**
+ * One turn's timings, measured on the PC (ms). [stages] is the whole lifecycle relative to the moment the voice detector
+ * heard speech (typed turns: relative to submission): VAD onset, endpoint, STT final, submission, CLU's own events
+ * (route, memory, each model call with queue/prefill/tokens), first user-facing text, first visible text, first audio, done.
+ * [heard] and [reply] are kept in memory for the diagnostics panel only (never written to disk).
+ */
+data class TurnTimings(val at: Long, val text: String, val sttFinalizeMs: Long, val firstTokenMs: Long, val ttsFirstMs: Long, val speechEndToFirstAudioMs: Long, val interrupted: Boolean,
+                       val id: String = "", val heard: String = "", val reply: String = "", val outcome: String = "", val stages: List<Stage> = emptyList()) {
+    data class Stage(val name: String, val ms: Long, val detail: String = "")
+}
+
+/** What the recogniser heard and when (monotonic ms, the same clock as RequestTrace). */
+data class Heard(val text: String, val vadAt: Long, val endpointAt: Long, val sttDoneAt: Long, val speechEndAt: Long)
+
+internal fun monoMs() = System.nanoTime() / 1_000_000
 
 /**
  * CLU in one LiveKit room: hears the owner's microphone (16 kHz), finds the end of each utterance (Silero VAD), recognises
@@ -30,6 +43,9 @@ data class TurnTimings(val at: Long, val text: String, val sttFinalizeMs: Long, 
  * selected voice sentence by sentence as it is generated. Speaking over CLU interrupts it: playback stops, queued audio is
  * dropped and the generation is cancelled, and the new utterance is handled with the conversation intact.
  */
+/** What stops CLU without asking it anything: "stop", "stop talking", "be quiet", "that's enough", "never mind", "cancel"… */
+internal val STOP = Regex("(?i)^(?:(?:ok|okay|clu|clue|please|no)[,.!]?\\s*)*(?:stop(?: it| talking| speaking| there| now)?|be quiet|quiet|shut up|enough|that'?s enough|never ?mind|cancel(?: that)?|hold on|wait|silence|shush|hush)(?:[,.!]?\\s*(?:please|now|clu|clue))*[\\s.!?]*$")
+
 /** Longest text synthesised in one call (characters); see VoiceAgent.speakable. */
 const val MAX_TTS_CHARS = 220
 
@@ -65,7 +81,7 @@ class VoiceAgent(
             is LkEvent.AudioTrack -> if (listener == null || listener == e.participant) { listener = e.participant; room.listen(e.participant, e.trackHandle) { frames.trySend(it) }; log("voice: listening to ${e.participant}") }
             is LkEvent.TrackGone -> if (e.participant == listener) { room.stopListening(e.participant); listener = null }
             is LkEvent.Left -> if (e.participant == listener) { room.stopListening(e.participant); listener = null; interrupt("the listener left") }
-            is LkEvent.Text -> if (e.topic == "lk.chat" && e.text.isNotBlank()) scope.launch { startTurn(e.text.trim(), typed = true, speechEndAt = 0, sttMs = 0) }
+            is LkEvent.Text -> if (e.topic == "lk.chat" && e.text.isNotBlank()) scope.launch { startTurn(e.text.trim(), typed = true) }
             is LkEvent.Rpc -> handleRpc(e)
             else -> {}
         }
@@ -117,23 +133,25 @@ class VoiceAgent(
     }
 
     private fun beginUtterance() {
-        inSpeech = true; speechStartedAt = System.currentTimeMillis(); lastPartial = ""; segment = "u" + turnSeq.incrementAndGet()
+        inSpeech = true; speechStartedAt = System.currentTimeMillis(); vadAt = monoMs(); lastPartial = ""; segment = "u" + turnSeq.incrementAndGet()
         val rec = stt ?: engines.recognizer().also { stt = it }
         // Prime with 1 s of silence (stable features for the streaming model), then the pre-roll.
         val pre = preRoll.fold(FloatArray(16000)) { a, b -> a + b }; preRoll.clear()
         rec.begin(pre)
     }
 
+    @Volatile private var vadAt = 0L
     private fun endUtterance() {
         inSpeech = false
-        val endAt = System.currentTimeMillis()
-        val text = stt?.finish().orEmpty(); val sttMs = System.currentTimeMillis() - endAt
-        if (text.isBlank()) return
-        lastHeardAt = endAt
-        scope.launch { onUtterance(text, endAt - settings().endSilenceMs, sttMs) }
+        val endpointAt = monoMs()
+        val text = stt?.finish().orEmpty(); val sttDoneAt = monoMs()
+        if (text.isBlank()) { log("voice: utterance with no recognised words (${endpointAt - vadAt} ms of speech)"); return }
+        lastHeardAt = System.currentTimeMillis()
+        val h = Heard(text, vadAt, endpointAt, sttDoneAt, endpointAt - settings().endSilenceMs)
+        scope.launch { onUtterance(text, h) }
     }
 
-    private suspend fun onUtterance(heard: String, speechEndAt: Long, sttMs: Long) {
+    private suspend fun onUtterance(heard: String, h: Heard) {
         val s = settings()
         var text = heard
         if (s.mode == ListenMode.WAKE_WORD) {
@@ -146,19 +164,36 @@ class VoiceAgent(
             }
         }
         transcript(heard, final = true)
+        // "Stop talking", "be quiet", "never mind": stop at once (audio and generation) and wait; never a question for the model.
+        if (isStopPhrase(text)) {
+            log("voice: stop phrase heard"); interrupt("stop phrase")
+            setPhase(if (s.mode == ListenMode.WAKE_WORD && !awake) AgentPhase.DORMANT else AgentPhase.LISTENING)
+            return
+        }
         if (s.isFarewell(text)) {
             log("voice: farewell heard")
             if (s.mode == ListenMode.WAKE_WORD) { awake = false; say("Goodbye."); setPhase(AgentPhase.DORMANT) } else say("Goodbye.")
             return
         }
-        startTurn(text, typed = false, speechEndAt = speechEndAt, sttMs = sttMs)
+        startTurn(text, typed = false, h = h.copy(text = text))
     }
 
     private fun lastSpokeOrHeard() = maxOf(lastHeardAt, lastSpokeAt)
+
+    private fun isStopPhrase(t: String) = STOP.matches(t.trim())
     @Volatile private var lastSpokeAt = 0L
 
     // ------------------------------------------------------------------------------------------------ thinking and speaking
-    private suspend fun startTurn(text: String, typed: Boolean, speechEndAt: Long, sttMs: Long) {
+    private suspend fun startTurn(text: String, typed: Boolean, h: Heard? = null) {
+        val speechEndAt = h?.let { System.currentTimeMillis() - (monoMs() - it.speechEndAt) } ?: 0L
+        val sttMs = h?.let { it.sttDoneAt - it.endpointAt } ?: 0L
+        val turnId = "t" + turnSeq.incrementAndGet()
+        val origin = h?.vadAt ?: monoMs()
+        val marks = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        var agentTrace: ai.clu.core.diag.RequestTrace.Request? = null
+        fun mark(name: String) { marks.putIfAbsent(name, monoMs()) }
+        h?.let { marks["vad_onset"] = it.vadAt; marks["speech_end_est"] = it.speechEndAt; marks["endpoint"] = it.endpointAt; marks["stt_final"] = it.sttDoneAt }
+        mark("submitted")
         interrupt(null) // a new turn replaces anything still running
         val conv = conversation()
         setPhase(AgentPhase.THINKING)
@@ -170,7 +205,7 @@ class VoiceAgent(
             var spokeAny = false
             for (whole in sentences) for (chunk in speakable(ai.clu.core.agent.AnswerStyle.withoutInternalMarkup(whole))) {
                 val s = settings()
-                if (!spokenReplies) { transcriptReply(chunk, seg, final = false); continue }
+                if (!spokenReplies) continue // the text was already shown when the sentence was complete
                 var v = engines.voice(s.voice)
                 val raw = SpeechText.forSpeech(s.pronounce(chunk)).ifBlank { continue }
                 var synth = withContext(Dispatchers.Default) { v.first.synth(raw, v.second, s.speed.toFloat()) }
@@ -178,8 +213,7 @@ class VoiceAgent(
                 if (synth.isEmpty()) continue
                 val paced = SpeechText.withPause(chunk, synth, v.first.sampleRate)
                 val pcm = Pcm.toShort(Pcm.resample(paced, v.first.sampleRate, 24_000), s.volume.toFloat())
-                if (!spokeAny) { spokeAny = true; firstAudio = System.currentTimeMillis(); setPhase(AgentPhase.SPEAKING) }
-                transcriptReply(chunk, seg, final = false)
+                if (!spokeAny) { spokeAny = true; firstAudio = System.currentTimeMillis(); mark("first_audio"); setPhase(AgentPhase.SPEAKING) }
                 room.speak(pcm) { !isActive }
                 lastSpokeAt = System.currentTimeMillis()
             }
@@ -187,13 +221,20 @@ class VoiceAgent(
         reply = scope.launch {
             val chunker = AdaptiveChunker()
             try {
+                mark("model_prepare")
                 core.llm.prepare()
-                core.agent.respond(TurnRequest(conv, text, Actor(null, PersonRole.OWNER, viaVoice = !typed), viaVoice = !typed, origin = if (typed) TurnOrigin.TEXT else TurnOrigin.VOICE)).collect { e ->
+                mark("model_ready")
+                core.agent.respond(TurnRequest(conv, text, Actor(null, PersonRole.OWNER, viaVoice = !typed), viaVoice = !typed, origin = if (typed) TurnOrigin.TEXT else TurnOrigin.VOICE,
+                    spokenOnDevice = !typed, onTrace = { agentTrace = it }, vocabulary = settings().vocabulary)).collect { e ->
                     when (e) {
-                        is AgentEvent.Text -> { if (firstToken == 0L) firstToken = System.currentTimeMillis(); replyText.append(e.delta); chunker.push(e.delta).forEach { sentences.send(it) } }
+                        is AgentEvent.Text -> { if (firstToken == 0L) { firstToken = System.currentTimeMillis(); mark("first_text") }; replyText.append(e.delta)
+                            // Each complete sentence is shown at once (not when its audio is ready) and queued for speech.
+                            chunker.push(e.delta).forEach { c -> mark("first_visible"); transcriptReply(ai.clu.core.agent.AnswerStyle.withoutInternalMarkup(c), seg, final = false); sentences.send(c) } }
                         is AgentEvent.ResetText -> { replyText.setLength(0) }
                         is AgentEvent.Error -> { replyText.setLength(0); replyText.append(e.text); sentences.send(e.text) }
-                        is AgentEvent.Done -> { chunker.flush().forEach { sentences.send(it) }; if (replyText.isEmpty() && e.text.isNotBlank()) { replyText.append(e.text); sentences.send(e.text) } }
+                        is AgentEvent.Done -> { chunker.flush().forEach { c -> mark("first_visible"); transcriptReply(ai.clu.core.agent.AnswerStyle.withoutInternalMarkup(c), seg, final = false); sentences.send(c) }
+                            if (replyText.isEmpty() && e.text.isNotBlank()) { replyText.append(e.text); mark("first_visible"); transcriptReply(e.text, seg, final = false); sentences.send(e.text) }
+                            if (e.text.isNotBlank()) { replyText.setLength(0); replyText.append(e.text) } } // the final, checked text is what is stored and shown
                         else -> {}
                     }
                 }
@@ -203,7 +244,12 @@ class VoiceAgent(
             speech?.join()
             transcriptReply(replyText.toString(), seg, final = true)
             val endToAudio = if (speechEndAt > 0 && firstAudio > 0) firstAudio - speechEndAt else -1
-            record(TurnTimings(System.currentTimeMillis(), text.take(60), sttMs, if (firstToken > 0) firstToken - started else -1, if (firstAudio > 0 && firstToken > 0) firstAudio - firstToken else -1, endToAudio, interrupted))
+            mark("done")
+            val stages = (marks.map { (k, v) -> TurnTimings.Stage(k, v - origin) } +
+                (agentTrace?.events.orEmpty().map { ev -> TurnTimings.Stage("clu." + ev.name.lowercase(), ev.atMs - origin, ev.detail) })).sortedBy { it.ms }
+            val outcome = agentTrace?.terminal?.name?.lowercase() ?: if (interrupted) "interrupted" else "no result"
+            record(TurnTimings(System.currentTimeMillis(), text.take(60), sttMs, if (firstToken > 0) firstToken - started else -1, if (firstAudio > 0 && firstToken > 0) firstAudio - firstToken else -1, endToAudio, interrupted,
+                id = turnId, heard = h?.text ?: text, reply = replyText.toString().take(400), outcome = outcome, stages = stages))
             scope.launch(Dispatchers.Default) { engines.recycleWorn() } // between turns: keeps the voice's memory bounded
             if (phase == AgentPhase.SPEAKING || phase == AgentPhase.THINKING) setPhase(if (settings().mode == ListenMode.WAKE_WORD && !awake) AgentPhase.DORMANT else AgentPhase.LISTENING)
         }
@@ -248,8 +294,10 @@ class VoiceAgent(
 
     private fun record(t: TurnTimings) {
         synchronized(timings) { timings.addLast(t); while (timings.size > 50) timings.removeFirst() }
-        log("voice: turn speech-end→first-audio ${t.speechEndToFirstAudioMs} ms (stt ${t.sttFinalizeMs}, first token ${t.firstTokenMs}, tts ${t.ttsFirstMs})${if (t.interrupted) ", interrupted" else ""}")
-        scope.launch { room.sendData("clu.metrics", buildJsonObject { put("speech_end_to_first_audio_ms", t.speechEndToFirstAudioMs); put("stt_finalize_ms", t.sttFinalizeMs); put("first_token_ms", t.firstTokenMs); put("tts_first_ms", t.ttsFirstMs); put("interrupted", t.interrupted) }.toString().toByteArray()) }
+        log("voice: turn ${t.id} ${t.outcome}: speech-end→first-audio ${t.speechEndToFirstAudioMs} ms (stt ${t.sttFinalizeMs}, first token ${t.firstTokenMs}, tts ${t.ttsFirstMs})${if (t.interrupted) ", interrupted" else ""}")
+        log("voice: turn ${t.id} trace " + t.stages.joinToString(" | ") { "${it.name} +${it.ms}${if (it.detail.isNotEmpty()) " (${it.detail})" else ""}" })
+        scope.launch { room.sendData("clu.metrics", buildJsonObject { put("speech_end_to_first_audio_ms", t.speechEndToFirstAudioMs); put("stt_finalize_ms", t.sttFinalizeMs); put("first_token_ms", t.firstTokenMs); put("tts_first_ms", t.ttsFirstMs); put("interrupted", t.interrupted)
+            put("turn", t.id); put("outcome", t.outcome); putJsonArray("stages") { t.stages.forEach { st -> addJsonObject { put("name", st.name); put("ms", st.ms); if (st.detail.isNotEmpty()) put("detail", st.detail) } } } }.toString().toByteArray()) }
     }
 
     private suspend fun setPhase(p: AgentPhase) { phase = p; room.setAttributes(mapOf("lk.agent.state" to p.wire, "clu.voice" to settings().voice, "clu.mode" to settings().mode.name.lowercase())) }

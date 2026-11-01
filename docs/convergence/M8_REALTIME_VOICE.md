@@ -158,7 +158,10 @@ Engines unload after 5 min without a session, the server stops after 10 min (unl
 
 ## 7. Test totals
 
-See `docs/convergence/CONVERGENCE_STATUS.md` (final `./gradlew check` of this milestone).
+Final `./gradlew check`: core 606 (13 opt-in skipped), desktop 104 (3 opt-in skipped), app 74 — 0 failures; Android API and
+ICU regex checks pass; Playwright `ShellUiTest` and `VoiceUiTest` green; `verify_installer.sh` 24/24. Voice tests:
+`VoiceTransportTest`, `SpeechEnginesTest` (6), `VoiceConversationTest` (5, incl. the phone), `VoiceUiTest`, and the opt-in
+`VoiceMeasureTest`.
 
 ## 8. What the owner should test on the PC (Windows) and phone
 

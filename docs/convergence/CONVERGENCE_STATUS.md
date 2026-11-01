@@ -17,7 +17,7 @@ Legend: **T** implemented and tested (Linux; Windows APIs through injected runne
 | Voice on the Ryzen AI 7 350 / Windows audio / firewall / real phone | **N** | owner checklist in M8 §8 |
 
 ## Test totals of the final `./gradlew check` (M8)
-TOTALS_PLACEHOLDER
+core 606 tests (13 skipped: opt-in real-model/benchmark), desktop 104 (3 skipped: opt-in real-model/measurement), app 74 — **0 failures**; Android API-level check and ICU regex check pass; both Playwright runs (`ShellUiTest` M3–M7, `VoiceUiTest` M8) green. The first full run found two real problems, both fixed: the inference queue could start a later request before an earlier one (admission order now enforced), and a wake-word test fed the recogniser unprimed audio (now fed the way the agent does). Installer static checks 24/24.
 
 ---
 

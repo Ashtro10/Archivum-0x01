@@ -6,6 +6,7 @@
 | `POST_NOTIFICATIONS` | Proactive messages, background-listening notification, download completion | After the welcome screen (runtime prompt) | Proactive messages are only shown in chat/spoken in the app |
 | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MICROPHONE` | Keep listening for the wake word while Clu is in the background (with a visible notification) | Granted at install; used only if *Background listening* is on | — |
 | `MODIFY_AUDIO_SETTINGS` | LiveKit mode only: switch to communication audio (hardware echo cancellation) and route to the loudspeaker/headset during a session; restored afterwards | Install time (normal permission) | — |
+| `USE_BIOMETRIC` | Owner verification with the screen lock or fingerprint before sensitive changes (device key, token endpoint, PIN-protected settings). Without it Android 16 refuses the check (crash report from a vivo I2304, fixed in 1.8.3) | Install time (normal permission) | — |
 | `INTERNET` | Phone↔tablet sync (local network), optional web/maps/AI tools, downloads, optional LiveKit mode (your own server only) | Install time | — |
 | `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE` | Detect offline state, find local addresses and the hotspot gateway | Install time | — |
 | `CHANGE_WIFI_MULTICAST_STATE` | mDNS discovery of the paired device | Install time | Manual/gateway address still works |

@@ -138,17 +138,20 @@ abstract class BaseActivity : Activity() {
      */
     fun verifyOwner(reason: String, onResult: (Boolean) -> Unit) {
         val creds = core.credentials
-        val deviceLockAvailable = getSystemService(BiometricManager::class.java)
-            .canAuthenticate(BiometricManager.Authenticators.DEVICE_CREDENTIAL or BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+        // A refused or missing biometric service (some vendor builds) must never crash: the device lock is then just unavailable.
+        val deviceLockAvailable = runCatching {
+            getSystemService(BiometricManager::class.java)
+                ?.canAuthenticate(BiometricManager.Authenticators.DEVICE_CREDENTIAL or BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+        }.onFailure { core.diag.w("auth", "device lock check failed: ${it.message}") }.getOrDefault(false)
         fun success() { app.verifiedAt = System.currentTimeMillis(); onResult(true) }
-        fun deviceLock() {
+        fun deviceLock() = runCatching {
             BiometricPrompt.Builder(this).setTitle("Verify it's you").setSubtitle(reason)
                 .setAllowedAuthenticators(BiometricManager.Authenticators.DEVICE_CREDENTIAL or BiometricManager.Authenticators.BIOMETRIC_STRONG).build()
                 .authenticate(CancellationSignal(), mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
                     override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = success()
                     override fun onAuthenticationError(code: Int, msg: CharSequence) { toast(msg.toString()); onResult(false) }
                 })
-        }
+        }.onFailure { core.diag.w("auth", "device lock prompt failed: ${it.message}"); toast("The device lock could not be used here. Set a Clu PIN in People & security."); onResult(false) }
         if (System.currentTimeMillis() - app.verifiedAt < core.settings.int(ai.clu.core.config.Settings.AUTH_WINDOW) * 1000L) { onResult(true); return }
         if (!creds.isSet(CredentialStore.Kind.PIN)) {
             if (deviceLockAvailable) deviceLock()

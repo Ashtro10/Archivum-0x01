@@ -13,6 +13,7 @@ its source or running its tests in this session; where something could not be ve
   [M4_MEMORY_KNOWLEDGE.md](M4_MEMORY_KNOWLEDGE.md). The roadmap's "M4 — voice on the PC" is not started; it moves after this.
 * **Local intelligence and inference engine built and verified on Linux ("M5" in the brief):** see
   [M5_LOCAL_INTELLIGENCE.md](M5_LOCAL_INTELLIGENCE.md). Nothing is measured on Windows or a GPU yet.
+* **Deployment and supervised agents ("M6 + M7" in the brief):** installer, first-run guide, tray/background runtime, permission broker, orchestrator and Agents screens built and verified on Linux; the installer and tray were **not run on Windows**. See [M6_DEPLOYMENT.md](M6_DEPLOYMENT.md), [M7_AGENTS_PERMISSIONS.md](M7_AGENTS_PERMISSIONS.md), [CONVERGENCE_STATUS.md](CONVERGENCE_STATUS.md).
 
 ---
 

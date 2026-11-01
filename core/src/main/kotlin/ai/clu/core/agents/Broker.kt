@@ -51,9 +51,9 @@ class AgentRoots(private val db: SqlDriver, private val clock: Clock, private va
         val roots = list()
         if (roots.isEmpty()) throw PathRefused("No folder is allowed for CLU's tasks yet. Allow one in Agents > Permissions.")
         val base = (roots.firstOrNull { it.writable } ?: roots.first()).path
-        val raw = Path.of(name).let { if (it.isAbsolute) it else Path.of(base).resolve(it) }
+        val raw = java.nio.file.Paths.get(name).let { if (it.isAbsolute) it else java.nio.file.Paths.get(base).resolve(it) }
         val real = realPath(raw)
-        val root = roots.firstOrNull { real.startsWith(realPath(Path.of(it.path))) } ?: throw PathRefused("$name is outside the folders CLU's tasks may use")
+        val root = roots.firstOrNull { real.startsWith(realPath(java.nio.file.Paths.get(it.path))) } ?: throw PathRefused("$name is outside the folders CLU's tasks may use")
         if (write && !root.writable) throw PathRefused("$name is in a folder that is read-only for tasks")
         forbidden().map { realPath(it.toPath()) }.firstOrNull { real.startsWith(it) }?.let { throw PathRefused("$name is part of CLU's own data") }
         return real

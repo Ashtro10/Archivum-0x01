@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.2-prototype.
 
-* Settings: **221** · verifying test passed: **221** · other: **0**
+* Settings: **228** · verifying test passed: **228** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -159,6 +159,13 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tools.appAllowlist` | Allowed apps | `[]` | list of ≤ 100 entries (≤ 120 chars each) | SHARED | OpenAppTool | Allowlist entries | Applies immediately | `ToolSettingsTest#appPolicy` | passed | – |
 | `tools.historyDays` | Keep tool history (days) | `30` | integer 1–365 | SHARED | ToolExecutor | Older tool runs are purged | Applies immediately | `ToolSettingsTest#historyRetention` | passed | – |
 | `tools.maxSteps` | Max steps per task | `4` | integer 1–8 | SHARED | CluAgent | Agent loop stops after this many tool steps | Applies immediately | `ToolSettingsTest#maxSteps` | passed | – |
+| `agents.enabled` | Assistant tasks | `true` | true / false | DEVICE | AgentService | When off, no task can be created or started | Applies immediately | `AgentSettingsTest#enabled` | passed | – |
+| `agents.reviewPlan` | Review the plan before a task starts | `true` | true / false | DEVICE | AgentService | A planned task waits in 'Ready to start' instead of running at once | Applies immediately | `AgentSettingsTest#reviewPlan` | passed | – |
+| `agents.maxSteps` | Most steps in a task | `8` | integer 2–20 | DEVICE | AgentService | Longer plans are rejected and re-planned once | Applies immediately | `AgentSettingsTest#maxSteps` | passed | – |
+| `agents.maxParallel` | Steps that may run at the same time | `2` | integer 1–4 | DEVICE | AgentService | At most this many steps run at once, across all tasks | Applies immediately | `AgentSettingsTest#maxParallel` | passed | – |
+| `agents.maxTasks` | Tasks that may run at the same time | `2` | integer 1–4 | DEVICE | AgentService | Further tasks stay queued | Applies immediately | `AgentSettingsTest#maxTasks` | passed | – |
+| `agents.taskTimeoutMin` | Longest a task may take (minutes) | `120` | integer 5–1440 | DEVICE | AgentService | The task ends as failed (timed out) | Applies immediately | `AgentSettingsTest#taskTimeout` | passed | – |
+| `agents.shellAllowlist` | Programs tasks may run | `[]` | list of ≤ 20 entries (≤ 300 chars each) | SHARED | ProcRun | Only exactly these programs can be started by a task | Applies immediately | `AgentSettingsTest#shellAllowlist` | passed | – |
 | `tool.time.now.enabled` | Allow time.now | `true` | true / false | SHARED | ToolExecutor | When off, time.now is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.time.now.confirm` | Confirm before time.now | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.calc.enabled` | Allow calc | `true` | true / false | SHARED | ToolExecutor | When off, calc is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |

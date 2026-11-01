@@ -1,0 +1,2 @@
+6fe15272b9332fe4d35a4c53c02bb4f2abcd1afd0b55cb3ff717e8bdbda4e4cd  CLU-Setup-0.6.0.exe
+81af3702acd951bba835503e063cac823802967115cac4c87daa6130f00ac238  CLU-0.6.0-portable.zip

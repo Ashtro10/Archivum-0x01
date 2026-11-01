@@ -63,7 +63,7 @@ data class Plan(val summary: String, val steps: List<PlannedStep>)
 class PlanProblem(message: String) : Exception(message)
 
 object PlanValidator {
-    private val templateRef = Regex("\\{\\{([A-Za-z0-9_]{1,20})}}")
+    private val templateRef = Regex("\\{\\{([A-Za-z0-9_]{1,20})\\}\\}")
 
     /** Checks a plan (from the planner or given explicitly by the owner) against what is allowed. Anything wrong is refused with a reason a planner can act on. */
     fun parse(text: String, registry: AgentToolRegistry, maxSteps: Int, enabled: (String) -> Boolean): Plan {

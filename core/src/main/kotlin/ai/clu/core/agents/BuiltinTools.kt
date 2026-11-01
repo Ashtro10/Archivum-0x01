@@ -165,7 +165,7 @@ object BuiltinTools {
 
         /** Keeps what is replaced or deleted, inside the same allowed folder, so nothing is lost for good. */
         private fun trash(f: File, sub: String, copy: Boolean): String {
-            val root = d.roots.list().map { Path.of(it.path) }.firstOrNull { f.toPath().toAbsolutePath().startsWith(it) } ?: throw PathRefused("outside the allowed folders")
+            val root = d.roots.list().map { java.nio.file.Paths.get(it.path) }.firstOrNull { f.toPath().toAbsolutePath().startsWith(it) } ?: throw PathRefused("outside the allowed folders")
             val dir = root.resolve(".clu-trash").resolve(sub).also { Files.createDirectories(it) }
             val dest = dir.resolve("${d.clock.now()}-${f.name}")
             if (copy) Files.copy(f.toPath(), dest) else Files.move(f.toPath(), dest)
@@ -182,9 +182,9 @@ object BuiltinTools {
         override suspend fun run(args: JsonObject, ctx: ToolContext): JsonObject = withContext(Dispatchers.IO) {
             val p = d.roots.resolve(args.str("path")!!, write = true); val f = p.toFile()
             if (!f.exists()) throw ToolFailure("${f.name} does not exist.", "missing")
-            if (d.roots.list().any { Path.of(it.path) == p }) throw PathRefused("An allowed folder itself cannot be deleted by a task")
+            if (d.roots.list().any { java.nio.file.Paths.get(it.path) == p }) throw PathRefused("An allowed folder itself cannot be deleted by a task")
             if (p.any { it.toString() == ".clu-trash" }) throw PathRefused("The trash folder is not touched by tasks")
-            val root = d.roots.list().map { Path.of(it.path) }.first { p.startsWith(it) }
+            val root = d.roots.list().map { java.nio.file.Paths.get(it.path) }.first { p.startsWith(it) }
             val dir = root.resolve(".clu-trash").resolve("deleted").also { Files.createDirectories(it) }
             val dest = dir.resolve("${d.clock.now()}-${f.name}"); Files.move(p, dest)
             obj("text" to "Moved ${f.name} to the trash folder", "movedTo" to dest.toString())
@@ -257,7 +257,7 @@ object BuiltinTools {
                 val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(limit)
                 try {
                     while (p.isAlive) { if (System.nanoTime() > end) throw ToolFailure("The program ran longer than $limit seconds and was stopped.", "timeout"); if (ctx.isCancelled() || !coroutineContext.isActive) throw kotlinx.coroutines.CancellationException("cancelled"); delay(50) }
-                } finally { if (p.isAlive) { p.descendants().forEach { it.destroyForcibly() }; p.destroyForcibly() }; reader.join(1000) }
+                } finally { if (p.isAlive) { p.destroyForcibly() }; reader.join(1000) }
                 obj("text" to synchronized(sb) { sb.toString().take(20_000) }.ifEmpty { "(no output)" }, "exitCode" to p.exitValue())
             }
         }

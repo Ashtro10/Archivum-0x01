@@ -26,7 +26,7 @@ data class VoiceSettings(
     /** Silence (ms) that ends what the owner is saying. */
     val endSilenceMs: Int = 700,
     /** Speech needed while CLU talks before it stops to listen (barge-in), ms. Higher = fewer false interruptions. */
-    val bargeInMs: Int = 300,
+    val bargeInMs: Int = 400,
     val wakeWords: List<String> = listOf("Clue", "Buddy", "Friend"),
     /** 0.55 (eager) – 0.9 (strict) similarity a heard phrase needs to count as a wake word. */
     val wakeThreshold: Double = 0.72,

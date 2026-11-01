@@ -150,43 +150,62 @@ interface SpeechRecognizer : AutoCloseable {
     fun finish(): String
 }
 
-/** Streaming transducer (Kroko English): words appear while the owner speaks. */
-class StreamingRecognizer(dir: File, threads: Int = 2) : SpeechRecognizer {
-    override val name = "Kroko streaming English (sherpa-onnx)"
-    private val rec = NativeVoice.asrCreate(File(dir, "encoder.onnx").path, File(dir, "decoder.onnx").path, File(dir, "joiner.onnx").path, File(dir, "tokens.txt").path, threads)
+/** Streaming transducer (Kroko English) loaded once; each conversation gets its own [session]. Words appear while the owner speaks. */
+class StreamingRecognizerModel(dir: File, threads: Int = 2) : AutoCloseable {
+    val name = "Kroko streaming English (sherpa-onnx)"
+    internal val rec = NativeVoice.asrCreate(File(dir, "encoder.onnx").path, File(dir, "decoder.onnx").path, File(dir, "joiner.onnx").path, File(dir, "tokens.txt").path, threads)
         .also { require(it != 0L) { "the speech recogniser could not be loaded" } }
-    private var stream = 0L
-    @Synchronized override fun begin(preRoll: FloatArray) { if (stream != 0L) NativeVoice.asrStreamDestroy(stream); stream = NativeVoice.asrStream(rec); if (preRoll.isNotEmpty()) NativeVoice.asrAccept(stream, 16000, preRoll) }
-    @Synchronized override fun accept(samples: FloatArray) { if (stream != 0L) NativeVoice.asrAccept(stream, 16000, samples) }
-    @Synchronized override fun partial(): String = if (stream == 0L) "" else NativeVoice.asrDecode(rec, stream).trim()
-    @Synchronized override fun finish(): String {
-        if (stream == 0L) return ""
-        NativeVoice.asrAccept(stream, 16000, FloatArray(16000 * 3 / 2)) // the model emits its last word only after enough look-ahead (measured: 1.5 s)
-        NativeVoice.asrInputFinished(stream)
-        val t = NativeVoice.asrDecode(rec, stream).trim()
-        NativeVoice.asrStreamDestroy(stream); stream = 0L
-        return t
+    internal val lock = Any()
+    fun session(): SpeechRecognizer = Session()
+    override fun close() = NativeVoice.asrDestroy(rec)
+
+    private inner class Session : SpeechRecognizer {
+        override val name get() = this@StreamingRecognizerModel.name
+        private var stream = 0L
+        override fun begin(preRoll: FloatArray) = synchronized(lock) { if (stream != 0L) NativeVoice.asrStreamDestroy(stream); stream = NativeVoice.asrStream(rec); if (preRoll.isNotEmpty()) NativeVoice.asrAccept(stream, 16000, preRoll) }
+        override fun accept(samples: FloatArray) = synchronized(lock) { if (stream != 0L) NativeVoice.asrAccept(stream, 16000, samples) }
+        override fun partial(): String = synchronized(lock) { if (stream == 0L) "" else NativeVoice.asrDecode(rec, stream).trim() }
+        override fun finish(): String = synchronized(lock) {
+            if (stream == 0L) return ""
+            NativeVoice.asrAccept(stream, 16000, FloatArray(16000 * 3 / 2)) // the model emits its last word only after enough look-ahead (measured: 1.5 s)
+            NativeVoice.asrInputFinished(stream)
+            val t = NativeVoice.asrDecode(rec, stream).trim()
+            NativeVoice.asrStreamDestroy(stream); stream = 0L
+            t
+        }
+        override fun close() = synchronized(lock) { if (stream != 0L) NativeVoice.asrStreamDestroy(stream); stream = 0L }
     }
-    @Synchronized override fun close() { if (stream != 0L) NativeVoice.asrStreamDestroy(stream); NativeVoice.asrDestroy(rec) }
+}
+
+/** A recogniser that owns its model (tests, one-off use). */
+class StreamingRecognizer(dir: File, threads: Int = 2) : SpeechRecognizer {
+    private val model = StreamingRecognizerModel(dir, threads); private val s = model.session()
+    override val name get() = model.name
+    override fun begin(preRoll: FloatArray) = s.begin(preRoll)
+    override fun accept(samples: FloatArray) = s.accept(samples)
+    override fun partial() = s.partial()
+    override fun finish() = s.finish()
+    override fun close() { s.close(); model.close() }
 }
 
 /** Whisper base (multilingual, optional): decodes the utterance so far for partial results, and once at the end. [language] "" = detect. */
-class WhisperRecognizer(dir: File, language: String, threads: Int = 4) : SpeechRecognizer {
-    override val name = "Whisper base (sherpa-onnx)"
+class WhisperModel(dir: File, language: String, threads: Int = 4) : AutoCloseable {
+    val name = "Whisper base (sherpa-onnx)"
     private val rec = NativeVoice.whisperCreate(File(dir, "encoder.onnx").path, File(dir, "decoder.onnx").path, File(dir, "tokens.txt").path, language, threads)
         .also { require(it != 0L) { "Whisper could not be loaded" } }
-    private var audio = FloatArray(0); private var lastPartialAt = 0; private var lastPartial = ""
     @Volatile var detectedLanguage = ""; private set
-    @Synchronized override fun begin(preRoll: FloatArray) { audio = preRoll.copyOf(); lastPartialAt = 0; lastPartial = "" }
-    @Synchronized override fun accept(samples: FloatArray) { if (audio.size < 16000 * 30) audio += samples }
-    @Synchronized override fun partial(): String {
-        if (audio.size - lastPartialAt < 16000) return lastPartial // at most one re-decode per second of new audio
-        lastPartialAt = audio.size; lastPartial = decode(audio); return lastPartial
-    }
-    @Synchronized override fun finish(): String { val t = decode(audio); audio = FloatArray(0); return t }
-    private fun decode(a: FloatArray): String = runCatching { val o = Json.parseToJsonElement(NativeVoice.whisperDecode(rec, a)).jsonObject
+    @Synchronized fun decode(a: FloatArray): String = runCatching { val o = Json.parseToJsonElement(NativeVoice.whisperDecode(rec, a)).jsonObject
         detectedLanguage = o["lang"]?.jsonPrimitive?.contentOrNull ?: ""; o["text"]?.jsonPrimitive?.contentOrNull?.trim() ?: "" }.getOrDefault("")
-    @Synchronized override fun close() = NativeVoice.whisperDestroy(rec)
+    fun session(): SpeechRecognizer = object : SpeechRecognizer {
+        override val name get() = this@WhisperModel.name
+        private var audio = FloatArray(0); private var lastAt = 0; private var last = ""
+        override fun begin(preRoll: FloatArray) { audio = preRoll.copyOf(); lastAt = 0; last = "" }
+        override fun accept(samples: FloatArray) { if (audio.size < 16000 * 30) audio += samples }
+        override fun partial(): String { if (audio.size - lastAt < 16000) return last; lastAt = audio.size; last = decode(audio); return last } // one re-decode per second of new audio
+        override fun finish(): String { val t = decode(audio); audio = FloatArray(0); return t }
+        override fun close() {}
+    }
+    override fun close() = NativeVoice.whisperDestroy(rec)
 }
 
 /** One loaded voice pack. Synthesis is serialised per pack (sherpa-onnx models are not re-entrant). */

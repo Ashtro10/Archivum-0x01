@@ -89,6 +89,24 @@ JNIEXPORT jlong JNICALL J(pcmAlloc)(JNIEnv *env, jclass cls, jshortArray pcm) {
     return (jlong)(intptr_t)p;
 }
 
+/* Native copy of bytes (a data packet to publish); freed with memFree after the callback. */
+JNIEXPORT jlong JNICALL J(bytesAlloc)(JNIEnv *env, jclass cls, jbyteArray data) {
+    (void)cls;
+    jsize n = (*env)->GetArrayLength(env, data);
+    uint8_t *p = (uint8_t *)malloc((size_t)n + 1);
+    if (!p) return 0;
+    (*env)->GetByteArrayRegion(env, data, 0, n, (jbyte *)p);
+    return (jlong)(intptr_t)p;
+}
+
+/* Copies n bytes the Rust side handed us (a received data packet). */
+JNIEXPORT jbyteArray JNICALL J(bytesRead)(JNIEnv *env, jclass cls, jlong ptr, jint n) {
+    (void)cls;
+    jbyteArray out = (*env)->NewByteArray(env, n);
+    if (out && n > 0 && ptr) (*env)->SetByteArrayRegion(env, out, 0, n, (const jbyte *)(intptr_t)ptr);
+    return out;
+}
+
 JNIEXPORT void JNICALL J(memFree)(JNIEnv *env, jclass cls, jlong p) { (void)env; (void)cls; free((void *)(intptr_t)p); }
 
 /* ------------------------------------------------------------------------------------------------ helpers */

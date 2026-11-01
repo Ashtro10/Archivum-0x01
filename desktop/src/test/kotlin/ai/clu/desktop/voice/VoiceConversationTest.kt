@@ -104,8 +104,14 @@ class VoiceConversationTest {
         val back = StreamingRecognizer(v.models.kroko!!).use { r -> r.begin(FloatArray(0)); clu16.toList().chunked(1600).forEach { r.accept(it.toFloatArray()) }; r.finish() }
         println("[voice] CLU's audio recognised as: \"$back\"; speech end → first audio heard by the client: ${firstAudio!! - askedAt} ms")
         assertTrue(listOf("clu", "clue", "assistant", "computer").count { it in back.lowercase() } >= 2, "CLU's audio says the reply: $back")
-        val t = v.session(v.status()["sessions"].toString().substringAfter("\"room\":\"").substringBefore('"'))?.agent?.timings?.lastOrNull()
+        val agent = v.session(v.status()["sessions"].toString().substringAfter("\"room\":\"").substringBefore('"'))?.agent
+        val t = agent?.timings?.lastOrNull()
         assertNotNull(t); assertTrue(t.speechEndToFirstAudioMs in 1..8000, "measured on the PC: $t")
+        // One utterance, one turn: exactly one reply, one stored question and answer, and a full trace for it.
+        assertEquals(1, agent.timings.size, "no duplicate turn"); assertEquals(1, finals(c, "clu").count { "assistant" in it.lowercase() })
+        assertEquals(2, host!!.core.conversations.messages(conv).size)
+        val names = t.stages.map { it.name }
+        for (n in listOf("vad_onset", "endpoint", "stt_final", "submitted", "clu.route", "clu.llm_call", "first_text", "first_visible", "first_audio", "done")) assertTrue(n in names, "trace has $n: $names")
     }
 
     @Test fun talkingOverCLUStopsItAtOnceAndTheNewQuestionIsAnswered() = runBlocking {

@@ -32,6 +32,7 @@ While CLU can hear you, a red **● Microphone on** indicator is shown in the ba
 | Wake words, strictness | Your wake words and how closely the recognised word must match (0.72 default; higher = fewer false wakes). |
 | Farewells | Phrases that end the conversation (“goodbye”, “that's all”…). |
 | Pronunciations | `written = spoken` pairs applied before speech (e.g. `CLU = Clue`). |
+| Names CLU should recognise | Names the speech recogniser gets wrong (e.g. "Leman Russ" is heard as "Lemon Russ"). CLU also learns names from the conversation and from what it looked up; a close match is corrected (the raw transcript is kept), an uncertain one is asked about. Saying "I said …" corrects your previous request. |
 | Microphone, Speaker | Device choice for this window (remembered on this PC). |
 | Phone access | Lets paired phones reach CLU over your private network. Off by default. |
 
@@ -58,6 +59,8 @@ When the PC cannot be reached, the phone can still use its own on-device engine 
 | *The voice libraries are not installed* / *speech models are not installed* | Reinstall CLU (the voice files are part of the program). |
 | Talk button does nothing / microphone error | Windows Settings → Privacy → Microphone → allow desktop apps; pick the right device in Settings → Voice. |
 | CLU cuts you off | Raise *End of speech after* to 900–1200 ms. |
+| Slow replies, or "thinking" text | Status → *Recent requests* (or the voice bar's *Timings of the last turn*) shows where the time goes: model loading, prompt reading, generation, speech. Reasoning models (Qwen3, DeepSeek-R1 distills) have their reasoning switched off and filtered. |
+| "Stop" | Saying "stop", "stop talking", "be quiet" or "never mind" stops CLU at once without starting a new answer. |
 | CLU interrupts itself (hears its own voice) | Use headphones, or lower the speaker volume; the window uses the browser's echo cancellation. Raise *Interrupt CLU after*. |
 | Phone: *Token server rejected this device key (HTTP 401)* | The key was mistyped or the phone was removed: pair again. |
 | Phone: *not reachable* | Same network? Phone access on? Windows firewall allowed *private* networks? The endpoint address changes if the PC's address changes: check Settings → Voice. |

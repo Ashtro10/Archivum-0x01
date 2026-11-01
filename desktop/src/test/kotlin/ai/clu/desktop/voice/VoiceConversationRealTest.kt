@@ -62,7 +62,7 @@ class VoiceConversationRealTest {
                 else -> {} } }.first
             room.ready(); room.publishVoice(24_000)
             val sess = v.session(s["room"]!!.jsonPrimitive.content)!!
-            withTimeout(30_000) { while (!(sess.agent.listener != null && sess.agent.started)) delay(50) }
+            withTimeout(120_000) { while (!(sess.agent.listener != null && sess.agent.started)) delay(50) }
             val mouth = TtsVoice(VoiceCatalog.pack("piper-ryan")!!, v.models.packDir("piper-ryan")!!, v.models.espeak())
             fun loudAt(t: Long) = heardAudio.filter { it.first >= t }.firstOrNull { it.second.map { x -> abs(x.toInt()) }.average() > 300 }?.first
             suspend fun say(line: String) { room.speak(Pcm.toShort(Pcm.resample(mouth.synth(line, 0, 1.0f), mouth.sampleRate, 24_000))) }

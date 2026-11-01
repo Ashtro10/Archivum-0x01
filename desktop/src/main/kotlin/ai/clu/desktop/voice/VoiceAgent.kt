@@ -70,7 +70,7 @@ class VoiceAgent(
     @Volatile var started = false; private set
     fun start() {
         started = true
-        scope.launch(audio) { for (f in frames) runCatching { onFrame(f) }.onFailure { lastError = it.message ?: "audio error"; log("voice: audio error ${it.message}") } }
+        audioLoop = scope.launch(audio) { for (f in frames) runCatching { onFrame(f) }.onFailure { lastError = it.message ?: "audio error"; log("voice: audio error ${it.message}") } }
         listOf("clu.interrupt", "clu.set_audio_output", "clu.load_history", "clu.set_mic", "clu.push_to_talk").forEach(room::registerRpc)
         scope.launch { setPhase(if (settings().mode == ListenMode.WAKE_WORD) AgentPhase.DORMANT else AgentPhase.LISTENING) }
     }
@@ -195,8 +195,10 @@ class VoiceAgent(
         h?.let { marks["vad_onset"] = it.vadAt; marks["speech_end_est"] = it.speechEndAt; marks["endpoint"] = it.endpointAt; marks["stt_final"] = it.sttDoneAt }
         mark("submitted")
         interrupt(null) // a new turn replaces anything still running
+        mark("previous_stopped")
         val conv = conversation()
         setPhase(AgentPhase.THINKING)
+        mark("phase_thinking")
         val sentences = Channel<String>(capacity = 32)
         val seg = "r" + turnSeq.incrementAndGet()
         val started = System.currentTimeMillis(); var firstToken = 0L; var firstAudio = 0L; var interrupted = false
@@ -300,7 +302,13 @@ class VoiceAgent(
             put("turn", t.id); put("outcome", t.outcome); putJsonArray("stages") { t.stages.forEach { st -> addJsonObject { put("name", st.name); put("ms", st.ms); if (st.detail.isNotEmpty()) put("detail", st.detail) } } } }.toString().toByteArray()) }
     }
 
-    private suspend fun setPhase(p: AgentPhase) { phase = p; room.setAttributes(mapOf("lk.agent.state" to p.wire, "clu.voice" to settings().voice, "clu.mode" to settings().mode.name.lowercase())) }
+    /**
+     * CLU's state changes at once; telling the clients (a LiveKit attribute update, acknowledged by the server) happens
+     * in the background, latest state first, so a turn never waits for it (it held a turn for ~5 s in the M8.5 trace).
+     */
+    private val phaseOut = Channel<AgentPhase>(Channel.CONFLATED)
+    private val phaseSender = scope.launch { for (p in phaseOut) runCatching { room.setAttributes(mapOf("lk.agent.state" to p.wire, "clu.voice" to settings().voice, "clu.mode" to settings().mode.name.lowercase())) } }
+    private suspend fun setPhase(p: AgentPhase) { phase = p; phaseOut.trySend(p) }
 
     private suspend fun transcript(text: String, final: Boolean) {
         room.sendText("lk.transcription", text, mapOf("lk.transcription_final" to final.toString(), "lk.segment_id" to segment, "lk.transcribed_track_id" to "mic"), to = listOfNotNull(listener), senderIdentity = listener)
@@ -311,9 +319,17 @@ class VoiceAgent(
         room.sendText("lk.transcription", text, mapOf("lk.transcription_final" to final.toString(), "lk.segment_id" to seg, "lk.transcribed_track_id" to room.trackSid))
     }
 
+    @Volatile private var audioLoop: Job? = null
+
+    /**
+     * Ends the session. The voice detector and recogniser are native objects used only by the audio thread: they are freed
+     * on that thread after its last frame, never while it may still be inside them (freeing them from here while a frame
+     * was being processed crashed the JVM: SIGSEGV in SherpaOnnxVoiceActivityDetectorAcceptWaveform).
+     */
     suspend fun close() {
-        interrupt(null); frames.close()
-        runCatching { stt?.close() }; runCatching { vad?.close() }
+        interrupt(null); frames.close(); phaseOut.close()
+        withTimeoutOrNull(3_000) { audioLoop?.join() }
+        withTimeoutOrNull(3_000) { runCatching { withContext(audio) { runCatching { stt?.close() }; runCatching { vad?.close() }; stt = null; vad = null } } } // if the audio thread were stuck: leak rather than crash
         room.disconnect(); audio.close()
     }
 }

@@ -127,15 +127,17 @@ class Vad(model: File, threshold: Float = 0.5f, minSilence: Float = 0.6f, minSpe
     private val h = NativeVoice.vadCreate(model.absolutePath, threshold, minSilence, minSpeech, 20f, 1).also { require(it != 0L) { "the voice activity detector could not be loaded" } }
     private val buf = FloatArray(512); private var n = 0
     @Volatile var speaking = false; private set
-    /** Feeds audio; returns the finished speech segments (if any). */
-    fun accept(samples: FloatArray): List<FloatArray> {
+    private var closed = false
+    /** Feeds audio; returns the finished speech segments (if any). Nothing happens once closed (never touches freed memory). */
+    @Synchronized fun accept(samples: FloatArray): List<FloatArray> {
+        if (closed) return emptyList()
         val out = mutableListOf<FloatArray>()
         for (s in samples) { buf[n++] = s; if (n == 512) { NativeVoice.vadAccept(h, buf.copyOf()); n = 0; speaking = NativeVoice.vadDetected(h)
             while (true) out += (NativeVoice.vadPop(h) ?: break) } }
         return out
     }
-    fun reset() { NativeVoice.vadReset(h); n = 0; speaking = false }
-    override fun close() = NativeVoice.vadDestroy(h)
+    @Synchronized fun reset() { if (closed) return; NativeVoice.vadReset(h); n = 0; speaking = false }
+    @Synchronized override fun close() { if (!closed) { closed = true; NativeVoice.vadDestroy(h) } }
 }
 
 /** Speech recognition for one utterance at a time. */

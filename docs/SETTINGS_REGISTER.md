@@ -1,6 +1,6 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.3-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.4-prototype.
 
 * Settings: **228** · verifying test passed: **228** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings

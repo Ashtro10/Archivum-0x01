@@ -620,7 +620,7 @@
       "queries": [
        "Leman Russ"
       ],
-      "final": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.",
+      "final": "From what I found: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.",
       "kind": "quoted_result"
      }
     }
@@ -940,7 +940,7 @@
       "queries": [
        "Leman Russ"
       ],
-      "final": "I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.",
+      "final": "From what I found: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.",
       "kind": "quoted_result"
      }
     },

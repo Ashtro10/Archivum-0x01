@@ -20,6 +20,8 @@ class SpeechCorrectionsTest {
             assertNull(ProperNouns.correct(t, known), t)
         assertNull(ProperNouns.correct("Who is Leman Russ?", known), "said right: nothing to fix")
         assertNull(ProperNouns.correct("I rode a horse", listOf("Horus")), "a single-word name is never matched against an ordinary word")
+        assertNull(ProperNouns.correct("Can you hear me?", listOf("Hello Clue", "Clue")), "different first sounds are never the name")
+        assertEquals("Clue", ProperNouns.clean("Hello, Clue")); assertNull(ProperNouns.clean("Hello there"))
     }
 
     @Test fun namesAreFoundInText() {

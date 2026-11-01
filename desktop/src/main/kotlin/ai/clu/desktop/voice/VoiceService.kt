@@ -137,10 +137,14 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
             // A voice session means the owner is about to talk: load the language model and read CLU's fixed instructions
             // into its cache now, alongside the speech engines (the model loads on demand otherwise, which cost the first
             // spoken turn ~6 s of loading plus a cold prompt read in the M8.5 trace).
-            val model = async { runCatching { core.llm.prepare(); if (core.llm.loadIfNeeded() != null) core.agent.warmUp() }.onFailure { log("voice: model warm-up failed: ${it.message}") } }
+            val model = async { runCatching {
+                val t0 = System.currentTimeMillis(); core.llm.prepare()
+                val loaded = core.llm.loadIfNeeded(); val t1 = System.currentTimeMillis()
+                val st = if (loaded != null) core.agent.warmUp() else null
+                log("voice: model ready in ${t1 - t0} ms, instructions read in ${System.currentTimeMillis() - t1} ms (${st?.promptTokens ?: 0} tokens)")
+            }.onFailure { log("voice: model warm-up failed: ${it.message}") } }
             runCatching { engines.voice(settings.voice); engines.recognizer().close() }.onFailure { log("voice: warm-up failed: ${it.message}") }
-            model.await()
-            agent.start()
+            agent.start() // listening as soon as hearing and speaking work; a turn that comes before the model is ready waits for it (shown in the trace)
         }
         val s = Session(room, device, agent, System.currentTimeMillis()); sessions[room] = s
         log("voice: CLU joined $room for $device")

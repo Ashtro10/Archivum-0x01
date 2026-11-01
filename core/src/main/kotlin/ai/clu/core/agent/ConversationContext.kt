@@ -302,7 +302,9 @@ object ContextualCorrection {
         "check", "just", "also", "like", "make", "made", "take", "give", "said", "says", "sure", "okay", "yeah", "right", "time", "here",
         // Ordinary request words: never a mishearing of the topic ("is there any update?" is not "is there any weather?").
         "update", "updates", "news", "latest", "change", "changes", "changed", "forecast", "tomorrow", "yesterday", "tonight", "anything",
-        "something", "information", "details", "again", "happened", "happening", "since", "before", "after", "afterwards", "later")
+        "something", "information", "details", "again", "happened", "happening", "since", "before", "after", "afterwards", "later",
+        // Greetings and CLU's own name are never what a misheard word was meant to be.
+        "hello", "hi", "hey", "thanks", "thank", "clue", "clu", "hear", "answer", "talking", "stop")
 
     fun find(text: String, topic: Topic): Fix? {
         // A message already understood as a request on the topic ("is there any update?", "look it up", "tell me more") is taken as said.
@@ -314,11 +316,15 @@ object ContextualCorrection {
         val tokens = FollowUpResolver.words(text)
         if (tokens.size > 14) return null
         val vocab = FollowUpResolver.words(topic.question + " " + (topic.subject ?: "") + " " + topic.entities.joinToString(" "))
-        val topicTerms = vocab.filter { it.length >= 4 && it !in COMMON && it !in Grounding.FUNCTION }.distinct()
+        // In ordinary chat only names are worth re-hearing words against (never "hello" from "Hello, Clue": M8.5).
+        val names = if (topic.kind == "general") (ProperNouns.namesIn(topic.question) + topic.entities).flatMap { FollowUpResolver.words(it) }.toSet() else null
+        val topicTerms = vocab.filter { it.length >= 4 && it !in COMMON && it !in Grounding.FUNCTION && (names == null || it in names) }.distinct()
         if (topicTerms.isEmpty()) return null
         val unknown = tokens.filter { it.length >= 4 && it !in vocab && it !in COMMON && it !in Grounding.FUNCTION }
         var best: Triple<String, String, Double>? = null
         for (u in unknown) for (term in topicTerms) {
+            // Mishearings keep their first sound ("convoy"/"cyclone", "lemon"/"Leman"); "hear" is never "hello" (M8.5).
+            if (u[0] != term[0]) continue
             val sim = Phonetics.similarity(u, term)
             if (best == null || sim > best.third) best = Triple(u, term, sim)
         }

@@ -135,7 +135,8 @@ class AgentAcceptanceTest {
         http.requests.clear()
         route("lehman ross", wiki()) // nothing, and no suggestion
         val d = done(ask("who is lehman ross", voice = true))
-        assertEquals(listOf("lehman ross", "Leman Russ"), searches(), "the similar name already in this conversation was tried")
+        // Since M8.5 the spoken name is recognised from the conversation before searching: only the known name is searched.
+        assertEquals(listOf("Leman Russ"), searches(), "the similar name already in this conversation was used")
         assertTrue(d.text.startsWith("Leman Russ is"), d.text)
     }
 
@@ -329,7 +330,7 @@ class AgentAcceptanceTest {
         route("Leman Russ", wiki(russ))
         model.queued += "Leman Russ leads the Ultramarines."; model.queued += "Leman Russ is the Emperor of Tibet."
         val ev = ask("Who is Leman Russ?")
-        assertEquals("I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.", done(ev).text)
+        assertEquals("From what I found: Leman Russ is the Primarch of the Space Wolves, one of the Space Marine Legions in Warhammer 40,000.", done(ev).text)
         assertEquals(1.0, done(ev).meta.stats["answer_extractive"]); assertEquals(1.0, done(ev).meta.stats["answer_repairs"])
         assertFalse("Ultramarines" in shown(ev) || "Tibet" in shown(ev))
         assertEquals(2, model.prompts.count { p -> p.any { it.content.startsWith("[Information found]") } }, "exactly one correction attempt, then no more generation")
@@ -457,7 +458,7 @@ class AgentAcceptanceTest {
         val r = Rambler("I'm afraid the answer cannot be found anywhere, sorry about that.").also { core.useEngine(it) }
         route("Leman Russ", wiki(russ))
         val d = done(ask("Who is Leman Russ?"))
-        assertTrue(d.text.startsWith("I couldn't put that into my own words reliably. The top result says: Leman Russ is the Primarch"), d.text)
+        assertTrue(d.text.startsWith("From what I found: Leman Russ is the Primarch"), d.text)
         assertTrue(r.produced < 80, "both attempts stopped once their opening failed the check (${r.produced} of ~1,600 words)")
     }
 

@@ -89,7 +89,7 @@ class InferenceServiceTest {
             val done = ev.last() as InferenceEvent.Completed
             assertTrue(ev.all { it.requestId == "short" })
             assertTrue(done.result.stats.generatedTokens > 0 && done.result.stats.promptTokens > 0)
-            assertEquals(ev.filterIsInstance<InferenceEvent.Token>().joinToString("") { it.text }, done.result.text)
+            assertEquals(ev.filterIsInstance<InferenceEvent.Token>().joinToString("") { it.text }.trimEnd(), done.result.text) // the final text is trimmed at the end (OutputGuard.text)
             val st = core.llm.state.value
             assertEquals(LlmStatus.READY, st.status); assertEquals("cpu", st.backend); assertTrue(st.threads > 0 && st.contextSize in 1..2048 && st.estimatedBytes > tiny.length())
             assertTrue(seen.indexOf(LlmStatus.LOADING) < seen.indexOf(LlmStatus.READY) && seen.contains(LlmStatus.GENERATING), seen.toString())

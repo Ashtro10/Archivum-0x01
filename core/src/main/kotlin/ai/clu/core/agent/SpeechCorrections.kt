@@ -21,6 +21,10 @@ object ProperNouns {
         .map { n -> n.split(Regex("\\s+")).dropWhile { it in NOT_NAMES }.joinToString(" ") }
         .filter { it.length >= 3 && it !in NOT_NAMES }.distinct().toList()
 
+    /** [name] without greeting/function words around it ("Hello, Clue" → "Clue"); null if nothing name-like is left. */
+    fun clean(name: String): String? = WORD.findAll(name).map { it.value }.filter { it !in NOT_NAMES && it.lowercase() !in Grounding.FUNCTION }
+        .joinToString(" ").takeIf { it.length >= 3 }
+
     fun correct(text: String, vocabulary: Collection<String>): Fix? {
         val tokens = WORD.findAll(text).toList()
         if (tokens.isEmpty() || tokens.size > 25) return null
@@ -32,6 +36,9 @@ object ProperNouns {
             if (Regex("(?i)(?<![\\p{L}])${Regex.escape(entry)}(?![\\p{L}])").containsMatchIn(text)) continue
             for (i in 0..tokens.size - parts.size) {
                 val window = tokens.subList(i, i + parts.size)
+                // A misheard word keeps its first sound in practice ("Lemon"/"Leman", "rust"/"Russ"); words that start
+                // differently are not taken for the name ("hear" is never "Hello").
+                if (window.zip(parts).any { (t, p) -> !t.value.equals(p, true) && (t.value.length < 3 || !t.value[0].equals(p[0], true)) }) continue
                 val sims = window.zip(parts).map { (t, p) -> if (t.value.equals(p, true)) 1.0 else Phonetics.similarity(t.value.lowercase(), p.lowercase()) }
                 val mean = sims.average()
                 val common = window.all { it.value.lowercase() in ContextualCorrection.COMMON || it.value.lowercase() in Grounding.FUNCTION }

@@ -80,6 +80,8 @@ data class TurnTimeouts(val firstTokenMs: Long = 120_000, val stallMs: Long = 30
 
 /** One running request: its own cancellation and its lifecycle trace. */
 class Turn internal constructor(val origin: TurnOrigin, val signal: CancelSignal, val trace: RequestTrace.Request, internal val visible: Long = 0) {
+    /** The model wrote hidden reasoning in this turn (removed); explains an empty reply. */
+    @Volatile internal var reasoned = false
     /** The reply has been delivered; only optional extra work (alternative reply, diary) is still running. */
     @Volatile var followUp = false
         internal set
@@ -140,7 +142,7 @@ private const val HAZARD_FRESH_MS = 30 * 60_000L
 private const val MAX_REPAIRS = 1
 
 /** How a quoted result is introduced, so it is never mistaken for Clu's own explanation. */
-internal const val EXTRACT_PREFIX = "I couldn't put that into my own words reliably. The top result says: "
+internal const val EXTRACT_PREFIX = "From what I found: "
 private val LOOKUP = Regex("(?i)^(?:search|look up|look into|find|research|check|compare)\\b")
 
 class MemoryRetriever(private val settings: SettingsStore, private val memories: MemoryRepository, private val now: () -> Long = System::currentTimeMillis,
@@ -352,7 +354,9 @@ class CluAgent(
     private fun knownNames(req: TurnRequest): List<String> {
         val recent = conversations.messages(req.conversationId).takeLast(12).dropLast(1).map { it.meta.interpreted?.takeIf { s -> s.isNotBlank() } ?: it.content }
         val topic = context?.get(req.conversationId)?.topic
-        return (req.vocabulary + listOfNotNull(topic?.subject) + topic?.entities.orEmpty() + recent.flatMap { ProperNouns.namesIn(it) }).filter { it.contains(' ') || it.length >= 4 }.distinct()
+        // A general chat topic ("Hello, Clue") is not a name; researched subjects and entities are.
+        val fromTopic = if (topic != null && topic.kind != "general") listOfNotNull(topic.subject) + topic.entities else topic?.entities.orEmpty()
+        return (req.vocabulary + fromTopic + recent.flatMap { ProperNouns.namesIn(it) }).mapNotNull { ProperNouns.clean(it) }.filter { it.contains(' ') || it.length >= 4 }.distinct()
     }
 
     private fun speechCorrection(req: TurnRequest, userMsg: Message): SpeechFix? {
@@ -698,10 +702,14 @@ class CluAgent(
             is ResearchOutcome.Found -> {
                 // The name as the sources spell it ("Lemon Russ" asked → "Leman Russ" found) becomes the topic's name, so
                 // the next spoken mention of it can be recognised and corrected.
-                val canonical = WebSearchTool.sources(o.result).map { it.title }.filter { t -> (subject ?: query).let { s -> t.equals(s, true) ||
-                    ai.clu.core.agent.Phonetics.similarity(t.lowercase().replace(" ", ""), s.lowercase().replace(" ", "")) >= 0.6 } }.firstOrNull()
+                // Only for a single name (never "Mars and Venus"), on a strong match, and only as the topic's spelling.
+                val asked = subject ?: query
+                val single = !Regex("(?i)\\band\\b|,|\\bor\\b|\\bvs\\b").containsMatchIn(asked)
+                val canonical = if (!single) null else WebSearchTool.sources(o.result).map { it.title }.firstOrNull { t -> !t.equals(asked, true) &&
+                    t.split(' ').size == asked.trim().split(Regex("\\s+")).size && t.first().equals(asked.trim().first(), true) &&
+                    ai.clu.core.agent.Phonetics.similarity(t.lowercase().replace(" ", ""), asked.lowercase().replace(" ", "")) >= 0.7 }
                 turn.topicOut = turn.topicOut?.copy(subject = o.interpretedAs ?: canonical ?: subject,
-                    entities = (turn.topicOut?.entities.orEmpty() + listOfNotNull(canonical)).distinct())
+                    entities = if (canonical != null) (turn.topicOut?.entities.orEmpty() + canonical).distinct() else turn.topicOut?.entities.orEmpty())
                 generateReply(req, turn, persona, ctx, meta, emit, preToolResult = "web.search" to o.result, interpretedAs = o.interpretedAs, subject = subject)
             }
             is ResearchOutcome.Ambiguous -> { turn.pendingOut = Pending("choice", req.text, o.options); finish(req, turn, "Do you mean " + when (o.options.size) { 2 -> "${o.options[0]} or ${o.options[1]}"
@@ -1157,7 +1165,8 @@ class CluAgent(
             emit(AgentEvent.Error("My model took too long ($limit) and was stopped. Try again, or choose a smaller model or shorter context in AI models.", kind = "timeout"))
         }
         // An empty reply (immediate end-of-generation, or only a malformed tool call) is an error with Retry, not "…".
-        if (emptyOutput) emit(AgentEvent.Error("My model returned an empty reply. Please try again or rephrase.", kind = "empty"))
+        if (emptyOutput) emit(AgentEvent.Error(if (turn.reasoned) "My model kept reasoning and never got to an answer, so I stopped it. Please ask again; a shorter question or a non-reasoning model helps."
+            else "My model returned an empty reply. Please try again or rephrase.", kind = "empty"))
         val source = when { usedTools.contains("external.ai") -> "external"; else -> engine.source }
         // A reply that was stopped before any words claims no sources (nothing was answered from them).
         val meta = baseMeta.copy(source = source, engine = engine.id, tools = usedTools.distinct(), interrupted = turn.signal.isCancelled,
@@ -1301,8 +1310,13 @@ class CluAgent(
                     }
                 } finally { if (!done.get()) turn.signal.cancel(CancelSignal.USER) }
             }
+            // Every engine (local, remote "home" engine, test stand-ins) passes the reasoning filter here: hidden reasoning is
+            // never streamed, spoken, checked or stored, whatever produced it (the local engine also switches it off).
+            val think = ReasoningFilter()
             try {
-                withContext(Dispatchers.IO) { engine.generate(msgs, params, signal) { lastToken.set(System.nanoTime()); onText(it) } }.also { r ->
+                withContext(Dispatchers.IO) { engine.generate(msgs, params, signal) { lastToken.set(System.nanoTime()); think.push(it).takeIf { s -> s.isNotEmpty() }?.let(onText) }
+                    .let { r -> think.finish().takeIf { it.isNotEmpty() }?.let(onText); if (think.sawReasoning || r.stats.reasoningTokens > 0) turn.reasoned = true
+                        if (think.sawReasoning || '<' in r.text) r.copy(text = Reasoning.strip(r.text)) else r } }.also { r ->
                     val s = r.stats
                     trace.record(turn.trace, TurnEvent.LLM_CALL, "${(System.nanoTime() - started) / 1_000_000}ms prompt=${s.promptTokens} reused=${s.reusedTokens} gen=${s.generatedTokens} " +
                         "queue=${s.queueMs.toLong()}ms prefill=${s.promptMs.toLong()}ms max=${params.maxTokens} stop=${s.stopReason}" + (if (s.reasoningTokens > 0) " reasoning=${s.reasoningTokens}" else ""))

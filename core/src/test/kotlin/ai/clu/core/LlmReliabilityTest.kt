@@ -72,8 +72,8 @@ class LlmReliabilityTest {
             assertEquals((0 until 20).joinToString("") { "w$it " }.trim(), done.text)
             assertEquals(ev.filterIsInstance<AgentEvent.Text>().joinToString("") { it.delta }.trim(), done.text, "streamed text equals the final reply")
             val names = lastTrace(core).events.map { it.name }
-            assertEquals(listOf(TurnEvent.MESSAGE_RECEIVED, TurnEvent.REQUEST_CREATED, TurnEvent.MODEL_READY, TurnEvent.GENERATION_STARTED,
-                TurnEvent.FIRST_TOKEN, TurnEvent.GENERATION_COMPLETED), names)
+            assertEquals(listOf(TurnEvent.MESSAGE_RECEIVED, TurnEvent.REQUEST_CREATED, TurnEvent.ROUTE, TurnEvent.MODEL_READY, TurnEvent.MEMORY, TurnEvent.GENERATION_STARTED,
+                TurnEvent.FIRST_TOKEN, TurnEvent.LLM_CALL, TurnEvent.GENERATION_COMPLETED), names)
             assertFalse(core.agent.busy())
         }
 

@@ -2,6 +2,17 @@
 
 Legend: **T** implemented and tested (Linux; Windows APIs through injected runners) · **B** built, **not run on Windows / a phone** · **P** partial · **N** not implemented.
 
+## M8.5 — conversation repair (details: [M85_CONVERSATION_REPAIR.md](M85_CONVERSATION_REPAIR.md))
+
+| Area | State | Evidence |
+|---|---|---|
+| Per-turn lifecycle trace (speech → STT → route → memory → model calls → first text/audio → done) in API, voice bar and Status | **T** | `VoiceConversationTest`, `/v1/requests` |
+| Reasoning models: reasoning switched off in the prompt, streaming sanitiser before UI/TTS/history, fail-safe | **T** (Qwen3-0.6B real; unit) | `ReasoningTest`, `ConversationRepairTest`, `VoiceConversationRealTest` |
+| Warm model during voice, non-blocking state updates, thread count | **T** | `VoiceTurnRulesTest`, traces |
+| Corrections ("I said …"), misheard names from context, follow-up research, stop phrases | **T** | `SpeechCorrectionsTest`, `ConversationRepairTest`, `VoiceRecognitionTest` |
+| Simple turn: first audio 2.8 s, first text 2.6 s (was 3.9–15.4 s; turns finished in 4–16 s, were 21–96 s) | measured on 4 vCPU | `docs/measurements/m85_*` |
+| First visible text under 2 s | **not met on 4 vCPU** (2.6 s); expected on the 8-thread Ryzen, not measured | — |
+
 ## M8 — real-time voice (details: [M8_REALTIME_VOICE.md](M8_REALTIME_VOICE.md))
 
 | Area | State | Evidence |

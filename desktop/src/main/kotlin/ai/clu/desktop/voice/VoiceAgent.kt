@@ -233,7 +233,8 @@ class VoiceAgent(
     private suspend fun setPhase(p: AgentPhase) { phase = p; room.setAttributes(mapOf("lk.agent.state" to p.wire, "clu.voice" to settings().voice, "clu.mode" to settings().mode.name.lowercase())) }
 
     private suspend fun transcript(text: String, final: Boolean) {
-        room.sendText("lk.transcription", text, mapOf("lk.transcription_final" to final.toString(), "lk.segment_id" to segment, "lk.transcribed_track_id" to "mic"), to = listOfNotNull(listener))
+        room.sendText("lk.transcription", text, mapOf("lk.transcription_final" to final.toString(), "lk.segment_id" to segment, "lk.transcribed_track_id" to "mic"), to = listOfNotNull(listener), senderIdentity = listener)
+        // (sent on behalf of the speaker, as LiveKit agents do: clients attribute a transcript by its sender)
     }
     private suspend fun transcriptReply(text: String, seg: String, final: Boolean) {
         if (text.isBlank()) return

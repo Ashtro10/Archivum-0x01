@@ -29,17 +29,17 @@ class ConnectionActivity : BaseActivity() {
     private fun build(): Unit = screen("Connection") {
         val server = core.settings.string(Settings.VOICE_MODE) == "livekit"
         h1("Who answers")
-        engineCard(this, "Clu server (recommended)", "Best understanding of natural speech, fast streaming replies and a natural voice. " +
-            "Needs internet (or your home network) and the Clu server: a LiveKit server with the Clu agent (docs/LIVEKIT_AGENT.md).", server) { set(true) }
+        engineCard(this, "CLU on my PC (recommended)", "Best understanding of natural speech, fast streaming replies and a natural voice. " +
+            "Your PC does the listening, thinking and speaking with the same voice and memory; needs the PC on the same Wi-Fi or hotspot (no internet needed).", server) { set(true) }
         engineCard(this, "This device", "Works without any network, using the language model and voice installed on this phone. Slower and less accurate.", !server) { set(false) }
 
-        h1("Clu server")
+        h1("CLU on my PC")
         val url = core.settings.string(Settings.LK_TOKEN_URL)
         p("Token endpoint: ${url.ifBlank { "not set" }}", C.TEXT, 14f)
         p("Device key: ${if (app.liveKit.deviceKey() == null) "not set" else "set (stored encrypted)"}", C.TEXT, 14f)
         row {
             smallButton("Token endpoint…") {
-                prompt("Token endpoint", url, hint = "e.g. http://192.168.1.20:8089/token") { v ->
+                prompt("Token endpoint", url, hint = "shown on the PC, e.g. http://192.168.1.20:47822/token") { v ->
                     when (val r = core.settings.set(Settings.LK_TOKEN_URL, v.trim())) {
                         SettingResult.Ok -> build()
                         is SettingResult.Invalid -> toast("Not saved: ${r.reason}")
@@ -50,7 +50,7 @@ class ConnectionActivity : BaseActivity() {
             }
             smallButton(if (app.liveKit.deviceKey() == null) "Device key…" else "Replace key…") {
                 verifyOwner("Change the device key") { ok ->
-                    if (ok) prompt("Device key", hint = "from: python clu_voice_server.py add-device phone", password = true) { key ->
+                    if (ok) prompt("Device key", hint = "shown once on the PC when you pair this phone", password = true) { key ->
                         if (key.trim().matches(Regex("[a-z0-9][a-z0-9-]{0,30}\\.[A-Za-z0-9_-]{16,}"))) { app.liveKit.setDeviceKey(key); build() }
                         else toast("That does not look like a device key (id.secret).")
                     }
@@ -77,8 +77,8 @@ class ConnectionActivity : BaseActivity() {
                 status.setTextColor(if (s.link == Link.CONNECTED && s.agent != AgentPhase.ABSENT) C.ACCENT else if (s.error != null) C.WARN else C.MUTED)
             }
         }
-        p("Run the server on your computer (or use LiveKit Cloud): python clu_voice_server.py serve. The phone needs to reach the token endpoint " +
-            "and the LiveKit server URL it returns. Audio and text go only to that server.", C.MUTED, 12f)
+        p("On the PC: CLU → Settings → Voice → turn on phone access, then Pair a phone. Enter the endpoint and key it shows here. " +
+            "The phone and the PC must be on the same Wi-Fi (or the phone's hotspot). Audio and text go only to your PC; nothing goes to the internet.", C.MUTED, 12f)
 
         h1("Diagnostics")
         p("For finding problems without a computer. Contains no conversation text, keys or tokens.", C.MUTED, 12f)
@@ -97,7 +97,7 @@ class ConnectionActivity : BaseActivity() {
             app.liveKit.state.collect { st ->
                 val ev = app.liveKit.live.events().takeLast(25)
                 diag.text = buildString {
-                    append("engine: ").append(if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server" else "this device").append('\n')
+                    append("engine: ").append(if (core.settings.string(Settings.VOICE_MODE) == "livekit") "CLU on my PC" else "this device").append('\n')
                     append("connection: ").append(st.link.name.lowercase()).append(" · agent: ").append(st.agent.name.lowercase()).append('\n')
                     if (st.providers.isNotEmpty()) st.providers.forEach { (k, v) -> append(k).append(": ").append(v).append('\n') }
                     else append("providers: not reported yet\n")
@@ -114,7 +114,7 @@ class ConnectionActivity : BaseActivity() {
         val version = runCatching { packageManager.getPackageInfo(packageName, 0).let { "${it.versionName} (${it.longVersionCode})" } }.getOrDefault("?")
         return LiveDiagnostics.report(app.liveKit.state.value, app.liveKit.live.events(), linkedMapOf(
             "app" to version, "device" to "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-            "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server (LiveKit)" else "this device (offline)",
+            "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "CLU on my PC (LiveKit)" else "this device (offline)",
             "token endpoint" to endpoint.ifBlank { "not set" },
             "device key" to if (app.liveKit.deviceKey() == null) "not set" else "set",
             "agent name" to core.settings.string(Settings.LK_AGENT_NAME)))

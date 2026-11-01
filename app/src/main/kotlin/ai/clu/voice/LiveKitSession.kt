@@ -33,7 +33,7 @@ class CluAudioHandler(private val app: CluApp) : AudioHandler {
 
 /**
  * Clu's conversation over LiveKit with the official Android SDK. The phone streams the microphone and typed messages;
- * Clu's agent (server/clu_agent.py, LiveKit Agents) recognises speech, reasons and speaks. All four paths:
+ * CLU on the owner's PC (the desktop host's voice agent, M8) recognises speech, reasons and speaks. All four paths:
  *  voice -> voice and voice -> text (mic on; spoken replies on/off), text -> text and text -> voice (lk.chat; spoken
  *  replies on/off). Transcripts of both sides arrive as `lk.transcription` text streams and are kept in Clu's history.
  *
@@ -188,7 +188,7 @@ class LiveKitSession(private val app: CluApp) {
     private class ConnectStep(val step: String, cause: Throwable) : Exception(cause.message, cause)
 
     private fun describeConnectFailure(e: Throwable): String = when {
-        e is ConnectStep && e.step == "Token" -> e.message ?: "Couldn't get a token from Clu's token server."
+        e is ConnectStep && e.step == "Token" -> e.message ?: "Couldn't get a token from CLU on your PC."
         e is ConnectStep -> "Couldn't connect to the ${e.step}: ${e.cause?.message ?: e.cause?.let { it::class.simpleName } ?: "unknown error"}. " +
             "Check that the phone can reach it (same Wi-Fi, firewall, ports 7880 and 7881/TCP and 50000-50100/UDP for self-hosted)."
         else -> e.message ?: "Couldn't connect to Clu's server."
@@ -287,7 +287,7 @@ class LiveKitSession(private val app: CluApp) {
             live.checkReplyTimeout(30_000)
             if (live.state.value.agent != AgentPhase.ABSENT) { waited = 0; continue }
             if (waited == 15 || waited % 30 == 0) {
-                live.onError("Clu's agent hasn't joined. Is clu_agent.py running on the server?")
+                live.onError("CLU on your PC hasn't joined. Is CLU running on the PC with phone access on (Settings → Voice)?")
                 runCatching { core.liveKitTokens.invalidate(); withContext(Dispatchers.IO) { core.liveKitTokens.token(roomName, roomName, "Clu") } }
             }
         }

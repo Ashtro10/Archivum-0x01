@@ -59,7 +59,7 @@ class VoiceChatActivity : BaseActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (app.hasMic()) { app.engine.startVoice(); sessionStart = System.currentTimeMillis() }
-        else errorText.text = "Clu needs the microphone for voice chat. Audio goes only to your Clu server (or stays on this device)."
+        else errorText.text = "Clu needs the microphone for voice chat. Audio goes only to CLU on your PC (or stays on this device)."
     }
 
     private fun build(): View {

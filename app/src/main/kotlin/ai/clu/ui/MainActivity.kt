@@ -203,7 +203,7 @@ class MainActivity : BaseActivity() {
     private fun toggleMic() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             AlertDialog.Builder(this).setTitle("Speak to Clu")
-                .setMessage("Clu needs the microphone to hear you. Audio goes only to your Clu server (or stays on this device when it answers offline).")
+                .setMessage("Clu needs the microphone to hear you. Audio goes only to CLU on your PC (or stays on this device when it answers offline).")
                 .setPositiveButton("Allow microphone") { _, _ -> requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1) }
                 .setNegativeButton("Not now", null).show()
             return

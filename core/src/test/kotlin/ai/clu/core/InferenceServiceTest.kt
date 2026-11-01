@@ -137,7 +137,7 @@ class InferenceServiceTest {
         @Test fun `queued requests run one after another in submission order`() = runBlocking {
             core.settings.set(Settings.MAX_QUEUED, 4)
             val order = CopyOnWriteArrayList<String>()
-            val jobs = (1..3).map { i -> async(Dispatchers.Default) { svc.generate(short("r$i")).collect { if (it is InferenceEvent.Started) order += "r$i" } }.also { waitFor { svc.snapshot().let { s -> (s.running != null) && s.queued.size + 1 >= i || i == 1 } } } }
+            val jobs = (1..3).map { i -> async(Dispatchers.Default) { svc.generate(short("r$i")).collect { if (it is InferenceEvent.Started) order += "r$i" } }.also { waitFor { if (i == 1) order.isNotEmpty() else svc.snapshot().let { s -> s.running != null && s.queued.size + 1 >= i } } } } // each one is in the service before the next is submitted
             jobs.awaitAll()
             assertEquals(listOf("r1", "r2", "r3"), order)
             Unit

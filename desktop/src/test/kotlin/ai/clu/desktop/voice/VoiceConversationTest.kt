@@ -150,4 +150,55 @@ class VoiceConversationTest {
         val msgs = host!!.core.conversations.messages(conv)
         assertTrue(msgs.size >= 4, "typed and spoken turns are in the same history: ${msgs.map { it.role.name + ":" + it.content.take(30) }}")
     }
+
+    /**
+     * The phone, exactly as the Android app does it: its own token client (TokenProvisioner, which checks the token's
+     * claims) asks the PC's private-network token endpoint with the paired device key, joins the room it is allowed, and
+     * talks to CLU. Wrong keys, other rooms and removed phones are refused; the PC's API secret never leaves the PC.
+     */
+    @Test fun aPairedPhoneGetsATokenFromThePCAndTalksToCLU() = runBlocking {
+        val models = SpeechModels.locate(); assumeTrue(models != null && NativeVoice.load(), "voice build missing")
+        System.setProperty("clu.voiceLanAddress", "127.0.0.1") // the test machine has no private-network address; loopback stands in for the Wi-Fi
+        try {
+            val h = Host.start(DesktopPaths(File(dir, "home")), HostConfig(maintenanceMinutes = 0, governorIntervalSeconds = 600), port = 0, log = {}).also { host = it }
+            val model = Scripted(); h.core.remoteEngineProvider = { model }; h.core.settings.set(Settings.REMOTE_INFERENCE, "prefer_home")
+            h.core.settings.set(Settings.SEARCH_READ_PAGES, false); h.core.settings.set(Settings.NET_ENABLED, false)
+            val v = h.voice!!.also { voice = it }
+            v.store.put(v.settings.copy(endSilenceMs = 600, phoneAccess = true)); assertNull(v.applyPhoneAccess())
+            val endpoint = v.phoneEndpoint()!!; println("[voice] phone endpoint $endpoint")
+            val (dev, key) = v.pair("Test phone")
+            val room = "clu-" + key.substringBefore('.').lowercase(); assertEquals("clu-${dev.id}", room, "the app's room name (from its key) is the room the PC allows")
+            // The phone's settings (a separate store, like the app's own database).
+            h.core.settings.set(Settings.LK_TOKEN_URL, ai.clu.core.config.jsonOf(endpoint), verified = true)
+            fun phone(k: String) = ai.clu.core.livekit.TokenProvisioner(h.core.settings, ai.clu.core.net.JvmHttp(), { k }, System::currentTimeMillis)
+            val bad = runCatching { phone(dev.id + ".wrong").token(room, room, "Clu (phone)") }.exceptionOrNull()
+            assertTrue(bad?.message?.contains("401") == true, "a wrong key is refused: ${bad?.message}")
+            val other = runCatching { phone(key).token("clu-desktop-xyz", "clu-desktop-xyz", "Clu (phone)") }.exceptionOrNull()
+            assertTrue(other?.message?.contains("403") == true, "another room is refused: ${other?.message}")
+            val t = phone(key).token(room, room, "Clu (phone)") // validates exp, identity, room, and that it is not admin
+            assertTrue(t.serverUrl.startsWith("ws://127.0.0.1:"), t.serverUrl)
+            assertTrue(t.expiresAtMs - System.currentTimeMillis() <= 600_000, "short-lived token")
+            assertFalse(java.util.Base64.getUrlDecoder().decode(t.token.split('.')[1].let { it + "=".repeat((4 - it.length % 4) % 4) }).decodeToString().contains(File(v.dir, "livekit-keys.json").readText().substringAfter("\"secret\":\"").substringBefore('"')), "no secret in the token")
+
+            lateinit var c: Client
+            val lk = LkRoom.connect(t.serverUrl, t.token, scope) { e -> when (e) {
+                is LkEvent.AudioTrack -> c.room.listen(e.participant, e.trackHandle) { c.heard += System.currentTimeMillis() to it }
+                is LkEvent.Text -> c.texts += e
+                is LkEvent.Data -> c.data += String(e.bytes)
+                else -> {} } }.first
+            c = Client(lk); lk.ready(); lk.publishVoice(24_000)
+            withTimeout(20_000) { while (v.session(room)?.agent?.let { it.listener == room && it.started } != true) delay(50) }
+            val askedAt = say(c, "Please introduce yourself in one sentence.")
+            withTimeout(25_000) { while (finals(c, "clu").none { "assistant" in it.lowercase() }) delay(50) }
+            assertTrue(c.texts.any { it.participant == room && it.attributes["lk.transcription_final"] == "true" && "introduce" in it.text.lowercase() },
+                "the phone sees its own words as its own transcript (sender = the phone), as the app expects: ${c.texts.map { it.participant + ":" + it.text }}")
+            assertNotNull(c.firstLoudAfter(askedAt), "the phone heard CLU's reply")
+            assertTrue(v.devices().first().lastSeen > 0)
+            // Removing the phone stops its key at once.
+            assertTrue(v.unpair(dev.id))
+            val gone = runCatching { phone(key).token(room, room, "Clu (phone)") }.exceptionOrNull()
+            assertTrue(gone?.message?.contains("401") == true, "a removed phone is refused: ${gone?.message}")
+            lk.disconnect()
+        } finally { System.clearProperty("clu.voiceLanAddress") }
+    }
 }

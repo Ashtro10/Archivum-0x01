@@ -73,7 +73,8 @@ class LiveKitServer(private val dir: File, private val binary: File?, private va
     }
 
     /** Private (RFC 1918 / CGNAT) IPv4 address of this PC on the local network, if any. */
-    fun detectLanAddress(): String? = runCatching {
+    /** This PC's private-network IPv4 address. `-Dclu.voiceLanAddress` overrides it (tests; it must still be a private or loopback address). */
+    fun detectLanAddress(): String? = System.getProperty("clu.voiceLanAddress")?.let { o -> runCatching { InetAddress.getByName(o) }.getOrNull()?.takeIf { it.isLoopbackAddress || isPrivate(it) }?.hostAddress } ?: runCatching {
         NetworkInterface.getNetworkInterfaces().asSequence().filter { it.isUp && !it.isLoopback && !it.isVirtual && !it.isPointToPoint }
             .flatMap { it.inetAddresses.asSequence() }.filter { it.address.size == 4 && isPrivate(it) }.map { it.hostAddress }.firstOrNull()
     }.getOrNull()
@@ -93,7 +94,7 @@ class LiveKitServer(private val dir: File, private val binary: File?, private va
         port = freePort(7880)
         val rtcTcp = freePort(port + 1); val rtcUdp = freePort(rtcTcp + 1)
         val k = keys()
-        val bind = listOfNotNull("127.0.0.1", lanAddress)
+        val bind = listOfNotNull("127.0.0.1", lanAddress).distinct()
         val yaml = buildString {
             appendLine("# Written by CLU on each start. Not the development configuration: CLU's own generated key, no TURN, no public addresses.")
             appendLine("port: $port")

@@ -19,7 +19,7 @@ import kotlin.test.*
 
 /**
  * The behavioural contract shared with the LiveKit server agent (`contract/agent_contract.json`, also run by
- * `server/tests/test_contract.py`): research decisions, claim checking and answer clean-up must agree on both paths.
+ * the former Python server agent, removed in M8): research decisions, claim checking and answer clean-up rules.
  */
 class AgentContractTest {
     private val contract = CluJson.parseToJsonElement(File(System.getProperty("clu.contract", "../contract/agent_contract.json")).readText()).jsonObject

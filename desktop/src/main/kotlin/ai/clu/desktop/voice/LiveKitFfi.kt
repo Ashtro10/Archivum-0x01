@@ -248,10 +248,10 @@ class LkRoom private constructor(val roomHandle: Long, val localHandle: Long, va
     }
 
     /** Sends one complete text stream on [topic] (transcripts, replies) to everyone, or to [to]. */
-    suspend fun sendText(topic: String, text: String, attributes: Map<String, String> = emptyMap(), streamId: String? = null, to: List<String> = emptyList()) {
+    suspend fun sendText(topic: String, text: String, attributes: Map<String, String> = emptyMap(), streamId: String? = null, to: List<String> = emptyList(), senderIdentity: String? = null) {
         val id = LiveKitFfi.asyncId()
         val opts = DataStream.StreamTextOptions.newBuilder().setTopic(topic).putAllAttributes(attributes).addAllDestinationIdentities(to)
-        streamId?.let { opts.setId(it) }
+        streamId?.let { opts.setId(it) }; senderIdentity?.let { opts.setSenderIdentity(it) }
         runCatching { LiveKitFfi.call(id, 10_000, Ffi.FfiRequest.newBuilder().setSendText(DataStream.StreamSendTextRequest.newBuilder().setLocalParticipantHandle(localHandle).setOptions(opts).setText(text).setRequestAsyncId(id)).build()) }
     }
 

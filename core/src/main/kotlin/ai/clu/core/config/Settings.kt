@@ -55,18 +55,18 @@ object Settings {
     // ---------------------------------------------------------------- LiveKit voice (optional)
     val VOICE_MODE = choice("voice.mode", "Conversation engine", LIVEKIT, "offline",
         listOf("offline" to "On this device: local model, speech recognition and voice (no network)",
-            "livekit" to "Clu server (LiveKit): speech recognition, reasoning and voice on Clu's agent server"),
-        "Which engine answers voice and text. The Clu server gives the best understanding and the fastest, most natural replies; " +
+            "livekit" to "CLU on my PC (LiveKit): speech recognition, reasoning and voice run on the paired PC"),
+        "Which engine answers voice and text. CLU on the PC gives the best understanding and the fastest, most natural replies, with the same voice and memory as on the PC; " +
             "the device engine works without any network.", "Engine, LiveKitSession, LiveConversation",
         "Voice and chat use the selected engine", "LiveKitSettingsTest#mode", scope = DEVICE,
-        limits = "The Clu server needs a LiveKit server (Cloud or self-hosted), the token endpoint and the Clu agent (docs/LIVEKIT_AGENT.md).")
+        limits = "Needs CLU running on your PC with phone access on, and the phone paired (docs/VOICE_SETUP.md).")
     val LK_TOKEN_URL = text("livekit.tokenEndpoint", "Token endpoint", LIVEKIT, "",
-        "URL of your token server. Clu asks it for a short-lived room token; no LiveKit API key or secret is stored in the app.",
+        "The phone endpoint shown on the PC (CLU → Settings → Voice). Clu asks it for a short-lived room token; no LiveKit API key or secret is stored in the app.",
         "TokenProvisioner", "Token requests go to this URL", "LiveKitSettingsTest#tokenEndpoint",
         SettingType.Text(300, pattern = Regex("https?://\\S+")), sensitive = true,
         limits = "https:// required, except http:// to a private-network address when allowed below.")
     val LK_AGENT_NAME = text("livekit.agentName", "Agent name", LIVEKIT, "clu",
-        "Name of the agent your server dispatches to Clu's room (clu_agent.py).", "TokenProvisioner",
+        "Name of the agent sent in the token request (CLU on the PC accepts any; kept for LiveKit compatibility).", "TokenProvisioner",
         "Sent in the token request (room_config.agents)", "LiveKitSettingsTest#agentName",
         SettingType.Text(64, allowEmpty = false, pattern = Regex("[A-Za-z0-9_.-]+")))
     val LK_LAN_CLEARTEXT = bool("livekit.allowLanCleartext", "Allow unencrypted LAN server", LIVEKIT, true,

@@ -91,7 +91,7 @@ class DiagnosticsActivity : BaseActivity() {
         val device = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})"
         val conditions = linkedMapOf(
             "online" to if (app.platform.isOnline()) "yes" else "no",
-            "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "Clu server" else "on-device",
+            "engine" to if (core.settings.string(Settings.VOICE_MODE) == "livekit") "CLU on my PC" else "on-device",
             "model loaded" to core.llm.state.value.status.let { st -> if (st == ai.clu.core.llm.LlmStatus.READY || st == ai.clu.core.llm.LlmStatus.GENERATING) "yes" else st.name.lowercase() },
             "uptime" to "${(System.currentTimeMillis() - app.startedAt) / 1000} s")
         core.llm.loadedSummary()?.let { conditions.putAll(it) }

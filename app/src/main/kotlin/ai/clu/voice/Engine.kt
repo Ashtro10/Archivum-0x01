@@ -73,8 +73,8 @@ class Engine(private val app: CluApp) {
 
     /**
      * A conversation screen became visible or hidden. When none is visible (Clu in the background or closed), the
-     * server connection ends after [IDLE_DISCONNECT_MS]: an open room keeps an agent session running (and, on LiveKit
-     * Cloud, billed). Coming back reconnects; the conversation history stays on the phone.
+     * server connection ends after [IDLE_DISCONNECT_MS]: an open room keeps CLU's session on the PC running (engines
+     * loaded, microphone audio flowing). Coming back reconnects; the conversation history stays on the phone.
      */
     fun screenVisible(screen: String, visible: Boolean) {
         if (visible) { visibleScreens += screen; idleClose?.cancel(); idleClose = null; return }

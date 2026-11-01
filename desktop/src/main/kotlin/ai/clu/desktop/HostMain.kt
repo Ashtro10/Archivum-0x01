@@ -12,7 +12,7 @@ import kotlin.system.exitProcess
 
 /** A running CLU host: the core, its local API and the resource governor. */
 class RunningHost(val core: CluCore, val api: ApiServer, val governor: ResourceGovernor, val paths: DesktopPaths, val token: String,
-                  val maintenance: MaintenanceScheduler, val lifecycle: HostLifecycle = HostLifecycle(), val hostLog: HostLog? = null, private val onStop: () -> Unit) {
+                  val maintenance: MaintenanceScheduler, val lifecycle: HostLifecycle = HostLifecycle(), val hostLog: HostLog? = null, val voice: ai.clu.desktop.voice.VoiceService? = null, private val onStop: () -> Unit) {
     val url get() = "http://127.0.0.1:${api.port}"
     @Volatile private var stopped = false
     fun stop() {
@@ -40,7 +40,8 @@ object Host {
         db.userVersion.let { v -> if (v in 1 until ai.clu.core.db.Schema.currentVersion) {
             val b = DatabaseBackup.create(db, paths.backups, System.currentTimeMillis(), "pre-upgrade-v$v", keep = 3); log("database upgrade from schema v$v: backed up to ${b.file.name}") } }
         var coreRef: CluCore? = null
-        val governor = ResourceGovernor(config.governor(), if (windowMemory != null) CombinedMemoryProbe(SystemMemoryProbe) { windowMemory.bytes() } else SystemMemoryProbe,
+        var voiceRef: ai.clu.desktop.voice.VoiceService? = null
+        val governor = ResourceGovernor(config.governor(), CombinedMemoryProbe(SystemMemoryProbe) { (windowMemory?.bytes() ?: 0L) + (voiceRef?.serverMemory() ?: 0L) },
             status = { coreRef?.llm?.state?.value?.status ?: ai.clu.core.llm.LlmStatus.NO_MODEL },
             unload = { kotlinx.coroutines.runBlocking { coreRef?.llm?.unload() } }, log = log)
         val hostConfig = HostConfigStore(paths.config, config) { governor }
@@ -54,10 +55,13 @@ object Host {
         val token = ApiToken.loadOrCreate(paths.token)
         val maintenance = MaintenanceScheduler(core, governor, paths, config.maintenanceMinutes, log).also { it.start() }
         val lifecycle = HostLifecycle()
+        val voice = ai.clu.desktop.voice.VoiceService(core, paths, log)
+        voiceRef = voice
         val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
-            platform = platform.llm, lifecycle = lifecycle, autostart = autostart).start()
-        return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog) {
-            api.stop(); maintenance.stop(); ticker.shutdownNow(); core.shutdown(); db.close()
+            platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice).start()
+        voice.applyPhoneAccess()?.let { log("voice: $it") }
+        return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog, voice) {
+            runCatching { voice.shutdown() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); core.shutdown(); db.close()
         }
     }
 }

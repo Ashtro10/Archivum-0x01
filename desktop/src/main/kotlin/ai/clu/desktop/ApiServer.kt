@@ -76,6 +76,8 @@ class ApiServer(
     platform: DesktopLlmPlatform? = null,
     val lifecycle: HostLifecycle = HostLifecycle(),
     autostart: Autostart = Autostart(),
+    /** CLU's voice (M8); null in tests that do not need it. */
+    val voice: ai.clu.desktop.voice.VoiceService? = null,
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
@@ -84,6 +86,7 @@ class ApiServer(
     private val memory = MemoryRoutes(core, maintenance, paths)
     private val models = ModelRoutes(core, governor, paths)
     private val agents = AgentRoutes(core, governor)
+    private val voiceRoutes = voice?.let { ai.clu.desktop.voice.VoiceRoutes(it) }
     private val downloader = paths?.let { p -> ModelDownloader(p.models, { f -> core.models.register(f).id }) }
     private val setup = if (paths != null && platform != null && downloader != null) SetupRoutes(core, governor, paths, platform, downloader, autostart, hostConfig) else null
     /** One-time codes that let the shell window obtain the token without it ever appearing on a command line. */
@@ -151,7 +154,7 @@ class ApiServer(
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || setup?.handle(call) == true || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || voiceRoutes?.handle(call) == true || setup?.handle(call) == true || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 
@@ -261,7 +264,7 @@ class ApiServer(
 object ShellAssets {
     private val NAME = Regex("^[a-z0-9_-]+\\.(html|css|js|svg)$")
     private val TYPES = mapOf("html" to "text/html", "css" to "text/css", "js" to "text/javascript", "svg" to "image/svg+xml")
-    const val CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; " +
+    const val CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; media-src 'self' blob:; " +
         "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 
     fun serve(ex: HttpExchange, path: String) {

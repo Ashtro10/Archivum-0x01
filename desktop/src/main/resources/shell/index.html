@@ -62,10 +62,28 @@
           <div><div class="presence-name">CLU</div><div class="muted" id="presenceState">Ready</div></div>
         </div>
         <ol id="messages" class="messages" aria-live="polite"></ol>
+        <div id="voiceBar" class="voice-bar hidden" role="region" aria-label="Voice conversation">
+          <div class="voice-row">
+            <span id="voiceState" class="voice-state" aria-live="polite"></span>
+            <span id="voicePrivacy" class="voice-privacy hidden"></span>
+            <span class="spacer"></span>
+            <span id="voiceVoice" class="muted"></span>
+          </div>
+          <div class="voice-row">
+            <div class="voice-level" aria-hidden="true"><div id="voiceLevel"></div></div>
+            <button type="button" id="voiceTalk" class="small hidden">Hold to talk</button>
+            <button type="button" id="voiceMute" class="small">Mute</button>
+            <button type="button" id="voiceStop" class="small" title="Stop CLU speaking or thinking (the conversation stays)">Stop</button>
+            <button type="button" id="voiceEnd" class="small danger">End</button>
+          </div>
+          <div class="voice-row muted"><span id="voiceHint"></span><span class="spacer"></span><span id="voiceNote"></span></div>
+          <div id="voiceMetrics" class="meta"></div>
+        </div>
         <form id="composer" class="composer">
           <textarea id="input" rows="2" placeholder="Talk to CLU…" aria-label="Message"></textarea>
           <div class="composer-actions">
             <button type="submit" class="primary" id="send">Send</button>
+            <button type="button" id="voiceBtn" title="Talk to CLU (voice stays on this PC)">🎙 Talk</button>
             <button type="button" id="stop" class="hidden">Stop</button>
           </div>
         </form>
@@ -335,6 +353,45 @@
         <div id="appInfo" class="muted"></div>
         <div class="form-actions"><button type="submit" class="primary small">Save</button><button type="button" id="runSetup" class="small">Run the setup guide again</button><button type="button" id="restartCLU" class="small">Restart CLU</button><button type="button" id="quitCLU" class="small danger">Quit CLU</button><span id="appSaved" class="muted"></span></div>
       </form>
+      <div id="voiceSettings" class="card form">
+        <h3>Voice</h3>
+        <p id="vsProblem" class="err hidden"></p>
+        <p class="muted">CLU's voice runs entirely on this PC. Your phone uses the same voice: the PC speaks for both. Nothing you say is recorded or sent anywhere.</p>
+        <label>Preview sentence <input id="vsPreviewText" maxlength="300" placeholder="Good evening. I am CLU. I'll keep this brief, and tell you what I find."></label>
+        <div id="voiceGrid" class="voice-grid"></div>
+        <pre id="vsDownloads" class="muted"></pre>
+        <form id="voiceForm">
+          <div class="row">
+            <label>Speed <input name="speed" type="number" min="0.7" max="1.4" step="0.05"></label>
+            <label>Volume <input name="volume" type="number" min="0.2" max="1.5" step="0.05"></label>
+            <label>Language <select name="language"></select></label>
+          </div>
+          <p class="muted"><span id="vsLangNote"></span> <span id="vsPitch"></span></p>
+          <div class="row">
+            <label>Listening <select name="mode"><option value="continuous">Conversation (just talk)</option><option value="push_to_talk">Hold to talk</option><option value="wake_word">After a wake word</option><option value="manual">Press to talk</option></select></label>
+            <label>End of speech after (ms of silence) <input name="endSilenceMs" type="number" min="300" max="2000" step="50"></label>
+            <label>Interrupt CLU after (ms of your speech) <input name="bargeInMs" type="number" min="150" max="2000" step="50"></label>
+          </div>
+          <div class="row">
+            <label>Wake words <input name="wakeWords" placeholder="Clue, Buddy, Friend"></label>
+            <label>Wake-word strictness (0.5 loose – 0.95 strict) <input name="wakeThreshold" type="number" min="0.5" max="0.95" step="0.01"></label>
+            <label>Phrases that end the conversation <input name="farewells" placeholder="goodbye, that's all, stop listening"></label>
+          </div>
+          <label>Pronunciations (one per line: written = spoken) <textarea name="pronunciations" rows="3" placeholder="CLU = Clue"></textarea></label>
+          <div class="row">
+            <label>Microphone <select id="vsMic"></select></label>
+            <label>Speaker <select id="vsSpeaker"></select></label>
+          </div>
+          <label class="inline"><input name="phoneAccess" type="checkbox"> Let my paired phone talk to CLU over my private network (Wi-Fi or hotspot; never the internet)</label>
+          <div class="form-actions"><button type="submit" class="primary small">Save</button><span id="vsMsg" class="muted"></span></div>
+        </form>
+        <h4>Phones</h4>
+        <p id="vsPhoneInfo" class="muted"></p>
+        <ul id="vsPhones" class="list"></ul>
+        <div class="form-actions"><button type="button" id="vsPair" class="small">Pair a phone…</button></div>
+        <pre id="vsPairResult" class="pair-result"></pre>
+        <p id="vsStatus" class="muted"></p>
+      </div>
       <div class="toolbar"><select id="settingsCategory" aria-label="Settings category"></select></div>
       <div id="settingsList"></div>
     </section>
@@ -343,6 +400,8 @@
 <script src="/shell/face.js"></script>
 <script src="/shell/wizard.js"></script>
 <script src="/shell/agents.js"></script>
+<script src="/shell/livekit-client.js"></script>
+<script src="/shell/voice.js"></script>
 <script src="/shell/shell.js"></script>
 </body>
 </html>

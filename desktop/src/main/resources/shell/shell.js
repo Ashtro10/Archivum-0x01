@@ -25,7 +25,7 @@
     }
     $("app").classList.remove("hidden");
     CluFace.attach($("face"));
-    initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
+    initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initVoice(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
     setInterval(() => { if (!document.hidden && busyTasks > 0) refreshStatus(); }, 3000); // a task is running or waiting for you: keep the badge current
     // While this window is open it tells CLU so (CLU treats a window that stops answering as closed: it goes to the tray or quits, as chosen in Settings).
@@ -104,6 +104,16 @@
   }
   function scrollChat() { const m = $("messages"); m.scrollTop = m.scrollHeight; }
   function setPresence(state, label) { CluFace.set(state); $("presenceState").textContent = label; }
+
+  function initVoice() {
+    CluVoice.init(api, {
+      token: () => token, conversation: () => conversation,
+      setConversation: (id) => { if (id && id !== conversation) { conversation = id; listConversations(); openConversation(id); } },
+      bubble, append: (b) => $("messages").append(b), scroll: scrollChat,
+      presence: (state, label) => setPresence(state, label), onIdle: () => setPresence("idle", "Ready"),
+      onReply: (b) => { if (!b.querySelector("select.feedback")) addFeedback(b); listConversations(); },
+    });
+  }
 
   async function send() {
     const text = $("input").value.trim();
@@ -631,7 +641,7 @@
   }
   async function loadApp() { try { fillApp(await api("/v1/app/config")); } catch (e) { $("appInfo").textContent = e.message; } }
   async function loadSettings() {
-    loadApp();
+    loadApp(); CluVoice.loadSettings();
     const [h, s] = await Promise.all([api("/v1/host-config"), api("/v1/settings")]);
     const f = $("hostForm"); f.elements.memoryBudgetGB.value = h.memoryBudgetGB; f.elements.reserveGB.value = h.reserveGB; f.elements.pressureFreeGB.value = h.pressureFreeGB;
     settingsData = s;

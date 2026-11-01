@@ -59,7 +59,7 @@ class VoiceConversationTest {
         val h = Host.start(DesktopPaths(File(dir, "home")), HostConfig(maintenanceMinutes = 0, governorIntervalSeconds = 600), port = 0, log = {}).also { host = it }
         val model = Scripted(); h.core.remoteEngineProvider = { model }; h.core.settings.set(Settings.REMOTE_INFERENCE, "prefer_home")
         h.core.settings.set(Settings.SEARCH_READ_PAGES, false); h.core.settings.set(Settings.NET_ENABLED, false)
-        val v = VoiceService(h.core, h.paths) { println("[voice] $it") }.also { voice = it }
+        val v = h.voice!!.also { voice = it } // the host's own voice service (what the window and the phone use)
         v.store.put(v.settings.copy(endSilenceMs = 600))
         val conv = h.core.conversations.create("Voice test").id
         val s = v.startDesktop(conv)

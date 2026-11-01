@@ -105,7 +105,8 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
         val room = "clu-desktop-" + LiveKitTokens.rnd(6).lowercase().replace("-", "x").replace("_", "y")
         join(room, "desktop") { conv }
         val identity = "owner-desktop"
-        return buildJsonObject { put("url", server.localUrl); put("token", server.tokens.issue(identity, room, "You", ttlSeconds = 3600)); put("room", room); put("identity", identity); put("conversationId", conv); put("voice", settings.voice) }
+        return buildJsonObject { put("url", server.localUrl); put("token", server.tokens.issue(identity, room, "You", ttlSeconds = 900)); put("room", room); put("identity", identity); put("conversationId", conv)
+            put("voice", settings.voice); put("voiceName", VoiceCatalog.voice(settings.voice)?.name ?: settings.voice) }
     }
 
     private suspend fun join(room: String, device: String, conversation: () -> String): Session {
@@ -250,7 +251,7 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
                 if (e.isDirectory) continue
                 val name = e.name.substringAfter('/'); val base = name.substringAfterLast('/')
                 val out = when { p.keep.containsKey(base) && !name.contains("espeak") -> File(tmp, p.keep.getValue(base)); needEspeak && name.startsWith("espeak-ng-data/") -> File(espeak, name.removePrefix("espeak-ng-data/")); else -> null } ?: continue
-                if (!out.canonicalPath.startsWith(dir.canonicalPath)) continue // never write outside CLU's voice folder
+                if (!out.canonicalPath.startsWith(dir.canonicalPath + File.separator)) continue // never write outside CLU's voice folder
                 out.parentFile.mkdirs(); out.outputStream().use { tar.copyTo(it) }
             }
         }
@@ -281,7 +282,21 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
     }
 
     /** Memory of the LiveKit server process (bytes) for the resource governor; 0 when it is not running. */
-    fun serverMemory(): Long = server.pid()?.let { pid -> runCatching { File("/proc/$pid/status").readLines().first { it.startsWith("VmRSS:") }.filter(Char::isDigit).toLong() * 1024 }.getOrNull() } ?: 0L
+    fun serverMemory(): Long {
+        val pid = server.pid() ?: return 0L
+        val now = System.currentTimeMillis()
+        if (pid == memPid && now - memAt < 30_000) return memBytes
+        memBytes = runCatching {
+            if (isWindows()) { // tasklist reports the working set ("12,345 K"); cached for 30 s so the governor's tick stays cheap
+                val p = ProcessBuilder("tasklist", "/FI", "PID eq $pid", "/FO", "CSV", "/NH").redirectErrorStream(true).start()
+                val out = p.inputStream.bufferedReader().readText(); p.waitFor()
+                out.trim().split("\",\"").last().filter(Char::isDigit).toLong() * 1024
+            } else File("/proc/$pid/status").readLines().first { it.startsWith("VmRSS:") }.filter(Char::isDigit).toLong() * 1024
+        }.getOrDefault(0L)
+        memPid = pid; memAt = now
+        return memBytes
+    }
+    @Volatile private var memPid = -1L; @Volatile private var memAt = 0L; @Volatile private var memBytes = 0L
 
     fun shutdown() {
         runBlocking { withTimeoutOrNull(5000) { sessions.keys.toList().forEach { stop(it) } } }

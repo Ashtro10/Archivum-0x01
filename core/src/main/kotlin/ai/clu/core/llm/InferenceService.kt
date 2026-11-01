@@ -158,6 +158,9 @@ class InferenceService(
                     if (limit != null && a.cancelledBy == null) { a.cancelledBy = limit; signal.cancel(); break }
                 }
             }
+            // Submission order: the model runs requests in the order they reach it, and the steps above (loading, fitting) take
+            // different times per request, so wait until everything admitted before this request has started or left.
+            while (!signal.isCancelled && order.takeWhile { it != id }.any { ahead -> active[ahead]?.let { !it.running && !it.signal.isCancelled } == true }) delay(5)
             val result = withContext(Dispatchers.IO) {
                 try {
                     llm.generateTracked(fitted.messages, request.params, signal, onStarted = {

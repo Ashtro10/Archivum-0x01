@@ -80,7 +80,8 @@ class SpeechEnginesTest {
         need()
         val words = ai.clu.core.voice.WakeWord.defaults()
         voice("joe").use { tts -> StreamingRecognizer(models.kroko!!).use { stt ->
-            fun hear(phrase: String): String { stt.begin(FloatArray(0)); Pcm.resample(tts.synth(phrase, 0, 1.0f), 22050, 16000).toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }; return stt.finish() }
+            // Fed the way VoiceAgent feeds it: primed with 1 s of silence, the utterance starting after a short pause (the pre-roll).
+            fun hear(phrase: String): String { stt.begin(FloatArray(16000)); (FloatArray(4800) + Pcm.resample(tts.synth(phrase, 0, 1.0f), 22050, 16000)).toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }; return stt.finish() }
             val heard = listOf("Clue, what time is it?", "Hey buddy, turn the volume down.", "Friend, are you there?").map { hear(it) }
             val matches = heard.map { ai.clu.core.voice.WakePhraseMatcher.match(it, words, 0.7) }
             println("[speech] heard $heard -> ${matches.map { it?.word?.phrase + " / " + it?.remainder }}")

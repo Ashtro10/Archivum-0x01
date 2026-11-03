@@ -48,7 +48,13 @@ interface CluPlatform {
  * Composition root: one Clu entity per installation, regardless of which device runs it. All components operate on
  * behalf of this single identity; they are modules, not separate agents.
  */
-class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = SystemClock) {
+/**
+ * CLU: one entity. [conversationMemory] replaces the memory the conversation engine reads and writes (null = CLU's own
+ * memory store); the model backend is chosen per reply by [inference] (local llama.cpp through [inferenceService], or the
+ * paired home device).
+ */
+class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = SystemClock,
+              private val conversationMemory: ai.clu.core.memory.ConversationMemory? = null) {
     val store = CluStore(db, clock)
     val settings = SettingsStore(store)
     val diag = DiagnosticsLog(store, settings)
@@ -107,7 +113,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
             return when (mode) {
                 "prefer_home" -> remote?.invoke() ?: localEngine()
                 "fallback" -> localEngine() ?: remote?.invoke()
-                else -> llm.engine()
+                // "local": the same path as the other modes (queue limit, watchdog, output guard), never the raw engine (M1).
+                else -> localEngine()
             }
         }
         override fun unavailableReason(): String? = llm.state.value.takeIf { it.status == ai.clu.core.llm.LlmStatus.ERROR }?.message
@@ -116,7 +123,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
         inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) }, diary = diary,
         context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http),
-        archive = archive, memoryService = memory, formation = formation, learner = learner)
+        archive = archive, memoryService = memory, formation = formation, learner = learner, conversationMemory = conversationMemory)
 
     // ---------------------------------------------------------------- supervised agents (M7)
     private val agentScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)

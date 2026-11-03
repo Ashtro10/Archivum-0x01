@@ -252,8 +252,11 @@ class CluAgent(
     private val formation: MemoryFormation? = null,
     /** Records feedback signals and asks before anything becomes a standing preference. */
     private val learner: ai.clu.core.learning.PreferenceLearner? = null,
+    /** Memory as the conversation sees it; null = CLU's own memory (retriever, working memory, formation) built from the above. */
+    conversationMemory: ai.clu.core.memory.ConversationMemory? = null,
 ) {
     private val retriever = MemoryRetriever(settings, memories, now, visible = { list -> archive?.dates?.visible(list) ?: list }, service = memoryService)
+    private val memoryAccess: ai.clu.core.memory.ConversationMemory = conversationMemory ?: ai.clu.core.memory.ConversationMemory.Default(retriever, memoryService, formation)
     private val recall = archive?.let { ai.clu.core.history.Recall(it, settings) }
     /** Unfinished multi-step tasks per conversation (in memory only: after a restart there is not enough state to resume safely). */
     private val tasks = java.util.concurrent.ConcurrentHashMap<String, TaskState>()
@@ -322,6 +325,13 @@ class CluAgent(
     }
 
     private suspend fun handle(req: TurnRequest, turn: Turn, emit: (AgentEvent) -> Unit) {
+        // Nothing to answer: never stored, never sent to the model (M1: blank input was saved and answered).
+        if (req.text.isBlank() && req.attachments.isEmpty()) {
+            trace.record(turn.trace, TurnEvent.ROUTE, "empty input")
+            trace.record(turn.trace, TurnEvent.INFERENCE_ERROR, "empty input")
+            emit(AgentEvent.Error("There was nothing to answer: the message was empty.", kind = "input"))
+            return
+        }
         val persona = personas.active()
         val userMsg = conversations.addMessage(req.conversationId, Role.USER, req.text,
             MessageMeta(attachments = req.attachments, speaker = req.actor.personId ?: (if (req.actor.role == PersonRole.OWNER) "" else "unknown"), personaId = persona.id))
@@ -887,14 +897,14 @@ class CluAgent(
         trace.record(turn.trace, TurnEvent.MODEL_READY, "${engine.source} ${selectMs}ms")
         val canReadMemory = auth.decide(req.actor, Sensitivity.PERSONAL) == AuthDecision.Allow
         val tMem = System.nanoTime()
-        val mems = if (canReadMemory) retriever.retrieve(req.text, persona.readableScopes) else emptyList()
+        val mems = if (canReadMemory) memoryAccess.relevant(req.text, persona.readableScopes) else emptyList()
         // Passages from the owner's documents, when they match well (what the document says, not verified facts).
         val docs = if (canReadMemory && persona.isClu && settings.bool(Settings.MEMORY_RETRIEVAL)) archive?.documents?.search(req.text, limit = 2)
             ?.filter { it.score >= 3.0 }?.map { "\"${it.document.name}\": " + it.text.replace(Regex("\\s+"), " ").take(500) }.orEmpty() else emptyList()
         if (canReadMemory) diag?.perf("memory_retrieval_ms", (System.nanoTime() - tMem) / 1e6)
         trace.record(turn.trace, TurnEvent.MEMORY, "${(System.nanoTime() - tMem) / 1_000_000}ms memories=${mems.size} docs=${docs.size}")
         val toolList = toolsFor(persona, req.text)
-        val working = if (canReadMemory && persona.isClu) memoryService?.working?.list(req.conversationId)?.take(5)?.map { it.text }.orEmpty() else emptyList()
+        val working = if (canReadMemory && persona.isClu) memoryAccess.workingNotes(req.conversationId) else emptyList()
         val taskPrefs = if (canReadMemory && persona.isClu) learner?.taskInstructions(taskTagOf(req.text)).orEmpty() else emptyList()
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
             viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList(),
@@ -1205,7 +1215,7 @@ class CluAgent(
         }
         // What the owner stated (facts, preferences, procedures): working memory, suggestions or direct saves per memory.formation.
         if (req.actor.role == PersonRole.OWNER && persona.isClu)
-            runCatching { formation?.process(req.text, req.conversationId) ?: emptyList() }.getOrDefault(emptyList()).forEach { o ->
+            runCatching { memoryAccess.afterTurn(req.text, req.conversationId) }.onFailure { diag?.w("memory", "memory formation failed: ${it.message}") }.getOrDefault(emptyList()).forEach { o ->
                 if (o is MemoryFormation.Outcome.Suggested) emit(AgentEvent.ProposalCreated(o.proposal)) }
         if (req.actor.role == PersonRole.OWNER && persona.isClu) InsightProposer.candidate(req.text)?.let { (t, why) ->
             proposals.propose(ai.clu.core.memory.ProposalKind.OBSERVATION, t, why, req.conversationId)?.let { emit(AgentEvent.ProposalCreated(it)) }

@@ -52,8 +52,16 @@ object Reasoning {
         // Text before a lone closing tag was reasoning whose opening tag was in the prompt.
         val afterLoneClose = Regex("(?is)^(?:(?!<\\s*(?:think|thinking|analysis|reasoning|reflection)\\s*>).)*?<\\s*/\\s*(think|thinking|analysis|reasoning|reflection)\\s*>").find(text)
         val t = if (afterLoneClose != null && afterLoneClose.range.first == 0) text.substring(afterLoneClose.range.last + 1) else text
-        return STRAY.replace(BLOCK.replace(t, ""), "").trim()
+        val noReasoning = STRAY.replace(BLOCK.replace(t, ""), "")
+        // Chat-template control tokens: an end-of-turn token ends the reply (what follows is the model inventing the next turn).
+        val end = END_TOKEN.find(noReasoning)?.range?.first ?: noReasoning.length
+        return CONTROL_TOKEN.replace(noReasoning.substring(0, end), "").trim()
     }
+
+    /** End-of-turn / end-of-text tokens of common chat templates (ChatML, Llama 3, Phi, Gemma, Mistral-style). */
+    internal val END_TOKEN = Regex("<\\|(?:im_end|eot_id|end_of_text|endoftext|end|eos)\\|>|<end_of_turn>|</s>")
+    /** Any other template control token ("<|im_start|>", "<|start_header_id|>", "<|assistant|>"…). */
+    internal val CONTROL_TOKEN = Regex("<\\|[a-z_]{2,24}\\|>|<start_of_turn>(?:model|user)?")
 }
 
 /**
@@ -72,8 +80,11 @@ class ReasoningFilter(startInside: Boolean = false, private val maxHidden: Int =
     /** True once any reasoning was seen (and removed). */
     var sawReasoning = startInside; private set
 
+    /** An end-of-turn token was seen: everything after it is dropped. */
+    var ended = false; private set
+
     fun push(piece: String): String {
-        if (piece.isEmpty()) return ""
+        if (piece.isEmpty() || ended) return ""
         if (inside) hiddenPieces++
         pending.append(piece)
         return drain(final = false)
@@ -104,6 +115,10 @@ class ReasoningFilter(startInside: Boolean = false, private val maxHidden: Int =
                 pending.delete(0, pending.length - keep)
                 return out.toString()
             }
+            // An end-of-turn token: the reply is over; anything after it is discarded.
+            Reasoning.END_TOKEN.find(pending)?.let { m -> val first = m.range.first; release(out, first); pending.setLength(0); ended = true; return out.toString() }
+            val ctl = Reasoning.CONTROL_TOKEN.find(pending)
+            if (ctl != null) { val first = ctl.range.first; val last = ctl.range.last; release(out, first); pending.delete(0, last - first + 1); continue }
             val open = OPEN.find(pending)
             val stray = CLOSE.find(pending)
             if (stray != null && (open == null || stray.range.first < open.range.first)) {
@@ -139,11 +154,12 @@ class ReasoningFilter(startInside: Boolean = false, private val maxHidden: Int =
         val lt = pending.lastIndexOf("<")
         if (lt < 0 || pending.length - lt > HOLD) return 0
         val tail = pending.substring(lt).lowercase().replace(" ", "")
-        return if (NAMES.any { n -> "<$n>".startsWith(tail) || "</$n>".startsWith(tail) }) pending.length - lt else 0
+        return if (NAMES.any { n -> "<$n>".startsWith(tail) || "</$n>".startsWith(tail) } || tail.startsWith("<|") && tail.drop(2).indexOf('|').let { it == -1 || it == tail.length - 3 } || "</s>".startsWith(tail) ||
+            "<end_of_turn>".startsWith(tail) || "<start_of_turn>".startsWith(tail)) pending.length - lt else 0
     }
 
     companion object {
-        private const val HOLD = 16
+        private const val HOLD = 32
         private val NAMES = listOf("think", "thinking", "analysis", "reasoning", "reflection")
         private val OPEN = Regex("(?i)<\\s*(think|thinking|analysis|reasoning|reflection)\\s*>")
         private val CLOSE = Regex("(?i)<\\s*/\\s*(think|thinking|analysis|reasoning|reflection)\\s*>")

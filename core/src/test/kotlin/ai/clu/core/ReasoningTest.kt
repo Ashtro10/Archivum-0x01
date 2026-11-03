@@ -64,6 +64,15 @@ class ReasoningTest {
         assertEquals("Plain text with a < sign.", Reasoning.strip("Plain text with a < sign."))
     }
 
+    @Test fun templateControlTokensAreRemovedAndAnEndOfTurnTokenEndsTheReply() {
+        for (n in 1..12) {
+            assertEquals("Hello there.", streamed("Hello there.<|im_end|>\n<|im_start|>user\nAnd you invent my next message", n), "chunk $n")
+            assertEquals("Fine.", streamed("<|start_header_id|>assistant<|end_header_id|>Fine.<|eot_id|>junk", n).replace("assistant", ""), "chunk $n")
+        }
+        assertEquals("Hello there.", Reasoning.strip("Hello there.<|im_end|><|im_start|>user hi"))
+        assertEquals("A | B and x < y", streamed("A | B and x < y", 1), "ordinary | and < are untouched")
+    }
+
     @Test fun theOutputGuardFiltersAnyEngine() {
         val g = OutputGuard()
         val out = listOf("<thi", "nk>plan", "</th", "ink>Hi ", "there.").joinToString("") { g.push(it) } + g.finish()

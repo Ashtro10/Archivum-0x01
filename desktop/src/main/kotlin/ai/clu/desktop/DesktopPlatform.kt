@@ -143,7 +143,10 @@ object SystemMemoryProbe : MemoryProbe {
 
     override fun systemAvailableBytes(): Long =
         (if (linux) procKb("/proc/meminfo", "MemAvailable") else null) ?: bean?.freeMemorySize ?: Long.MAX_VALUE
-    override fun systemTotalBytes(): Long = bean?.totalMemorySize ?: Runtime.getRuntime().maxMemory()
+    // Both figures from the same source: on Linux /proc/meminfo (MemAvailable was read there while the total came from the
+    // JVM, which is cgroup-aware, so "available" could exceed "total" in a container and the governor's arithmetic broke: M1).
+    override fun systemTotalBytes(): Long =
+        (if (linux) procKb("/proc/meminfo", "MemTotal") else null) ?: bean?.totalMemorySize ?: Runtime.getRuntime().maxMemory()
     // On Windows the JDK reports the process's private bytes as "committed virtual memory" (PROCESS_MEMORY_COUNTERS.PagefileUsage).
     override fun processBytes(): Long =
         (if (linux) procKb("/proc/self/status", "VmRSS") else null) ?: bean?.committedVirtualMemorySize ?: Runtime.getRuntime().totalMemory()

@@ -168,19 +168,46 @@ class CluApp : Application() {
         nm.createNotificationChannel(NotificationChannel(CH_DOWNLOAD, "Downloads", NotificationManager.IMPORTANCE_LOW))
     }
 
+    /** A pending release of the models after the app went to the background (cancelled if the owner comes back). */
+    @Volatile private var pendingRelease: Job? = null
+
+    /**
+     * Releases the heavy engines when Android asks for memory and Clu is idle. Since Android 14 TRIM_MEMORY_BACKGROUND
+     * arrives every time the app leaves the screen, so releasing at once meant a full model reload (seconds, plus the
+     * instruction warm-up) after only glancing at another app (M1). Background: release after [RELEASE_GRACE_MS] if Clu is
+     * still in the background and idle then. TRIM_MEMORY_COMPLETE (the system is about to kill background apps): at once.
+     */
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (!isReady) return
-        // Release heavy engines when the system is short of memory and Clu is not actively in a conversation.
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND && !voice.isRunning) {
-            sherpa.releaseAll()
-            whisper.release()
-            scope.launch { core.llm.unload() }
-            core.diag.i("app", "memory pressure (level $level): released models")
+        when {
+            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> releaseEngines("memory pressure (level $level)")
+            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> {
+                pendingRelease?.cancel()
+                pendingRelease = scope.launch {
+                    delay(RELEASE_GRACE_MS)
+                    if (isForeground()) { core.diag.i("app", "back in the foreground: models kept"); return@launch }
+                    releaseEngines("in the background for ${RELEASE_GRACE_MS / 1000} s (level $level)")
+                }
+            }
         }
     }
 
+    private fun releaseEngines(why: String) {
+        if (voice.isRunning || core.chat.running) { core.diag.i("app", "$why: models kept (a conversation is running)"); return }
+        sherpa.releaseAll()
+        whisper.release()
+        scope.launch { core.llm.unload() }
+        core.diag.i("app", "$why: released models")
+    }
+
+    private fun isForeground(): Boolean = runCatching {
+        val info = android.app.ActivityManager.RunningAppProcessInfo().also { android.app.ActivityManager.getMyMemoryState(it) }
+        info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+    }.getOrDefault(false)
+
     companion object {
+        const val RELEASE_GRACE_MS = 60_000L
         lateinit var instance: CluApp
         /** Test hook (Robolectric has no Android Keystore); null in production. */
         @Volatile var platformFactory: ((android.content.Context) -> AndroidPlatform)? = null

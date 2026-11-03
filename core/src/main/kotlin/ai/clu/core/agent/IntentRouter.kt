@@ -24,11 +24,16 @@ object IntentRouter {
         val t = clean(text)
         val lower = t.lowercase()
 
-        r("^(?:switch|change)\\s+(?:back\\s+)?to\\s+(.+?)(?:\\s+mode)?$").find(t)?.let { return persona(it.groupValues[1]) }
-        r("^(?:let me\\s+)?(?:talk|speak)\\s+(?:to|with)\\s+(.+)$").find(t)?.let { return persona(it.groupValues[1]) }
+        // A persona is named, not described: "switch to Rick" is a command; "switch to dark mode" and "let me talk to you
+        // about my day" are conversation (M1: they were routed as persona switches and answered with a failure).
+        r("^(?:switch|change)\\s+(?:back\\s+)?to\\s+(.+?)(\\s+mode)?$").find(t)?.let { m -> if (namesSomeone(m.groupValues[1]) && (m.groupValues[2].isEmpty() || isClu(m.groupValues[1]))) return persona(m.groupValues[1]) }
+        r("^(?:let me\\s+)?(?:talk|speak)\\s+(?:to|with)\\s+(.+)$").find(t)?.let { if (namesSomeone(it.groupValues[1])) return persona(it.groupValues[1]) }
         if (r("^(?:bring\\s+back|back\\s+to|return\\s+to)\\s+(?:clu|clue)$").matches(t)) return persona("clu")
 
-        r("^remember\\s+(?:that\\s+)?(.{3,})$").find(t)?.let { return RoutedIntent("memory.remember", obj("text" to it.groupValues[1].trim()), "remember") }
+        // "Remember that my bike service is due in June" is something to keep; "Remember that time we went to Goa?" and
+        // "remember when…" are conversation about the past (they were saved as memory suggestions before M1).
+        r("^remember\\s+(?:that\\s+)?(.{3,})$").find(t)?.takeUnless { text.trimEnd().endsWith("?") || r("^remember\\s+(?:that\\s+time|the\\s+time|when|how|what|who|where|why|us|me)\\b").containsMatchIn(t) }
+            ?.let { return RoutedIntent("memory.remember", obj("text" to it.groupValues[1].trim()), "remember") }
         // A standing instruction is explicit: saved as an instruction memory and applied to every later reply.
         r("^(?:from now on|going forward|in future)[,:]?\\s+(.{3,})$").find(t)?.let {
             return RoutedIntent("memory.remember", obj("text" to "From now on, " + it.groupValues[1].trim(), "category" to "INSTRUCTION"), "instruction") }
@@ -72,7 +77,9 @@ object IntentRouter {
 
         r("^(?:open|launch|start|run)\\s+(?:the\\s+|my\\s+)?(.+?)(?:\\s+app)?$").find(t)?.let {
             val app = it.groupValues[1]
-            if (app.split(' ').size <= 4) return RoutedIntent("app.open", obj("app" to app), "open app")
+            // An app has a name; "run me through it", "start over", "start a story" are not apps (M1).
+            val words = app.lowercase().split(Regex("\\s+"))
+            if (words.size <= 4 && words.none { w -> w in NOT_APP_WORDS } && !app.endsWith("?")) return RoutedIntent("app.open", obj("app" to app), "open app")
         }
 
         if (r("^(?:what(?:'s| is)\\s+(?:the\\s+)?(?:time|date|day)(?:\\s+(?:now|today|it is))?|what\\s+time\\s+is\\s+it|what\\s+day\\s+is\\s+(?:it|today))\\??$").matches(t))
@@ -106,5 +113,13 @@ object IntentRouter {
     }
 
     private fun persona(name: String) = RoutedIntent("persona.switch", obj("name" to name.trim()), "persona")
+    private fun isClu(name: String) = name.trim().lowercase() in setOf("clu", "clue")
+    /** A name, not a description: at most three words, none of them a pronoun or an ordinary word ("you about my day"). */
+    private fun namesSomeone(name: String): Boolean {
+        val w = name.trim().lowercase().split(Regex("\\s+"))
+        return w.size <= 3 && w.none { it in NOT_APP_WORDS || it in setOf("mode", "dark", "light", "night", "silent", "english", "hindi") }
+    }
+    private val NOT_APP_WORDS = setOf("me", "you", "it", "us", "him", "her", "them", "this", "that", "these", "those", "over", "again", "through",
+        "about", "with", "a", "an", "some", "something", "story", "conversation", "discussion", "from", "thinking", "talking", "now", "later", "up")
     private fun obj(vararg kv: Pair<String, String>) = buildJsonObject { kv.filter { it.second.isNotBlank() }.forEach { put(it.first, it.second.trim()) } }
 }

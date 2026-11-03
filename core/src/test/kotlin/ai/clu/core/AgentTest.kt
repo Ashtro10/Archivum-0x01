@@ -45,6 +45,12 @@ class IntentRouterTest {
         assertNull(IntentRouter.route("I'm thinking about quitting my job. What do you think?"))
         assertNull(IntentRouter.route("What is the meaning of life?"))
         assertNull(IntentRouter.route("open a discussion about my career plans with me and help me prioritise"))
+        // Milestone 1: ordinary sentences that looked like commands.
+        for (t in listOf("Let me talk to you about my day.", "Switch to dark mode", "Run me through it", "Start over", "Can you start a story about a dragon?",
+            "Remember that time we went to Goa?", "remember when we met?", "Talk to me", "Open up to me"))
+            assertNull(IntentRouter.route(t), t)
+        assertEquals("persona.switch", tool("talk to Rick")); assertEquals("persona.switch", tool("switch to Clu mode"))
+        assertEquals("app.open", tool("start Spotify")); assertEquals("memory.remember", tool("remember that the wifi password is on the fridge"))
     }
 
     @Test fun clockAndDurationParsing() {

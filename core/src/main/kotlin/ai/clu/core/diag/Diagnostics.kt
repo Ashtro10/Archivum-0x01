@@ -89,9 +89,10 @@ class DiagnosticsLog(private val store: CluStore, private val settings: Settings
     }.map { s -> percentiles(s.metric).let { p -> s.copy(p50 = p.getValue(50), p90 = p.getValue(90), p95 = p.getValue(95)) } }
 
     companion object {
+        // Bearer tokens first: "token=Bearer <secret>" must lose the secret, not just the word "Bearer".
         private val secretPatterns = listOf(
-            Regex("(?i)(pin|password|passphrase|secret|api[_-]?key|token)\\s*[:=]\\s*\\S+") to "$1=<redacted>",
             Regex("(?i)bearer\\s+[A-Za-z0-9._\\-]+") to "Bearer <redacted>",
+            Regex("(?i)(pin|password|passphrase|secret|api[_-]?key|token)\\s*[:=]\\s*\\S+") to "$1=<redacted>",
             Regex("sk-[A-Za-z0-9]{12,}") to "<redacted-key>",
         )
         /** Nearest-rank percentile of ascending [sorted] values (0 when empty). */

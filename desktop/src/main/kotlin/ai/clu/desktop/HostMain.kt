@@ -57,11 +57,13 @@ object Host {
         val lifecycle = HostLifecycle()
         val voice = ai.clu.desktop.voice.VoiceService(core, paths, log)
         voiceRef = voice
+        // Self-repair: CLU's knowledge of its own source and its repair workflow (its own database, never the owner's data).
+        val evolution = ai.clu.desktop.evolution.SelfRepairSetup.open(paths, core, log, busy = { maintenance.busyReason() ?: if (core.chat.running) "CLU is answering the owner" else null })
         val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
-            platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice).start()
+            platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice, evolution = evolution?.routes).start()
         voice.applyPhoneAccess()?.let { log("voice: $it") }
         return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog, voice) {
-            runCatching { voice.shutdown() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); core.shutdown(); db.close()
+            runCatching { voice.shutdown() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); runCatching { evolution?.close() }; core.shutdown(); db.close()
         }
     }
 }
@@ -88,8 +90,11 @@ fun main(args: Array<String>) {
     var home: String? = null; var port: Int? = null; var register: String? = null; var printToken = false; var restore: String? = null
     var listModels = false; var selectModel: String? = null; var unregister: String? = null; var bench = false; var benchModel: String? = null
     var open = false; var tray = true; var background = false; var quit = false; var backup = false; var waitFor: Long? = null; var version = false
+    val self = ai.clu.desktop.evolution.SelfRepairCli()
     var i = 0
     while (i < args.size) {
+        val consumed = try { self.parse(args, i) } catch (e: IllegalArgumentException) { System.err.println(e.message); exitProcess(2) }
+        if (consumed != null) { i = consumed; continue }
         when (args[i]) {
             "--home" -> home = args.getOrNull(++i)
             "--port" -> port = args.getOrNull(++i)?.toIntOrNull()
@@ -107,7 +112,7 @@ fun main(args: Array<String>) {
             "--backup" -> backup = true
             "--wait-for" -> waitFor = args.getOrNull(++i)?.toLongOrNull()
             "--version" -> version = true
-            "-h", "--help" -> { println(USAGE); return }
+            "-h", "--help" -> { println(USAGE + ai.clu.desktop.evolution.SelfRepairCli.USAGE); return }
             else -> { System.err.println("unknown option ${args[i]}\n$USAGE"); exitProcess(2) }
         }
         i++
@@ -118,6 +123,7 @@ fun main(args: Array<String>) {
     if (printToken) { println(ApiToken.loadOrCreate(paths.token)); return }
     val config = try { HostConfig.load(paths.config) } catch (e: Exception) { System.err.println("host.json: ${e.message}"); exitProcess(2) }
     val p = port ?: config.port
+    if (self.requested) exitProcess(self.run(paths, config))
     if (register != null || listModels || selectModel != null || unregister != null || bench) {
         // Model management without the window. Changes need CLU stopped (a running CLU keeps its own copy of the settings in memory).
         val mutating = register != null || selectModel != null || unregister != null || bench

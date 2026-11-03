@@ -1,0 +1,174 @@
+
+================================================================ 0. Real repository before (must be identical at the end)
+36ec20e03951588fd58725ba036246f101d54d65
+fa7a05e22d83362cdc3dc7d9e19250ef8d9159ceecb75ab10cf917e7d7cd8f26  -
+
+================================================================ 1. Register CLU's configured local model and connect the source repository
+$ clu-host --register-model /root/clu-build/dl/qwen3/Qwen3-0.6B-Q4_K_M.gguf
+Registered and selected:
+* 957253b6-ce93-4ed8-addf-01462ef3d091  Qwen3-0.6B  [qwen3 Q4_K_M, 378 MB, trained for 40960 tokens]
+$ clu-host --self-repo /tmp/claude-0/-home-user-Archivum-0x01/a97d5855-f7c4-555c-911c-40b94de91443/scratchpad/demo/clu-src
+  · self-repair: First look at the repository: indexed 416 files (3806 declarations) at 36ec20e039 on claude/clu-android-ai-build-5cspi2.
+First look at the repository: indexed 416 files (3806 declarations) at 36ec20e039 on claude/clu-android-ai-build-5cspi2.
+(exit 0)
+
+================================================================ 2. External development (as the owner / Claude Code would): a commit, plus uncommitted work
+8fec85d Reasoning: list the reasoning modes (external change)
+ M core/src/main/kotlin/ai/clu/core/llm/Llm.kt
+$ clu-host --self-index
+  · self-repair: 1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 8fec85d828. Index: 0 added, 2 changed, 0 removed file(s).
+1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 8fec85d828. Index: 0 added, 2 changed, 0 removed file(s).
+- 8fec85d828 Reasoning: list the reasoning modes (external change) (external; code; 1 file(s))
+Uncommitted changes in 1 file(s) (left untouched): core/src/main/kotlin/ai/clu/core/llm/Llm.kt
+(exit 0)
+$ clu-host --self-ask Where is reasoningModes implemented?
+  · self-repair: No change since the last check (8fec85d828 on claude/clu-android-ai-build-5cspi2).
+From my source index:
+- core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt (module core, package ai.clu.core.llm, 171 lines)
+    fun reasoningModes (line 170): Added by external development (demonstration)
+(exit 0)
+core/src/main/kotlin/ai/clu/core/llm/Llm.kt: OK
+
+================================================================ 3. A defect is introduced (controlled, in the disposable clone only)
+aff89e7 Reasoning: always append the closed think block (controlled defect)
+$ clu-host --self-ask What changed in your latest development update?
+  · self-repair: 1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at aff89e7b6a. Index: 0 added, 1 changed, 0 removed file(s).
+My most recent development updates (newest first):
+- aff89e7b6a Reasoning: always append the closed think block (controlled defect) — by Owner (via Claude Code), external, 1 file(s)
+- 8fec85d828 Reasoning: list the reasoning modes (external change) — by Owner (via Claude Code), external, 1 file(s)
+- 36ec20e039 M1 (WIP): opt-in performance baseline harness and first (cold disk cache) measurement — by Claude, external, 3 file(s), build/dependencies, tests
+- d61ccbfb2f M2: Autonomous Evolution Engine architecture audit and roadmap (docs only) — by Claude, external, 8 file(s), documentation
+- 1fd8d982cd M1: foundation fixes found by the audit — by Claude, external, 10 file(s), tests
+- 9323ef8463 M8.5: signed APK 1.8.4 and installer 0.7.1 checksums (24/24 static checks) — by Claude, external, 3 file(s)
+- c15db936ff M8.5: conversation repair — measured root causes, fixes, regression tests — by Claude, external, 26 file(s), API, tests, documentation, build/dependencies
+- e5fe4afbba M8.5 (WIP): trace every voice turn; switch off model reasoning; corrections — by Claude, external, 25 file(s), tests, API
+Files in the latest one:
+  M core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt
+(exit 0)
+
+================================================================ 4. Self-repair with CLU's own model writing the patch
+$ clu-host --self-repair --module core --tests ai.clu.core.ReasoningTest
+  · self-repair: No change since the last check (aff89e7b6a on claude/clu-android-ai-build-5cspi2).
+  · self-repair: reconciling the repository with the index
+  · self-repair: No change since the last check (aff89e7b6a on claude/clu-android-ai-build-5cspi2).
+  · self-repair: creating the isolated workspace /tmp/claude-0/-home-user-Archivum-0x01/a97d5855-f7c4-555c-911c-40b94de91443/scratchpad/demo/home/evolution/workspaces/13b426d8
+  · self-repair: building and testing the unchanged code
+  · self-repair: investigating ai.clu.core.ReasoningTest#templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt()
+  · self-repair: reproducing the failure
+  · self-repair: preparing a patch
+
+Investigation recorded, but no repair could be prepared: the model's answer contained no usable edit block (output kept in the development history)
+Repair 13b426d8: patch-failed
+Report: /tmp/claude-0/-home-user-Archivum-0x01/a97d5855-f7c4-555c-911c-40b94de91443/scratchpad/demo/home/evolution/workspaces/reports/repair-13b426d8.md
+(exit 0)
+
+real	0m47.004s
+user	0m52.582s
+sys	0m3.971s
+
+================================================================ 5. Same problem, patch supplied as a labelled TEST FIXTURE (the reverse of the defect commit)
+diff --git a/core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt b/core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt
+index 4401ac3..641f063 100644
+--- a/core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt
++++ b/core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt
+@@ -36,7 +36,7 @@ object Reasoning {
+         else -> {
+             val trimmed = prompt.trimEnd()
+             when {
+-                trimmed.endsWith("</think>") -> prompt + CLOSED_BLOCK
++                trimmed.endsWith("</think>") -> prompt
+                 trimmed.endsWith("<think>") -> trimmed + "\n\n</think>\n\n" // the template already opened the block
+                 else -> prompt + CLOSED_BLOCK
+             }
+$ clu-host --self-repair --module core --tests ai.clu.core.ReasoningTest --patch /tmp/claude-0/-home-user-Archivum-0x01/a97d5855-f7c4-555c-911c-40b94de91443/scratchpad/demo/fixture-fix.diff --patch-source fixture
+  · self-repair: No change since the last check (aff89e7b6a on claude/clu-android-ai-build-5cspi2).
+  · self-repair: reconciling the repository with the index
+  · self-repair: No change since the last check (aff89e7b6a on claude/clu-android-ai-build-5cspi2).
+  · self-repair: creating the isolated workspace /tmp/claude-0/-home-user-Archivum-0x01/a97d5855-f7c4-555c-911c-40b94de91443/scratchpad/demo/home/evolution/workspaces/e3c9ea23
+  · self-repair: building and testing the unchanged code
+  · self-repair: investigating ai.clu.core.ReasoningTest#templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt()
+  · self-repair: reproducing the failure
+  · self-repair: preparing a patch
+  · self-repair: building and testing the modified code
+
+Verified repair e3c9ea23 is waiting for your approval: before: 8/9 passed (1 failed); after: 9/9 passed (0 failed).
+Repair e3c9ea23: awaiting-approval — verified-fix: before: 8/9 passed (1 failed); after: 9/9 passed (0 failed)
+Report: /tmp/claude-0/-home-user-Archivum-0x01/a97d5855-f7c4-555c-911c-40b94de91443/scratchpad/demo/home/evolution/workspaces/reports/repair-e3c9ea23.md
+(exit 0)
+
+real	0m10.398s
+user	0m6.484s
+sys	0m0.835s
+repair awaiting approval: e3c9ea23
+
+================================================================ 6. Before approval: the clone's branch, commit and files are unchanged
+HEAD unchanged
+core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt: OK
+core/src/main/kotlin/ai/clu/core/llm/Llm.kt: OK
++ clu/repair/e3c9ea23
+
+================================================================ 7. Approval is refused while the owner has uncommitted changes to tracked files
+$ clu-host --self-approve e3c9ea23
+Not integrated: there are uncommitted changes in 1 tracked file(s); commit or stash them first. Nothing was changed
+(exit 1)
+core/src/main/kotlin/ai/clu/core/llm/Llm.kt: OK
+
+================================================================ 8. The owner sets the experiment aside, approves, and gets the experiment back
+stashed owner's work
+$ clu-host --self-approve e3c9ea23
+  · self-repair: 1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 2de29664ea. Index: 0 added, 2 changed, 0 removed file(s).
+Integrated into claude/clu-android-ai-build-5cspi2 at 2de29664ea. The installed CLU is unchanged until it is rebuilt and installed.
+(exit 0)
+restored owner's work
+core/src/main/kotlin/ai/clu/core/llm/Llm.kt: OK
+2de2966 Repair: ReasoningTest ? templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt() fails
+aff89e7 Reasoning: always append the closed think block (controlled defect)
+8fec85d Reasoning: list the reasoning modes (external change)
+39:                trimmed.endsWith("</think>") -> prompt
+
+================================================================ 9. Independent check outside CLU: the test passes on the integrated branch
+(gradle exit 0)
+
+================================================================ 10. Development history and records (a new process: persisted across restarts)
+$ clu-host --self-index
+  · self-repair: 0 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 2de29664ea. Index: 0 added, 1 changed, 0 removed file(s).
+0 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 2de29664ea. Index: 0 added, 1 changed, 0 removed file(s).
+Uncommitted changes in 1 file(s) (left untouched): core/src/main/kotlin/ai/clu/core/llm/Llm.kt
+(exit 0)
+$ clu-host --self-repairs
+e3c9ea23  approved-integrated  fixture  verified-fix  core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt  integrated into claude/clu-android-ai-build-5cspi2
+13b426d8  patch-failed         model    -    the model's answer contained no usable edit block (output kept in the development history)
+(exit 0)
+$ clu-host --self-incidents
+93407ba5  resolved         ×2  ReasoningTest › templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt() fails
+(exit 0)
+$ clu-host --self-history
+2026-11-03T20:49:11.982Z  reconcile              First look at the repository: indexed 416 files (3806 declarations) at 36ec20e039 on claude/clu-android-ai-build-5cspi2.
+2026-11-03T20:49:12.594Z  external-change        External commit 8fec85d828 by Owner (via Claude Code): Reasoning: list the reasoning modes (external change)
+2026-11-03T20:49:12.699Z  reconcile              1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 8fec85d828. Index: 0 added, 2 changed, 0 removed file(s).
+2026-11-03T20:49:13.906Z  external-change        External commit aff89e7b6a by Owner (via Claude Code): Reasoning: always append the closed think block (controlled defect)
+2026-11-03T20:49:13.994Z  reconcile              1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at aff89e7b6a. Index: 0 added, 1 changed, 0 removed file(s).
+2026-11-03T20:49:14.815Z  repair-started         Self-repair run 13b426d8 on core (ai.clu.core.ReasoningTest) at aff89e7b6a
+2026-11-03T20:49:38.552Z  incident-detected      Detected (test-failure): ReasoningTest › templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt() fails
+2026-11-03T20:49:38.610Z  investigation          Investigated templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt(): top suspect disable in core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt
+2026-11-03T20:49:40.783Z  experiment             reproduction: reproduced
+2026-11-03T20:50:00.558Z  model-output           Model proposed a patch (model Qwen3-0.6B (Qwen3-0.6B-Q4_K_M.gguf), 19.8 s, 296 characters of output)
+2026-11-03T20:50:00.561Z  patch-failed           the model's answer contained no usable edit block (output kept in the development history)
+2026-11-03T20:50:00.942Z  repair-closed          Repair 13b426d8 closed: patch-failed — the model's answer contained no usable edit block (output kept in the development history)
+2026-11-03T20:50:01.655Z  repair-started         Self-repair run e3c9ea23 on core (ai.clu.core.ReasoningTest) at aff89e7b6a
+2026-11-03T20:50:05.752Z  incident-seen-again    Seen again (2×): ReasoningTest › templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt() fails
+2026-11-03T20:50:05.807Z  investigation          Investigated templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt(): top suspect disable in core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt
+2026-11-03T20:50:07.962Z  experiment             reproduction: reproduced
+2026-11-03T20:50:11.255Z  experiment             repair: verified-fix
+2026-11-03T20:50:11.354Z  repair-proposed        Verified repair ready for review: ReasoningTest › templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt() fails (core/src/main/kotlin/ai/clu/core/llm/Reasoning.kt)
+2026-11-03T20:50:12.345Z  repair-approve-refused Approval could not be applied: there are uncommitted changes in 1 tracked file(s); commit or stash them first. Nothing was changed
+2026-11-03T20:50:13.069Z  repair-approved        Owner approved repair e3c9ea23; integrated into claude/clu-android-ai-build-5cspi2 at 2de29664ea
+2026-11-03T20:50:13.173Z  external-change        CLU's own commit 2de29664ea by CLU: Repair: ReasoningTest ? templatesAreClassifiedAndReasoningIsSwitchedOffInThePrompt() fails
+2026-11-03T20:50:13.255Z  reconcile              1 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 2de29664ea. Index: 0 added, 2 changed, 0 removed file(s).
+2026-11-03T20:50:30.271Z  reconcile              0 new commit(s) on claude/clu-android-ai-build-5cspi2, now at 2de29664ea. Index: 0 added, 1 changed, 0 removed file(s).
+(exit 0)
+
+================================================================ 11. Real repository after
+36ec20e03951588fd58725ba036246f101d54d65
+fa7a05e22d83362cdc3dc7d9e19250ef8d9159ceecb75ab10cf917e7d7cd8f26  -
+REAL REPOSITORY UNCHANGED

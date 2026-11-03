@@ -254,6 +254,8 @@ class CluAgent(
     private val learner: ai.clu.core.learning.PreferenceLearner? = null,
     /** Memory as the conversation sees it; null = CLU's own memory (retriever, working memory, formation) built from the above. */
     conversationMemory: ai.clu.core.memory.ConversationMemory? = null,
+    /** Facts about CLU's own software for a question about itself (from the self-repair source index); empty when none is connected. */
+    private val selfFacts: (String) -> List<String> = { emptyList() },
 ) {
     private val retriever = MemoryRetriever(settings, memories, now, visible = { list -> archive?.dates?.visible(list) ?: list }, service = memoryService)
     private val memoryAccess: ai.clu.core.memory.ConversationMemory = conversationMemory ?: ai.clu.core.memory.ConversationMemory.Default(retriever, memoryService, formation)
@@ -909,7 +911,8 @@ class CluAgent(
         val pctx = PromptContext(persona, mems, toolList, now(), online, deviceRole(), req.speakerName, req.actor.role == PersonRole.OWNER,
             viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList(),
             timeLine = archive?.time?.promptLine(), toldOf = { m -> archive?.dates?.told(m) ?: m.told }, documents = docs,
-            today = archive?.time?.today(), workingNotes = working, taskPreferences = taskPrefs)
+            today = archive?.time?.today(), workingNotes = working, taskPreferences = taskPrefs,
+            selfFacts = if (persona.isClu) runCatching { selfFacts(req.text) }.getOrDefault(emptyList()) else emptyList())
         val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"),
             reserveThreads = if (req.spokenOnDevice) SPEECH_RESERVED_THREADS else 0)
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)

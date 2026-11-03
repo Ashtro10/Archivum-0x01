@@ -120,10 +120,14 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         override fun unavailableReason(): String? = llm.state.value.takeIf { it.status == ai.clu.core.llm.LlmStatus.ERROR }?.message
     }
 
+    /** CLU's knowledge of its own source (set by the desktop host when a repository is connected for self-repair). */
+    @Volatile var selfKnowledge: ai.clu.core.evolution.SelfKnowledge? = null
+
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
         inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) }, diary = diary,
         context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http),
-        archive = archive, memoryService = memory, formation = formation, learner = learner, conversationMemory = conversationMemory)
+        archive = archive, memoryService = memory, formation = formation, learner = learner, conversationMemory = conversationMemory,
+        selfFacts = { q -> selfKnowledge?.factsFor(q).orEmpty() })
 
     // ---------------------------------------------------------------- supervised agents (M7)
     private val agentScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)

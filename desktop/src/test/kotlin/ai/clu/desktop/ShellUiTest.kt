@@ -115,7 +115,8 @@ class ShellUiTest {
             val p = ProcessBuilder(node, script.absolutePath, host.url, host.api.issueLaunchCode(), shots.absolutePath, tiny.absolutePath, workspace.canonicalPath, host.paths.root.absolutePath, readOnly.absolutePath).redirectErrorStream(true).start()
             val out = StringBuilder()
             val reader = Thread { p.inputStream.bufferedReader().forEachLine { out.appendLine(it); println("[ui] $it") } }.apply { start() }
-            val finished = p.waitFor(180, TimeUnit.SECONDS)
+            // 300 s: since 2026-11-04 the window also renders the Primus core (software WebGL in CI) and the host preloads the model.
+            val finished = p.waitFor(300, TimeUnit.SECONDS)
             if (!finished) p.destroyForcibly()
             reader.join(2000)
             assertTrue(finished, "UI script timed out:\n$out")

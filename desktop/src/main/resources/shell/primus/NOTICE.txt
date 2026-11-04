@@ -1,0 +1,6 @@
+Primus core visual: JARVIS Core "Nebula Fire Spirit" (MIT, Copyright (c) 2026 hnturk25, see LICENSE), as bundled
+with Primus (github.com/Ashtro10/astra, jarvis-main/). Files are the originals, with two changes for CLU:
+- style.css: the Google Fonts @import (first line) is removed: CLU pages load nothing from other sites.
+- index.html: telemetry.js is not loaded: it feeds the demo holograms random numbers, and CLU shows no made-up data.
+CLU drives the core through window.jarvisCore (setPrimusState, setSpeakLevel, setCursorLook, setReducedMotion),
+the same interface Primus uses.

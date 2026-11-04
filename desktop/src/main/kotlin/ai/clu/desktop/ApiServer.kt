@@ -279,11 +279,20 @@ object ShellAssets {
     const val CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*; media-src 'self' blob:; " +
         "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 
+    /** The Primus core (original jarvis-main files): framed by the shell only, so it may be embedded by CLU's own window. */
+    private val PRIMUS = Regex("^[a-z0-9_-]+(?:\\.min)?\\.(html|css|js)$")
+
     fun serve(ex: HttpExchange, path: String) {
+        val primus = path.startsWith("/shell/primus/")
         val name = if (path == "/") "index.html" else path.removePrefix("/shell/")
-        val bytes = if (NAME.matches(name)) ShellAssets::class.java.getResourceAsStream("/shell/$name")?.use { it.readBytes() } else null
+        val bytes = when {
+            primus -> name.removePrefix("primus/").takeIf { PRIMUS.matches(it) }?.let { ShellAssets::class.java.getResourceAsStream("/shell/primus/$it")?.use { s -> s.readBytes() } }
+            NAME.matches(name) -> ShellAssets::class.java.getResourceAsStream("/shell/$name")?.use { it.readBytes() }
+            else -> null
+        }
         ex.responseHeaders.apply {
-            set("Content-Security-Policy", CSP); set("X-Content-Type-Options", "nosniff"); set("Referrer-Policy", "no-referrer"); set("Cache-Control", "no-store")
+            set("Content-Security-Policy", if (primus) CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'") else CSP)
+            set("X-Content-Type-Options", "nosniff"); set("Referrer-Policy", "no-referrer"); set("Cache-Control", if (primus && name.endsWith(".min.js")) "max-age=86400" else "no-store")
         }
         if (bytes == null) { ex.sendResponseHeaders(404, -1); ex.close(); return }
         ex.responseHeaders.set("Content-Type", TYPES.getValue(name.substringAfterLast('.')) + "; charset=utf-8")

@@ -25,6 +25,7 @@
     }
     $("app").classList.remove("hidden");
     CluFace.attach($("face"));
+    if (window.CluPrimus && $("primusCore")) CluPrimus.attach($("primusCore")); // the Primus core behind the interface
     initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initVoice(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     CluCapabilities.init(api, (t) => { show("chat"); $("input").value = t; send(); }, show); loaders.capabilities = CluCapabilities.refresh;
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
@@ -49,6 +50,7 @@
     document.querySelectorAll(".nav").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
   }
   function show(view) {
+    document.body.classList.toggle("primus-paused", view !== "chat"); // the core renders only where it is seen
     document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("hidden", v.id !== "view-" + view));
     $("viewTitle").textContent = document.querySelector(`.nav[data-view="${view}"]`).firstChild.textContent.trim();

@@ -190,7 +190,7 @@
     const pub = room && room.localParticipant.getTrackPublication(LK.Track.Source.Microphone);
     if (!pub || !pub.track || !LK.createAudioAnalyser) return;
     try { analyser = LK.createAudioAnalyser(pub.track, { cloneTrack: true }); } catch (e) { return; }
-    meterTimer = setInterval(() => { if (!analyser || document.hidden) return; const v = analyser.calculateVolume(); $("voiceLevel").style.width = Math.min(100, Math.round(v * 300)) + "%"; if (agentState === "speaking") window.CluFace && CluFace.pulse(); }, 150);
+    meterTimer = setInterval(() => { if (!analyser || document.hidden) return; const v = analyser.calculateVolume(); $("voiceLevel").style.width = Math.min(100, Math.round(v * 300)) + "%"; if (agentState === "speaking") { window.CluFace && CluFace.pulse(Math.min(1, v * 4)); } }, 150);
   }
 
   function pref(k) { try { return localStorage.getItem("clu-voice-" + k) || ""; } catch (e) { return ""; } }

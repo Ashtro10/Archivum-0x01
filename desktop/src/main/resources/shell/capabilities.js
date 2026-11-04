@@ -124,6 +124,7 @@
     current = c;
     document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.cap === c.id));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("hidden", v.id !== "view-experience"));
+    document.body.classList.add("primus-paused");
     $("viewTitle").textContent = c.name;
     $("expTitle").textContent = `${c.styleName} ${c.kind} · v${c.version}`;
     $("expDefault").classList.toggle("hidden", !!c.default); $("expDefault").onclick = async () => { await act(c, "default"); c.default = true; $("expDefault").classList.add("hidden"); };

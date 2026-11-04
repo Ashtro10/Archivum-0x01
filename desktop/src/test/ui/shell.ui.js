@@ -323,8 +323,9 @@ const problems = []; let lastPage = null;
 
     // Text read by a task cannot give it orders: the warning is shown, no approval is requested, nothing is deleted.
     await runSteps("Summarise evil.txt", [{ id: "s1", tool: "fs.read", args: { path: "evil.txt" } }, { id: "s2", reason: "research", instruction: "Summarise the file", after: ["s1"] }]);
-    await page.waitForFunction(() => /Done|Partly done|Failed/.test(document.querySelector("#taskList li .title")?.textContent || ""), null, { timeout: 30000 });
-    await page.click("#taskList li"); await page.waitForFunction(() => /Careful: text this step read/.test(document.querySelector("#taskDetail")?.textContent || ""));
+    // Wait for this task (not the previous one, which is already done) to finish, then open it.
+    await page.waitForFunction(() => [...document.querySelectorAll("#taskList li")].some((li) => /Summarise evil\.txt/.test(li.textContent) && /Done|Partly done|Failed/.test(li.textContent)), null, { timeout: 30000 });
+    await page.click("#taskList li:has-text('Summarise evil.txt')"); await page.waitForFunction(() => /Careful: text this step read/.test(document.querySelector("#taskDetail")?.textContent || ""));
     assert((await page.$$("#approvalBox .approval")).length === 0, "injection: no approval was requested by what the file said");
     await page.screenshot({ path: path.join(shots, "m7-injection.png") });
 

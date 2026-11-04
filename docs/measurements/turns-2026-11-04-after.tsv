@@ -1,9 +1,9 @@
-model	Qwen3-0.6B-Q4_K_M.gguf	load_ms	5745	context	4096	threads	3
+model	Qwen3-0.6B-Q4_K_M.gguf	load_ms	3309	context	4096	threads	3
 prompt	first_text_ms	total_ms	route	llm_calls	llm_detail	reply
-Hello	6120	6765	answer	1	1335ms prompt=919 reused=879 gen=9 queue=0ms prefill=700ms max=400 stop=eog	Hello! What can I help with today?
-How are you today?	1189	1921	answer, research if unsure	1	1875ms prompt=943 reused=881 gen=13 queue=0ms prefill=999ms max=400 stop=eog	Hello! I'm here for you. How are you today?
-What is a robotic element?	1666	1672	answer, research if unsure	1	1628ms prompt=972 reused=901 gen=16 queue=0ms prefill=681ms max=400 stop=eog	A robotic element refers to a machine or system designed to perform tasks autonomously.
-Explain what a black hole is in one sentence.	778	2418	answer	1	2382ms prompt=1009 reused=929 gen=24 queue=0ms prefill=743ms max=400 stop=eog	A black hole is a region in space where gravity becomes so strong that nothing, not even light, can escape it.
-What is the weather?	47	47	template	0		Which city or area should I check the weather for? (You can also save your home location in Settings → General.)
-Thanks, that's all.	47	47	follow-up research=true	0		Which city or area should I check the weather for? (You can also save your home location in Settings → General.)
-Build me an application that tracks my water intake	45	45	tool	0		On it: I'm developing a water intake tracker for myself. I'll build it in a separate workspace, test it in a browser, and install it only if it works. Progress shows here.
+Hello	778	1317	answer	1	1170ms prompt=919 reused=879 gen=10 queue=0ms prefill=660ms max=400 stop=eog	Hello! What can I do for you today?
+How are you today?	1025	1874	answer, research if unsure	1	1841ms prompt=944 reused=881 gen=18 queue=0ms prefill=900ms max=400 stop=eog	Hello! I'm here to help you with anything. How can I assist you today?
+What is a robotic element?	1529	1534	answer, research if unsure	1	1496ms prompt=978 reused=902 gen=15 queue=0ms prefill=618ms max=400 stop=eog	A robotic element is an artificial or mechanical component used in various technological applications.
+Explain what a black hole is in one sentence.	795	2157	answer	1	2124ms prompt=1014 reused=935 gen=24 queue=0ms prefill=762ms max=400 stop=eog	A black hole is a region in space where gravity becomes so intense that nothing, not even light, can escape it.
+What is the weather?	50	53	template	0		Which city or area should I check the weather for? (You can also save your home location in Settings → General.)
+Thanks, that's all.	977	2060	answer	1	2034ms prompt=1093 reused=966 gen=17 queue=0ms prefill=952ms max=400 stop=eog	I'm here to help you with anything. What can I do for you today?
+Build me an application that tracks my water intake	46	49	tool	0		On it: I'm developing a water intake tracker for myself. I'll build it in a separate workspace, test it in a browser, and install it only if it works. Progress shows here.

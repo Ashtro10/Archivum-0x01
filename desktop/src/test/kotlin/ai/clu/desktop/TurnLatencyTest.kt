@@ -31,7 +31,21 @@ class TurnLatencyTest {
                 .method(method, body?.let { HttpRequest.BodyPublishers.ofString(it) } ?: HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofLines())
         try {
             val m = host.core.models.register(model!!); host.core.settings.set(Settings.MODEL_ACTIVE, m.id)
-            val t0 = System.currentTimeMillis(); kotlinx.coroutines.runBlocking { host.core.inferenceService.load() }; val loadMs = System.currentTimeMillis() - t0
+            // As an owner meets CLU: restarted with the model selected, the start-up preload loads and warms it.
+            host.stop(); val restarted = Host.start(DesktopPaths(File(dir, "home")), HostConfig(), port = 0, log = {})
+            val t0 = System.currentTimeMillis()
+            while (restarted.core.llm.state.value.status != ai.clu.core.llm.LlmStatus.READY && System.currentTimeMillis() - t0 < 300_000) Thread.sleep(100)
+            val loadMs = System.currentTimeMillis() - t0; Thread.sleep(8000) // the warm-up pre-fill runs right after the load
+            return measure(restarted, loadMs, model, out)
+        } finally { runCatching { host.stop() } }
+    }
+
+    private fun measure(host: RunningHost, loadMs: Long, model: File, out: File) {
+        val http = HttpClient.newHttpClient()
+        fun req(path: String, method: String = "GET", body: String? = null, accept: String = "application/json") =
+            http.send(HttpRequest.newBuilder(URI.create(host.url + path)).header("Authorization", "Bearer ${host.token}").header("Accept", accept)
+                .method(method, body?.let { HttpRequest.BodyPublishers.ofString(it) } ?: HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofLines())
+        try {
             val conv = CluJson.parseToJsonElement(req("/v1/conversations", "POST", "{}").body().toList().joinToString("")).jsonObject["id"]!!.jsonPrimitive.content
             val prompts = listOf("Hello", "How are you today?", "What is a robotic element?", "Explain what a black hole is in one sentence.", "What is the weather?",
                 "Thanks, that's all.", "Build me an application that tracks my water intake")

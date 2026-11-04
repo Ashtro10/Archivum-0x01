@@ -49,8 +49,14 @@ object Host {
         val core = CluCore(db, platform)
         platform.wantGpu = { core.settings.string(Settings.ACCELERATION) == "gpu" }
         coreRef = core
-        platform.llm.preload = config.preloadModel
-        core.startModel(preload = config.preloadModel)
+        core.startModel(preload = false)
+        // Laptop-first: load the selected model and pre-fill its instructions in the background at start, so the first
+        // message doesn't wait for a load (measured 42.6 s for Qwen3-0.6B on 4 cores) plus a cold ~900-token prompt (5.9 s).
+        // host.json "preloadModel": false turns this off; the governor still unloads under memory pressure.
+        if (config.preloadModel && core.settings.string(Settings.MODEL_ACTIVE).isNotEmpty()) Thread({
+            runCatching { kotlinx.coroutines.runBlocking { val st = core.inferenceService.load(); if (st.status == ai.clu.core.llm.LlmStatus.READY) core.agent.warmUp() } }
+                .onFailure { log("model preload failed: ${it.message}") }
+        }, "clu-model-preload").apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 }.start()
         val ticker = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "clu-governor").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
         ticker.scheduleWithFixedDelay({ runCatching { governor.tick() } }, config.governorIntervalSeconds.toLong(), config.governorIntervalSeconds.toLong(), TimeUnit.SECONDS)
         val token = ApiToken.loadOrCreate(paths.token)

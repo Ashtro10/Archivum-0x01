@@ -112,7 +112,10 @@ object ResearchPolicy {
         }
         WHAT.find(q)?.let { m ->
             val s = subjectText(m.groupValues[1]) ?: return Decision(Kind.NONE)
-            val named = contentWords(s).size >= 2 || s.any { it.isUpperCase() || it.isDigit() }
+            // Named = a proper noun or a model/version ("SpaceX", "GPT-5"). A lowercase concept ("robotic element", "black hole")
+            // is explained from knowledge; research happens only if the model can't answer (measured: it was researched and
+            // failed offline instead of being explained).
+            val named = s.any { it.isUpperCase() || it.isDigit() }
             return Decision(if (named) Kind.RESEARCH else Kind.VERIFY_IF_UNSURE, s, s, if (named) "about a named subject" else "factual question")
         }
         WHERE_WHEN.find(q)?.let { m -> subjectText(m.groupValues[1])?.let { s -> return Decision(Kind.VERIFY_IF_UNSURE, q, s, "factual question") } }
@@ -176,6 +179,7 @@ object HazardPolicy {
     private val DEFINITION = r("^\\s*(?:what (?:is|are) (?:an? )?\\w+\\s*\\??$|how (?:do|does|are|is) |why (?:do|does|are|is) |explain |define |what causes )")
     /** "Write me a poem about rain": about the word, not a request for conditions. */
     private val CREATIVE = r("\\b(?:write|compose|poems?|poetry|story|stories|song|lyrics|haiku|essay|joke|draw|paint|imagine|pretend)\\b")
+    private val QUESTION = r("\\?\\s*$|^\\s*(?:what|what's|how|how's|will|is|are|does|do|should|tell me|check|give me)\\b")
     private val NEAR = r("\\b(?:us|our|me|my|here|near(?:by)?|close|towards?|our way|this area|local|outside)\\b")
 
     /** True when the question is about the owner's own location ("us", "here", "near me"). */
@@ -186,7 +190,10 @@ object HazardPolicy {
     fun detect(text: String): Need? {
         val t = text.trim()
         val type = TYPES.firstOrNull { it.second.containsMatchIn(t) }?.first ?: return null
-        if (DEFINITION.containsMatchIn(t) || CREATIVE.containsMatchIn(t) || !CURRENT.containsMatchIn(t)) return null
+        if (DEFINITION.containsMatchIn(t) || CREATIVE.containsMatchIn(t)) return null
+        // A weather question is about now even without "now" ("What is the weather?"); other hazards need a current cue.
+        val weatherQuestion = type == "WX" && QUESTION.containsMatchIn(t)
+        if (!weatherQuestion && !CURRENT.containsMatchIn(t)) return null
         if (Regex("\\b(?:1[89]\\d\\d|20[01]\\d)\\b").containsMatchIn(t)) return null // a past year: history, not a current alert
         val place = ai.clu.core.search.Places.resolve(t)
         return Need(type, nearOwner = place == null && (NEAR.containsMatchIn(t) || type == "WX"), place = place)

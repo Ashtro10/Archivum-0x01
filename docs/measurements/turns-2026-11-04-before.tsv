@@ -1,0 +1,9 @@
+model	Qwen3-0.6B-Q4_K_M.gguf	load_ms	42620	context	4096	threads	3
+prompt	first_text_ms	total_ms	route	llm_calls	llm_detail	reply
+Hello	6207	7832	answer	1	7547ms prompt=919 reused=0 gen=19 queue=2ms prefill=5905ms max=400 stop=eog	Hello! I'm Clu, your personal AI companion. How can I assist you today?
+How are you today?	770	1363	answer, research if unsure	1	1332ms prompt=953 reused=881 gen=12 queue=0ms prefill=579ms max=400 stop=eog	Hello! I'm Clu. How are you today?
+What is a robotic element?	3892	3896	research|answer from web.search	1	1873ms prompt=1083 reused=911 gen=10 queue=0ms prefill=1229ms max=400 stop=cancelled	I couldn't reach the search service just now, so I can't check that.
+Explain what a black hole is in one sentence.	733	2058	answer	1	2029ms prompt=1019 reused=938 gen=20 queue=0ms prefill=706ms max=400 stop=eog	A black hole is a region in space where gravity becomes so intense that not even light can escape.
+What is the weather?	2788	2788	research|answer from web.search	1	2407ms prompt=1156 reused=971 gen=18 queue=0ms prefill=1281ms max=400 stop=cancelled	I couldn't reach the search service just now, so I can't check that.
+Thanks, that's all.	661	1345	answer	1	1313ms prompt=1087 reused=1012 gen=11 queue=0ms prefill=630ms max=400 stop=eog	I'm Clu. Thank you for the time.
+Build me an application that tracks my water intake	1420	1421	tool	0		On it: I'm developing a unknown for myself. I'll build it in a separate workspace, test it in a browser, and install it only if it works. Progress shows here.

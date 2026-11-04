@@ -50,6 +50,16 @@ data class CapabilityCommand(
         private val DET = "(?:my|your|the|our|this|that)"
         private val VARIANT = r("\\b(?:another|too|also|as\\s+well|second|one\\s+more|additional|a\\s+new|new)\\b")
 
+        /** "tracks my water intake" → "water intake tracker": what an unnamed "application" is for. */
+        fun purpose(clause: String): String {
+            val m = r("^(?:can\\s+|will\\s+|would\\s+)?(track|show|display|manage|organi[sz]e|plan|monitor|search|find|list|count|calculate|convert|play|record|remind|edit|browse|visuali[sz]e|log|draw|time)s?\\s+(?:me\\s+)?(?:my\\s+|the\\s+|your\\s+|all\\s+)?(.+)$").find(clause.trim())
+            if (m == null) return clause.trim().split(Regex("\\s+")).take(4).joinToString(" ").ifBlank { "application" }
+            val noun = mapOf("track" to "tracker", "show" to "viewer", "display" to "viewer", "manage" to "manager", "organise" to "organizer", "organize" to "organizer", "plan" to "planner",
+                "monitor" to "monitor", "search" to "search", "find" to "finder", "list" to "list", "count" to "counter", "calculate" to "calculator", "convert" to "converter", "play" to "player",
+                "record" to "recorder", "remind" to "reminder", "edit" to "editor", "browse" to "browser", "visualise" to "visualizer", "visualize" to "visualizer", "log" to "log", "draw" to "drawing app", "time" to "timer")
+            return (m.groupValues[2].split(Regex("\\s+")).take(3).joinToString(" ") + " " + (noun[m.groupValues[1].lowercase()] ?: "app")).trim()
+        }
+
         fun kindOf(phrase: String): String? {
             val hits = KINDS.mapNotNull { (k, re) -> re.find(phrase)?.let { k to it.range.first } }
             if (hits.isEmpty()) return null
@@ -137,7 +147,7 @@ data class CapabilityCommand(
                 if (known(p) || (SOFTWARE.containsMatchIn(p) && !r("^(?:sure|sense|it|that|this|note|list|copy|backup|reminder|plan|summary|joke|story|poem)\\b").containsMatchIn(p))) {
                     val head = p.split(Regex("\\s+(?:that|which|who|so\\s+that|to|for|with|but|and\\s+make)\\s+"), limit = 2)
                     return cmd(CapabilityOp.CREATE, p, raw, details = head.getOrElse(1) { "" }, target = null,
-                        kind = kindOf(p) ?: head[0].replace(SOFTWARE, "").replace(Regex("\\b(?:yourself|for\\s+me|too|also|please)\\b"), "").trim().ifBlank { "unknown" })
+                        kind = kindOf(p) ?: head[0].replace(SOFTWARE, "").replace(Regex("\\b(?:yourself|for\\s+me|too|also|please)\\b"), "").trim().ifBlank { purpose(head.getOrElse(1) { "" }) })
                 }
             }
             return null

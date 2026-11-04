@@ -103,6 +103,8 @@ data class HostConfig(
     val runInBackground: Boolean = true,
     /** Path to clu_llama.dll / libclu_llama.so; empty = the one installed next to CLU. */
     val nativeLibrary: String = "",
+    /** Load the selected model and warm its instructions at start (laptop-first default), instead of on the first message. */
+    val preloadModel: Boolean = true,
 ) {
     fun validated(): HostConfig {
         require(port in 1024..65535) { "port must be 1024-65535" }

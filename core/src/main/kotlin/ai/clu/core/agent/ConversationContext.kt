@@ -171,8 +171,13 @@ object FollowUpResolver {
      * [command]: the message is an explicit command for a tool ("save this conversation to my diary"); it is still
      * checked for a mishearing, but its words ("this", "it") are the command's own, not a follow-up.
      */
+    private val CLOSING = Regex("^\\s*(?:ok(?:ay)?[,.!\\s]+)?(?:thanks?(?: you)?(?: so much)?|thank you|cheers|never ?mind|nevermind|forget it|no thanks?|that'?s (?:all|it|enough)|nothing(?: else)?|stop|cancel|bye|goodbye|good night|see you)\\b[\\s\\S]{0,40}$", RegexOption.IGNORE_CASE)
+
     fun resolve(text: String, s: ConversationState, viaVoice: Boolean, now: Long, command: Boolean = false): Resolved {
         val t = text.trim()
+        // 0. Closing the exchange ("thanks, that's all", "never mind") is never an answer to a pending question or a follow-up
+        //    (measured: "Thanks, that's all." after "Which city…?" was taken as the city and the question was asked again).
+        if (CLOSING.containsMatchIn(t)) return Resolved(Resolution.Standalone(t), t)
         // 1. An answer to Clu's own question.
         s.pending?.takeIf { s.turn - it.turn <= PENDING_TURNS && now - it.at <= 15 * 60_000L }?.let { p -> answerPending(t, p, s, now)?.let { return it } }
         val usable = topicUsable(s, now)

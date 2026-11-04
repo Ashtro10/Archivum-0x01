@@ -49,7 +49,8 @@ object Host {
         val core = CluCore(db, platform)
         platform.wantGpu = { core.settings.string(Settings.ACCELERATION) == "gpu" }
         coreRef = core
-        core.startModel(preload = false)
+        platform.llm.preload = config.preloadModel
+        core.startModel(preload = config.preloadModel)
         val ticker = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "clu-governor").apply { isDaemon = true; priority = Thread.MIN_PRIORITY } }
         ticker.scheduleWithFixedDelay({ runCatching { governor.tick() } }, config.governorIntervalSeconds.toLong(), config.governorIntervalSeconds.toLong(), TimeUnit.SECONDS)
         val token = ApiToken.loadOrCreate(paths.token)

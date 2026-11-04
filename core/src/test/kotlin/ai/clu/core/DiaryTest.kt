@@ -76,8 +76,8 @@ class DiaryTest {
         assertEquals("Added to your diary.", say("Save this conversation to my diary").text)
         val saved = diary.list().first()
         assertEquals(DiarySource.CONVERSATION, saved.source)
-        // The test network fails the automatic search, so Clu's reply says the answer is from memory (Final device validation).
-        assertEquals("Me: What is compound interest?\nClu: I couldn't check online just now, so this is from memory. Compound interest grows on the interest already earned.", saved.body)
+        // A concept is explained from knowledge, not researched (2026-11-04 routing fix), so no "couldn't check online" prefix.
+        assertEquals("Me: What is compound interest?\nClu: Compound interest grows on the interest already earned.", saved.body)
         assertEquals("Added to your diary.", say("diary: long day, but productive").text)
         assertEquals(3, diary.count())
     }

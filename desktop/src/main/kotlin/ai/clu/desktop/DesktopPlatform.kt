@@ -198,8 +198,13 @@ class DesktopLlmPlatform(private val governor: ResourceGovernor, private val nat
     override fun thermalSevere(): Boolean = false
     /** A GPU load may be attempted; the engine reports what it really used, and falls back to the CPU if the GPU can't be initialised. */
     override val gpuAvailable: Boolean get() = true
-    /** The PC is the owner's: nothing is loaded ahead of time and no warm-up generation runs; the first request loads the model. */
-    override val loadOnDemand: Boolean get() = true
+    /**
+     * Laptop-first: by default CLU loads its model and pre-fills its instructions in the background at start, so the first
+     * message doesn't wait for a load (measured 42.6 s for Qwen3-0.6B on 4 cores) plus a cold ~900-token prompt (5.9 s).
+     * `preloadModel: false` in host.json restores load-on-first-request; the governor still unloads under memory pressure.
+     */
+    @Volatile var preload: Boolean = true
+    override val loadOnDemand: Boolean get() = !preload
 
     /**
      * The core's load check allows a model up to 1.35× the reported figure (slack for memory-mapped weights on phones).

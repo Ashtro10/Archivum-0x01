@@ -96,7 +96,9 @@ class CapabilityManager(val store: CapabilityStore, val developer: CapabilityDev
         return when (op) {
             CapabilityOp.CREATE -> {
                 val run = developer.start(DevRequest("CREATE", kind ?: "unknown", style, details, text, variant, conversationId))
-                Answer(true, "On it: I'm developing ${if (style != null) "a ${Styles.title(style)} " else "a "}${fam?.title?.lowercase() ?: kind} for myself. I'll build it in a separate workspace, test it in a browser, and install it only if it works. Progress shows here.",
+                val what = listOfNotNull(style?.let { Styles.title(it) }, fam?.title?.lowercase() ?: kind).joinToString(" ")
+                val article = if (what.firstOrNull()?.lowercaseChar() in setOf('a', 'e', 'i', 'o', 'u')) "an" else "a"
+                Answer(true, "On it: I'm developing $article $what for myself. I'll build it in a separate workspace, test it in a browser, and install it only if it works. Progress shows here.",
                     buildJsonObject { put("action", "develop"); put("run", run.id) })
             }
             CapabilityOp.IMPROVE -> {

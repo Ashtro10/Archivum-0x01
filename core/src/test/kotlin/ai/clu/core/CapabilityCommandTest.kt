@@ -17,6 +17,7 @@ class CapabilityCommandTest {
         p("Create another map interface, but make it fantasy-themed.")!!.let { assertEquals("map", it.kind); assertEquals("fantasy", it.style); assertTrue(it.variant) }
         p("Build a dashboard that combines your weather and map services")!!.let { assertEquals("dashboard", it.kind) }
         p("Create an ocean-themed map")!!.let { assertEquals("map", it.kind); assertEquals("ocean", it.style) }
+        p("Build me an application that tracks my water intake")!!.let { assertEquals(CapabilityOp.CREATE, it.op); assertEquals("water intake tracker", it.kind) }
         p("Build yourself a pomodoro timer app")!!.let { assertEquals(CapabilityOp.CREATE, it.op); assertEquals("pomodoro timer", it.kind) }
     }
 

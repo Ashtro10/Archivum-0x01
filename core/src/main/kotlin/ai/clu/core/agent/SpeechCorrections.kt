@@ -65,7 +65,7 @@ object ProperNouns {
  * request is what CLU answers ("Who is Lemon Russ?" + "I said Leman Russ" → "Who is Leman Russ?").
  */
 object SaidCorrection {
-    private val RE = Regex("(?i)^(?:(?:no|nope|not quite|wrong|sorry)[,.!]?\\s*)*(?:i said|i meant|i asked(?: about)?|i was asking about|i'?m asking about|i was talking about|i'?m talking about|i was saying)\\s+(.+?)[\\s.!?]*$")
+    private val RE = Regex("(?i)^(?:(?:no|nope|not quite|wrong|sorry)[,.!]?\\s*)*(?:i said|i meant|i asked(?: about)?|i was asking about|i'?m asking about|i was talking about|i'?m talking about|i was saying)[,:]?\\s+(.+?)[\\s.!?]*$")
     private val WORD = Regex("[\\p{L}\\p{N}']+")
 
     /** The corrected words, if [text] is a correction. */

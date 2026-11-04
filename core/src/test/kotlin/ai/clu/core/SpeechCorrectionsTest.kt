@@ -33,6 +33,7 @@ class SpeechCorrectionsTest {
     @Test fun iSaidCorrectsThePreviousRequest() {
         assertEquals("Leman Russ", SaidCorrection.parse("I said Leman Russ."))
         assertEquals("talking", SaidCorrection.parse("No, I said talking."))
+        assertEquals("talking", SaidCorrection.parse("No, I said, talking")) // recogniser punctuation (measured: Piper Alan voice through Kroko)
         assertEquals("Fenris", SaidCorrection.parse("I meant Fenris"))
         assertNull(SaidCorrection.parse("Who is Leman Russ?")); assertNull(SaidCorrection.parse("Can you hear me?"))
         assertEquals("Who is Leman Russ?", SaidCorrection.apply("Leman Russ", "Who is Lemon Russ?"))

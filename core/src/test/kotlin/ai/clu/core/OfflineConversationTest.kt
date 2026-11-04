@@ -85,7 +85,7 @@ else:
         // 2. The on-device engine is selected (the default) and the platform reports no network.
         val platform = TestPlatform().apply { online = false }
         val core = newCore(platform = platform)
-        assertEquals("offline", core.settings.string(Settings.VOICE_MODE))
+        assertFalse(ai.clu.core.config.EnginePolicy.pcAnswers(core.settings, core.liveKitTokens.isConfigured()), "an unpaired phone answers on its own")
 
         // 3. New conversation with the real llama.cpp engine (tiny random-weight model: plumbing, not answer quality).
         val model = File(System.getProperty("clu.testModel", "../native/build/test/tiny.gguf"))

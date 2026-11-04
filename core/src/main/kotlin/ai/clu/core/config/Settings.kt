@@ -53,8 +53,9 @@ object Settings {
         def(SettingDef(key, title, cat, SettingType.TimeOfDay, jsonOf(default), desc, component, effect, SettingScope.SHARED, ApplyMode.IMMEDIATE, false, test))
 
     // ---------------------------------------------------------------- LiveKit voice (optional)
-    val VOICE_MODE = choice("voice.mode", "Conversation engine", LIVEKIT, "offline",
-        listOf("offline" to "On this device: local model, speech recognition and voice (no network)",
+    val VOICE_MODE = choice("voice.mode", "Conversation engine", LIVEKIT, "auto",
+        listOf("auto" to "Automatic: CLU on my PC once this phone is paired with it, until then this device",
+            "offline" to "On this device: local model, speech recognition and voice (no network)",
             "livekit" to "CLU on my PC (LiveKit): speech recognition, reasoning and voice run on the paired PC"),
         "Which engine answers voice and text. CLU on the PC gives the best understanding and the fastest, most natural replies, with the same voice and memory as on the PC; " +
             "the device engine works without any network.", "Engine, LiveKitSession, LiveConversation",

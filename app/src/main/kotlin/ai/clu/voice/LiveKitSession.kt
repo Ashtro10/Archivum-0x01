@@ -60,7 +60,7 @@ class LiveKitSession(private val app: CluApp) {
     fun setDeviceKey(key: String?) { app.platform.secrets.put(CluCore.LIVEKIT_DEVICE_KEY, key?.trim()); core.liveKitTokens.invalidate() }
     fun configured() = core.liveKitTokens.isConfigured()
     /** The server engine is selected (Settings → Conversation engine) and set up. */
-    fun enabled() = core.settings.string(Settings.VOICE_MODE) == "livekit"
+    fun enabled() = ai.clu.core.config.EnginePolicy.pcAnswers(core.settings, configured())
 
     // ------------------------------------------------------------------------------------------------ public API
     /** Connects (if needed). [mic]: publish the microphone; spoken replies follow [spokenReplies]. */

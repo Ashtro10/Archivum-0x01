@@ -34,7 +34,7 @@ class SettingsActivity : BaseActivity() {
         section("Phone & tablet", "Pair this device with your other one, sync memories and settings, or move them with an encrypted sync file.") {
             startActivity(Intent(this@SettingsActivity, DevicesActivity::class.java))
         }
-        if (core.settings.string(Settings.VOICE_MODE) != "livekit") {
+        if (!app.liveKit.enabled()) {
             section("On-device voice", "Voice and language for the on-device engine.") { startActivity(Intent(this@SettingsActivity, VoiceActivity::class.java)) }
             section("On-device model", "The language model that runs on this phone, and optional downloads.") { startActivity(Intent(this@SettingsActivity, ModelsActivity::class.java)) }
         }

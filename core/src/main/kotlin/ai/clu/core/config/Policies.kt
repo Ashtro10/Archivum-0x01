@@ -72,13 +72,26 @@ object UiPolicy {
         Settings.all.filter { it.category == category && (!it.advanced || diagnosticsVisible(s)) }
 }
 
+/**
+ * Which engine answers on a phone (laptop-first): the PC does the listening, thinking and speaking once the phone is
+ * paired with it; the phone's own engine answers when it is not paired or the owner chose it. Decided by the owner's
+ * choice and the pairing, never by momentary reachability, so the engine does not switch silently mid-conversation.
+ */
+object EnginePolicy {
+    fun pcAnswers(s: SettingsStore, pcPaired: Boolean): Boolean = when (s.string(Settings.VOICE_MODE)) {
+        "livekit" -> true
+        "offline" -> false
+        else -> pcPaired
+    }
+}
+
 object ServicePolicy {
     enum class ProactiveDelivery { NOTIFICATION, SPEAK }
 
     /** Background listening runs only if enabled, the wake word or clap is on, and the mic permission is granted. */
     /** Background wake listening belongs to the on-device engine; with the Clu server selected it stays off (no silent offline replies). */
-    fun shouldRunListeningService(s: SettingsStore, micPermission: Boolean): Boolean =
-        micPermission && s.string(Settings.VOICE_MODE) != "livekit" && s.bool(Settings.BACKGROUND_LISTENING) &&
+    fun shouldRunListeningService(s: SettingsStore, micPermission: Boolean, pcPaired: Boolean = false): Boolean =
+        micPermission && !EnginePolicy.pcAnswers(s, pcPaired) && s.bool(Settings.BACKGROUND_LISTENING) &&
             (s.bool(Settings.WAKE_ENABLED) || s.bool(Settings.CLAP_ENABLED))
 
     fun shouldServeSync(s: SettingsStore) = s.bool(Settings.SYNC_ENABLED) && s.bool(Settings.SYNC_SERVE)

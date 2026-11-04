@@ -140,8 +140,11 @@ class TouchDispatchTest {
     @Test fun connectionEngineCardsSelectOnTap() {
         app.core.settings.set(ai.clu.core.config.Settings.VOICE_MODE, "livekit")
         val c = launch(ConnectionActivity::class.java)
-        tap(c, texts(c).first { it.text.toString().endsWith("This device") })
+        tap(c, texts(c).first { it.text.toString().endsWith("Always this device") })
         assertEquals("tapping the on-device card's title selects it", "offline", app.core.settings.string(ai.clu.core.config.Settings.VOICE_MODE))
+        tap(c, texts(c).first { it.text.toString().endsWith("Automatic (recommended)") })
+        assertEquals("tapping the automatic card selects it", "auto", app.core.settings.string(ai.clu.core.config.Settings.VOICE_MODE))
+        assertFalse("not paired with a PC: the phone answers", app.liveKit.enabled())
     }
 
     @Test fun theVoiceMainButtonStartsAndStopsListening() {

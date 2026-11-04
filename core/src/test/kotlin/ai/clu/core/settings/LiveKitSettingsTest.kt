@@ -41,7 +41,12 @@ class LiveKitSettingsTest {
     private fun token() = runBlocking { core.liveKitTokens.token("clu-room", "clu-phone", "Clu (phone)") }
 
     @Test fun mode() {
-        assertEquals("offline", s.string(Settings.VOICE_MODE), "offline is the default")
+        assertEquals("auto", s.string(Settings.VOICE_MODE), "laptop-first: automatic is the default")
+        assertFalse(EnginePolicy.pcAnswers(s, pcPaired = false), "not paired yet: this device answers (works with no network)")
+        assertTrue(EnginePolicy.pcAnswers(s, pcPaired = true), "paired: the PC answers")
+        assertEquals(SettingResult.Ok, s.set(Settings.VOICE_MODE, "offline")); assertFalse(EnginePolicy.pcAnswers(s, pcPaired = true), "the owner's choice wins")
+        assertEquals(SettingResult.Ok, s.set(Settings.VOICE_MODE, "livekit")); assertTrue(EnginePolicy.pcAnswers(s, pcPaired = false))
+        s.set(Settings.VOICE_MODE, "auto")
         assertEquals(SettingScope.DEVICE, Settings[Settings.VOICE_MODE]!!.scope, "each device chooses its own path")
         assertEquals(SettingResult.Ok, s.set(Settings.VOICE_MODE, "livekit"))
         assertEquals("livekit", s.string(Settings.VOICE_MODE))

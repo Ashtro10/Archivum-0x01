@@ -110,7 +110,7 @@ class CluApp : Application() {
     /** Any Clu screen visible = foreground (Diagnostics keeps background-spanning timings apart; the model gets ready). */
     private fun trackVisibility() = registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
         override fun onActivityStarted(a: android.app.Activity) {
-            if (startedActivities++ == 0 && isReady) { core.diag.setForeground(true); core.llm.prepare() }
+            if (startedActivities++ == 0 && isReady) { core.diag.setForeground(true); if (!liveKit.enabled()) core.llm.prepare() } // the PC answers: no second model on the phone
         }
         override fun onActivityStopped(a: android.app.Activity) {
             if (--startedActivities == 0 && !a.isChangingConfigurations && isReady) core.diag.setForeground(false)
@@ -139,7 +139,7 @@ class CluApp : Application() {
 
     /** Starts/stops the background listening service according to settings and permission. */
     fun applyServicePolicy() {
-        val shouldRun = ServicePolicy.shouldRunListeningService(core.settings, hasMic())
+        val shouldRun = ServicePolicy.shouldRunListeningService(core.settings, hasMic(), liveKit.configured())
         if (shouldRun && !ListeningService.running) runCatching { startForegroundService(Intent(this, ListeningService::class.java)) }
             .onFailure { core.diag.w("app", "cannot start listening service: ${it.message}") }
         if (!shouldRun && ListeningService.running) stopService(Intent(this, ListeningService::class.java))

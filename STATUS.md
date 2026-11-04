@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-10-31 (v1.8.2)_
+_Last updated: 2026-11-04_
 
 ## Current state
 
@@ -16,6 +16,26 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-11-04: Capability development and management from conversation (desktop)
+
+CLU now develops, verifies, installs and manages its own capabilities from chat. Examples: "Give yourself a sci-fi
+weather service", "Create a fantasy map too", "Make the tactical map my default", "Improve my weather service".
+
+* The 14-step workflow runs in an isolated workspace: understand, check existing capabilities, consult development
+  memory, research, plan, list modules, implement, build-check, test in a headless browser, inspect a screenshot,
+  fix (bounded), integrate, install, report.
+* Capabilities live in a versioned registry: installed, verified, enabled, active and default are separate facts;
+  rollback, version switching, uninstall to a recovery folder, and history are supported.
+* An experience runtime in the shell: rail entries, a Capabilities view with previews, an experience host, and chat
+  actions ("which one?", progress, open).
+* Weather comes from Open-Meteo. Maps use real offline geography (Natural Earth and GeoNames) plus OpenStreetMap
+  tiles when reachable.
+* Acceptance tests A–H were run in the real window, including a restart. They pass with a local Open-Meteo stand-in,
+  and again with the real (here blocked) providers plus the real Qwen3-0.6B, which honestly shows "unavailable" and
+  records the gaps as limitations.
+* Generation is composition on a shared, tested kit; the model proposes names and palettes, which are validated.
+  Details and limits: [docs/CAPABILITIES.md](docs/CAPABILITIES.md).
 
 ## 2026-10-31: Stage 4 completion (v1.8.2, versionCode 19)
 

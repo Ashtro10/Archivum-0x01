@@ -80,6 +80,8 @@ class ApiServer(
     val voice: ai.clu.desktop.voice.VoiceService? = null,
     /** Self-repair (index, incidents, repairs, owner decisions); null when not set up. */
     private val evolution: ai.clu.desktop.evolution.EvolutionRoutes? = null,
+    /** Capabilities CLU develops for itself: registry, development runs, experience files and their services. */
+    private val capabilities: ai.clu.desktop.capability.CapabilitySetup? = null,
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
@@ -139,6 +141,7 @@ class ApiServer(
         val method = ex.requestMethod.uppercase()
         if (!sameMachine(ex)) return Call(ex, path, method, empty).fail(403, "requests must come from this computer")
         if (method == "GET" && (path == "/" || path.startsWith("/shell/"))) return ShellAssets.serve(ex, path)
+        if (method == "GET" && capabilities?.files?.serves(path) == true) return capabilities.files.serve(ex, path)
         if (path == "/v1/health" && method == "GET") return Call(ex, path, method, empty).ok(buildJsonObject { put("ok", true); put("name", "CLU"); put("version", version) })
         if (path == "/v1/session" && method == "POST") {
             val code = readBody(ex, 4096)?.let { runCatching { CluJson.parseToJsonElement(String(it)).jsonObject["code"]?.jsonPrimitive?.contentOrNull }.getOrNull() }
@@ -156,7 +159,7 @@ class ApiServer(
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || evolution?.handle(call) == true || voiceRoutes?.handle(call) == true || setup?.handle(call) == true || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || evolution?.handle(call) == true || capabilities?.routes?.handle(call) == true || capabilities?.kit?.handle(call) == true || voiceRoutes?.handle(call) == true || setup?.handle(call) == true || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 
@@ -229,12 +232,13 @@ class ApiServer(
         val request = TurnRequest(conversationId, text, Actor.ownerInApp(), viaVoice = voice)
         val stream = c.ex.requestHeaders.getFirst("Accept")?.contains("text/event-stream") == true
         if (!stream) {
-            var done: AgentEvent.Done? = null; var error: String? = null
-            runBlocking { core.agent.respond(request).collect { e -> if (e is AgentEvent.Done) done = e; if (e is AgentEvent.Error) error = e.text } }
+            var done: AgentEvent.Done? = null; var error: String? = null; var action: JsonObject? = null
+            runBlocking { core.agent.respond(request).collect { e -> if (e is AgentEvent.Done) done = e; if (e is AgentEvent.Error) error = e.text
+                if (e is AgentEvent.ToolFinished && e.tool == ai.clu.core.capability.CapabilityCommand.TOOL) action = e.result.data as? JsonObject } }
             val d = done
             return c.ok(buildJsonObject {
                 put("text", d?.text ?: ""); put("error", d?.meta?.error?.ifEmpty { null } ?: error ?: "")
-                put("interrupted", d?.meta?.interrupted ?: false); put("messageId", d?.message?.id ?: "")
+                put("interrupted", d?.meta?.interrupted ?: false); put("messageId", d?.message?.id ?: ""); action?.let { put("action", it) }
                 putJsonArray("sources") { d?.meta?.sources?.forEach { s -> addJsonObject { put("title", s.title); put("url", s.url) } } }
             })
         }
@@ -249,6 +253,8 @@ class ApiServer(
                         is AgentEvent.Text -> event("text", buildJsonObject { put("delta", e.delta) })
                         is AgentEvent.Error -> event("error", buildJsonObject { put("text", e.text); put("kind", e.kind) })
                         is AgentEvent.ProposalCreated -> event("suggestion", buildJsonObject { put("id", e.proposal.id); put("text", e.proposal.text) })
+                        // A capability instruction's result for the window: open this experience, ask which one, show progress or a list.
+                        is AgentEvent.ToolFinished -> if (e.tool == ai.clu.core.capability.CapabilityCommand.TOOL) (e.result.data as? JsonObject)?.let { event("action", it) }
                         is AgentEvent.Done -> event("done", buildJsonObject {
                             put("text", e.text); put("error", e.meta.error); put("interrupted", e.meta.interrupted); put("messageId", e.message?.id ?: "")
                             putJsonArray("sources") { e.meta.sources.forEach { s -> addJsonObject { put("title", s.title); put("url", s.url) } } }

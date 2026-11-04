@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.put
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -452,6 +453,18 @@ class CluAgent(
             finish(req, turn, a.text, baseMeta.copy(source = "template", tools = listOf("memory.recall")), emit)
             return true
         }
+        // 3c. CAPABILITIES: instructions to develop or manage CLU's own capabilities ("give yourself a weather service",
+        // "show me my maps") go to the capability manager when this device has one; never answered as chat.
+        if (persona.isClu && req.actor.role == PersonRole.OWNER && tools.has(ai.clu.core.capability.CapabilityCommand.TOOL))
+            ai.clu.core.capability.CapabilityCommand.parse(text)?.let { c ->
+                val args = kotlinx.serialization.json.buildJsonObject { put("text", text); put("op", c.op.name); c.kind?.let { put("kind", it) }; c.style?.let { put("style", it) }
+                    c.target?.let { put("target", it) }; put("details", c.details); put("variant", c.variant); req.conversationId.let { put("conversationId", it) } }
+                emit(AgentEvent.ToolStarted(ai.clu.core.capability.CapabilityCommand.TOOL, args))
+                val r = tools.execute(ai.clu.core.capability.CapabilityCommand.TOOL, args, ctx)
+                emit(AgentEvent.ToolFinished(ai.clu.core.capability.CapabilityCommand.TOOL, r))
+                finish(req, turn, r.spoken ?: r.summary, baseMeta.copy(source = "tool", tools = listOf(ai.clu.core.capability.CapabilityCommand.TOOL)), emit)
+                return
+            }
         if (tryRecall(text)) return
         val command = IntentRouter.route(text)?.let { it.tool != "web.search" && tools.has(it.tool) } == true
         val resolved = if (persona.isClu && context != null) FollowUpResolver.resolve(text, state, req.viaVoice, now(), command) else Resolved(Resolution.Standalone(text), text)

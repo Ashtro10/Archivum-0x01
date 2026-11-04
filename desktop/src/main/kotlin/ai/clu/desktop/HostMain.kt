@@ -59,11 +59,16 @@ object Host {
         voiceRef = voice
         // Self-repair: CLU's knowledge of its own source and its repair workflow (its own database, never the owner's data).
         val evolution = ai.clu.desktop.evolution.SelfRepairSetup.open(paths, core, log, busy = { maintenance.busyReason() ?: if (core.chat.running) "CLU is answering the owner" else null })
+        // Capabilities: experiences CLU develops, verifies and installs for itself (its own database and folders in the data folder).
+        var apiRef: ApiServer? = null
+        val capabilities = runCatching { ai.clu.desktop.capability.CapabilitySetup.open(core, paths.root, { "http://127.0.0.1:${apiRef!!.port}" }, { apiRef!!.issueLaunchCode() },
+            ai.clu.desktop.evolution.InferenceRepairModel(core), log) }.onFailure { log("capabilities unavailable: ${it.message}") }.getOrNull()
+        capabilities?.let { core.toolRegistry.register(it.tool) }
         val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
-            platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice, evolution = evolution?.routes).start()
+            platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice, evolution = evolution?.routes, capabilities = capabilities).also { apiRef = it }.start()
         voice.applyPhoneAccess()?.let { log("voice: $it") }
         return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog, voice) {
-            runCatching { voice.shutdown() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); runCatching { evolution?.close() }; core.shutdown(); db.close()
+            runCatching { voice.shutdown() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); runCatching { evolution?.close() }; capabilities?.close(); core.shutdown(); db.close()
         }
     }
 }

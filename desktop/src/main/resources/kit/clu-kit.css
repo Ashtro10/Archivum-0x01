@@ -1,0 +1,57 @@
+/* CLU experience kit: base layout shared by every experience. Each experience's theme.css sets the variables. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body.clu-exp { display: flex; flex-direction: column; min-height: 100%; font-size: 14px; line-height: 1.4; }
+.exp-head { display: flex; align-items: center; gap: 16px; padding: 12px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.exp-title { display: flex; align-items: center; gap: 10px; }
+.exp-title h1 { margin: 0; font-size: 20px; color: var(--accent); }
+.exp-mark { width: 16px; height: 16px; display: inline-block; background: var(--accent); transform: rotate(45deg); }
+.exp-tagline { margin: 0; color: var(--dim); flex: 1; min-width: 200px; }
+.exp-status { font-size: 12px; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--corner); color: var(--dim); }
+.exp-status.ok { color: var(--accent); border-color: var(--accent); }
+.exp-status.warn { color: var(--warn); border-color: var(--warn); }
+.exp-body { flex: 1; display: grid; gap: 14px; padding: 14px 18px; align-content: start; }
+.layout-weather { grid-template-columns: minmax(220px, 1fr) minmax(260px, 2fr); }
+.layout-weather .wx-hourly, .layout-weather .wx-daily, .layout-weather .wx-sun { grid-column: 1 / -1; }
+.layout-map { grid-template-columns: minmax(300px, 3fr) minmax(200px, 1fr); }
+.layout-dashboard { grid-template-columns: minmax(300px, 3fr) minmax(240px, 2fr); }
+.layout-dashboard .map-side { display: none; }
+.layout-dashboard .wx-hourly, .layout-dashboard .wx-daily { grid-column: 2; }
+.panel { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: var(--corner); padding: 12px 14px; min-width: 0; }
+.panel h2 { margin: 0 0 8px; font-size: 13px; color: var(--accent); }
+.panel h3 { margin: 12px 0 6px; font-size: 12px; color: var(--dim); }
+.search { display: flex; gap: 6px; }
+.search input { flex: 1; min-width: 0; padding: 7px 9px; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: var(--corner); font: inherit; }
+button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--accent); border-radius: var(--corner); padding: 6px 10px; cursor: pointer; }
+button:hover, button.on { background: var(--accent); color: var(--bg); }
+.results { list-style: none; margin: 8px 0 0; padding: 0; max-height: 220px; overflow: auto; }
+.results li { padding: 5px 6px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.results li:hover { color: var(--accent); }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; }
+.chips li { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+.wx-place { color: var(--dim); }
+.wx-main { display: flex; align-items: baseline; gap: 14px; margin: 6px 0; }
+.wx-temp { font-size: 54px; font-weight: 600; color: var(--ink); }
+.wx-desc { font-size: 18px; color: var(--accent2); }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0; }
+.facts dt { color: var(--dim); } .facts dd { margin: 0; }
+.note { color: var(--dim); font-size: 12px; margin: 6px 0 0; }
+.note.warn { color: var(--warn); }
+.units { display: flex; gap: 4px; }
+.strip, .days { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0; overflow-x: auto; }
+.strip li, .days li { flex: 0 0 auto; min-width: 70px; text-align: center; border: 1px solid var(--border); border-radius: var(--corner); padding: 6px; }
+.days li { min-width: 120px; }
+.strip .t, .days .t { color: var(--dim); font-size: 12px; } .strip .v, .days .v { font-size: 16px; }
+.map-panel { padding: 0; overflow: hidden; min-height: 420px; }
+.layout-map .map-panel, .layout-map .map-side { min-height: max(420px, calc(100vh - 150px)); }
+.layout-dashboard .map-panel { min-height: max(420px, calc(100vh - 150px)); grid-row: span 4; }
+.map-wrap { position: absolute; inset: 0; }
+#mapCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#mapCanvas:active { cursor: grabbing; }
+.map-hud { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 10px; font-size: 12px; padding: 3px 8px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--corner); }
+.map-controls { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.map-controls button { width: 32px; height: 32px; padding: 0; background: var(--panel); }
+.toggle { display: flex; gap: 6px; align-items: center; margin-top: 12px; }
+.exp-foot { display: flex; padding: 8px 18px; border-top: 1px solid var(--border); color: var(--dim); font-size: 12px; }
+.spacer { flex: 1; }
+@media (max-width: 760px) { .layout-weather, .layout-map, .layout-dashboard { grid-template-columns: 1fr; } .layout-dashboard .wx-hourly, .layout-dashboard .wx-daily { grid-column: 1; } }

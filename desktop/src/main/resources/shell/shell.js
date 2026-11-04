@@ -26,6 +26,7 @@
     $("app").classList.remove("hidden");
     CluFace.attach($("face"));
     initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initVoice(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
+    CluCapabilities.init(api, (t) => { show("chat"); $("input").value = t; send(); }, show); loaders.capabilities = CluCapabilities.refresh;
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
     setInterval(() => { if (!document.hidden && busyTasks > 0) refreshStatus(); }, 3000); // a task is running or waiting for you: keep the badge current
     // While this window is open it tells CLU so (CLU treats a window that stops answering as closed: it goes to the tray or quits, as chosen in Settings).
@@ -132,6 +133,7 @@
     const reply = bubble("assistant", ""); const body = reply.querySelector(".body");
     $("messages").append(reply); scrollChat();
     streaming = true; $("stop").classList.remove("hidden"); $("send").disabled = true; setPresence("thinking", "Thinking…");
+    let action = null;
     try {
       const r = await fetch(`/v1/conversations/${conversation}/turns`, { method: "POST",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", Accept: "text/event-stream" }, body: JSON.stringify({ text }) });
@@ -147,6 +149,7 @@
           if (name === "status") $("presenceState").textContent = data.text;
           else if (name === "text") { if (CluFace.state !== "speaking") setPresence("speaking", "Answering"); body.textContent += data.delta; CluFace.pulse(); scrollChat(); }
           else if (name === "suggestion") refreshStatus();
+          else if (name === "action") action = data;
           else if (name === "error") { reply.classList.add("error"); reply.append(el("span", "meta", data.text)); }
           else if (name === "done") {
             body.textContent = data.text || body.textContent;
@@ -156,7 +159,8 @@
         }
       }
     } catch (e) { reply.classList.add("error"); reply.append(el("span", "meta", "Couldn't reach CLU: " + e.message)); }
-    if (!reply.querySelector("select.feedback") && body.textContent && !reply.classList.contains("error")) addFeedback(reply);
+    if (action) CluCapabilities.handle(action, reply); // a capability instruction: progress, "which one?", open, list
+    else if (!reply.querySelector("select.feedback") && body.textContent && !reply.classList.contains("error")) addFeedback(reply);
     streaming = false; $("stop").classList.add("hidden"); $("send").disabled = false; setPresence("idle", "Ready"); scrollChat();
     listConversations();
   }

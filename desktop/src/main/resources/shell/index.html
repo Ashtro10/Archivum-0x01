@@ -38,6 +38,8 @@
     <button class="nav" data-view="timeline">Timeline</button>
     <button class="nav" data-view="documents">Documents</button>
     <button class="nav" data-view="suggestions">Suggestions <span class="badge hidden" id="suggestionCount"></span></button>
+    <button class="nav" data-view="capabilities">Capabilities</button>
+    <div id="capNav" class="cap-nav" aria-label="Your experiences"></div>
     <div class="spacer"></div>
     <button class="nav" data-view="agents">Agents <span class="badge hidden" id="approvalCount"></span></button>
     <button class="nav" data-view="models">Models</button>
@@ -338,6 +340,23 @@
       <div class="card"><h3>Recent requests (timings)</h3><p class="muted">Each turn, typed or spoken: how it was routed, memory lookup, every model call (queue, prompt reading, tokens) and when the first words appeared. No conversation text is shown here.</p><div id="requestTrace"></div></div>
     </section>
 
+    <section id="view-capabilities" class="view hidden">
+      <div class="toolbar">
+        <form id="capAsk" class="cap-ask"><input id="capAskText" type="text" placeholder="Ask CLU to build something, e.g. “Give yourself a sci-fi weather service”" aria-label="Development request"><button class="small primary" type="submit">Ask</button></form>
+        <button id="capRefresh" class="small" type="button">Refresh</button>
+      </div>
+      <p id="capEmpty" class="muted hidden">CLU hasn't built any capabilities for itself yet. Ask it in chat, for example “Give yourself a tactical map HUD”.</p>
+      <ul id="capList" class="cap-cards"></ul>
+      <div id="capDetail" class="card hidden"></div>
+      <div class="card"><h3>Development history</h3><ul id="capRuns" class="cards compact"></ul></div>
+      <div class="card"><h3>Development models</h3><div id="capModels"></div></div>
+    </section>
+
+    <section id="view-experience" class="view hidden exp-host">
+      <div class="toolbar"><button id="capBack" class="small" type="button">← Capabilities</button><span id="expTitle" class="muted"></span><span class="spacer"></span><button id="expDefault" class="small" type="button">Make default</button></div>
+      <iframe id="expFrame" class="exp-frame" sandbox="allow-scripts allow-same-origin allow-forms" referrerpolicy="no-referrer" title="Experience"></iframe>
+    </section>
+
     <section id="view-settings" class="view hidden">
       <form id="hostForm" class="card form">
         <h3>This PC</h3>
@@ -405,6 +424,7 @@
 <script src="/shell/agents.js"></script>
 <script src="/shell/livekit-client.js"></script>
 <script src="/shell/voice.js"></script>
+<script src="/shell/capabilities.js"></script>
 <script src="/shell/shell.js"></script>
 </body>
 </html>

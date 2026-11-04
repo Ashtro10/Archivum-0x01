@@ -1,0 +1,12 @@
+Data bundled with CLU's experience kit
+
+world.json      Country outlines from Natural Earth (public domain), via the world-atlas package 2.0.2
+                (countries-50m, ISC licence, see LICENSE-world-atlas.txt), simplified by CLU
+                (scratch conversion: topology decoded to rings, points closer than 0.15 degrees dropped).
+gazetteer.json  Cities with at least 150,000 people plus national capitals (3,018 places) from GeoNames
+                (CC BY 4.0, https://www.geonames.org), via the all-the-cities package 3.1.0
+                (MIT licence, see LICENSE-all-the-cities.txt).
+
+Online sources used through CLU when reachable: Open-Meteo (weather, CC BY 4.0, free without a key) and
+OpenStreetMap tiles (© OpenStreetMap contributors, used under the OSMF tile usage policy: identified, cached,
+no bulk downloading).

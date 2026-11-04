@@ -30,6 +30,9 @@ class ExperienceVerifier(private val browsers: () -> List<File> = { candidates()
         val passed get() = checks.isNotEmpty() && checks.all { it.ok }
     }
 
+    /** The page's DOM after it ran (used by the model benchmark to run tests in a real browser). */
+    fun dumpDom(url: String): String? = browser()?.let { run(it, listOf("--allow-file-access-from-files", "--dump-dom", url), 60) }
+
     fun verify(pageUrl: String, code: () -> String, shot: File, bp: Blueprint): Result {
         val exe = browser() ?: return Result(listOf(Verification.Check("browser available", false,
             "no Chromium-based browser that renders headless was found (tried ${browsers().joinToString { it.name }.ifEmpty { "none" }}; set -Dclu.browser=<path to msedge/chrome>)")), emptyList(), null, "")
@@ -70,6 +73,14 @@ class ExperienceVerifier(private val browsers: () -> List<File> = { candidates()
         fun share(color: String, tol: Int = 40) = samples.count { near(it, hex(color), tol) }.toDouble() / samples.size
         val out = mutableListOf<Verification.Check>()
         out += Verification.Check("screenshot: not blank", sd > 12, "brightness spread %.1f".format(sd))
+        if (bp.kind == "app") {
+            // An application CLU wrote has no curated theme: content must stand out from the page's dominant colour.
+            val dominant = samples.groupingBy { (it shr 16 and 0xf0) shl 16 or ((it shr 8 and 0xf0) shl 8) or (it and 0xf0) }.eachCount().maxByOrNull { it.value }!!.key
+            fun d(a: Int, b: Int) = abs((a shr 16 and 255) - (b shr 16 and 255)) + abs((a shr 8 and 255) - (b shr 8 and 255)) + abs((a and 255) - (b and 255))
+            val fg = samples.count { d(it, dominant) > 120 }.toDouble() / samples.size
+            out += Verification.Check("screenshot: content stands out from the background", fg > 0.003, "%.1f%% of the screen".format(fg * 100))
+            return out.map { if (it.name == "screenshot: not blank") it.copy(ok = sd > 5, detail = it.detail + " (applications: more than 5)") else it }
+        }
         // Share of the screen in the theme's own background colours (each pixel counted once).
         val themed = samples.count { near(it, hex(bp.design.bg), 50) || near(it, hex(bp.design.panel), 50) }.toDouble() / samples.size
         out += Verification.Check("screenshot: the ${Styles.title(bp.style)} look is what is on screen", themed > 0.25, "%.0f%% of the screen in the theme's background colours".format(themed * 100))

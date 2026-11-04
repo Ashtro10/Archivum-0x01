@@ -1,0 +1,9 @@
+body { margin: 0; background: #02040a; color: #cfe6ff; font: 14px system-ui, sans-serif; }
+.gx { display: grid; grid-template-rows: auto 1fr auto auto; height: 100vh; }
+.gx-top { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #1d3550; }
+.gx-back { background: transparent; color: #7cf; border: 1px solid #7cf; border-radius: 6px; padding: 4px 10px; }
+.gx-path { color: #9ab; } .gx-scene { width: 100%; height: 100%; min-height: 360px; display: block; }
+.gx-msg { color: #ffb347; margin: 4px 14px; min-height: 1em; }
+.gx-list { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; margin: 0; }
+.gx-list li { border: 1px solid #1d3550; border-radius: 12px; padding: 3px 10px; cursor: pointer; }
+.gx-search { margin-left: auto; background: #071425; color: #cfe6ff; border: 1px solid #1d3550; border-radius: 6px; padding: 4px 8px; }

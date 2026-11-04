@@ -33,7 +33,12 @@ class DevModels(private val core: CluCore, private val store: CapabilityStore, p
         return Candidate("remote:$model", RemoteDevModel(http, url, model, secret), true)
     }
 
-    fun candidates(): List<Candidate> = listOfNotNull(local?.let { Candidate("local:" + it.description, it, false) }, remote())
+    /** Replaces the local model (tests and embedding hosts); null uses CLU's own model. */
+    @Volatile var localOverride: DevModel? = null
+
+    /** The local candidate exists only when a model is actually selected (or one is supplied); offering an unloaded model wastes attempts. */
+    private fun localUsable() = localOverride != null || (local != null && core.models.get(core.settings.string(ai.clu.core.config.Settings.MODEL_ACTIVE)) != null)
+    fun candidates(): List<Candidate> = listOfNotNull((localOverride ?: local)?.takeIf { localUsable() }?.let { Candidate("local:" + it.description, it, false) }, remote())
 
     /** The best candidate for [task] by measured validation rate (a model with no record yet is tried; ties go to the local one). */
     fun choose(task: String): Candidate? = candidates().maxWithOrNull(compareBy<Candidate>({ c ->

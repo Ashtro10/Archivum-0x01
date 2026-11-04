@@ -1,0 +1,25 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #02040a;
+    color: white;
+}
+
+canvas {
+    display: block;
+    margin: 20px auto;
+}
+
+.status {
+    margin-top: 10px;
+    font-size: 18px;
+}
+
+.path {
+    margin-top: 20px;
+    font-size: 16px;
+}
+
+.message {
+    margin-top: 30px;
+    font-size: 14px;
+}

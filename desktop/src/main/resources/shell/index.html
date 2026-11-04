@@ -349,7 +349,12 @@
       <ul id="capList" class="cap-cards"></ul>
       <div id="capDetail" class="card hidden"></div>
       <div class="card"><h3>Development history</h3><ul id="capRuns" class="cards compact"></ul></div>
-      <div class="card"><h3>Development models</h3><div id="capModels"></div></div>
+      <div class="card"><h3>Development models</h3><div id="capModels"></div><button id="capBench" class="small" type="button">Measure models on coding tasks</button></div>
+      <div class="card"><h3>Permissions and budget</h3>
+        <p class="muted">Folders CLU's applications may read (one per line). An application gets one only if it needs files; nothing else on this computer is reachable.</p>
+        <textarea id="capRoots" rows="3" aria-label="Permitted folders"></textarea>
+        <div class="toolbar"><label>Attempts per development <input id="capAttempts" type="number" min="1" max="20"></label><label>Minutes <input id="capMinutes" type="number" min="1" max="240"></label>
+          <button id="capSavePerms" class="small primary" type="button">Save</button><span id="capPermsNote" class="muted"></span></div></div>
     </section>
 
     <section id="view-experience" class="view hidden exp-host">

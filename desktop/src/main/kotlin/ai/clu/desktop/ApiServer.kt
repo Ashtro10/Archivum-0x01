@@ -81,7 +81,7 @@ class ApiServer(
     /** Self-repair (index, incidents, repairs, owner decisions); null when not set up. */
     private val evolution: ai.clu.desktop.evolution.EvolutionRoutes? = null,
     /** Capabilities CLU develops for itself: registry, development runs, experience files and their services. */
-    private val capabilities: ai.clu.desktop.capability.CapabilitySetup? = null,
+    val capabilities: ai.clu.desktop.capability.CapabilitySetup? = null,
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
@@ -159,7 +159,7 @@ class ApiServer(
             if (bytes.isEmpty()) empty else runCatching { CluJson.parseToJsonElement(String(bytes)).jsonObject }.getOrNull() ?: return Call(ex, path, method, empty).fail(400, "body must be a JSON object")
         } else empty
         val call = Call(ex, path, method, body)
-        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || evolution?.handle(call) == true || capabilities?.routes?.handle(call) == true || capabilities?.kit?.handle(call) == true || voiceRoutes?.handle(call) == true || setup?.handle(call) == true || settings.handle(call)) return
+        if (coreRoute(call) || archive.handle(call) || memory.handle(call) || models.handle(call) || agents.handle(call) || evolution?.handle(call) == true || capabilities?.routes?.handle(call) == true || capabilities?.kit?.handle(call) == true || capabilities?.apps?.handle(call) == true || voiceRoutes?.handle(call) == true || setup?.handle(call) == true || settings.handle(call)) return
         call.fail(404, "no such endpoint")
     }
 

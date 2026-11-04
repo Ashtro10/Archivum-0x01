@@ -17,6 +17,27 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-04: General software authoring (desktop)
+
+Requests for applications no kit family covers now go to an authoring engine instead of being declined.
+* **The engine:**
+  * The development model writes `app.html`, `app.css` and `app.js`.
+  * CLU checks them, runs them in a headless browser against requirement checks, and sends the real failures back for
+    revision, within a budget (default 5 attempts / 45 minutes) that can be paused and resumed.
+  * Only a version that passes is installed: versioned, with scoped read-only file access to an owner-permitted
+    folder.
+  * Models are chosen per role by measured results.
+  * Core upgrades are routed to self-repair (owner approval).
+* **Results here:**
+  * The engine was verified with a scripted model: a revision from real failures, install, modification, restart,
+    pause/resume.
+  * The only real local models measure Qwen3-0.6B 1/6 and SmolLM2-135M 0/6 on browser-tested coding tasks. Remote
+    models are blocked by the network.
+  * The galaxy file explorer acceptance with Qwen3-0.6B **failed honestly**: nothing installed, the model's code kept
+    as evidence.
+  * A false "I've added search" claim found in the first acceptance run is fixed.
+* **Details:** [docs/SOFTWARE_AUTHORING.md](docs/SOFTWARE_AUTHORING.md).
+
 ## 2026-11-04: Capability development and management from conversation (desktop)
 
 CLU now develops, verifies, installs and manages its own capabilities from chat. Examples: "Give yourself a sci-fi

@@ -36,6 +36,22 @@ class CapabilityCommandTest {
         p("Uninstall the fantasy map")!!.let { assertEquals(CapabilityOp.UNINSTALL, it.op) }
     }
 
+    @Test fun generalApplicationsAndCoreUpgradesAreRecognised() {
+        p("Give yourself a futuristic file explorer with a three-dimensional galaxy interface")!!.let { assertEquals(CapabilityOp.CREATE, it.op); assertEquals("futuristic file explorer", it.kind) }
+        p("Show me all the applications you have developed")!!.let { assertEquals(CapabilityOp.LIST, it.op); assertNull(it.kind) }
+        // Recognised even when nothing by that name exists, so CLU answers truthfully instead of the model claiming work it never did.
+        p("Add a search function to your galaxy file explorer")!!.let { assertEquals(CapabilityOp.IMPROVE, it.op); assertEquals("galaxy file explorer", it.target) }
+        CapabilityCommand.installedNames = { listOf("Futuristic File Explorer", "Sci-Fi Weather") }
+        try {
+            p("Add a search function to your galaxy file explorer")!!.let { assertEquals(CapabilityOp.IMPROVE, it.op); assertEquals("a search function", it.details) }
+            p("Open the futuristic file explorer")!!.let { assertEquals(CapabilityOp.OPEN, it.op) }
+            p("Improve the file explorer you created last week")!!.let { assertEquals(CapabilityOp.IMPROVE, it.op) }
+        } finally { CapabilityCommand.installedNames = { emptyList() } }
+        p("Improve your memory retrieval")!!.let { assertEquals(CapabilityOp.UPGRADE_CORE, it.op); assertEquals("memory", it.kind) }
+        p("Add a new model provider to yourself")!!.let { assertEquals(CapabilityOp.UPGRADE_CORE, it.op) }
+        p("Improve your conversation handling")!!.let { assertEquals(CapabilityOp.UPGRADE_CORE, it.op) }
+    }
+
     @Test fun ordinaryConversationIsLeftAlone() {
         listOf("What's the weather in London?", "Show London on the map", "Make me a sandwich", "Build a bridge between the ideas", "Open YouTube",
             "Create a note that the dentist is on Friday", "How do maps work?", "Improve my essay", "Remember that my map of Goa is in the drawer", "Make sure you call me at 9")

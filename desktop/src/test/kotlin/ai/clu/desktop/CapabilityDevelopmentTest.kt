@@ -138,7 +138,8 @@ class CapabilityDevelopmentTest {
     @Test fun unknownFamiliesAndDuplicatesAreHandledHonestly() {
         start()
         val todo = say("Build yourself a pomodoro timer app")
-        assertEquals("declined", todo.s("state")); assertTrue(todo.s("message").contains("can't build a pomodoro timer yet"), todo.s("message"))
+        // Not a kit family: it goes to general authoring, which needs a development model; none is selected here, and CLU says so.
+        assertEquals("failed", todo.s("state")); assertTrue(todo.s("message").contains("no development model"), todo.s("message"))
         assertEquals(0, CluJson.parseToJsonElement(req("/v1/capabilities").body()).jsonArray.size)
         val dash = say("Build a dashboard that combines your weather and map services")
         assertEquals("declined", dash.s("state")); assertTrue(dash.s("message").contains("don't have yet"), dash.s("message"))

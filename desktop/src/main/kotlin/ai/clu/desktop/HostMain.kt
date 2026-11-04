@@ -64,6 +64,10 @@ object Host {
         val capabilities = runCatching { ai.clu.desktop.capability.CapabilitySetup.open(core, paths.root, { "http://127.0.0.1:${apiRef!!.port}" }, { apiRef!!.issueLaunchCode() },
             ai.clu.desktop.evolution.InferenceRepairModel(core), log) }.onFailure { log("capabilities unavailable: ${it.message}") }.getOrNull()
         capabilities?.let { core.toolRegistry.register(it.tool) }
+        evolution?.let { evo -> capabilities?.manager?.core = object : ai.clu.desktop.capability.CoreUpgrades {
+            override fun repository() = evo.service.repoRoot()?.path
+            override fun relevantFiles(goal: String) = evo.service.knowledge.relevantFiles(goal, 5).map { it.first }
+        } }
         val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
             platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice, evolution = evolution?.routes, capabilities = capabilities).also { apiRef = it }.start()
         voice.applyPhoneAccess()?.let { log("voice: $it") }

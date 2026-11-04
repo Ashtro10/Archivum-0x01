@@ -100,7 +100,7 @@ class CapabilityUnitTest {
             val c = models.choose("design-json")!!; assertTrue(c.remote)
             assertEquals("""{"name":"Tidewatch"}""", runBlocking { c.model.complete("s", "u", 10, 0f, 1, null, false) }); assertEquals(1, calls)
             // Measured results decide, not size: a local model that keeps failing loses to one that passes.
-            val both = DevModels(host.core, store, http, Scripted("x")) { "key" }
+            val both = DevModels(host.core, store, http, null) { "key" }.apply { localOverride = Scripted("x") }
             repeat(3) { store.recordModel(both.candidates().first { !it.remote }.id, "design-json", false, 100) }
             store.recordModel(both.candidates().first { it.remote }.id, "design-json", true, 900)
             assertTrue(both.choose("design-json")!!.remote)
@@ -130,6 +130,15 @@ class CapabilityUnitTest {
             assertEquals("CA", kit.places("London, CA").first().country); assertEquals("Tokyo", kit.near(35.68, 139.69)!!.name)
             assertTrue(kit.places("x").isEmpty())
         } finally { host.stop() }
+    }
+
+    @Test fun mechanicalMistakesAreFixedSoTheModelsLogicGetsTested() {
+        val (fixed, notes) = AppScaffold.autofix(mapOf("app.html" to "<div id=\"x\" onclick=\"go()\">hi</div>\n<script>\nfunction go() {}\n</script>", "app.js" to "window.CluApp = { mount: async function (kit) {} };", "app.css" to ""))
+        assertEquals(2, notes.size, notes.toString())
+        assertFalse(fixed["app.html"]!!.contains("<script") || fixed["app.html"]!!.contains("onclick"))
+        assertTrue(fixed["app.js"]!!.contains("function go()") && fixed["app.js"]!!.contains("CluApp"))
+        assertTrue(AppScaffold.check(fixed).isEmpty(), AppScaffold.check(fixed).toString())
+        assertEquals(emptyList(), AppScaffold.autofix(mapOf("app.html" to "<p>ok</p>", "app.js" to "x")).second)
     }
 
     @Test fun theRegistryKeepsVersionsHistoryAndPreferences() {

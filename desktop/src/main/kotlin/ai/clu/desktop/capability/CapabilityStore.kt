@@ -42,7 +42,7 @@ data class DevRun(
     val errors: List<String>, val fixes: List<String>, val verification: Verification?, val version: Int, val limitations: List<String>,
     val startedAt: Long, val finishedAt: Long, val conversationId: String?, val message: String,
 ) {
-    companion object { const val RUNNING = "running"; const val INSTALLED = "installed"; const val FAILED = "failed"; const val DECLINED = "declined" }
+    companion object { const val RUNNING = "running"; const val INSTALLED = "installed"; const val FAILED = "failed"; const val DECLINED = "declined"; const val PAUSED = "paused" }
 }
 
 data class DevStep(val runId: String, val at: Long, val step: String, val status: String, val detail: String)
@@ -69,8 +69,8 @@ class CapabilityStore(val db: SqlDriver, private val now: () -> Long = System::c
         db.query("SELECT $CAP_COLS FROM capabilities ${if (includeUninstalled) "" else "WHERE uninstalled = 0"} ORDER BY kind, created_at", emptyList(), ::cap)
     fun get(id: String): Capability? = db.query("SELECT $CAP_COLS FROM capabilities WHERE id = ?", listOf(id), ::cap).firstOrNull()
 
-    fun create(kind: String, style: String, name: String, description: String, category: String, dependencies: List<String>, interfaces: List<String>): Capability {
-        val base = (kind + "-" + style).lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').take(40)
+    fun create(kind: String, style: String, name: String, description: String, category: String, dependencies: List<String>, interfaces: List<String>, wanted: String? = null): Capability {
+        val base = (wanted ?: (kind + "-" + style)).lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').take(40)
         var id = base; var n = 2
         while (get(id) != null) id = "$base-${n++}"
         val t = now()

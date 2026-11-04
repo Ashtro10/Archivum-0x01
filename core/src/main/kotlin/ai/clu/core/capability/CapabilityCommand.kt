@@ -3,7 +3,9 @@ package ai.clu.core.capability
 import ai.clu.core.agent.IntentRouter
 
 /** What the owner asked CLU to do with one of its own capabilities. */
-enum class CapabilityOp { CREATE, IMPROVE, LIST, OPEN, SET_DEFAULT, ENABLE, DISABLE, ROLLBACK, UNINSTALL, INSPECT }
+enum class CapabilityOp { CREATE, IMPROVE, LIST, OPEN, SET_DEFAULT, ENABLE, DISABLE, ROLLBACK, UNINSTALL, INSPECT,
+    /** A change to CLU's own source (memory, voice, conversation, navigation…): goes to self-repair, never to the plugin path. */
+    UPGRADE_CORE }
 
 /**
  * A development or management instruction about CLU's own capabilities ("Give yourself a sci-fi weather service",
@@ -32,7 +34,7 @@ data class CapabilityCommand(
         )
         /** Words that make a phrase a software capability even when the family is not one CLU knows. */
         private val SOFTWARE = r("\\b(?:service|app|application|interface|experience|viewer|hud|ui|tool|widget|screen|module|capabilit(?:y|ies)|feature)s?\\b")
-        private val GENERIC_PLURAL = r("\\b(?:capabilities|experiences|features|apps|services|interfaces|modules|things\\s+you(?:'ve|\\s+have)\\s+(?:built|made|created))\\b")
+        private val GENERIC_PLURAL = r("\\b(?:capabilities|experiences|features|apps|applications|programs|tools|services|interfaces|modules|things\\s+you(?:'ve|\\s+have)\\s+(?:built|made|created|developed))\\b")
 
         /** Presentation styles CLU knows, by key. Unknown style words are kept as given. */
         private val STYLES = listOf(
@@ -66,7 +68,15 @@ data class CapabilityCommand(
         private fun plural(phrase: String) = r("\\b(?:maps|atlases|dashboards|forecasts|weathers?\\s+(?:services|apps|interfaces|experiences))\\b").containsMatchIn(phrase) ||
             GENERIC_PLURAL.containsMatchIn(phrase) || r("\\ball\\b").containsMatchIn(phrase) || r("\\b(?:map|weather|dashboard)\\s+(?:experiences|interfaces|variants|versions|views|services|apps)\\b").containsMatchIn(phrase)
 
-        private fun known(phrase: String) = kindOf(phrase) != null
+        /** Names of the capabilities installed on this device (set by the host), so "open the galaxy file explorer" is recognised. */
+        @Volatile var installedNames: () -> List<String> = { emptyList() }
+        private val NAME_STOP = setOf("the", "my", "your", "and", "for", "with", "app", "application", "service", "interface", "experience", "viewer", "tool")
+        private fun words(s: String) = s.lowercase().split(Regex("[^\\p{L}0-9]+")).filter { it.length > 2 && it !in NAME_STOP }.toSet()
+        fun namesInstalled(phrase: String): Boolean { val w = words(phrase); return w.isNotEmpty() && installedNames().any { n -> words(n).let { nw -> nw.isNotEmpty() && (w intersect nw).size >= minOf(2, nw.size) } } }
+        private fun known(phrase: String) = kindOf(phrase) != null || namesInstalled(phrase)
+        /** Something software-like the owner says CLU has ("your galaxy file explorer"): handled as an instruction even when no such capability exists, so CLU can say so instead of a chat reply claiming work it never did. */
+        private val APP_NOUN = r("\\b(?:app|application|explorer|editor|browser|timer|tracker|dashboard|viewer|player|monitor|manager|calculator|planner|graph|hud|interface|tool|widget|service|engine|map|game|visuali[sz]er|organi[sz]er|finder|search\\s+engine)s?\\b")
+        private fun softwareRef(phrase: String) = known(phrase) || APP_NOUN.containsMatchIn(phrase)
 
         private fun cmd(op: CapabilityOp, phrase: String, text: String, details: String = "", target: String? = phrase, kind: String? = kindOf(phrase)) =
             CapabilityCommand(op, kind, styleOf(phrase), target?.trim()?.trimEnd('.', '?', '!')?.ifBlank { null }, details.trim(), VARIANT.containsMatchIn(text), text)
@@ -84,6 +94,13 @@ data class CapabilityCommand(
                 val phrase = m.groupValues[1] + " " + m.groupValues[2]
                 if (known(phrase)) return cmd(CapabilityOp.SET_DEFAULT, m.groupValues[2], raw, kind = kindOf(phrase)) }
 
+            // --- core upgrades: "improve your memory retrieval", "add a new model provider to yourself"
+            val subsystem = "(memory|memories|voice|speech|conversation|conversations|chat|navigation|reasoning|thinking|development\\s+engine|coding|self-repair|model\\s+provider|inference|research|recall|retrieval|wake\\s+word|personality)"
+            r("^(?:improve|upgrade|enhance|rework|refactor|speed\\s+up|optimi[sz]e|extend|change|fix)\\s+(?:your|ur)\\s+(?:own\\s+)?$subsystem\\b(.*)$").find(t)?.takeUnless { namesInstalled(it.groupValues[1] + it.groupValues[2]) }?.let { m ->
+                return CapabilityCommand(CapabilityOp.UPGRADE_CORE, m.groupValues[1].lowercase(), null, null, (m.groupValues[1] + m.groupValues[2]).trim(), false, raw) }
+            r("^(?:add|give\\s+yourself)\\s+(?:a\\s+|an\\s+)?(?:new\\s+)?$subsystem\\b(.*?)(?:\\s+to\\s+(?:your|yourself)\\b.*)?$").find(t)?.takeIf { r("\\b(?:new|yourself|your)\\b").containsMatchIn(t) }?.let { m ->
+                return CapabilityCommand(CapabilityOp.UPGRADE_CORE, m.groupValues[1].lowercase(), null, null, t, false, raw) }
+
             // --- rollback / uninstall / enable / disable / inspect an existing capability
             r("^(?:roll\\s*back|revert|downgrade|undo\\s+the\\s+(?:last\\s+)?(?:update|change|upgrade)s?\\s+(?:to|of))\\s+(?:$DET\\s+)?(.+?)(?:\\s+to\\s+(?:the\\s+)?(?:previous|last|old|older|earlier|prior)\\s+version)?$").find(t)?.let { m ->
                 if (known(m.groupValues[1]) || SOFTWARE.containsMatchIn(m.groupValues[1])) return cmd(CapabilityOp.ROLLBACK, m.groupValues[1], raw) }
@@ -98,9 +115,9 @@ data class CapabilityCommand(
 
             // --- improve: "improve my weather service", "upgrade the tactical map with a measuring tool", "add an hourly forecast to my weather"
             r("^(?:improve|upgrade|enhance|update|refine|polish|extend|evolve)\\s+$DET\\s+(.+?)(?:\\s+(?:with|by|so\\s+that|so\\s+it|to\\s+(?:add|include|show))\\s+(.+))?$").find(t)?.let { m ->
-                if (known(m.groupValues[1])) return cmd(CapabilityOp.IMPROVE, m.groupValues[1], raw, details = m.groupValues[2]) }
-            r("^(?:add|put|include)\\s+(.+?)\\s+(?:to|in|into|on)\\s+$DET\\s+(.+)$").find(t)?.let { m ->
-                if (known(m.groupValues[2])) return cmd(CapabilityOp.IMPROVE, m.groupValues[2], raw, details = m.groupValues[1]) }
+                if (softwareRef(m.groupValues[1])) return cmd(CapabilityOp.IMPROVE, m.groupValues[1], raw, details = m.groupValues[2]) }
+            r("^(?:add|put|include|build|give)\\s+(.+?)\\s+(?:to|in|into|on|for)\\s+(?:my|your|the|our)\\s+(.+)$").find(t)?.let { m ->
+                if (softwareRef(m.groupValues[2])) return cmd(CapabilityOp.IMPROVE, m.groupValues[2], raw, details = m.groupValues[1]) }
 
             // --- list: "show me my maps", "show me all the map experiences you've created", "list your capabilities"
             r("^(?:show|list|display|give)\\s+(?:me\\s+)?(?:a\\s+list\\s+of\\s+)?(?:all\\s+)?(?:of\\s+)?(?:$DET\\s+)?(.+)$").find(t)?.let { m ->

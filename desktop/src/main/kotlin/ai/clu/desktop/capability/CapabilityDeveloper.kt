@@ -39,7 +39,25 @@ class CapabilityDeveloper(
     private val launchCode: () -> String,
     private val reply: (conversationId: String, text: String) -> Unit = { _, _ -> },
     private val log: (String) -> Unit = {},
+    /** Scoped host access for developed applications (files); null disables general application authoring. */
+    val apps: AppServices? = null,
+    /** The development model's context window in tokens (measured from the loaded model). */
+    private val contextTokens: () -> Int = { 4096 },
+    /** Measured host resources, recorded in each run's research. */
+    private val resources: () -> List<String> = { emptyList() },
 ) {
+    /** Runs the owner asked to pause; the authoring loop stops at its next checkpoint and keeps its workspace. */
+    private val pauseRequested = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    fun pause(runId: String): Boolean = (store.run(runId)?.state == DevRun.RUNNING).also { if (it) pauseRequested += runId }
+    fun resume(runId: String): Boolean {
+        val r = store.run(runId)?.takeIf { it.state == DevRun.PAUSED } ?: return false
+        store.saveRun(r.copy(state = DevRun.RUNNING, message = "Resumed"))
+        store.step(runId, "resume", "done", "resumed by the owner")
+        pool.submit { current = runId; try { execute(r, DevRequest(r.op, r.kind, r.style.ifBlank { null }, "", r.request, false, r.conversationId, r.capId), resume = true) }
+            catch (e: Throwable) { fail(runId, "internal error: ${e::class.simpleName}: ${e.message}") } finally { current = null } }
+        return true
+    }
+    val verifierRef: ExperienceVerifier get() = verifier
     val installed = File(root, "installed")
     val workspaces = File(root, "workspaces")
     val evidence = File(root, "evidence")
@@ -79,16 +97,17 @@ class CapabilityDeveloper(
         store.run(id)?.conversationId?.let { reply(it, message) }
     }
 
-    private fun execute(run: DevRun, req: DevRequest) {
+    private fun execute(run: DevRun, req: DevRequest, resume: Boolean = false) {
         val id = run.id; val n = Notes()
         fun step(name: String, status: String, detail: String = "") { store.step(id, name, status, detail); log("capability dev $id: $name $status ${detail.take(160)}") }
 
         // 1. Understand.
         val family = ExperienceCatalog.family(req.kind)
-        if (family == null) {
-            step("understand", "declined", "unknown family '${req.kind}'")
-            return finish(id, n, DevRun.DECLINED, "I can't build a ${req.kind} yet. Right now I know how to develop weather services, maps and dashboards that combine them, " +
-                "in any style you like. I've noted the request.")
+        val authoredTarget = req.targetCapId?.let { store.get(it) }?.takeIf { it.kind == "app" }
+        if (family == null || authoredTarget != null) {
+            if (apps == null) { step("understand", "declined", "general application development is not available on this host")
+                return finish(id, n, DevRun.DECLINED, "I can't develop new kinds of applications on this computer (the authoring engine is not available). Weather services, maps and dashboards still work.") }
+            return authorFlow(run, req, n, authoredTarget, resume, ::step)
         }
         val target = req.targetCapId?.let { store.get(it) }
         val improving = req.op == "IMPROVE" && target != null
@@ -257,6 +276,97 @@ class CapabilityDeveloper(
             " I checked it in a real browser: $passed checks passed, including a look at the rendered screen.$limits" +
             (if (others.isNotEmpty() && !improving) " Your ${others.joinToString { it.name }} ${if (others.size > 1) "are" else "is"} unchanged." else "") +
             " Open it from Capabilities or say \"open ${bp.name}\"."
+        finish(id, n, DevRun.INSTALLED, msg, cap.id, version, verification)
+    }
+
+    // ------------------------------------------------------------------ general application authoring
+    private fun titleOf(phrase: String) = phrase.split(Regex("\\s+")).filter { it.isNotBlank() }.take(5).joinToString(" ") { w -> w.replaceFirstChar(Char::titlecase) }
+
+    private fun authorFlow(run: DevRun, req: DevRequest, n: Notes, target: Capability?, resume: Boolean, step: (String, String, String) -> Unit): Unit {
+        val id = run.id; val apps = apps!!
+        val prev = target?.let { store.active(it.id) }
+        val prevReqs = prev?.blueprint?.features ?: emptyList()
+        // 1–2. Understand: requirements as checkable types; existing applications.
+        val reqText = listOf(req.text, req.details, prev?.blueprint?.tagline ?: "").joinToString(" ")
+        val reqs = Requirements.derive(reqText, prevReqs)
+        n.req += reqs.map { "${it.id}: ${it.text}" }
+        reqs.mapNotNull { it.permission }.distinct().forEach { n.req += "permission needed: $it (scoped, read-only)" }
+        step("understand", "done", n.req.joinToString("; "))
+        val name = target?.name ?: titleOf(req.kind.ifBlank { "application" })
+        if (target == null && !req.variant) store.all().firstOrNull { it.kind == "app" && it.name.equals(name, true) }?.let { existing ->
+            step("existing", "done", "already have ${existing.id}")
+            return finish(id, n, DevRun.DECLINED, "You already have ${existing.name} (v${existing.activeVersion}). Say \"improve ${existing.name}\" to change it, or ask for another one.", capId = existing.id) }
+        n.decisions += if (target != null) "modify ${target.name} (${target.id}) v${target.activeVersion}: new requirements ${(reqs.map { it.id } - prevReqs.toSet()).ifEmpty { listOf("none (revision)") }.joinToString()}; v${target.activeVersion} stays for rollback"
+            else "new application \"$name\" (no installed capability does this)"
+        step("existing", "done", n.decisions.last())
+        // 3. Development memory: what earlier authoring runs ran into.
+        val earlier = store.runs(100, "app").filter { it.id != id }
+        val lessons = earlier.flatMap { r -> r.errors.map { it.substringAfter(": ").take(160) } }.distinct().take(6)
+        step("memory", "done", if (earlier.isEmpty()) "no earlier application development" else "${earlier.size} earlier run(s), ${earlier.count { it.state == DevRun.INSTALLED }} installed; recurring problems: ${lessons.joinToString("; ").ifEmpty { "none" }}")
+        // 4. Research: the host and what is available to build with.
+        n.research += resources()
+        n.research += "development model context: ${contextTokens()} tokens"
+        n.research += "building blocks: CLU kit runtime" + (if (reqs.any { it.id == "scene3d" }) ", CluScene3D (3D scene on canvas, no WebGL)" else "") +
+            (if (reqs.any { it.id == "fs" }) ", scoped read-only file API (/v1/apps/{id}/fs)" else "") + "; no external libraries (CLU pages may not load other sites)"
+        val roots = apps.permittedRoots()
+        if (reqs.any { it.permission == "fs.read" }) n.research += if (roots.isEmpty()) "no folder is permitted for applications yet (Capabilities → Permitted folders)" else "permitted folder: ${roots.first().path}"
+        n.research += "verification browser: ${verifier.browser()?.name ?: "none found"}"
+        step("research", "done", n.research.joinToString("; "))
+        // 5–6. Approach and modules.
+        val capId = target?.id ?: proposeId("app", name.lowercase())
+        val version = if (target != null) store.nextVersion(target.id) else 1
+        step("plan", "done", "web application on CLU's kit runtime; the development model writes app.html, app.css and app.js; CLU checks ${reqs.sumOf { it.checks.size }} requirement check(s) in a browser; id $capId v$version")
+        step("modules", "done", "scaffold (index.html, boot.js, manifest.json, checks.json: generated the same for every application); authored by the model: app.html, app.css, app.js")
+        // 7–15. Author: write, build, run, test, inspect, revise.
+        val ws = File(workspaces, id)
+        val startFiles = when {
+            resume -> AppScaffold.OWN_FILES.mapNotNull { f -> File(ws, "out/$f").takeIf { it.isFile }?.let { f to it.readText() } }.toMap().ifEmpty { null }
+            prev != null -> AppScaffold.OWN_FILES.mapNotNull { f -> File(File(root, prev.dir), f).takeIf { it.isFile }?.let { f to it.readText() } }.toMap()
+            else -> null
+        }
+        val startAttempt = if (resume) store.steps(id).count { it.step == "implement" } else 0
+        val author = SoftwareAuthor(store, verifier, apps, models, workspaces, baseUrl, launchCode, contextTokens)
+        val o = author.author(id, capId, version, name, req.text, reqs, startFiles, startAttempt, lessons, step,
+            { kind, text -> when (kind) { "models" -> n.models += text; "errors" -> n.errors += text; "fixes" -> n.fixes += text }; save(id, n) }, { id in pauseRequested })
+        n.files.clear(); n.files += o.files.keys
+        if (o.paused) { pauseRequested -= id; step("pause", "done", "paused after ${o.attempts} attempt(s); the workspace is kept")
+            save(id, n, DevRun.PAUSED, message = "Paused after ${o.attempts} attempt(s). Resume it from Capabilities → Development history."); return }
+        val r = o.result
+        r?.screenshot?.let { s -> evidence.mkdirs(); s.copyTo(File(evidence, "$id.png"), overwrite = true) }
+        val verification = r?.let { Verification(it.passed, it.checks, it.screenshot?.let { "evidence/$id.png" }, it.browser, o.attempts, it.unverified) }
+        if (!o.passed) {
+            save(id, n, ver = verification)
+            // Keep the code the model wrote (its last version), even when it never got past the build check.
+            if (o.files.isNotEmpty()) { File(evidence, id).mkdirs(); o.files.forEach { (f, t) -> File(evidence, "$id/$f").writeText(t) } }
+            SafeDelete.tree(ws, listOf(workspaces))
+            val passedChecks = r?.checks?.count { it.ok } ?: 0
+            return finish(id, n, DevRun.FAILED, "I couldn't make ${name} work: ${o.reason}. " + (if (r != null) "The best attempt passed $passedChecks of ${r.checks.size} checks. " else "") +
+                "Nothing was installed${if (target != null) "; ${target.name} v${target.activeVersion} is unchanged" else ""}. The code I wrote and what failed are kept in the development history.", ver = verification)
+        }
+        // 16–17. Register, install, expose.
+        val dest = File(installed, "$capId/$version")
+        if (dest.exists()) SafeDelete.tree(dest, listOf(installed))
+        val bp = Blueprint("app", (req.style ?: target?.style ?: "custom").lowercase(), name, req.text, reqs.map { it.id }, Styles.derived(name))
+        AppScaffold.write(dest, capId, capId, version, name, req.text, reqs, o.files)
+        r?.screenshot?.copyTo(File(dest, "preview.png"), overwrite = true)
+        val files = dest.listFiles()!!.sortedBy { it.name }.map { CapFile(it.name, sha256(it), it.length()) }
+        val cap = target ?: store.create("app", bp.style, name, req.text, "application", emptyList(), listOf("application /x/{id}/{version}/index.html", "chat: open/improve") +
+            reqs.mapNotNull { it.permission }.map { "permission $it" }, wanted = capId).also { require(it.id == capId) { "capability id changed during development" } }
+        store.addVersion(CapVersion(cap.id, version, dest.relativeTo(root).path, files, bp, verification, true, System.currentTimeMillis(), id, n.decisions.lastOrNull() ?: ""))
+        val previous = cap.activeVersion
+        if (reqs.any { it.permission == "fs.read" } && apps.grantOf(cap.id, "fs.read") == null) roots.firstOrNull()?.let { apps.grant(cap.id, "fs.read", it.path); store.event(cap.id, "permission", "fs.read granted: ${it.path} (an owner-permitted folder)") }
+            ?: run { n.limits += "no folder is permitted yet: it can't show files until you permit one (Capabilities → Permitted folders)" }
+        r?.unverified?.forEach { n.limits += "not verified here: $it" }
+        store.update(cap.id, name = name, activeVersion = version, enabled = true, limitations = n.limits.toList(),
+            recovery = if (previous > 0) "v$previous is kept in ${File(installed, "${cap.id}/$previous").path}; \"roll back ${cap.name}\" returns to it" else "first version")
+        store.event(cap.id, if (target != null) "updated" else "installed", "v$version (run $id, ${o.attempts} attempt(s))")
+        val served = runCatching { (java.net.URI("${baseUrl()}/x/${cap.id}/$version/index.html").toURL().openConnection() as java.net.HttpURLConnection).responseCode }.getOrDefault(-1)
+        step("integrate", if (served == 200) "done" else "failed", "served at /x/${cap.id}/$version/ (HTTP $served); registered as ${cap.id}; permission fs.read: ${apps.grantOf(cap.id, "fs.read") ?: "none"}")
+        step("install", "done", "${cap.id} v$version installed and active${if (previous > 0) "; v$previous kept for rollback" else ""}")
+        SafeDelete.tree(ws, listOf(workspaces))
+        val msg = (if (target != null) "I've changed ${name}: v$version is installed (v$previous kept for rollback). " else "I've written, tested and installed ${name} (v$version). ") +
+            "The code is mine (${o.files.entries.joinToString { "${it.key} ${it.value.lines().size} lines" }}), written in ${o.attempts} attempt(s); it passed all ${r!!.checks.size} checks in a real browser." +
+            (if (n.limits.isNotEmpty()) " Note: ${n.limits.joinToString("; ")}." else "") + " Open it from Capabilities or say \"open $name\"."
         finish(id, n, DevRun.INSTALLED, msg, cap.id, version, verification)
     }
 

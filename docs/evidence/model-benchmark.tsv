@@ -1,0 +1,13 @@
+model	task	role	passed	ms	detail
+Qwen3-0.6B-Q4_K_M.gguf	create-function	code	false	12047	failed: 512; failed: 1536; failed: 2097152
+Qwen3-0.6B-Q4_K_M.gguf	implement-behaviour	code	false	7652	failed: zed,Zed,alpha,alpha,b.txt,b.txt,a.txt,a.txt
+Qwen3-0.6B-Q4_K_M.gguf	edit-existing	edit	false	1147	failed: new parameter
+Qwen3-0.6B-Q4_K_M.gguf	fix-syntax-error	debug	true	1299	
+Qwen3-0.6B-Q4_K_M.gguf	fix-failing-test	debug	false	1191	failed: count
+Qwen3-0.6B-Q4_K_M.gguf	build-interface	code	false	2234	failed: 3 items
+SmolLM2-135M-Instruct.Q4_1.gguf	create-function	code	false	9993	failed: 512; failed: 1536; failed: 2097152
+SmolLM2-135M-Instruct.Q4_1.gguf	implement-behaviour	code	false	1906	threw: Object.fromEntries(...).sort is not a function
+SmolLM2-135M-Instruct.Q4_1.gguf	edit-existing	edit	false	449	failed: new parameter
+SmolLM2-135M-Instruct.Q4_1.gguf	fix-syntax-error	debug	false	684	failed: a.b
+SmolLM2-135M-Instruct.Q4_1.gguf	fix-failing-test	debug	false	2011	error: Uncaught SyntaxError: Unexpected identifier 'as'; threw: countFiles is not defined
+SmolLM2-135M-Instruct.Q4_1.gguf	build-interface	code	false	1082	threw: render is not defined

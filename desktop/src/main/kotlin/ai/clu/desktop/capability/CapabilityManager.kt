@@ -23,7 +23,17 @@ import java.util.concurrent.ConcurrentHashMap
  * * enabled: the owner has not turned it off;
  * * active: it is open in CLU's window right now.
  */
+/** CLU's own source: where a core upgrade would happen (implemented over the self-repair engine). */
+interface CoreUpgrades {
+    /** The connected repository, or null when CLU's source is not connected. */
+    fun repository(): String?
+    /** The source files most relevant to [goal], from CLU's index of itself. */
+    fun relevantFiles(goal: String): List<String>
+}
+
 class CapabilityManager(val store: CapabilityStore, val developer: CapabilityDeveloper) {
+    /** Set by the host when self-repair is available. */
+    @Volatile var core: CoreUpgrades? = null
     private val open = ConcurrentHashMap<String, Long>()
     val root: File get() = developer.root
 
@@ -68,7 +78,11 @@ class CapabilityManager(val store: CapabilityStore, val developer: CapabilityDev
         val all = store.all().filter { includeDisabled || it.enabled }.filter { kind == null || it.kind == kind }
         if (style != null) all.filter { it.style == style }.takeIf { it.isNotEmpty() }?.let { return it }
         val words = target?.lowercase()?.split(Regex("[^a-z0-9]+"))?.filter { it.length > 2 && it !in STOP }.orEmpty()
-        if (words.isNotEmpty()) all.filter { c -> words.any { w -> c.name.lowercase().contains(w) || c.style.contains(w) } }.takeIf { it.isNotEmpty() && it.size < all.size }?.let { return it }
+        if (words.isNotEmpty()) {
+            val hits = all.filter { c -> words.any { w -> c.name.lowercase().contains(w) || c.style.contains(w) } }
+            // Specific words that name nothing installed mean "a capability I don't have", never "any capability".
+            return if (hits.isEmpty() && (kind == null || words.any { it !in FAMILY_WORDS })) emptyList() else if (hits.isEmpty() || hits.size == all.size) all else hits
+        }
         return if (style != null) emptyList() else all
     }
 
@@ -88,7 +102,7 @@ class CapabilityManager(val store: CapabilityStore, val developer: CapabilityDev
             CapabilityOp.IMPROVE -> {
                 val c = resolve(kind, style, target)
                 when {
-                    c.isEmpty() -> Answer(false, "You don't have a $noun capability to improve yet. Ask me to create one.")
+                    c.isEmpty() -> Answer(false, "I don't have ${target?.let { "a $it" } ?: "a $noun capability"} to improve${if (store.all().isNotEmpty()) " (I have ${store.all().joinToString { it.name }})" else ""}, so I haven't changed anything. Ask me to create one first.")
                     c.size > 1 && store.defaultFor(kind ?: "") == null -> choose(c, "Which one should I improve?", "Improve the %s")
                     else -> { val t = c.firstOrNull { it.id == store.defaultFor(it.kind) } ?: c.first()
                         val run = developer.start(DevRequest("IMPROVE", t.kind, t.style, details, text, false, conversationId, t.id))
@@ -140,6 +154,16 @@ class CapabilityManager(val store: CapabilityStore, val developer: CapabilityDev
                 if (!confirmed) Answer(true, "Uninstalling ${t.name} removes it from your capabilities (its files move to a recovery folder, nothing else changes). Confirm?",
                     buildJsonObject { put("action", "confirm"); put("capability", json(t)); put("op", "uninstall") })
                 else uninstall(t).let { Answer(it.first, it.second) }
+            }
+            CapabilityOp.UPGRADE_CORE -> {
+                val c = core
+                val repo = c?.repository()
+                if (c == null || repo == null) Answer(false, "That is an upgrade to my own core (${kind ?: "a subsystem"}), not an application, so it means changing my source code. My source repository isn't connected, so I can't do it here; connect it in Self-repair and ask again.")
+                else { val files = c.relevantFiles(details.ifBlank { text }).take(5)
+                    Answer(true, "That's an upgrade to my own core (${kind ?: "subsystem"}), not a new application. The relevant source is ${files.ifEmpty { listOf("(nothing found in my index)") }.joinToString()}. " +
+                        "Core changes go through my self-repair workflow: I build and test them in an isolated Git worktree, run the regression tests, show you the diff and a verification report, and merge only after you approve. " +
+                        "To start, give the goal with an acceptance test that defines \"better\" (Self-repair → Develop); a test I wrote myself couldn't judge my own change.",
+                        buildJsonObject { put("action", "core"); put("subsystem", kind ?: ""); putJsonArray("files") { files.forEach { add(it) } }; put("repository", repo) }) }
             }
             CapabilityOp.INSPECT -> {
                 val c = resolve(kind, style, target, includeDisabled = true)
@@ -260,7 +284,7 @@ class CapabilityTool(private val manager: CapabilityManager) : Tool {
  * | POST /v1/capabilities/{id}/opened, /closed | the shell reports what is open (the "active" state) |
  * | GET/POST /v1/capabilities/models | development models: availability, measured scores, remote-model consent |
  */
-class CapabilityRoutes(private val m: CapabilityManager, private val models: DevModels?) {
+class CapabilityRoutes(private val m: CapabilityManager, private val models: DevModels?, private val apps: AppServices? = null, private val bench: AuthoringBench? = null) {
     fun handle(c: Call): Boolean {
         val p = c.path
         if (!p.startsWith("/v1/capabilities")) return false
@@ -282,13 +306,42 @@ class CapabilityRoutes(private val m: CapabilityManager, private val models: Dev
                     c.body["variant"]?.jsonPrimitive?.booleanOrNull ?: cmd?.variant ?: false, c.str("conversationId"), c.str("capability")))
                 c.send(202, buildJsonObject { put("run", r.id) })
             }
+            run != null && c.method == "POST" -> c.fail(405, "use /pause or /resume")
+            Regex("^/v1/capabilities/runs/([a-z0-9]{8,32})/(pause|resume)$").find(p)?.takeIf { c.method == "POST" } != null -> {
+                val (rid, op) = Regex("^/v1/capabilities/runs/([a-z0-9]{8,32})/(pause|resume)$").find(p)!!.destructured
+                val ok = if (op == "pause") m.developer.pause(rid) else m.developer.resume(rid)
+                if (ok) c.ok(buildJsonObject { put("message", if (op == "pause") "Pausing at the next checkpoint" else "Resumed") }) else c.fail(409, "that run is not ${if (op == "pause") "running" else "paused"}")
+            }
+            p == "/v1/capabilities/permissions" && c.method == "GET" -> c.ok(buildJsonObject {
+                putJsonArray("roots") { apps?.permittedRoots()?.forEach { add(it.path) } }
+                putJsonObject("grants") { m.store.all().forEach { cap -> apps?.grantOf(cap.id, "fs.read")?.let { put(cap.id, it) } } } })
+            p == "/v1/capabilities/permissions" && c.method == "PUT" -> {
+                val roots = c.strings("roots")
+                roots.firstOrNull { !java.io.File(it).isDirectory }?.let { return true.also { c.fail(400, "$it is not a folder") } }
+                apps?.setPermittedRoots(roots); c.ok(buildJsonObject { putJsonArray("roots") { apps?.permittedRoots()?.forEach { add(it.path) } } })
+            }
+            p == "/v1/capabilities/budget" && c.method == "GET" -> c.ok(buildJsonObject { put("attempts", m.store.pref("dev.budget.attempts") ?: "5"); put("minutes", m.store.pref("dev.budget.minutes") ?: "45") })
+            p == "/v1/capabilities/budget" && c.method == "PUT" -> {
+                c.body["attempts"]?.jsonPrimitive?.intOrNull?.let { m.store.setPref("dev.budget.attempts", it.coerceIn(1, 20).toString()) }
+                c.body["minutes"]?.jsonPrimitive?.intOrNull?.let { m.store.setPref("dev.budget.minutes", it.coerceIn(1, 240).toString()) }
+                c.ok(buildJsonObject { put("attempts", m.store.pref("dev.budget.attempts") ?: "5"); put("minutes", m.store.pref("dev.budget.minutes") ?: "45") })
+            }
             p == "/v1/capabilities/runs" && c.method == "GET" -> c.ok(JsonArray(m.store.runs(100, c.query("kind")).map { m.runJson(it, steps = false) }))
             run != null && c.method == "GET" -> m.store.run(run.groupValues[1])?.let { c.ok(m.runJson(it)) } ?: c.fail(404, "no such run")
             p == "/v1/capabilities/models" && c.method == "GET" -> c.ok(buildJsonObject {
                 putJsonArray("models") { models?.availability("design-json")?.forEach { a -> addJsonObject { put("id", a.id); put("available", a.available); put("reason", a.reason); put("remote", a.remote)
                     a.score?.let { s -> put("attempts", s.attempts); put("successes", s.successes); put("avgMs", s.avgMs) } } } }
                 putJsonObject("remote") { listOf("enabled", "free", "share", "url", "model").forEach { k -> put(k, m.store.pref("dev.remote.$k") ?: "") } }
-                put("chosen", models?.choose("design-json")?.id) })
+                put("chosen", models?.choose("design-json")?.id)
+                putJsonObject("roles") { listOf("code", "edit", "debug").forEach { role -> put(role, models?.choose(role)?.id ?: "") } }
+                putJsonArray("scores") { m.store.scores().forEach { sc -> addJsonObject { put("model", sc.model); put("task", sc.task); put("attempts", sc.attempts); put("successes", sc.successes); put("avgMs", sc.avgMs) } } } })
+            p == "/v1/capabilities/models/benchmark" && c.method == "POST" -> {
+                val bench = bench ?: return true.also { c.fail(409, "benchmarking is not available") }
+                val cands = models?.candidates().orEmpty()
+                if (cands.isEmpty()) return true.also { c.fail(409, "no development model is available to measure") }
+                Thread({ cands.forEach { cand -> runCatching { bench.run(cand.id, cand.model) } } }, "clu-model-bench").apply { isDaemon = true }.start()
+                c.send(202, buildJsonObject { putJsonArray("measuring") { cands.forEach { add(it.id) } }; put("tasks", bench.tasks.size) })
+            }
             p == "/v1/capabilities/models" && c.method == "POST" -> {
                 listOf("enabled", "free", "share").forEach { k -> c.body[k]?.jsonPrimitive?.booleanOrNull?.let { m.store.setPref("dev.remote.$k", it.toString()) } }
                 c.str("url")?.let { u -> if (u.isNotBlank() && !Regex("^https://\\S+$").matches(u)) return true.also { c.fail(400, "the endpoint must be an https:// URL") }; m.store.setPref("dev.remote.url", u.ifBlank { null }) }
@@ -313,6 +366,12 @@ class CapabilityRoutes(private val m: CapabilityManager, private val models: Dev
                     "duplicate" to "POST" -> c.send(201, m.json(m.duplicate(cap)))
                     "uninstall" to "POST" -> if (c.body["confirm"]?.jsonPrimitive?.booleanOrNull != true) c.fail(428, "uninstalling needs {\"confirm\": true}")
                         else m.uninstall(cap).let { (ok, msg) -> if (ok) c.ok(buildJsonObject { put("message", msg) }) else c.fail(409, msg) }
+                    "grant" to "PUT" -> {
+                        val folder = c.str("folder")
+                        if (folder != null && apps?.permittedRoots()?.none { java.io.File(folder).canonicalPath == it.canonicalPath } != false) return true.also { c.fail(400, "only a folder listed in Permitted folders can be granted") }
+                        apps?.grant(cap.id, "fs.read", folder?.let { java.io.File(it).canonicalPath }); m.store.event(cap.id, "permission", "fs.read ${folder ?: "revoked"}")
+                        c.ok(buildJsonObject { put("fs.read", apps?.grantOf(cap.id, "fs.read") ?: "") })
+                    }
                     "opened" to "POST" -> { m.opened(cap.id); c.ok() }
                     "closed" to "POST" -> { m.closed(cap.id); c.ok() }
                     else -> c.fail(404, "no such endpoint")
@@ -325,7 +384,8 @@ class CapabilityRoutes(private val m: CapabilityManager, private val models: Dev
 }
 
 /** Creates the capability system in the data folder (its own database next to CLU's). */
-class CapabilitySetup(val manager: CapabilityManager, val routes: CapabilityRoutes, val kit: KitServices, val files: ExperienceFiles, val tool: CapabilityTool, private val db: ai.clu.core.db.SqlDriver) {
+class CapabilitySetup(val manager: CapabilityManager, val routes: CapabilityRoutes, val kit: KitServices, val files: ExperienceFiles, val tool: CapabilityTool, private val db: ai.clu.core.db.SqlDriver,
+                      val apps: AppServices, val models: DevModels) {
     fun close() = runCatching { db.close() }
 
     companion object {
@@ -337,10 +397,14 @@ class CapabilitySetup(val manager: CapabilityManager, val routes: CapabilityRout
             store.runs(50).filter { it.state == DevRun.RUNNING }.forEach { store.saveRun(it.copy(state = DevRun.FAILED, message = "Interrupted when CLU stopped; nothing was installed.", finishedAt = System.currentTimeMillis())) }
             val kit = KitServices(core, core.platform.http, File(root, "tile-cache"))
             val models = DevModels(core, store, core.platform.http, local) { core.platform.secret("dev_remote_key") }
+            val apps = AppServices(store)
+            val context = { core.llm.state.value.contextSize.takeIf { it > 0 } ?: core.settings.int(ai.clu.core.config.Settings.CONTEXT_LENGTH) }
             val dev = CapabilityDeveloper(store, kit, ExperienceVerifier(scratch = File(root, "workspaces")), models, root, baseUrl, launchCode,
-                reply = { conv, text -> runCatching { if (core.conversations.get(conv)?.deleted == false) core.conversations.addMessage(conv, ai.clu.core.conversation.Role.ASSISTANT, text) } }, log = log)
+                reply = { conv, text -> runCatching { if (core.conversations.get(conv)?.deleted == false) core.conversations.addMessage(conv, ai.clu.core.conversation.Role.ASSISTANT, text) } }, log = log,
+                apps = apps, contextTokens = context, resources = { HostResources.describe(root, kit) })
             val manager = CapabilityManager(store, dev)
-            return CapabilitySetup(manager, CapabilityRoutes(manager, models), kit, ExperienceFiles({ dev.installed }, { dev.workspaces }), CapabilityTool(manager), db)
+            ai.clu.core.capability.CapabilityCommand.installedNames = { store.all().map { it.name } }
+            return CapabilitySetup(manager, CapabilityRoutes(manager, models, apps, AuthoringBench(store, dev.verifierRef, File(root, "workspaces"))), kit, ExperienceFiles({ dev.installed }, { dev.workspaces }), CapabilityTool(manager), db, apps, models)
         }
     }
 }

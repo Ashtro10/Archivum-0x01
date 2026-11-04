@@ -82,6 +82,8 @@
     const ul = $("capRuns"); ul.replaceChildren();
     list.slice(0, 15).forEach((r) => { const li = el("li", "clickable");
       li.append(el("div", "title", `${r.request}`), el("div", "sub", `${r.state} · ${new Date(r.startedAt).toLocaleString()}${r.capability ? " · " + r.capability + (r.version ? " v" + r.version : "") : ""}`));
+      if (r.state === "running" || r.state === "paused") { const b = el("button", "small", r.state === "running" ? "Pause" : "Resume"); b.type = "button";
+        b.addEventListener("click", async (e) => { e.stopPropagation(); try { await api(`/v1/capabilities/runs/${r.id}/${r.state === "running" ? "pause" : "resume"}`, { method: "POST", json: {} }); } catch (x) { alert(x.message); } runs(); }); li.append(b); }
       li.addEventListener("click", async () => { const full = await api(`/v1/capabilities/runs/${r.id}`); const box = $("capDetail"); box.replaceChildren(); box.classList.remove("hidden");
         box.append(el("h3", null, full.request)); box.append(progress(full)); });
       ul.append(li); });
@@ -90,8 +92,17 @@
   async function models() {
     const m = await api("/v1/capabilities/models").catch(() => null); if (!m) return;
     const box = $("capModels"); box.replaceChildren();
-    (m.models || []).forEach((x) => box.append(el("div", "sub", `${x.remote ? "Remote" : "Local"}: ${x.id} — ${x.available ? "available" : "not available"} (${x.reason})${x.attempts ? ` · design proposals accepted ${x.successes}/${x.attempts}` : ""}`)));
+    (m.models || []).forEach((x) => box.append(el("div", "sub", `${x.remote ? "Remote" : "Local"}: ${x.id} — ${x.available ? "available" : "not available"} (${x.reason})`)));
+    const byModel = {}; (m.scores || []).filter((s) => ["code", "edit", "debug"].includes(s.task)).forEach((s) => { (byModel[s.model] = byModel[s.model] || []).push(`${s.task} ${s.successes}/${s.attempts}`); });
+    Object.entries(byModel).forEach(([k, v]) => box.append(el("div", "sub", `Measured: ${k}: ${v.join(", ")}`)));
+    if (m.roles) box.append(el("div", "sub", `Chosen for coding: ${m.roles.code || "none"}; editing: ${m.roles.edit || "none"}; debugging: ${m.roles.debug || "none"}`));
     box.append(el("div", "sub", "Used for development now: " + (m.chosen || "none (curated designs are used)")));
+  }
+
+  async function permissions() {
+    const p = await api("/v1/capabilities/permissions").catch(() => null), b = await api("/v1/capabilities/budget").catch(() => null);
+    if (p) $("capRoots").value = (p.roots || []).join("\n");
+    if (b) { $("capAttempts").value = b.attempts; $("capMinutes").value = b.minutes; }
   }
 
   async function refresh() {
@@ -103,7 +114,7 @@
     if (!$("view-capabilities").classList.contains("hidden")) {
       const ul = $("capList"); ul.replaceChildren(...list.map((c) => card(c)));
       $("capEmpty").classList.toggle("hidden", list.length > 0);
-      runs(); models();
+      runs(); models(); permissions();
     }
     return list;
   }
@@ -134,9 +145,8 @@
     const head = el("div", "cap-state cap-state-" + r.state, { running: "Developing…", installed: "Installed", failed: "Not installed", declined: "Not built" }[r.state] || r.state);
     box.append(head);
     const ol = el("ol", "cap-steps");
-    const seen = new Map();
-    (r.steps || []).forEach((s) => { seen.set(s.step, s); });
-    seen.forEach((s) => { const li = el("li", "step-" + s.status); li.append(el("span", "step-name", (STEP_NAMES[s.step] || s.step) + ": "), el("span", "step-detail", s.detail)); ol.append(li); });
+    // Every step in order: a development that took several attempts shows each attempt and what failed.
+    (r.steps || []).forEach((s) => { const li = el("li", "step-" + s.status); li.append(el("span", "step-name", (STEP_NAMES[s.step] || s.step) + ": "), el("span", "step-detail", s.detail)); ol.append(li); });
     box.append(ol);
     if (r.verification && r.verification.checks) {
       const d = el("details"); d.append(el("summary", null, `Verification: ${r.verification.checks.filter((c) => c.ok).length}/${r.verification.checks.length} checks passed in ${r.verification.browser}`));
@@ -178,6 +188,12 @@
     api = apiFn; say = sayFn; showView = show;
     $("capBack").addEventListener("click", () => { close(); show("capabilities"); });
     $("capRefresh").addEventListener("click", refresh);
+    $("capSavePerms").addEventListener("click", async () => {
+      try { await api("/v1/capabilities/permissions", { method: "PUT", json: { roots: $("capRoots").value.split("\n").map((x) => x.trim()).filter(Boolean) } });
+        await api("/v1/capabilities/budget", { method: "PUT", json: { attempts: +$("capAttempts").value, minutes: +$("capMinutes").value } }); $("capPermsNote").textContent = "Saved."; }
+      catch (e) { $("capPermsNote").textContent = e.message; }
+    });
+    $("capBench").addEventListener("click", async () => { try { const r = await api("/v1/capabilities/models/benchmark", { method: "POST", json: {} }); $("capBench").textContent = `Measuring ${r.measuring.join(", ")} on ${r.tasks} tasks…`; } catch (e) { alert(e.message); } });
     $("capAsk").addEventListener("submit", (e) => { e.preventDefault(); const t = $("capAskText").value.trim(); if (!t) return; $("capAskText").value = ""; show("chat"); say(t); });
     document.querySelectorAll(".nav:not(.cap-entry)").forEach((b) => b.addEventListener("click", () => { if (current) close(); }));
     refresh();

@@ -55,6 +55,14 @@
     async set(patch) { if (Kit.selftest || Kit.preview) return null; try { return await Kit.api(`/v1/capabilities/${encodeURIComponent(Kit.cfg.capId)}/config`, { method: "PUT", json: patch }); } catch (e) { return null; } },
   };
 
+  /** Read-only files below the folder the owner permitted for this application (nothing without that permission). */
+  const appPath = (op, q) => `/v1/apps/${encodeURIComponent(Kit.cfg.appId || Kit.cfg.capId)}/fs/${op}?${q}`;
+  Kit.fs = {
+    list: (path) => Kit.api(appPath("list", "path=" + encodeURIComponent(path || ""))),
+    read: (path) => Kit.api(appPath("read", "path=" + encodeURIComponent(path || ""))),
+    search: (q, path) => Kit.api(appPath("search", "q=" + encodeURIComponent(q || "") + "&path=" + encodeURIComponent(path || ""))),
+  };
+
   Kit.places = async function (q) { return (await Kit.api("/v1/kit/places?q=" + encodeURIComponent(q))).places || []; };
 
   /** Dashboard wiring: choosing a place on the map shows its weather. */
@@ -93,6 +101,7 @@
     try { await mount(Kit); Kit.check("mounted", true); }
     catch (e) { Kit.check("mounted", false, e && e.message); Kit.status("This experience failed to start: " + (e && e.message), "warn"); }
     if (Kit.selftest) {
+      if (window.CluProbe) Kit.tests.push({ name: "requirement checks", fn: () => window.CluProbe.run(Kit) });
       for (const t of Kit.tests) {
         try { await Promise.race([t.fn(), Kit.sleep(15000).then(() => { throw new Error("timed out"); })]); }
         catch (e) { Kit.check(t.name, false, e && e.message); }

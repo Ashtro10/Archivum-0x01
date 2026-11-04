@@ -25,6 +25,10 @@
     }
     $("app").classList.remove("hidden");
     CluFace.attach($("face"));
+    addEventListener("message", (e) => { // Hands asks to open one of CLU's applications
+      if (e.origin !== location.origin || !e.data || e.data.type !== "clu-open-capability" || e.source !== ($("handsFrame") || {}).contentWindow) return;
+      api("/v1/capabilities").then((list) => { const c = list.find((x) => x.id === e.data.capId); if (c && window.CluCapabilities) { $("handsFrame").src = "about:blank"; CluCapabilities.open(c); } }).catch(() => {});
+    });
     if (window.CluPrimus && $("primusCore")) CluPrimus.attach($("primusCore")); // the Primus core behind the interface
     initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initVoice(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     CluCapabilities.init(api, (t) => { show("chat"); $("input").value = t; send(); }, show); loaders.capabilities = CluCapabilities.refresh;
@@ -54,6 +58,9 @@
     document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("hidden", v.id !== "view-" + view));
     $("viewTitle").textContent = document.querySelector(`.nav[data-view="${view}"]`).firstChild.textContent.trim();
+    const hands = $("handsFrame"); // the camera runs only while Hands is open
+    const on = /hands\.html/.test(hands ? hands.src : ""); // (an iframe keeps its page when src is removed, so it is replaced by a blank one)
+    if (hands) { if (view === "hands") { if (!on) hands.src = "/shell/hands.html"; } else if (on) hands.src = "about:blank"; }
     if (loaders[view]) loaders[view]();
   }
 

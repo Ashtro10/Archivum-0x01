@@ -1,0 +1,28 @@
+:root { --cyan: #3ed6e6; --ink: #e6f6ff; --dim: #8fb3c4; --glass: rgba(10, 22, 40, 0.55); --line: rgba(62, 214, 230, 0.45); --warn: #ffb347; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #02040a; color: var(--ink); font: 14px/1.4 "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+#cam { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); filter: brightness(0.55) saturate(0.8); }
+#overlay { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#widgets, #cursors { position: fixed; inset: 0; pointer-events: none; }
+.bar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: rgba(2, 6, 14, 0.6); border-bottom: 1px solid var(--line); z-index: 5; }
+.bar button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #555; } .dot.on { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); } .dot.warn { background: var(--warn); }
+.status { color: var(--dim); } .spacer { flex: 1; }
+.help { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; color: var(--dim); font-size: 12px; margin: 0; }
+.widget { position: absolute; width: 260px; min-height: 120px; padding: 12px 14px; background: var(--glass); border: 1px solid var(--line); border-radius: 14px;
+  backdrop-filter: blur(8px); box-shadow: 0 0 24px rgba(62, 214, 230, 0.12) inset; transform-origin: center; transition: box-shadow 0.15s, border-color 0.15s; }
+.widget h3 { margin: 0 0 6px; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); }
+.widget.hover { border-color: var(--cyan); box-shadow: 0 0 28px rgba(62, 214, 230, 0.45); }
+.widget.grabbed { border-color: #fff; box-shadow: 0 0 36px rgba(255, 255, 255, 0.5); }
+.widget.flash { animation: flash 0.4s; } @keyframes flash { from { background: rgba(62, 214, 230, 0.45); } }
+.widget .big { font-size: 34px; font-weight: 600; } .widget .muted { color: var(--dim); font-size: 12px; }
+.widget ul { list-style: none; margin: 0; padding: 0; } .widget li { padding: 6px 8px; border: 1px solid transparent; border-radius: 8px; }
+.widget li.hover { border-color: var(--cyan); background: rgba(62, 214, 230, 0.15); }
+.bar-meter { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; margin: 4px 0; } .bar-meter > div { height: 100%; background: var(--cyan); }
+.cursor { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 2px solid var(--cyan); border-radius: 50%; box-shadow: 0 0 14px var(--cyan); transition: transform 0.08s; }
+.cursor.pinched { background: rgba(62, 214, 230, 0.8); transform: scale(0.6); }
+.cursor .label { position: absolute; top: 36px; left: -20px; width: 80px; text-align: center; font-size: 11px; color: var(--cyan); }
+.setup { position: fixed; inset: 20% 25% auto; padding: 18px 22px; background: rgba(6, 14, 28, 0.92); border: 1px solid var(--line); border-radius: 14px; z-index: 6; }
+.setup button { font: inherit; color: #02040a; background: var(--cyan); border: 0; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+.hidden { display: none !important; }
+.calib { position: fixed; width: 60px; height: 60px; margin: -30px 0 0 -30px; border: 3px dashed var(--warn); border-radius: 50%; z-index: 4; }

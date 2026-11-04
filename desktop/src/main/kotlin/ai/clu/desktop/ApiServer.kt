@@ -82,6 +82,8 @@ class ApiServer(
     private val evolution: ai.clu.desktop.evolution.EvolutionRoutes? = null,
     /** Capabilities CLU develops for itself: registry, development runs, experience files and their services. */
     val capabilities: ai.clu.desktop.capability.CapabilitySetup? = null,
+    /** The hand-tracking runtime for the camera gesture interface (downloaded on request). */
+    val gesture: GesturePack? = paths?.let { GesturePack(java.io.File(it.root, "gesture")) },
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
@@ -140,6 +142,7 @@ class ApiServer(
         val path = ex.requestURI.path.trimEnd('/').ifEmpty { "/" }
         val method = ex.requestMethod.uppercase()
         if (!sameMachine(ex)) return Call(ex, path, method, empty).fail(403, "requests must come from this computer")
+        if (method == "GET" && path.startsWith("/shell/gesture/")) return gesture?.serve(ex, path.removePrefix("/shell/gesture/")) ?: run { ex.sendResponseHeaders(404, -1); ex.close() }
         if (method == "GET" && (path == "/" || path.startsWith("/shell/"))) return ShellAssets.serve(ex, path)
         if (method == "GET" && capabilities?.files?.serves(path) == true) return capabilities.files.serve(ex, path)
         if (path == "/v1/health" && method == "GET") return Call(ex, path, method, empty).ok(buildJsonObject { put("ok", true); put("name", "CLU"); put("version", version) })
@@ -187,6 +190,14 @@ class ApiServer(
             c.path == "/v1/stop" && c.method == "POST" -> { core.agent.cancel(null); c.ok() }
             c.path == "/v1/model/unload" && c.method == "POST" -> { runBlocking { core.inferenceService.unload() }; c.ok(model()) }
             c.path == "/v1/model/load" && c.method == "POST" -> { runBlocking { core.inferenceService.load() }; c.ok(model()) }
+            c.path == "/v1/gesture" && c.method == "GET" -> c.ok(gesture?.status() ?: buildJsonObject { put("installed", false); put("progress", "not available") })
+            c.path == "/v1/gesture/install" && c.method == "POST" -> {
+                val g = gesture ?: return true.also { c.fail(409, "not available") }
+                if (c.body["confirm"]?.jsonPrimitive?.booleanOrNull != true) return true.also { c.fail(428, "downloading ${g.status()["bytes"]} bytes needs {\"confirm\": true}") }
+                if (g.verified()) return true.also { c.ok(g.status()) }
+                Thread({ g.download() }, "clu-gesture-pack").apply { isDaemon = true }.start()
+                c.send(202, g.status())
+            }
             c.path == "/v1/shell/ping" && c.method == "POST" -> { lifecycle.ping(); c.ok() }
             c.path == "/v1/shell/quit" && c.method == "POST" -> { c.ok(); Thread { Thread.sleep(200); lifecycle.onQuit?.invoke() }.start() }
             c.path == "/v1/shell/restart" && c.method == "POST" -> { c.ok(); Thread { Thread.sleep(200); lifecycle.onRestart?.invoke() }.start() }
@@ -291,7 +302,10 @@ object ShellAssets {
             else -> null
         }
         ex.responseHeaders.apply {
-            set("Content-Security-Policy", if (primus) CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'") else CSP)
+            set("Content-Security-Policy", when { primus -> CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+                // The gesture page compiles MediaPipe's verified WebAssembly (needs 'wasm-unsafe-eval'; still no eval of text, no other sites).
+                name == "hands.html" -> CSP.replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'").replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+                else -> CSP })
             set("X-Content-Type-Options", "nosniff"); set("Referrer-Policy", "no-referrer"); set("Cache-Control", if (primus && name.endsWith(".min.js")) "max-age=86400" else "no-store")
         }
         if (bytes == null) { ex.sendResponseHeaders(404, -1); ex.close(); return }

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CLU · Hands</title>
+  <link rel="stylesheet" href="/shell/hands.css">
+</head>
+<body>
+  <video id="cam" playsinline muted aria-label="Camera"></video>
+  <canvas id="overlay" aria-hidden="true"></canvas>
+  <div id="widgets" aria-live="polite"></div>
+  <div id="cursors" aria-hidden="true"></div>
+  <header class="bar">
+    <span class="dot" id="dot"></span><strong>CLU · Hands</strong>
+    <span id="status" class="status" role="status">Starting…</span>
+    <span class="spacer"></span>
+    <button type="button" id="calibrate">Calibrate</button>
+    <button type="button" id="debug">Debug</button>
+  </header>
+  <section id="setup" class="setup hidden" aria-label="Hand tracking setup"></section>
+  <p id="help" class="help">Point with your index finger to move the ring · quick pinch = tap · pinch and move = drag · pinch with both hands = resize · C calibrate · D debug</p>
+  <pre id="clu-selfcheck" hidden></pre>
+  <script src="/shell/hand-gestures.js"></script>
+  <script src="/shell/hands.js"></script>
+</body>
+</html>

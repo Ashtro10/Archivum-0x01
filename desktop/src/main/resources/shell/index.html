@@ -40,6 +40,7 @@
     <button class="nav" data-view="documents">Documents</button>
     <button class="nav" data-view="suggestions">Suggestions <span class="badge hidden" id="suggestionCount"></span></button>
     <button class="nav" data-view="capabilities">Capabilities</button>
+    <button class="nav" data-view="hands">Hands</button>
     <div id="capNav" class="cap-nav" aria-label="Your experiences"></div>
     <div class="spacer"></div>
     <button class="nav" data-view="agents">Agents <span class="badge hidden" id="approvalCount"></span></button>
@@ -339,6 +340,11 @@
       </div>
       <div class="card"><h3>Resource governor</h3><ul id="governorEvents" class="list"></ul></div>
       <div class="card"><h3>Recent requests (timings)</h3><p class="muted">Each turn, typed or spoken: how it was routed, memory lookup, every model call (queue, prompt reading, tokens) and when the first words appeared. No conversation text is shown here.</p><div id="requestTrace"></div></div>
+    </section>
+
+    <section id="view-hands" class="view hidden hands-view">
+      <!-- Loaded only while this view is open, so the camera is on only while you are looking at it. -->
+      <iframe id="handsFrame" class="hands-frame" allow="camera" title="Hands: camera gesture interface"></iframe>
     </section>
 
     <section id="view-capabilities" class="view hidden">

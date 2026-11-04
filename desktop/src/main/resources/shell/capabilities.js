@@ -122,6 +122,7 @@
   function open(c) {
     if (current && current.id !== c.id) api(`/v1/capabilities/${current.id}/closed`, { method: "POST", json: {} }).catch(() => {});
     current = c;
+    const hands = $("handsFrame"); if (hands && /hands\.html/.test(hands.src)) hands.src = "about:blank"; // the camera stops when Hands is left
     document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.cap === c.id));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("hidden", v.id !== "view-experience"));
     document.body.classList.add("primus-paused");

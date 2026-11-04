@@ -219,3 +219,7 @@ body.primus-on .composer { background: rgba(6, 10, 22, 0.78); backdrop-filter: b
 body.primus-software .primus-core { width: 33.34%; height: 33.34%; transform: scale(3); transform-origin: 0 0; }
 /* Blur over an animated background is re-done every frame: only where the GPU composites it. */
 body.primus-software .rail, body.primus-software .topbar, body.primus-software .composer { backdrop-filter: none; }
+
+/* Hands: the camera gesture interface fills the view. */
+.hands-view { padding: 0; display: flex; }
+.hands-frame { flex: 1; width: 100%; min-height: 520px; border: 0; background: #02040a; }

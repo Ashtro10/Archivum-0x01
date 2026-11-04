@@ -114,7 +114,7 @@ class CodingBenchmark(private val svcForModel: SelfRepairService, private val pa
             File("/proc/${p.pid()}/status").readLines().first { it.startsWith("VmRSS:") }.split(Regex("\\s+"))[1].toLong() / 1024 } }.getOrDefault(-1)
 
     fun run(only: Set<String>?, budget: CodingBudget, log: (String) -> Unit): Result {
-        val root = File(SelfRepairSetup.evolutionDir(paths), "benchmark").apply { SafeDelete.tree(this); mkdirs() }
+        val root = File(SelfRepairSetup.evolutionDir(paths), "benchmark").apply { ai.clu.core.util.SafeDelete.tree(this, listOf(SelfRepairSetup.evolutionDir(paths)), protected = listOf(cluRepo)); mkdirs() }
         val db = JdbcSqlDriver(File(root, "benchmark.db").path)
         val results = mutableListOf<JsonObject>()
         try {

@@ -96,7 +96,13 @@ class GitCli(rootDir: File) : RepoReader {
 
     // ------------------------------------------------------------------ repair workspaces
     fun addWorktree(path: File, branch: String, base: String) { path.parentFile.mkdirs(); run("worktree", "add", "-b", branch, path.path, base, timeoutS = 300) }
-    fun removeWorktree(path: File) { runCatching { run("worktree", "remove", "--force", path.path, timeoutS = 300) }; if (path.exists() || java.nio.file.Files.isSymbolicLink(path.toPath())) SafeDelete.tree(path); runCatching { run("worktree", "prune") } }
+    /** Removes a repair worktree. Leftovers are deleted with [ai.clu.core.util.SafeDelete] inside [workspaces] only, never in this repository or its linked inputs. */
+    fun removeWorktree(path: File, workspaces: File = path.parentFile) {
+        runCatching { run("worktree", "remove", "--force", path.path, timeoutS = 300) }
+        if (path.exists() || java.nio.file.Files.isSymbolicLink(path.toPath()))
+            ai.clu.core.util.SafeDelete.tree(path, listOf(workspaces), protected = listOf(dir, File(dir, "toolchain"), File(dir, "native/build")))
+        runCatching { run("worktree", "prune") }
+    }
     fun deleteBranch(branch: String) { runCatching { run("branch", "-D", branch) } }
     fun branchExists(branch: String) = runCatching { run("rev-parse", "--verify", "--quiet", "refs/heads/$branch"); true }.getOrDefault(false)
 

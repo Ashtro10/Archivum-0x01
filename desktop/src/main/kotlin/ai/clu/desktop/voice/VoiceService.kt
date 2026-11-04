@@ -265,7 +265,7 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
         val got = MessageDigest.getInstance("SHA-256").let { md -> part.inputStream().use { i -> val buf = ByteArray(1 shl 20); while (true) { val n = i.read(buf); if (n < 0) break; md.update(buf, 0, n) } }; md.digest().joinToString("") { "%02x".format(it) } }
         if (got != p.sha256) { part.delete(); throw IOException("The download does not match its published checksum and was discarded.") }
         d.state = "unpacking"
-        val target = File(dir, "voices/${p.id}"); val tmp = File(dir, "voices/${p.id}.tmp"); tmp.deleteRecursively(); tmp.mkdirs()
+        val target = File(dir, "voices/${p.id}"); val tmp = File(dir, "voices/${p.id}.tmp"); ai.clu.core.util.SafeDelete.tree(tmp, listOf(dir)); tmp.mkdirs()
         val espeak = File(dir, "espeak-ng-data"); val needEspeak = models.espeak() == null
         TarArchiveInputStream(BZip2CompressorInputStream(part.inputStream().buffered())).use { tar ->
             while (true) {
@@ -277,7 +277,7 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
                 out.parentFile.mkdirs(); out.outputStream().use { tar.copyTo(it) }
             }
         }
-        target.deleteRecursively(); if (!tmp.renameTo(target)) throw IOException("Could not move the voice into place.")
+        ai.clu.core.util.SafeDelete.tree(target, listOf(dir)); if (!tmp.renameTo(target)) throw IOException("Could not move the voice into place.")
         part.delete(); d.state = "done"; d.message = "Installed. Choose it as CLU's voice when you are ready."
         log("voice: installed ${p.title}")
     }

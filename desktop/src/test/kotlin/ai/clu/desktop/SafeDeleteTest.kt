@@ -1,7 +1,7 @@
 package ai.clu.desktop
 
 import ai.clu.desktop.evolution.GitCli
-import ai.clu.desktop.evolution.SafeDelete
+import ai.clu.core.util.SafeDelete
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -29,13 +29,13 @@ class SafeDeleteTest {
         Files.createSymbolicLink(File(ws, "native/build").toPath(), File(target, "sub").toPath())
         Files.createSymbolicLink(File(ws, "jar").toPath(), file.toPath())
         File(ws, "core/src").mkdirs(); File(ws, "core/src/A.kt").writeText("x")
-        assertTrue(SafeDelete.tree(ws))
+        assertTrue(SafeDelete.tree(ws, listOf(ws.parentFile)))
         assertFalse(ws.exists())
         assertEquals("precious", file.readText(), "the linked file survives")
         assertEquals("native", File(target, "sub/libclu_llama.so").readText(), "the linked directory's contents survive")
         // Deleting a link given directly removes only the link.
         val link = Files.createTempDirectory("l").resolve("toolchain"); Files.createSymbolicLink(link, target.toPath())
-        assertTrue(SafeDelete.tree(link.toFile())); assertTrue(file.exists())
+        assertTrue(SafeDelete.tree(link.toFile(), listOf(link.parent.toFile()))); assertTrue(file.exists())
     }
 
     @Test fun removingARepairWorktreeNeverTouchesTheLinkedOwnerDirectories() {
@@ -48,7 +48,7 @@ class SafeDeleteTest {
         val g = GitCli(repo); val wt = File(Files.createTempDirectory("wts").toFile(), "w1")
         g.addWorktree(wt, "clu/repair/x", "HEAD")
         Files.createSymbolicLink(File(wt, "toolchain").toPath(), target.toPath()) // as linkIgnoredInputs does
-        g.removeWorktree(wt)
+        g.removeWorktree(wt, wt.parentFile)
         assertFalse(wt.exists())
         assertEquals("precious", file.readText()); assertTrue(File(target, "sub/libclu_llama.so").exists())
     }

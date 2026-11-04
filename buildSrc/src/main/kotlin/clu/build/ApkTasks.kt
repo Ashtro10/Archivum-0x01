@@ -39,7 +39,7 @@ abstract class Aapt2LinkTask @Inject constructor(private val exec: ExecOperation
 
     @TaskAction
     fun link() {
-        val work = File(temporaryDir, "flat").apply { deleteRecursively(); mkdirs() }
+        val work = File(temporaryDir, "flat").safeClean()
         val aapt = aapt2.get().asFile.absolutePath
         exec.exec { commandLine(aapt, "compile", "--dir", resDir.get().asFile.absolutePath, "-o", work.absolutePath) }
         val flats = work.listFiles { f -> f.name.endsWith(".flat") }!!.sorted().map { it.absolutePath }
@@ -72,7 +72,7 @@ abstract class DexTask @Inject constructor(private val exec: ExecOperations) : D
 
     @TaskAction
     fun dex() {
-        val out = outputDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+        val out = outputDir.get().asFile.safeClean()
         val inputs = programInputs.files.filter { it.exists() }.flatMap { f ->
             if (f.isDirectory) f.walkTopDown().filter { it.isFile && it.name.endsWith(".class") }.toList() else listOf(f)
         }.map { it.absolutePath }

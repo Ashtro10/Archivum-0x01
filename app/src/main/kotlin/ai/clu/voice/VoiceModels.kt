@@ -129,7 +129,7 @@ class VoicePackManager(private val context: Context, private val diag: Diagnosti
         val sha = MessageDigest.getInstance("SHA-256").let { md -> file.inputStream().use { s -> val b = ByteArray(1 shl 16); while (true) { val n = s.read(b); if (n < 0) break; md.update(b, 0, n) } }; md.digest() }
             .joinToString("") { "%02x".format(it) }
         require(sha == p.sha256) { "Checksum mismatch – the file is corrupted or not the expected archive." }
-        val d = dir(p); d.deleteRecursively(); d.mkdirs()
+        val d = dir(p); ai.clu.core.util.SafeDelete.tree(d, listOf(root)); d.mkdirs()
         if (p.singleName != null) { file.copyTo(File(d, p.singleName), overwrite = true) }
         else extract(file.inputStream(), p, d)
         File(d, ".installed").writeText(p.sha256)
@@ -152,7 +152,7 @@ class VoicePackManager(private val context: Context, private val diag: Diagnosti
         }
     }
 
-    fun remove(p: VoicePack) { dir(p).deleteRecursively() }
+    fun remove(p: VoicePack) { ai.clu.core.util.SafeDelete.tree(dir(p), listOf(root)) }
 }
 
 /**

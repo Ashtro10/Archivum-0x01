@@ -207,7 +207,7 @@ class SelfRepairService(
 
     private fun finish(git: GitCli, r: RepairRecord, found: List<Incident>, keepWorkspace: Boolean, message: String): Outcome {
         repairs.save(r)
-        if (!keepWorkspace) { git.removeWorktree(File(r.worktree)); if (r.state != RepairRecord.AWAITING_APPROVAL) git.deleteBranch(r.branch) }
+        if (!keepWorkspace) { git.removeWorktree(File(r.worktree), workspaces); if (r.state != RepairRecord.AWAITING_APPROVAL) git.deleteBranch(r.branch) }
         val report = writeReport(r)
         if (r.state != RepairRecord.AWAITING_APPROVAL) store.history("repair-closed", r.id, "Repair ${r.id.take(8)} closed: ${r.state} — ${r.outcome}".take(400))
         return Outcome(repairs.get(r.id), found, message, report)
@@ -221,7 +221,7 @@ class SelfRepairService(
         val git = GitCli(repoRoot() ?: return Outcome(r, emptyList(), "No source repository is connected.", null))
         val merged = try { git.integrate(r.branch, r.targetBranch, "Integrate CLU repair ${r.id.take(8)}\n\nCLU-Repair: ${r.id}") }
         catch (e: GitException) { store.history("repair-approve-refused", r.id, "Approval could not be applied: ${e.message}"); return Outcome(r, emptyList(), "Not integrated: ${e.message}", null) }
-        git.removeWorktree(File(r.worktree)); git.deleteBranch(r.branch)
+        git.removeWorktree(File(r.worktree), workspaces); git.deleteBranch(r.branch)
         val done = repairs.save(r.copy(state = RepairRecord.APPROVED, decidedBy = by, decidedAt = store.clock.now(), integratedCommit = merged, outcome = "integrated into ${r.targetBranch}"))
         incidents.setStatus(r.incidentId, "resolved")
         store.history("repair-approved", r.id, "Owner approved repair ${r.id.take(8)}; integrated into ${r.targetBranch} at ${merged.take(10)}")
@@ -232,7 +232,7 @@ class SelfRepairService(
     fun reject(id: String, reason: String, by: String = "owner"): Outcome {
         val r = repairs.get(id) ?: return Outcome(null, emptyList(), "No repair $id.", null)
         if (r.state != RepairRecord.AWAITING_APPROVAL) return Outcome(r, emptyList(), "Repair ${r.id.take(8)} is ${r.state}; nothing to reject.", null)
-        repoRoot()?.let { val git = GitCli(it); git.removeWorktree(File(r.worktree)); git.deleteBranch(r.branch) }
+        repoRoot()?.let { val git = GitCli(it); git.removeWorktree(File(r.worktree), workspaces); git.deleteBranch(r.branch) }
         val done = repairs.save(r.copy(state = RepairRecord.REJECTED, decidedBy = by, decidedAt = store.clock.now(), outcome = "rejected by $by: $reason"))
         incidents.setStatus(r.incidentId, "open")
         store.history("repair-rejected", r.id, "Owner rejected repair ${r.id.take(8)}: $reason")
@@ -254,7 +254,7 @@ class SelfRepairService(
 
     private fun testRun(repairId: String, label: String, phase: String, wt: File, module: String, tests: String?): TestRun {
         val results = resultsDir(wt, module)
-        SafeDelete.tree(results)
+        ai.clu.core.util.SafeDelete.tree(results, listOf(wt))
         val cmd = gradle(module, tests)
         val res = runner.run(cmd, wt, commandTimeoutMs)
         store.recordCommand(repairId, phase, res.display, wt.path, res.exitCode, res.durationMs, res.timedOut, res.output)

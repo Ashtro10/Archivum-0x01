@@ -132,7 +132,7 @@ abstract class VerifyApkTask @Inject constructor(private val exec: ExecOperation
         val referenced = classFiles.filter { it.startsWith("ai.clu.ui.") && it.endsWith("Activity") && !it.contains('$') && it != "ai.clu.ui.BaseActivity" }
         for (a in referenced) if (comps.none { (if (it.startsWith(".")) "ai.clu$it" else it) == a }) problems += "activity $a is not declared in the manifest"
         // 2. JNI symbols.
-        val tmp = File(temporaryDir, "lib").apply { deleteRecursively(); mkdirs() }
+        val tmp = File(temporaryDir, "lib").safeClean()
         ZipFile(apkFile).use { z -> z.entries().toList().filter { it.name.startsWith("lib/arm64-v8a/") }.forEach { e -> File(tmp, e.name.substringAfterLast('/')).writeBytes(z.getInputStream(e).readBytes()) } }
         val symbols = tmp.listFiles()!!.associate { it.name to run("readelf", "--dyn-syms", "-W", it.absolutePath) }
         val externals = mutableListOf<Pair<String, String>>() // jni symbol, library

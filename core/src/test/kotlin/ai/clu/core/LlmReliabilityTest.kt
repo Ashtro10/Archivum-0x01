@@ -117,7 +117,7 @@ class LlmReliabilityTest {
         @Test fun `5 explicit cancel stops promptly and keeps the partial reply`() = runBlocking {
             engine.tokens = 1000; engine.delayMs = 10
             val conv = core.conversations.create().id
-            val got = mutableListOf<AgentEvent>()
+            val got = java.util.concurrent.CopyOnWriteArrayList<AgentEvent>() // written by the collector thread, read by the test thread
             val job = launch(Dispatchers.Default) { core.agent.respond(req(core, conv = conv)).collect { got += it } }
             withTimeout(5_000) { while (got.none { it is AgentEvent.Text }) delay(5) }
             val t0 = System.nanoTime()
@@ -285,7 +285,7 @@ class LlmReliabilityTest {
             selectRealModel()
             core.settings.set(Settings.MAX_TOKENS, 4096)
             core.settings.set(Settings.TEMPERATURE, 1.0)
-            val got = mutableListOf<AgentEvent>()
+            val got = java.util.concurrent.CopyOnWriteArrayList<AgentEvent>() // written by the collector thread, read by the test thread
             val job = launch(Dispatchers.Default) { core.agent.respond(req(core, "Talk")).collect { got += it } }
             withTimeout(30_000) { while (got.none { it is AgentEvent.Text }) delay(1) }
             core.agent.cancel(TurnOrigin.TEXT)

@@ -1,7 +1,13 @@
 # CLU user guide
 
 ## The window
-Chat · Memory · People · Timeline · Documents · Suggestions · **Agents** · Models · Status · Settings. The pill at the top shows the model state (and the real engine, cpu/gpu).
+Chat · Memory · People · Timeline · Documents · Suggestions · Capabilities · **Hands** · **Agents** · Models · Status · Settings. The pill at the top shows the model state (and the real engine, cpu/gpu). Behind the window runs the Primus core, the particle head from the original Primus interface: it listens, thinks and speaks with CLU and follows the pointer.
+
+## Hands (camera gestures)
+The camera picture fills the view with CLU's widgets on top (core status, weather, your applications, time). The first time, CLU shows what it needs (Google MediaPipe's hand tracking, 17.6 MB, Apache-2.0) and downloads it only when you click; it is checked file by file and then works offline. The camera runs only while Hands is open, and its picture never leaves the PC. **Point** with your index finger to move the ring; a **quick pinch** (thumb to index) taps (opens an application from the list); **pinch and move** drags a widget; **pinch with both hands** on one widget and move them apart or together to resize it. **C** calibrates (hold your fingertip on two circles), **D** shows the tracked points. Keep your hand within about arm's length of the webcam.
+
+## The phone
+With **Settings → Connection → Automatic** (the default), the phone is a terminal for CLU on your PC once it is paired: the PC listens, thinks and speaks for voice and typed messages, and the phone doesn't load a model of its own. Before pairing, or with **Always this device**, the phone answers on its own without any network.
 
 ## Models
 *Models → Add a model*: **Find models on this PC** lists `.gguf` files in Downloads, Documents, Desktop, `models` and CLU's folder; **Register** keeps the file where it is. **Suggested downloads** show size, licence and fit; nothing downloads until you confirm; downloads can be cancelled and resumed and are verified. **Use as default**, **Load/Reload/Unload**, context/threads/GPU in *How the model is loaded* (CLU says what actually runs). **Benchmark** measures this PC. **Remove registration** never deletes the file; **Delete file…** exists only for models CLU downloaded and asks first.

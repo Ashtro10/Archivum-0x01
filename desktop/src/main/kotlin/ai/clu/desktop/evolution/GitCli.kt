@@ -96,7 +96,7 @@ class GitCli(rootDir: File) : RepoReader {
 
     // ------------------------------------------------------------------ repair workspaces
     fun addWorktree(path: File, branch: String, base: String) { path.parentFile.mkdirs(); run("worktree", "add", "-b", branch, path.path, base, timeoutS = 300) }
-    fun removeWorktree(path: File) { runCatching { run("worktree", "remove", "--force", path.path, timeoutS = 300) }; if (path.exists()) path.deleteRecursively(); runCatching { run("worktree", "prune") } }
+    fun removeWorktree(path: File) { runCatching { run("worktree", "remove", "--force", path.path, timeoutS = 300) }; if (path.exists() || java.nio.file.Files.isSymbolicLink(path.toPath())) SafeDelete.tree(path); runCatching { run("worktree", "prune") } }
     fun deleteBranch(branch: String) { runCatching { run("branch", "-D", branch) } }
     fun branchExists(branch: String) = runCatching { run("rev-parse", "--verify", "--quiet", "refs/heads/$branch"); true }.getOrDefault(false)
 

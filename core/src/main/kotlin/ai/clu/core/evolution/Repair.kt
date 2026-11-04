@@ -161,6 +161,43 @@ object Verification {
         val summary = "before: ${before.passed}/${before.executed} passed (${before.failed.size} failed); after: ${after.passed}/${after.executed} passed (${after.failed.size} failed)"
         return Verdict(outcome, summary, fixed, still, regress + missing, newTests, before.executed, after.executed, reasons)
     }
+
+    /** Code that did not compile: verified when it now compiles and every test of the run passes. */
+    fun compareBuild(before: TestRun, after: TestRun, review: List<ReviewFinding>): Verdict {
+        val blocking = review.filter { it.severity == ReviewFinding.BLOCKING }
+        val reasons = mutableListOf<String>()
+        val outcome = when {
+            !after.compiled -> { reasons += "it still does not compile (exit ${after.exitCode})"; Verdict.BUILD_FAILED }
+            blocking.isNotEmpty() -> { blocking.forEach { reasons += "review: ${it.file} ${it.message}".trim() }; Verdict.REVIEW_BLOCKED }
+            after.executed == 0 -> { reasons += "it compiles but no test ran"; Verdict.INCONCLUSIVE }
+            after.failed.isNotEmpty() -> { reasons += "it compiles but ${after.failed.size} test(s) fail"; Verdict.NOT_FIXED }
+            else -> { reasons += "the code compiles again (it did not before: exit ${before.exitCode}); ${after.passed} of ${after.executed} tests pass"; Verdict.VERIFIED }
+        }
+        return Verdict(outcome, "before: did not compile; after: ${if (after.compiled) "${after.passed}/${after.executed} passed" else "did not compile"}", emptyList(),
+            after.failed.map { it.id }, emptyList(), after.results.map { it.id }, 0, after.executed, reasons)
+    }
+
+    /**
+     * A development task: verified when the acceptance tests (new, so absent before) all run and pass, and nothing that
+     * passed before fails or vanished.
+     */
+    fun compareFeature(acceptSuites: Set<String>, before: TestRun, after: TestRun, review: List<ReviewFinding>): Verdict {
+        val b = before.results.associateBy { it.id }; val a = after.results.associateBy { it.id }
+        val accept = after.results.filter { it.suite in acceptSuites }
+        val regress = b.values.filter { it.status == TestCaseResult.PASSED && a[it.id]?.failed != false }.map { it.id }
+        val blocking = review.filter { it.severity == ReviewFinding.BLOCKING }
+        val reasons = mutableListOf<String>()
+        val outcome = when {
+            !after.compiled -> { reasons += "the change does not compile"; Verdict.BUILD_FAILED }
+            blocking.isNotEmpty() -> { blocking.forEach { reasons += "review: ${it.file} ${it.message}".trim() }; Verdict.REVIEW_BLOCKED }
+            accept.isEmpty() -> { reasons += "the acceptance tests did not run"; Verdict.INCONCLUSIVE }
+            regress.isNotEmpty() -> { reasons += "${regress.size} test(s) that passed before now fail or did not run"; Verdict.REGRESSION }
+            accept.any { it.status != TestCaseResult.PASSED } -> { reasons += "${accept.count { it.status != TestCaseResult.PASSED }} of ${accept.size} acceptance test(s) fail"; Verdict.NOT_FIXED }
+            else -> { reasons += "all ${accept.size} acceptance test(s) pass; ${after.passed} of ${after.executed} executed tests pass; no regressions"; Verdict.VERIFIED }
+        }
+        return Verdict(outcome, "before: ${before.passed}/${before.executed} passed; after: ${after.passed}/${after.executed} passed (${accept.count { it.status == TestCaseResult.PASSED }}/${accept.size} acceptance)",
+            accept.filter { it.status == TestCaseResult.PASSED }.map { it.id }, accept.filter { it.status != TestCaseResult.PASSED }.map { it.id }, regress, accept.map { it.id }, before.executed, after.executed, reasons)
+    }
 }
 
 // --------------------------------------------------------------------------------------------- repairs (records)
@@ -176,6 +213,10 @@ data class RepairRecord(
     val before: TestRun? = null, val after: TestRun? = null, val verdict: Verdict? = null,
     val modelNotes: String = "", val outcome: String = "", val decidedBy: String = "", val decidedAt: Long = 0, val integratedCommit: String = "",
     val createdAt: Long = 0,
+    /** `repair` (a failing test), `build` (code that does not compile), `feature` (a development task from the owner). */
+    val kind: String = "repair", val goal: String = "",
+    /** One line per coding attempt (the full records are in coding_attempts). */
+    val attempts: List<String> = emptyList(),
 ) {
     companion object {
         const val INVESTIGATING = "investigating"; const val PATCH_FAILED = "patch-failed"; const val FAILED_VERIFICATION = "failed-verification"

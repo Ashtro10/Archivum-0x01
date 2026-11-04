@@ -21,6 +21,8 @@ data class GenParams(
     val stop: List<String> = emptyList(),
     /** Cores to leave free while generating token by token (on-device speech runs alongside); 0 = use all configured. */
     val reserveThreads: Int = 0,
+    /** Let a reasoning model think before answering (development mode). Conversation never does: the thinking is hidden and costs time. */
+    val reasoning: Boolean = false,
 )
 
 @Serializable

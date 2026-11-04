@@ -1,0 +1,502 @@
+[
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "arithmetic",
+        "verdict": "correct",
+        "ms": 7124,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The current code incorrectly returns negative values for addition, which is expected to be positive. Fixing the add method to return a positive result would resolve this test failure.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Calc.kt\", \"op\": \"replace\", \"start\": 2, \"end\": 6, \"code\": \"fun add(a: Int, b: Int): Int = a + b\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "null-handling",
+        "verdict": "valid-but-wrong",
+        "ms": 8766,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code has a null pointer exception because the 'name' parameter is null, and it's being used in a split operation. The 'split\"    ,\"edits\": [{\"file\": \"core/src/main/kotlin/demo/Names.kt\", \"op\": \"replace\", \"start\": 3, \"end\": 7, \"code\": \"object Names {\\n    fun initials(name: String?): String {\\n        val parts = name!!.trim().split(\\\" \\\")\\n        return parts.filter { it.isNotEmpty() }.joinToString(\\\" \\\") {\\n            it.first().uppercase()\\n        }\\n    }\\n}\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "off-by-one",
+        "verdict": "valid-but-wrong",
+        "ms": 10206,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects the list [1, 2, 3] but was [1, 2], which is incorrect. The code should generate a list of all integers from 1 to n inclusive.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"replace\", \"start\": 5, \"end\": 6, \"code\": \"fun upTo(n: Int): List<Int> = (1 until n).toList()\"},\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"insert\", \"start\": 3, \"end\": 4, \"code\": \"object Ranges {\\n    fun upTo(n: Int): List<Int> = (1 until n).toList()\\n}\"}\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "comparison",
+        "verdict": "correct",
+        "ms": 6936,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects a true value when 50 or more passes are required, but the code returns false for 50. Fixing this by modifying the 'passed' function to return true when score is greater than or equal to 50.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Grades.kt\",\n   \"op\": \"replace\",\n   \"start\": 4,\n   \"end\": 5\n   ,\"code\": \"fun passed(score: Int): Boolean = score >= 50\"\n}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "logic",
+        "verdict": "rejected: an edit to core/src/main/kotlin/demo/Words.kt lines 3-8 changes nothing",
+        "ms": 8218,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test is due to a missing 'best' variable in the code. The 'longest' function returns best, but it's not initialized correctly.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Words.kt\", \"op\": \"replace\", \"start\": 3, \"end\": 8, \"code\": \"object Words {\\n    fun longest(words: List<String>): String? {\\n        var best: String? = null\\n        for (w in words) if (best == null || w.length < best.length) best = w\\n        return best\\n    }\\n\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "arithmetic",
+        "verdict": "correct",
+        "ms": 6435,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code is incorrect in the addition operation, which should return a positive value instead of subtracting. The current implementation uses 'a - b', which reverses the order of operands and causes negative values to be returned.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Calc.kt\", \"op\": \"replace\", \"start\": 4, \"end\": 6, \"code\": \"fun add(a: Int, b: Int): Int = a + b\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "arithmetic",
+        "verdict": "correct",
+        "ms": 5338,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The current code is incorrect, and the sign of subtraction should be added instead of subtracted. This results in a negative value for 2+3.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Calc.kt\", \"op\": \"replace\", \"start\": 4, \"end\": 6, \"code\": \"fun add(a: Int, b: Int): Int = a + b\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "arithmetic",
+        "verdict": "valid-but-wrong",
+        "ms": 5971,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The current code incorrectly returns a negative value when adding two positive numbers (2 and 3), but the test expects a positive result. This mismatch is causing the failing test to fail.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Calc.kt\",\n   \"op\": \"replace\",\n   \"start\": 4,\n   \"end\": 6,\n   \"code\": \"fun add(a: Int, b: Int): Int = a - b\\n\"\n   }\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "null-handling",
+        "verdict": "valid-but-wrong",
+        "ms": 7944,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code has a null pointer exception because the 'name' parameter is null, and the method checks for it before using it.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 7,\n   \"code\": \"object Names {\\n    fun initials(name: String?): String {\\n        val parts = name!!.trim().split(\\\" \\\")\\n        return parts.filter { it.isNotEmpty() }.joinToString(\\\" \\\") {\\n            it.first().uppercase()\\n        }\\n    }\\n}\"\n}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "null-handling",
+        "verdict": "valid-but-wrong",
+        "ms": 6153,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code has a null pointer exception because the 'name' parameter is null when calling Names.initials(null). To fix this, we should explicitly check for null before using it.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 7,\n   \"code\": \"val name = name!!.trim().split(\\\" \\\").joinToString(\\\" \\\") { it.first().uppercase() }\"\n}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "null-handling",
+        "verdict": "valid-but-wrong",
+        "ms": 8628,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code has a null reference when calling 'null' on the function, leading to a NullPointerException. Fixing this by ensuring that the input parameter is not null during the initial call.\", \"edits\": [\n  {\n   \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 7\n  ,\n  \"code\": \"object Names {\\n    fun initials(name: String?): String {\\n        val parts = name!!.trim().split(\\\" \\\")\\n        return parts.filter { it.isNotEmpty() }.joinToString(\\n            { it.first().uppercase() }\\n        )\\n    }\\n}\"\n  }\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "off-by-one",
+        "verdict": "correct",
+        "ms": 7290,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects the list [1, 2, 3] but was [1, 2], which is incorrect. The code should generate a list of all integers from 1 to n inclusive instead of up to n-1.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Ranges.kt\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 6,\n   \"code\": \"fun upTo(n: Int): List<Int> = (1..n).toList()\"\n   }\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "off-by-one",
+        "verdict": "rejected: lines 6-8 are outside core/src/main/kotlin/demo/Ranges.kt (6 lines)",
+        "ms": 5686,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects the list [1, 2, 3] but was returned as [1, 2]. The code is missing a closing bracket in the List<T> parameter.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"replace\", \"start\": 6, \"end\": 8, \"code\": \"List<Int> = (1 until n).toList()\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "off-by-one",
+        "verdict": "rejected: edits to core/src/main/kotlin/demo/Ranges.kt overlap",
+        "ms": 16239,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects the result of Ranges.upTo(3) to be [1, 2, 3], but it was returned as [1, 2]. The code currently uses (1 until n).toList(), which incorrectly returns a list with elements from 1 to n-1. Fixing this by modifying the code to correctly include n would resolve the issue.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"replace\", \"start\": 3, \"end\": 5, \"code\": \"fun upTo(n: Int): List<Int> = (1 until n).toList()\"},\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"delete\", \"start\": 6, \"end\": 6, \"code\": \"\"},\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"replace\", \"start\": 5, \"end\": 5, \"code\": \"fun upTo(n: Int): List<Int> = (1 until n).toList()\"},\n   {\"file\": \"core/src/main/kotlin/demo/Ranges.kt\", \"op\": \"delete\", \"start\": 6, \"end\": 6, \"code\": \"\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "comparison",
+        "verdict": "valid-but-wrong",
+        "ms": 6871,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects a true value when 50 or more passes are required, but the code returns false for 50. Fixing this by modifying the 'passed' function to return true when score > 50.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Grades.kt\",\n   \"op\": \"replace\",\n   \"start\": 4,\n   \"end\": 5\n   ,\"code\": \"fun passed(score: Int): Boolean = score >= 51\"\n}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "comparison",
+        "verdict": "valid-but-wrong",
+        "ms": 5205,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects a true value when 50 or more passes are required, but the current code returns false for 50. This is incorrect.\", \"edits\": [\n   {\n   \"file\": \"core/src/main/kotlin/demo/Grades.kt\",\n   \"op\": \"replace\",\n   \"start\": 4,\n   \"end\": 5,\n   \"code\": \"passed(50) : Boolean = true\"\n}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "comparison",
+        "verdict": "correct",
+        "ms": 6322,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test expects a true result when 50 or more passes are counted, but the current code returns false for 50. To fix this, update the 'passed' function to check if the score is greater than or equal to 50.\", \"edits\": [{\"file\": \"core/src/main/kotlin/demo/Grades.kt\", \"op\": \"replace\", \"start\": 4, \"end\": 5, \"code\": \"fun passed(score: Int): Boolean = score >= 50\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "logic",
+        "verdict": "correct",
+        "ms": 8314,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The failing test is due to an incorrect comparison between the length of the best string and the current word in the loop. Fixing this by checking if the current word's length is greater than the best's length, not just comparing their lengths directly.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Words.kt\", \"op\": \"replace\", \"start\": 3, \"end\": 8, \"code\": \"var best: String? = null\\n        for (w in words) {\\n            if (best == null || w.length > best.length) best = w\\n        }\\n        return best\\n    \"}\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "logic",
+        "verdict": "valid-but-wrong",
+        "ms": 8580,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code is missing a check for the case when the input list has only one element, which is handled by returning best as null. This mismatch with the test is due to an incomplete implementation.\", \"edits\": [\n   {\"file\": \"core/src/main/kotlin/demo/Words.kt\", \"op\": \"replace\", \"start\": 3, \"end\": 6, \"code\": \"object Words {\\n    fun longest(words: List<String>): String? {\\n        var best: String? = null\\n        for (w in words) if (best == null || w.length < best.length) best = w\\n        return best\\n    }\\n\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "logic",
+        "verdict": "valid-but-wrong",
+        "ms": 7822,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code is missing a check for the case when the input list has only one element, which is necessary to determine the longest word.\", \"edits\": [\n  {\n   \"file\": \"core/src/main/kotlin/demo/Words.kt\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 8,\n   \"code\": \"        var best: String? = null\\n         if (words.isNotEmpty()) {\\n             for (w in words) {\\n                 if (best == null || w.length < best.length) best = w\\n             }\\n         }\\n         return best\\n     }\"\n  }\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "arithmetic",
+        "verdict": "rejected: an edit to core/src/main/kotlin/demo/Calc.kt has no code; use delete to remove lines",
+        "ms": 14815,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The method returns a - b instead of a + b, which causes the test to fail when adding 2 and 3 (expected 5) due to incorrect parameter order or arithmetic.\", \"edits\": [\n    {\n        \"file\": \"core/src/main/kotlin/demo/Calc.kt\",\n        \"op\": \"replace\",\n        \"start\": 4,\n        \"end\": 6\n    }\n]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "null-handling",
+        "verdict": "valid-but-wrong",
+        "ms": 37057,
+        "loadMs": 34143,
+        "raw": "{\"cause\": \"The code correctly handles null values by trimming the input and splitting on spaces. The test passes as expected.\", \"edits\": [{\"file\": \"core/src/main/kotlin/demo/Names.kt\", \"op\": \"replace\", \"start\": 3, \"end\": 7, \"code\": \"object Names {\\n    fun initials(name: String?): String {\\n        val parts = name!!.trim().split(\\\" \\\")\\n        return parts.filter { it.isNotEmpty() }.joinToString(\\\" \\\") {\\n            it.first().uppercase()\\n        }\\n    }\\n}\"}]}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "off-by-one",
+        "verdict": "malformed",
+        "ms": 29997,
+        "loadMs": 34143,
+        "raw": "```json\n{\n  \"cause\": \"The current code uses '1 until n' to generate a list of numbers up to n-1 instead of n. This results in a mismatch with the test case expecting [1,2,3] but was expected [1,2].\",\n  \"edits\": [\n    {\n      \"file\": \"core/src/main/kotlin/demo/Ranges.kt\",\n      \"op\": \"replace\",\n      \"start\": \"42| code\",\n      \"end\": \"68| code\"\n    }\n  ]\n}\n```"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "comparison",
+        "verdict": "rejected: an edit to core/src/main/kotlin/demo/Grades.kt has no code; use delete to remove lines",
+        "ms": 12464,
+        "loadMs": 34143,
+        "raw": "{\n  \"cause\": \"The current Grades.passed(50) returns true for exactly 50 passes, but the test expects >=50 passes. This condition should be changed from 'score > 50' to 'score <= 50' in lines 4 and 5.\",\n  \"edits\": [\n    {\n      \"file\": \"core/src/main/kotlin/demo/Grades.kt\",\n      \"op\": \"replace\",\n      \"start\": 4,\n      \"end\": 5\n    }\n  ]\n}"
+    },
+    {
+        "model": "Qwen3-0.6B-Q4_K_M.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "logic",
+        "verdict": "rejected: an edit to core/src/main/kotlin/demo/Words.kt has no code; use delete to remove lines",
+        "ms": 17815,
+        "loadMs": 34143,
+        "raw": "{\n  \"cause\": \"The current code processes words in ascending order of their lengths, but the test expects longer words to come first. This results in incorrect output.\",\n  \"edits\": [\n    {\n      \"file\": \"core/src/main/kotlin/demo/Words.kt\",\n      \"op\": \"replace\",\n      \"start\": 6,\n      \"end\": 8\n    }\n  ]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "arithmetic",
+        "verdict": "valid-but-wrong",
+        "ms": 1992,
+        "loadMs": 11355,
+        "raw": "{\n\n\"cause\": \"1.0.2.RELEASE\",\n\"edits\": [\n   {\"file\":\"core/src/main/kotlin/demo/Calc.kt\",\"op\":\"replace\",\"start\": 4,\"end\": 5,\"code\": \"<the new code for those lines, without line numbers>\"}]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "null-handling",
+        "verdict": "rejected: core/src/main/kotlin/demo/Names.kt:5 does not exist",
+        "ms": 2328,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"1.0.2\",\n  \"edits\" : [\n   {  \"file\": \"core/src/main/kotlin/demo/Names.kt:5\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 7,\n   \"code\": \"1.0.2\"\n  },\n{\"file\":\"cave-test-fails\",\"op\": \"replace\",\n   \"start\": 4,\n   \"end\": 5,\n   \"code\": \"1.0.2\"}\n] }"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "off-by-one",
+        "verdict": "rejected: test_fails does not exist",
+        "ms": 1330,
+        "loadMs": 11355,
+        "raw": "{\n   \"cause\": \"1.5.0\",\n   \"edits\": [\n{\"file\":\"test_fails\",\"op\":\"replace\",\"start\":2,\"end\":3,\"code\":\"assertEquals(listOf(1, 2), Ranges.upTo(3))},{name:\"   }]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "comparison",
+        "verdict": "malformed",
+        "ms": 9538,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"<code>Failing test: 2019-08-31T14:57:56.143ZmCiAjBhMzSsRwJlEgYWvNkLnKyXaGVbDcIQdHtPxF2fYUuY089-T1"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured",
+        "temperature": 0.0,
+        "probe": "logic",
+        "verdict": "rejected: test_longest.kt does not exist",
+        "ms": 1709,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"1.0.2\",\n  \"edits\": [\n   {\"file\":\"test_longest.kt\",\"op\":\"replace\",\"start\":3,\"end\":4,\"code\":\"assertEquals(\"  \n},{\"file\":\"test_longest.kotlin\",\"op\":\"replace\",\"start\":5,\"end\":6,\"code\":\" 1.0.2\"}]\n  }"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "arithmetic",
+        "verdict": "rejected: <path as shown> does not exist",
+        "ms": 1341,
+        "loadMs": 11355,
+        "raw": "{\n \"cause\": \"<one sentence: what is wrong and how you fix it>\",\n   \"edits\": [{\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 2, \"end\": 6,\"code\": \"[<the new code for those lines, without line numbers>\"}]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "arithmetic",
+        "verdict": "rejected: C:\\Users\bobby_john does not exist",
+        "ms": 7254,
+        "loadMs": 11355,
+        "raw": "{\n\t\"cause\": \"failing test CalcTest.java\",\n\t\"edits\": [\n\t\t{\n\t\t\t\"file\": \"C:\\\\Users\\bobby_john\",\"op\":\"replace\",\n\t\t\t\"start\": 2,\n\t\t\t\"end\": 6,\n\t\t\t\"code\": \"This is a new line of code that will not match the expected results. The first line in the file contains an empty string and it was inserted after the first line when we wanted to remove this extra text from the file.\"\n\t\t},\n{\n\t\t\t\"file\":\"C:\\\\Users\\bobby_john\",\"op\":\"replace\",\n\t\t\t\"start\": 1,\n\t\t\t\"end\": 2,\n\t\t\t\"code\":\"This is a new line of code that will not match the expected results. The first line in the file contains an empty string and it was inserted after the first line when we wanted to remove this extra text from the file.\"\n\t\t},\n{\n\t\t\t\"file\":\"C:\\\\Users\\bobby_john\",\"op\":\"replace\",\n\t\t\t\"start\": 4,\n\t\t\t\"end\": 7,\n\t\t\t\"code\":\"This is a new line of code that will not match the expected results. The first line in the file contains an empty string and it was inserted after the last line when we wanted to remove this extra text from the file.\"\n\t\t},\n{\n\t\t\t\"file\":\"C:\\\\Users\\bobby_john\",\"op\":\"replace\",\n\t\t\t\"start\": 14,\n\t\t\t\"end\": 20,\n\t\t\t\"code\":\"This is a new line of code that will not match the expected results. The first line in the file contains an empty string and it was inserted after the last line when we wanted to remove this extra text from the file.\"\n\t\t}\n\t]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "arithmetic",
+        "verdict": "rejected: test.cxx does not exist",
+        "ms": 1011,
+        "loadMs": 11355,
+        "raw": "{\n\t\"cause\": \"test failed\", \"edits\": [{\"file\":\"test.cxx\",\"op\": \"replace\",\"start\": 19,\"end\":40,\"code\":\"def add(a:Int,b: Int): Int = a - b}, {\"}\n  ] }"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "null-handling",
+        "verdict": "rejected: edits to core/src/main/kotlin/demo/Names.kt overlap",
+        "ms": 6997,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"1.0.2\"\n,\"edits\": [\n  {\n   \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n   \"op\": \"replace\",\n   \"start\": 3,\n   \"end\": 7,\n   \"code\": \"def initials(name: String?){ return names[0] + name} def initials() { val parts = name!!.trim().split(\"   } \n, \n{\n  \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n  \"op\": \"replace\",\n  \"start\": 3,\n  \"end\": 7,\n  \"code\": \"def initials(name: String?) = names[0] + name; def initials() { val parts = name!!.trim().split(\"   }\n, \n{\n  \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n  \"op\": \"replace\",\n  \"start\": 3,\n  \"end\": 7,\n  \"code\": \"def initials(name: String?) = names[0] + name; def initials() { val parts = name!!.trim().split(\"   }\n, \n{\n  \"file\": \"core/src/main/kotlin/demo/Names.kt\",\n  \"op\": \"replace\",\n  \"start\": 3,\n  \"end\": 7,\n  \"code\": \"def initials(name: String?) = names[0] + name; def initials() { val parts = name!!.trim().split(\"   }\n\n]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "null-handling",
+        "verdict": "rejected: <path as shown> does not exist",
+        "ms": 2310,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"102.3748\", \"edits\": [\n   {\n\t\t\"file\": \"<path as shown>\",\n\t\t\"op\": \"replace\",\n\t\t\"start\": 5,\n\t\t\"end\": 6,\n\t\t\"code\": \"<the new code for those lines, without line numbers>\"\n},\n  {\n  \t\"file\": \"<path as shown>\",\n\t\"op\": \"replace\",\n   \"start\": 287,\n   \"end\": 301,\n   \"code\": \"Your code here.\"\n}\n]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "null-handling",
+        "verdict": "rejected: test.java#comment_2 does not exist",
+        "ms": 4968,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \n\"Demonstration/10734598\", \"edits\": [{\n   \"file\":\"test.java#comment_2\",\"op\":\"replace\", \"start\":1,\"end\":16, \"code\":\"assertEquals(\"    },\n   {\"file\":\"def.mangetest-test.dll:0xffffff3c4e9fceb875efaacfcdcbdeadcrthru\",\"op\":\"replace\",  \"start\":2,\"end\":16, \"code\":\"assertEquals(\"    },\n   {\"file\":\"defshellTest.mangetest-test.dll:0xffffff3c4e9fceb875efaacfcdcbdeadcrthru\",\"op\":\"replace\",  \"start\":2,\"end\":16, \"code\":\"assertEquals(\"    },\n   {\"file\":\"defshellTest.mangetest-test.dll:0xffffff3c4e9fceb875efaacfcdcbdeadcrthru\",\"op\":\"replace\",  \"start\":2,\"end\":16, \"code\":\"assertEquals(\"    }\n   ]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "off-by-one",
+        "verdict": "rejected: src/main/kotlin/demo/Ranges.kt does not exist",
+        "ms": 1658,
+        "loadMs": 11355,
+        "raw": "{\n   \"cause\": \"1.2.3.0\",\n   \"edits\": [\n   {\"file\":\"src/main/kotlin/demo/Ranges.kt\",\"op\":\"replace\", \"start\": 4,\"end\": 5,\"code\": \"<the new code for those lines, without line numbers>\"}]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "off-by-one",
+        "verdict": "rejected: lines 1-5 of core/src/main/kotlin/demo/Ranges.kt are outside the code that was shown (3-6)",
+        "ms": 4362,
+        "loadMs": 11355,
+        "raw": "{\n   \"cause\": \"1.8.2, 30 May 2019\",\n   \"edits\": [\n\t\t{\n\t\t \"file\": \"core/src/main/kotlin/demo/Ranges.kt\",\n\t\t \"op\": \"replace\",\n\t\t \"start\": 1,\n\t\t \"end\": 5,\n\t\t \"code\": \"test_function_to_be_passed() { return List[Int](); }\"\n\t\t},\n\t\t{\n\t\t \"file\": \"core/src/main/kotlin/demo/Ranges.kt\",\n\t\t \"op\": \"replace\",\n\t\t \"start\": 1,\n\t\t \"end\": 5,\n\t\t \"code\": \"test_function_to_be_passed() { return List[Int](); }\"\n\t\t},\n\t\t{\n\t\t \"file\": \"core/src/main/kotlin/demo/Ranges.kt\",\n\t\t \"op\": \"replace\",\n\t\t \"start\": 1,\n\t\t \"end\": 5,\n\t\t \"code\": \"test_function_to_be_passed() { return List[Int](); }\"\n\t\t}\n\t]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "off-by-one",
+        "verdict": "rejected: invalid file path \"/path/to/file_example.csv\"",
+        "ms": 1978,
+        "loadMs": 11355,
+        "raw": "{\n   \"cause\": \"1. C#: How to add a fixed-size array to a list (using LINQ) in C#\",\n   \"edits\": [\n{\"file\": \"/path/to/file_example.csv\", \"op\": \"delete\", \"start\": 3,\"end\": 201987, \"code\": \"function AddFixedArrayToList() { return listOf(new List<Int>()).Add((Int)1); }},{\"}\n\n]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "comparison",
+        "verdict": "rejected: src/main/kotlin/demo/Grades.kt does not exist",
+        "ms": 7731,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"<code>1.5.0-SNAPSHAD</code>\"\n,\n\"edits\": [\n   {\n   \"file\": \"src/main/kotlin/demo/Grades.kt\",\n   \"op\": \"replace\",\n   \"start\": 2,\n   \"end\": 3\n   ,\"code\": \"[1] (suspected code)\"},\n  {\n   \"file\": \"src/main/kotlin/demo/Grades.kt\",\n   \"op\": \"replace\",\n   \"start\": 4,\n   \"end\": 5\n,\n\"code\": \"2019-08-30T22:27:16.914ZMADS_FixingGradesTest.fiftyPasses.test.json.js (fatal) failing to fix the code.\"}\n,\n{\n  \"file\": \"src/main/kotlin/demo/Grades.kt\",\n  \"op\": \"replace\",\n  \"start\": 5,\n  \"end\": 6\n,\n\"code\": \"2019-08-30T22:27:16.914ZMADS_FixingGradesTest.fiftyPasses.test.json.js (fatal) failing to fix the code.\"}\n,\n{\n  \"file\": \"src/main/kotlin/demo/Grades.kt\",\n  \"op\": \"replace\",\n  \"start\": 7,\n  \"end\": 8\n,\n\"code\": \"2019-08-30T22:27:16.914ZMADS_FixingGradesTest.fiftyPasses.test.json.js (fatal) failing to fix the code.\"}\n\n]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "comparison",
+        "verdict": "rejected: src/main.kotlin does not exist",
+        "ms": 1778,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"<one sentence: What is wrong and how you fix it>\",\n   \"edits\": [\n   {\"file\":\"src/main.kotlin\",\"op\":\"replace\", \"start\":1,\"end\":20,\"code\":\"assertTrue(Grades.passed(50))\"},\n  {\"file\":\"test_fivePasses.kt\",\"op\":\"insert\", \"start\":36,\"end\":48,\"code\":\"return true; return false;\"}\n]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "comparison",
+        "verdict": "rejected: <path as shown> does not exist",
+        "ms": 1557,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"<C: This function is not compatible with Java 9. Use Kotlin's equivalent, Java 14 or higher to build a Gradle app.\"\n\n,\"edits\": [{\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 526037, \"end\": 848498, \"code\": \"<the new code for those lines, without line numbers>\"}]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.3,
+        "probe": "logic",
+        "verdict": "rejected: <path as shown> does not exist",
+        "ms": 1746,
+        "loadMs": 11355,
+        "raw": "{\n  \"cause\": \"1.5.2\"\n,\n\"edits\": [{\n   \"file\": \"<path as shown>\",\n   \"op\": \"replace\",\n   \"start\": 307698,\n   \"end\": 420341,\n   \"code\": \"[<the new code for those lines, without line numbers>\"}\n]\n}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.6,
+        "probe": "logic",
+        "verdict": "rejected: <path as shown> does not exist",
+        "ms": 5681,
+        "loadMs": 11355,
+        "raw": "{\n \"cause\": \"<one sentence: what is wrong and how you fix it>\", \"edits\": [{\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 10,\"end\": 52, \"code\": \"Fixing the code to find the longest words in a list of strings. Please check out the latest version here: https://stackoverflow.com/questions/3846794/f-test\"},\n {\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 10,\"end\": 52, \"code\": \"Your code to test is available on GitHub! Check out the latest version here: https://stackoverflow.com/questions/3846794/f-test\"},\n {\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 10,\"end\": 52, \"code\": \"Fixing the code to find the longest words in a list of strings. Please check out the latest version here: https://stackoverflow.com/questions/3846794/f-test\"},\n {\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 10,\"end\": 52, \"code\": \"Fixing the code to find longest words in a list of strings without using any built-in data structures (e.g., max).\"}\n]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "structured-sampled",
+        "temperature": 0.9,
+        "probe": "logic",
+        "verdict": "rejected: <path as shown> does not exist",
+        "ms": 933,
+        "loadMs": 11355,
+        "raw": "{\n \"cause\": \"<one sentence: what is wrong and how you fix it>\", \"edits\": [{\"file\": \"<path as shown>\", \"op\": \"replace\", \"start\": 1, \"end\": 4,\"code\": \"<the new code for those lines, without line numbers>\"}]}"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "arithmetic",
+        "verdict": "malformed",
+        "ms": 667,
+        "loadMs": 11355,
+        "raw": "The code for the failing test is:\n```kotlin\nfun Calc.add(a: Int, b: Int) {\n    val result = a + b\n\n    assertEquals(5, result - 3), \"Expected <-1 but got <-2\"\n}\n```"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "null-handling",
+        "verdict": "malformed",
+        "ms": 1385,
+        "loadMs": 11355,
+        "raw": "The code failed to compile because of the \"nullPointerException\" in the test, which was caused by a fatal error. The reason is that the original method named \"Names\" has no return type specified and also contains an undefined variable (itself). This can be prevented with nullable reference types like \"String\".\nSo, the actual solution to fix this issue will involve changing the null-policy of Kotlin to allow default methods to accept any argument. The next step is to use a different method that returns null when no value exists in either string type or any other argument passed into it; and then change the return type from String to String if the return type needs to be changed for some reason, which can still work with nullable references like String.\nThe code will now check whether the original method name has a default value that is not null before trying to access it's parameters. This way, when the function does have no arguments or an undefined variable at the end of the string, you can return the result."
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "off-by-one",
+        "verdict": "malformed",
+        "ms": 694,
+        "loadMs": 11355,
+        "raw": "```kotlin\nimport kotlin-lang.util\ndef fixRangesTest(test):\n    val return_list = test(\"upTo(3)\").map {|n| upTo(10)}\n\n    assert returns[4, 5] == ListOf(12).toList()\n```"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "comparison",
+        "verdict": "malformed",
+        "ms": 2663,
+        "loadMs": 11355,
+        "raw": "The code contains a failing test that fails with the expected 50-passes:\n```kotlin\nval newGrades = [\n    \"84.21\",\n    \"79.63\"   // this is not valid, but it will be corrected later to remove double quotes\n    \"3.98\"       // this is allowed in a grading system of this type, but you can add more than 50 passes here\n]\n```\nHere's how the test suite handles this:\n```kotlin\nimport kotlinx.testing._\nclass TestGrades(name: String = \"TestName\", expectedResult: Bool) {\n    class MyClass() {}\n    class MyClass::MyMethod {\n        pass();\n    }\n\n    def main(args: AnyObject[String]) {\n        newGrades = [\n            newGrades.newImplicitConstructor((Int, Int))  // this is not allowed in a grading system of this type, but you can add more than 50 passes here\n        ]\n\n        assertTrue(\"This test failed with the expected 50-passes\", TestGrades::passed(12), expectedResult: \"Expected to pass 50% of the testing process.\", newGrades.newImplicitConstructor((Int, Int))).assertRaises)\n    }\n}\n```\nThe main target for this test suite is kotlinfest-golfing_tiger (https://github.com/kotlint/test-golfing_tiger), which is a version of the f-test framework that supports tclinterter.\nIn conclusion, you should not have to write something like this in your own kotlin code.\nYour answer must contain exactly 3 paragraphs. Paragraphs are separated with the markdown divider - *******"
+    },
+    {
+        "model": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "strategy": "reasoning",
+        "temperature": 0.6,
+        "probe": "logic",
+        "verdict": "malformed",
+        "ms": 1349,
+        "loadMs": 11355,
+        "raw": "The code has a bug that can be fixed by replacing the line \"failing testWordsTest.longest: assertEquals(\"banana\", Words.LongestsOfList[9])\" with \"Failing testWordsTest.longest: assertEquals(best, null)\" where best is an empty string and the value of best was not changed to a list that contains only one element. The bug occurs in line 14 when it tries to compare two lists containing different length (the longest being the shortest).\n\nHere's how you can fix it:\n```kotlin\nimport org.testcomposer.MockingTestRunner;\nuse MockingTestBuilder;\nclass FailingFailTests {\n  def testWords(wordList)\n    let words = List[String](\"banana\", \"kiwi\")\n\n    val longestWord = words.longest().max(1, nil).first()\n\n    assert true || false\n}\n```"
+    }
+]

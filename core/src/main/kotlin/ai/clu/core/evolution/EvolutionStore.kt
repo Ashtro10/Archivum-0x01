@@ -85,6 +85,7 @@ class EvolutionStore(val db: SqlDriver, val clock: Clock) {
                     exit_code INTEGER NOT NULL, duration_ms INTEGER NOT NULL, timed_out INTEGER NOT NULL, output TEXT NOT NULL, at INTEGER NOT NULL)""",
                 """CREATE INDEX idx_commands_repair ON dev_commands(repair_id)""",
             ),
+            Schema2.STEP,
         )
     }
 

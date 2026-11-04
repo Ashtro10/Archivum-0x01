@@ -68,7 +68,7 @@ class LlamaEngine private constructor(
         else -> config.chatTemplate
     }
 
-    fun format(messages: List<ChatMessage>, addAssistant: Boolean = true): String {
+    fun format(messages: List<ChatMessage>, addAssistant: Boolean = true, allowReasoning: Boolean = false): String {
         check(isReady()) { "engine released" }
         val bytes = LlamaBridge.nativeApplyTemplate(model, template(), messages.map { it.role }.toTypedArray(),
             messages.map { it.content.toByteArray() }.toTypedArray(), addAssistant)
@@ -77,7 +77,8 @@ class LlamaEngine private constructor(
             ?: throw LlmException("chat template not supported")
         val text = String(bytes, Charsets.UTF_8)
         // Conversation never uses hidden reasoning: close it the way the template does for enable_thinking=false.
-        return if (addAssistant) Reasoning.disable(text, reasoning) else text
+        // Development mode may let a template-toggled model (Qwen3) think; the reasoning is still filtered out of the answer.
+        return if (addAssistant && !(allowReasoning && reasoning == ReasoningMode.TOGGLE)) Reasoning.disable(text, reasoning) else text
     }
 
     override fun countTokens(messages: List<ChatMessage>): Int = LlamaBridge.nativeCountTokens(model, format(messages).toByteArray())
@@ -105,7 +106,7 @@ class LlamaEngine private constructor(
         // generation leaves cores to a synthesiser that runs alongside it (GenParams.reserveThreads).
         val want = decodeThreadsFor(config.threads, params.reserveThreads)
         if (want != decodeThreads) { LlamaBridge.nativeSetThreads(session, want, config.threads); decodeThreads = want }
-        val prompt = format(messages)
+        val prompt = format(messages, allowReasoning = params.reasoning)
         val first = run(prompt, params, signal, onText)
         // Fail-safe: a model that keeps reasoning past the budget (or never closes its block) is stopped and asked again
         // with the reasoning block closed, so the user gets an answer instead of silence.
@@ -121,7 +122,7 @@ class LlamaEngine private constructor(
     private fun run(prompt: String, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): Pair<GenResult, Boolean> {
         val utf8 = Utf8Stream()
         val stops = StopSequenceFilter(params.stop)
-        val think = ReasoningFilter(startInside = prompt.trimEnd().endsWith("<think>"), maxHidden = reasoningBudgetChars(params.maxTokens))
+        val think = ReasoningFilter(startInside = prompt.trimEnd().endsWith("<think>"), maxHidden = if (params.reasoning) params.maxTokens * 3 else reasoningBudgetChars(params.maxTokens))
         val out = StringBuilder()
         fun emit(s: String) { if (s.isNotEmpty() && !signal.isCancelled) { out.append(s); onText(s) } }
         val statsJson = LlamaBridge.nativeGenerate(session, prompt.toByteArray(), params.maxTokens, params.temperature, params.topK,

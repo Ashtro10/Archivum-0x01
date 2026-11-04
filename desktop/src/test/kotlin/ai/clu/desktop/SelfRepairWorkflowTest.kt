@@ -1,6 +1,8 @@
 package ai.clu.desktop
 
+import ai.clu.core.evolution.CodingBudget
 import ai.clu.core.evolution.EvolutionStore
+import ai.clu.core.evolution.StructuredPatches
 import ai.clu.core.evolution.RepairRecord
 import ai.clu.core.evolution.Verdict
 import ai.clu.core.util.SystemClock
@@ -140,21 +142,28 @@ class SelfRepairWorkflowTest {
         introduceDefect()
         val good = object : RepairModel {
             override val description = "scripted"; override val lastError: String? = null
-            override suspend fun complete(system: String, user: String, maxTokens: Int) =
-                "FILE: core/src/main/kotlin/demo/Calc.kt\n<<<<<<< SEARCH\n    fun add(a: Int, b: Int) = a - b\n=======\n    fun add(a: Int, b: Int) = a + b\n>>>>>>> REPLACE".also {
-                    assertTrue("Calc" in user && "expected <5> but was <-1>" in user, "the model sees the failure and the suspected code") }
+            override suspend fun complete(system: String, user: String, maxTokens: Int, temperature: Float, seed: Int, grammar: String?, reasoning: Boolean): String {
+                assertTrue("Calc" in user && "expected <5> but was <-1>" in user, "the model sees the failure and the suspected code")
+                return when (grammar) {
+                    StructuredPatches.LOCATE_GRAMMAR -> "{\"file\": \"core/src/main/kotlin/demo/Calc.kt\", \"line\": 4, \"why\": \"subtracts\"}"
+                    StructuredPatches.RAW_LINE_GRAMMAR -> "    fun add(a: Int, b: Int) = a + b"
+                    else -> "{\"cause\": \"subtracts\", \"edits\": [{\"file\": \"core/src/main/kotlin/demo/Calc.kt\", \"op\": \"replace\", \"start\": 4, \"end\": 4, \"code\": \"    fun add(a: Int, b: Int) = a + b\"}]}"
+                }
+            }
         }
         val r = runBlocking { service(good).run(SelfRepairService.Options()) }.repair!!
         assertEquals(RepairRecord.AWAITING_APPROVAL, r.state); assertEquals("model", r.source)
+        assertTrue(r.attempts.single().contains("VERIFIED")); assertEquals(1, service(good).experience.attempts(r.id).size)
         service(good).reject(r.id, "testing rejection").also { assertEquals(RepairRecord.REJECTED, it.repair!!.state) }
         assertTrue(git("branch", "--list", r.branch).isBlank())
 
         val vague = object : RepairModel {
             override val description = "weak"; override val lastError: String? = null
-            override suspend fun complete(system: String, user: String, maxTokens: Int) = "You should probably check the add function."
+            override suspend fun complete(system: String, user: String, maxTokens: Int, temperature: Float, seed: Int, grammar: String?, reasoning: Boolean) = "You should probably check the add function."
         }
-        val o = runBlocking { service(vague).run(SelfRepairService.Options()) }
-        assertEquals(RepairRecord.PATCH_FAILED, o.repair!!.state); assertTrue("no usable edit block" in o.message)
+        val o = runBlocking { service(vague).run(SelfRepairService.Options(budget = CodingBudget(maxAttempts = 3))) }
+        assertEquals(RepairRecord.PATCH_FAILED, o.repair!!.state); assertTrue("did not produce a working patch in 3 attempt(s)" in o.message, o.message)
+        assertTrue(service(vague).experience.attempts(o.repair!!.id).all { it["failure"] == "MALFORMED" })
         assertEquals("", git("status", "--porcelain"))
     }
 

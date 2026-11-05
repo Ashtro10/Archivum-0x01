@@ -543,6 +543,8 @@ object Settings {
     val SYNC_MEMORIES = bool("sync.memories", "Sync memories", DEVICES, true, "Approved memories, standing instructions and project notes.", "SyncEngine", "memories table included", "SyncSettingsTest#scopes")
     val SYNC_DIARY = bool("sync.diary", "Sync diary", DEVICES, false, "Off by default: the diary is private. When on, entries go only to your paired device, encrypted in transit, " +
         "and are included in sync files you choose to export.", "SyncEngine, SyncBundle", "diary entries included", "SyncStage2Test#diaryScope")
+    val SYNC_TASKS = bool("sync.tasks", "Sync tasks, lists and reminders", DEVICES, true, "Your to-dos, shopping lists and reminders on both devices; " +
+        "a reminder rung on one device isn't rung again on the other.", "SyncEngine, Butler", "butler items included", "ButlerSyncTest#scope")
     val SYNC_CONVERSATIONS = bool("sync.conversations", "Sync conversation history", DEVICES, true, "", "SyncEngine", "conversations/messages included", "SyncSettingsTest#scopes")
     val SYNC_SETTINGS = bool("sync.settings", "Sync shared settings", DEVICES, true, "Device-specific settings never sync.", "SyncEngine", "shared settings included", "SyncSettingsTest#scopes")
     val SYNC_CHARACTERS = bool("sync.characters", "Sync characters", DEVICES, true, "", "SyncEngine", "characters included", "SyncSettingsTest#scopes")
@@ -574,10 +576,42 @@ object Settings {
     val PROACTIVE_DELIVERY = choice("proactive.delivery", "Delivery", PROACTIVE, "notification",
         listOf("notification" to "Notification", "speak" to "Speak if the app is open, otherwise notify"), "How proactive messages reach you.",
         "ProactiveScheduler", "Notification vs speech", "ProactiveSettingsTest#delivery", deviceOnly = true)
+    val EVENING_ENABLED = bool("evening.enabled", "Evening summary", PROACTIVE, false, "A short summary each evening: what you finished, what's still open, " +
+        "tomorrow's calendar. Off until you turn it on.", "ProactivePlanner, DayBrief", "Evening summary is delivered once at the set time", "DayBriefTest#evening")
+    val EVENING_TIME = time("evening.time", "Evening summary time", PROACTIVE, "20:30", "When the evening summary comes (quiet hours still apply).", "ProactivePlanner",
+        "Earliest delivery time", "DayBriefTest#evening")
+    val EVENING_DAYS = choice("evening.days", "Evening summary days", PROACTIVE, "daily",
+        listOf("daily" to "Every day", "weekdays" to "Weekdays", "weekends" to "Weekends"), "", "ProactivePlanner", "Days the summary is given", "DayBriefTest#evening")
+    val EVENING_TASKS = bool("evening.tasks", "Evening: tasks", PROACTIVE, true, "Finished and open tasks and reminders.", "DayBrief", "Section included", "DayBriefTest#sections")
+    val EVENING_CALENDAR = bool("evening.calendar", "Evening: tomorrow's calendar", PROACTIVE, true, "Needs calendar access.", "DayBrief", "Section included", "DayBriefTest#sections")
+    val EVENING_DIARY = bool("evening.diary", "Evening: diary", PROACTIVE, true, "How many diary entries you wrote today (not their text).", "DayBrief", "Section included", "DayBriefTest#sections")
+    val EVENING_NOTIFICATIONS = bool("evening.notifications", "Evening: notifications", PROACTIVE, false, "Off by default (private): the apps that sent you notifications today.",
+        "DayBrief", "Section included", "DayBriefTest#sections")
+    val CAL_REMIND_MIN = int("calendar.remindBefore", "Remind me before appointments (min)", PROACTIVE, 0, 0, 240,
+        "CLU reminds you this many minutes before calendar events. 0 = off (your calendar app's own alerts still work).", "ReminderAlarms",
+        "Reminder before each timed event", "CalendarTest#remindBefore", deviceOnly = true)
+    val NOTIF_ANNOUNCE = bool("notifications.announce", "Announce notifications", PROACTIVE, false,
+        "Say new important notifications out loud (needs notification access). Off until you turn it on.", "CluNotificationListener, NotificationPolicy",
+        "Matching notifications are spoken once", "NotificationPolicyTest#rules", scope = SettingScope.DEVICE, deviceOnly = true)
+    val NOTIF_APPS = list("notifications.apps", "Apps to announce", PROACTIVE, emptyList(),
+        "Apps whose notifications CLU announces. Empty: messages, calls, alarms and reminders from any app.", "NotificationPolicy", "Announcement filter", "NotificationPolicyTest#rules")
+    val NOTIF_MUTED = list("notifications.muted", "Apps CLU ignores", PROACTIVE, emptyList(),
+        "CLU never reads, summarises or announces these apps' notifications.", "NotificationPolicy, NotificationsReadTool", "Excluded from reading and announcing", "NotificationPolicyTest#rules")
+    val NOTIF_READ_CONTENT = bool("notifications.readContent", "Read notification text aloud", PROACTIVE, false,
+        "Off: CLU says only who and which app (\"Message from Rahul on WhatsApp\"). On: it reads the text too.", "NotificationPolicy", "Announcement wording",
+        "NotificationPolicyTest#rules", scope = SettingScope.DEVICE)
+    val CALL_ANNOUNCE = bool("calls.announce", "Announce incoming calls", PROACTIVE, false,
+        "Say who is calling, using your contacts. Needs CLU as the call-screening app (Android asks you once). CLU never blocks or answers calls.",
+        "CluCallScreeningService, CallAnnouncer", "Caller announced while ringing", "CallAwarenessTest#announce", scope = SettingScope.DEVICE, deviceOnly = true)
+    val CALL_UNKNOWN = choice("calls.unknown", "Unknown callers", PROACTIVE, "say", listOf("say" to "Say \"unknown number\"", "silent" to "Don't announce"),
+        "Numbers that aren't in your contacts.", "CallAnnouncer", "Announcement for unknown numbers", "CallAwarenessTest#announce", scope = SettingScope.DEVICE)
     val AWARE_BATTERY = bool("awareness.battery", "Battery awareness", PROACTIVE, true, "Mention low battery in proactive messages.",
         "ProactivePlanner", "Low-battery candidate", "ProactiveSettingsTest#battery")
 
     // ---------------------------------------------------------------- Learning
+    val ROUTINES_ENABLED = bool("learning.routines", "Notice my routines", LEARNING, true,
+        "CLU may notice repeated tasks, reminders and apps you open at similar times, and suggest them for you to approve. Nothing is saved without your approval.",
+        "RoutineDetector", "Routine suggestions appear among memory suggestions", "RoutinesTest#propose")
     val LEARNING_ENABLED = bool("learning.enabled", "Adapt to my preferences", LEARNING, true,
         "Apply learned response preferences.", "PreferenceEngine, PromptBuilder", "Preference instructions included in the prompt", "LearningSettingsTest#enabled")
     val LEARNING_ALTERNATIVES = bool("learning.alternatives", "Occasionally offer two styles", LEARNING, true,

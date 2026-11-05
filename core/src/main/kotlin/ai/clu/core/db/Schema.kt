@@ -215,6 +215,14 @@ object Schema {
                 done INTEGER NOT NULL DEFAULT 0, notified_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, done_at INTEGER)""",
             """CREATE INDEX idx_butler_open ON butler_items(done, due_at)""",
         ),
+        // v7 -> v8 (butler sync): butler items carry a sync version, their origin and a tombstone flag so tasks, lists and
+        // reminders synchronise between the phone and the tablet. Existing items keep their content; they are queued for
+        // sync the first time task sync runs.
+        listOf(
+            """ALTER TABLE butler_items ADD COLUMN hlc TEXT NOT NULL DEFAULT ''""",
+            """ALTER TABLE butler_items ADD COLUMN origin TEXT NOT NULL DEFAULT ''""",
+            """ALTER TABLE butler_items ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size

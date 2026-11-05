@@ -34,7 +34,7 @@ class SyncBundle(private val store: CluStore, private val engine: SyncEngine) {
 
     fun export(passphrase: String, includeDiary: Boolean): ExportResult {
         require(passphrase.length >= MIN_PASSPHRASE) { "Use a passphrase of at least $MIN_PASSPHRASE characters." }
-        val tables = buildSet { add(MemoryRepository.TABLE); add(SettingsStore.TABLE); if (includeDiary) add(DiaryRepository.TABLE) }
+        val tables = buildSet { add(MemoryRepository.TABLE); add(SettingsStore.TABLE); add(ai.clu.core.butler.Butler.TABLE); if (includeDiary) add(DiaryRepository.TABLE) }
         val rows = engine.allRows(tables)
         val salt = ByteArray(16).also { rng.nextBytes(it) }; val nonce = ByteArray(12).also { rng.nextBytes(it) }
         val header = buildJsonObject {
@@ -79,7 +79,7 @@ class SyncBundle(private val store: CluStore, private val engine: SyncEngine) {
         const val FORMAT = "clu-sync-file"
         const val ITERATIONS = 210_000
         const val MIN_PASSPHRASE = 8
-        private val ALLOWED = setOf(MemoryRepository.TABLE, SettingsStore.TABLE, DiaryRepository.TABLE)
+        private val ALLOWED = setOf(MemoryRepository.TABLE, SettingsStore.TABLE, DiaryRepository.TABLE, ai.clu.core.butler.Butler.TABLE)
         private val rng = SecureRandom()
         private fun key(pass: String, salt: ByteArray, iter: Int) =
             SecretKeySpec(SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(PBEKeySpec(pass.toCharArray(), salt, iter, 256)).encoded, "AES")

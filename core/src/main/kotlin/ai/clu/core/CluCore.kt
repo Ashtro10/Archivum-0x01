@@ -96,11 +96,21 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val network = NetworkPolicy(settings, platform::isOnline)
     val toolRegistry = ToolRegistry()
     val tools = ToolExecutor(store, toolRegistry, settings, auth, network, diag)
+    /** An optional local vision engine; when set, the vision tool is registered. Null = CLU says it can't see images. */
+    var visionEngine: ai.clu.core.vision.VisionEngine? = null
+        set(v) { field = v; if (v != null) toolRegistry.register(ai.clu.core.vision.VisionDescribeTool(v)) }
+    /** The owner's calendar (Android: the calendar provider); null where none exists. */
+    @Volatile var calendarSource: ai.clu.core.calendar.CalendarSource? = null
+    /** Apps that notified the owner today (Android, with notification access). */
+    @Volatile var notifiedApps: (() -> List<String>?)? = null
+    val dayBrief = ai.clu.core.butler.DayBrief(butler, settings, { calendarSource }, diary, { notifiedApps?.invoke() })
+    val routines = ai.clu.core.butler.RoutineDetector(store, settings, butler, proposals)
     val proactive = ProactivePlanner(store, settings, memories, templates, diag = diag,
-        briefing = { if (butler.open().any { it.dueAt != null && it.dueAt < clock.now() + 86_400_000L }) butler.briefing() else null })
+        briefing = { val now = clock.now(); if (dayBrief.morningWorthSaying(now)) dayBrief.morning(now) else null },
+        evening = dayBrief, routines = { runCatching { routines.run() } })
     /** Optional LiveKit voice path: room tokens from the owner's token endpoint (no LiveKit secrets in the app). */
     val liveKitTokens = ai.clu.core.livekit.TokenProvisioner(settings, platform.http, { platform.secret(LIVEKIT_DEVICE_KEY) }, clock::now)
-    val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag, diary)
+    val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag, diary, butler)
     val syncFiles = ai.clu.core.sync.SyncBundle(store, syncEngine)
 
     /** Remote engine provider (set by the app when a paired home device is configured). */
@@ -168,13 +178,17 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     }
 
     private fun registerCoreTools() {
+        val zone = { java.time.ZoneId.systemDefault() }
         val web = WebSearchTool(search)
         val geo = Geocoder(platform.http)
         listOf(TimeTool(time::conversationNow), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
             DiaryAddTool(diary, conversations), PersonaSwitchTool(personas),
             web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") },
             ai.clu.core.butler.TaskAddTool(butler), ai.clu.core.butler.TaskListTool(butler), ai.clu.core.butler.TaskDoneTool(butler) { reminderScheduler },
-            ai.clu.core.butler.ReminderSetTool(butler, { java.time.ZoneId.systemDefault() }) { reminderScheduler }, ai.clu.core.butler.BriefingTool(butler))
+            ai.clu.core.butler.ReminderSetTool(butler, { java.time.ZoneId.systemDefault() }) { reminderScheduler }, ai.clu.core.butler.BriefingTool(dayBrief), ai.clu.core.butler.EveningTool(dayBrief),
+            ai.clu.core.calendar.CalendarReadTool({ calendarSource }, zone), ai.clu.core.calendar.CalendarFreeTool({ calendarSource }, zone),
+            ai.clu.core.calendar.CalendarCreateTool({ calendarSource }, zone), ai.clu.core.calendar.CalendarMoveTool({ calendarSource }, zone),
+            ai.clu.core.calendar.CalendarDeleteTool({ calendarSource }, zone), ai.clu.core.vision.VisionUnavailableTool())
             .forEach(toolRegistry::register)
     }
 

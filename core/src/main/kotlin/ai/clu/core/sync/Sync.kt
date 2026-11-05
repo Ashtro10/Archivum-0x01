@@ -50,6 +50,7 @@ class SyncEngine(
     private val commands: CommandRepository,
     private val diag: DiagnosticsLog?,
     private val diary: DiaryRepository? = null,
+    private val butler: ai.clu.core.butler.Butler? = null,
 ) {
     private val db = store.db
 
@@ -103,6 +104,7 @@ class SyncEngine(
         CommandRepository.TABLE -> settings.bool(Settings.SYNC_COMMANDS)
         PeopleRepository.TABLE -> settings.bool(Settings.SYNC_PEOPLE)
         DiaryRepository.TABLE -> settings.bool(Settings.SYNC_DIARY) && diary != null
+        BUTLER -> settings.bool(Settings.SYNC_TASKS) && butler != null
         else -> false
     }
 
@@ -136,6 +138,7 @@ class SyncEngine(
             if (MemoryRepository.TABLE in tables) addAll(db.query("SELECT id FROM memories") { MemoryRepository.TABLE to it.str(0) })
             if (SettingsStore.TABLE in tables) addAll(db.query("SELECT key FROM settings WHERE scope = 'SHARED'") { SettingsStore.TABLE to it.str(0) })
             if (DiaryRepository.TABLE in tables) addAll(db.query("SELECT id FROM diary_entries") { DiaryRepository.TABLE to it.str(0) })
+            if (BUTLER in tables && butler != null) { butler.stampUnversioned(); addAll(db.query("SELECT id FROM butler_items") { BUTLER to it.str(0) }) }
         }
         return ids.mapNotNull { (t, id) -> rowFor(t, id) }
     }
@@ -145,6 +148,9 @@ class SyncEngine(
         // Diary sync switched on for the first time: queue every entry once (entries from before 1.5.0 were never sent).
         val diaryOn = settings.bool(Settings.SYNC_DIARY) && diary != null
         if (diaryOn && store.meta("diary_sync_queued") != "1") { requeue(DiaryRepository.TABLE); store.setMeta("diary_sync_queued", "1") }
+        // Task sync for the first time: items from before it existed get a version and are queued once.
+        if (settings.bool(Settings.SYNC_TASKS) && butler != null && store.meta("butler_sync_queued") != "1") {
+            butler.stampUnversioned(); requeue(BUTLER); store.setMeta("butler_sync_queued", "1") }
         requeueReenabledScopes()
         val entries = db.query("SELECT seq, table_name, row_id FROM change_log WHERE seq > ? ORDER BY seq LIMIT ?", listOf(sinceSeq, limit * 4)) {
             Triple(it.lng(0), it.str(1), it.str(2))
@@ -175,6 +181,9 @@ class SyncEngine(
         DiaryRepository.TABLE -> diary?.row(id)?.let { e -> SyncRow(table, id, e.hlc, e.origin.ifEmpty { store.deviceId }, buildJsonObject {
             put("date", e.date); put("title", e.title); put("body", e.body); put("source", e.source.id); e.conversationId?.let { put("conversationId", it) }
             e.memoryId?.let { put("memoryId", it) }; put("createdAt", e.createdAt); put("updatedAt", e.updatedAt); put("deleted", e.deleted) }) }
+        BUTLER -> butler?.row(id)?.takeIf { it.hlc.isNotEmpty() }?.let { i -> SyncRow(table, id, i.hlc, i.origin.ifEmpty { store.deviceId }, buildJsonObject {
+            put("title", i.title); put("list", i.list); i.dueAt?.let { put("dueAt", it) }; put("recur", i.recur); put("done", i.done)
+            i.notifiedAt?.let { put("notifiedAt", it) }; put("createdAt", i.createdAt); i.doneAt?.let { put("doneAt", it) }; put("updatedAt", i.updatedAt); put("deleted", i.deleted) }) }
         else -> null
     }
 
@@ -262,6 +271,8 @@ class SyncEngine(
                 PreferenceEngine.TABLE -> prefs.applyRemote(PreferenceEngine.Row(r.id, s("value"), s("source"), s("note"), b("deleted"), hlc, r.origin))
                 CommandRepository.TABLE -> commands.applyRemote(CommandRepository.Row(r.id, s("json"), b("deleted"), hlc, r.origin))
                 DiaryRepository.TABLE -> diary?.applyRemote(diaryFrom(r).copy(hlc = hlc)) ?: false
+                BUTLER -> butler?.applyRemote(ai.clu.core.butler.ButlerItem(r.id, s("title"), s("list"), d["dueAt"]?.jsonPrimitive?.longOrNull, s("recur"), b("done"),
+                    d["notifiedAt"]?.jsonPrimitive?.longOrNull, l("createdAt"), d["doneAt"]?.jsonPrimitive?.longOrNull, hlc, r.origin, b("deleted"), l("updatedAt"))) ?: false
                 else -> false
             }
         }.getOrElse { diag?.w("sync", "row ${r.table}/${r.id} rejected: ${it.message}"); false }
@@ -294,7 +305,8 @@ class SyncEngine(
 
     companion object {
         private val SCOPED = listOf(MemoryRepository.TABLE, ConversationRepository.CONV, ConversationRepository.MSG, SettingsStore.TABLE,
-            CharacterRepository.TABLE, PreferenceEngine.TABLE, CommandRepository.TABLE, PeopleRepository.TABLE, DiaryRepository.TABLE)
+            CharacterRepository.TABLE, PreferenceEngine.TABLE, CommandRepository.TABLE, PeopleRepository.TABLE, DiaryRepository.TABLE, ai.clu.core.butler.Butler.TABLE)
+        private const val BUTLER = ai.clu.core.butler.Butler.TABLE
         fun b64(b: ByteArray): String = Base64.getEncoder().encodeToString(b)
         fun b64d(s: String): ByteArray = Base64.getDecoder().decode(s)
     }

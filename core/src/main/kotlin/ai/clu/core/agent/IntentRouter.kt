@@ -62,8 +62,42 @@ object IntentRouter {
         r("^(?:remove|delete|take)\\s+(.+?)\\s+(?:from|off)\\s+(?:my\\s+|the\\s+)?(shopping|grocery|to-?do|todo|[a-z]+)\\s+list$").find(t)?.let {
             return RoutedIntent("task.done", obj("title" to it.groupValues[1], "list" to it.groupValues[2]), "list done") }
         r("^i(?:'ve|\\s+have)?\\s+bought\\s+(?:the\\s+)?(.+)$").find(t)?.let { return RoutedIntent("task.done", obj("title" to it.groupValues[1], "list" to "shopping"), "list done") }
-        if (r("^(?:what(?:'s| is| does)\\s+my\\s+day(?:\\s+look\\s+like)?(?:\\s+today)?|(?:give\\s+me\\s+)?(?:my\\s+)?(?:daily|morning|evening)\\s+(?:briefing|summary)|brief\\s+me|what(?:'s| is)\\s+(?:on\\s+)?(?:for\\s+)?today|what(?:'s| is)\\s+pending|what\\s+do\\s+i\\s+(?:have|need)\\s+to\\s+do(?:\\s+today)?)\\??$").matches(t))
+        if (r("^(?:what(?:'s| is| does)\\s+my\\s+day(?:\\s+look\\s+like)?(?:\\s+today)?|(?:give\\s+me\\s+)?(?:my\\s+)?(?:daily|morning)\\s+(?:briefing|summary)|brief\\s+me|what(?:'s| is)\\s+(?:on\\s+)?(?:for\\s+)?today|what(?:'s| is)\\s+pending|what\\s+do\\s+i\\s+(?:have|need)\\s+to\\s+do(?:\\s+today)?)\\??$").matches(t))
             return RoutedIntent("butler.briefing", obj(), "briefing")
+
+        if (r("^(?:how\\s+was\\s+my\\s+day|(?:give\\s+me\\s+)?(?:my\\s+|the\\s+)?(?:evening|end[- ]of[- ]day|nightly)\\s+(?:summary|briefing|report)|summari[sz]e\\s+(?:my\\s+)?(?:day|today)|what\\s+did\\s+i\\s+(?:get\\s+done|do|finish|complete)\\s+today)\\??$").matches(t))
+            return RoutedIntent("butler.evening", obj(), "evening")
+
+        // Calendar: reading, free time, conflicts, creating, moving, cancelling (the calendar provider; permission asked when needed).
+        r("^(?:what(?:'s|\\s+is)\\s+(?:on\\s+)?my\\s+(?:calendar|schedule|agenda)|(?:show|read|check|open)\\s+(?:me\\s+)?my\\s+(?:calendar|schedule|agenda)|what\\s+(?:meetings|appointments|events|plans)\\s+(?:do\\s+)?i\\s+have|do\\s+i\\s+have\\s+(?:any\\s+)?(?:meetings|appointments|events|plans)|(?:are\\s+there\\s+)?any\\s+(?:calendar\\s+|schedule\\s+)?(?:conflicts|clashes|overlaps))(?:\\s+(?:for|on|in))?\\s*(.*?)\\??$").find(t)?.let {
+            return RoutedIntent("calendar.read", obj("range" to it.groupValues[1]), "calendar") }
+        r("^when\\s+am\\s+i\\s+(?:free|available)\\s*(.*?)\\??$").find(t)?.let { return RoutedIntent("calendar.free", obj("range" to it.groupValues[1]), "free time") }
+        r("^(?:am\\s+i\\s+(?:free|busy|available)|do\\s+i\\s+have\\s+(?:time|anything(?:\\s+on)?))\\s*(?:at|on|around|for)?\\s*(.+?)\\??$").find(t)?.let { m ->
+            val w = m.groupValues[1]
+            return if (Regex("\\d|noon|midnight").containsMatchIn(w)) RoutedIntent("calendar.free", obj("at" to w), "free time") else RoutedIntent("calendar.free", obj("range" to w), "free time") }
+        r("^(?:add|put|schedule|create)\\s+(.+?)\\s+(?:to|on|in)\\s+(?:my\\s+)?calendar\\s+(?:for\\s+|at\\s+|on\\s+)?(.+)$").find(t)?.let {
+            return RoutedIntent("calendar.create", obj("title" to it.groupValues[1], "when" to it.groupValues[2]), "calendar add") }
+        r("^(?:schedule|book|set\\s+up|arrange)\\s+(?:a|an|my)\\s+((?:meeting|appointment|call|lunch|dinner|session|class|interview)(?:\\s+with\\s+.+?)?)\\s+((?:on|at|for|tomorrow|today|next|this|in)\\b.+)$").find(t)?.let {
+            return RoutedIntent("calendar.create", obj("title" to it.groupValues[1].replaceFirstChar { c -> c.uppercase() }, "when" to it.groupValues[2]), "calendar add") }
+        r("^(?:move|reschedule|push|shift)\\s+(?:my\\s+|the\\s+)?(.+?)\\s+(?:to|until|till)\\s+(.+)$").find(t)?.let { m ->
+            if (!Regex("\\b(?:list|clipboard)\\b").containsMatchIn(m.groupValues[2])) return RoutedIntent("calendar.move", obj("title" to m.groupValues[1], "when" to m.groupValues[2]), "calendar move") }
+        r("^(?:cancel|delete)\\s+(?:my\\s+|the\\s+)?(.+?\\b(?:meeting|appointment|event|call|session|class|interview|lunch|dinner))(?:\\s+(?:on|at|for|tomorrow|today)\\b.*)?$").find(t)?.let {
+            return RoutedIntent("calendar.delete", obj("title" to it.groupValues[1]), "calendar delete") }
+        r("^(?:remove|delete)\\s+(.+?)\\s+from\\s+(?:my\\s+)?calendar$").find(t)?.let { return RoutedIntent("calendar.delete", obj("title" to it.groupValues[1]), "calendar delete") }
+
+        // Images: answered by the vision engine if there is one, otherwise honestly ("I can't see images yet").
+        if (r("^(?:what(?:'s|\\s+is)\\s+in\\s+(?:this|the|my)\\s+(?:image|picture|photo|pic|screenshot)|describe\\s+(?:this|the|my)\\s+(?:image|picture|photo|screenshot)|(?:read|extract)\\s+(?:the\\s+)?text\\s+(?:in|from)\\s+(?:this|the|my)\\s+(?:image|picture|photo|screenshot)|look\\s+at\\s+(?:this|my)\\s+(?:image|picture|photo|screenshot|screen)|what\\s+do\\s+you\\s+see)\\??$").matches(t))
+            return RoutedIntent("vision.describe", obj(), "image")
+
+        // Notifications: what was missed, replies, dismissal, and the owner's switches for announcements.
+        if (r("^(?:what\\s+did\\s+i\\s+miss|(?:did\\s+i\\s+miss|any|what)\\s+(?:missed|important)\\s+(?:messages|notifications|calls)|anything\\s+important)\\??$").matches(t))
+            return RoutedIntent("notifications.missed", obj(), "missed")
+        r("^(?:reply|respond|answer)\\s+to\\s+(.+?)(?:'s\\s+message)?\\s+(?:saying|with|that|:)\\s+(.+)$").find(t)?.let {
+            return RoutedIntent("notifications.reply", obj("from" to it.groupValues[1], "text" to it.groupValues[2]), "reply") }
+        r("^(?:dismiss|clear)\\s+(?:all\\s+)?(?:my\\s+|the\\s+)?(?:(.+?)\\s+)?notifications?$").find(t)?.let { return RoutedIntent("notifications.dismiss", obj("app" to it.groupValues[1]), "dismiss") }
+        r("^(?:(?:turn|switch)\\s+(on|off)\\s+(?:notification|call)\\s+announcements?|(?:turn|switch)\\s+(?:notification|call)\\s+announcements?\\s+(on|off)|(start|stop)\\s+announcing\\s+(?:my\\s+)?(?:notifications|messages|calls))$").find(t)?.let { m ->
+            val on = (m.groupValues[1] + m.groupValues[2] + m.groupValues[3]).lowercase().let { it == "on" || it == "start" }
+            return RoutedIntent(if (lower.contains("call")) "calls.announce" else "notifications.announce", obj("state" to if (on) "on" else "off"), "announcements") }
 
         r("^(?:set|create|add|make)\\s+(?:an?\\s+)?alarm\\s+(?:for|at)\\s+(.+?)(?:\\s+(?:called|named|labell?ed|for)\\s+(.+))?$").find(t)?.let {
             return RoutedIntent("alarm.set", obj("time" to it.groupValues[1], "label" to it.groupValues[2]), "alarm") }

@@ -38,14 +38,25 @@ class ProactivePlanner(
     private val diag: ai.clu.core.diag.DiagnosticsLog? = null,
     /** The owner's day from their own lists and reminders (null = nothing worth saying); added to the first greeting of the day. */
     private val briefing: (() -> String?)? = null,
+    /** The evening summary (its own switch and time; not counted against the daily cap or spacing, still silent in quiet hours). */
+    private val evening: ai.clu.core.butler.DayBrief? = null,
+    /** Routine recognition, run at most once a day from here (it only makes suggestions for approval). */
+    private val routines: (() -> Unit)? = null,
 ) {
     private val db = store.db
     private val wellbeing = Regex("\\b(sick|ill|unwell|fever|cold|flu|stressed|stress|sad|upset|anxious|anxiety|headache|hurt|injur\\w*|exhausted|depressed|lonely)\\b", RegexOption.IGNORE_CASE)
 
     fun plan(ctx: ProactiveContext, now: Long = store.clock.now()): ProactiveMessage? {
-        if (!settings.bool(Settings.PROACTIVE_ENABLED)) return null
+        routines?.invoke()
         if (QuietHours.isQuiet(settings, now, zone())) return null
         val dayStart = Instant.ofEpochMilli(now).atZone(zone()).toLocalDate().atStartOfDay(zone()).toInstant().toEpochMilli()
+        // The evening summary was asked for explicitly: once a day after its time, independent of the proactive switch and caps.
+        if (evening != null && evening.eveningDue(now) &&
+            db.queryOne("SELECT COUNT(*) FROM proactive_log WHERE kind = 'evening' AND ts >= ?", listOf(dayStart)) == 0L) {
+            val text = guarded("evening") { ProactiveMessage("evening", evening.evening(now)) }
+            if (text != null) { db.execute("INSERT INTO proactive_log(id, ts, kind, text) VALUES(?,?,?,?)", listOf(newId(), now, "evening", text.text)); return text }
+        }
+        if (!settings.bool(Settings.PROACTIVE_ENABLED)) return null
         val today = db.queryOne("SELECT COUNT(*) FROM proactive_log WHERE ts >= ?", listOf(dayStart))
         if (today >= settings.int(Settings.PROACTIVE_MAX)) return null
         val last = db.queryOne("SELECT COALESCE(MAX(ts), 0) FROM proactive_log", emptyList())

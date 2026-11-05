@@ -79,12 +79,20 @@ class ReminderSetTool(private val butler: Butler, private val zone: () -> ZoneId
     }
 }
 
-class BriefingTool(private val butler: Butler) : Tool {
+class BriefingTool(private val brief: DayBrief) : Tool {
     override val name = "butler.briefing"
-    override val description = "Today's reminders and open lists."
+    override val description = "Today's calendar, reminders and open lists."
     override val argsExample = "{}"
     override val sensitivity = Sensitivity.PERSONAL
-    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = ToolResult.ok(butler.briefing(ctx.now))
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = ToolResult.ok(brief.morning(ctx.now))
+}
+
+class EveningTool(private val brief: DayBrief) : Tool {
+    override val name = "butler.evening"
+    override val description = "Summary of the day: done, open, tomorrow."
+    override val argsExample = "{}"
+    override val sensitivity = Sensitivity.PERSONAL
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = ToolResult.ok(brief.evening(ctx.now))
 }
 
 private fun label(list: String) = when (list) { Butler.TASKS -> "tasks"; Butler.SHOPPING -> "shopping list"; else -> "$list list" }

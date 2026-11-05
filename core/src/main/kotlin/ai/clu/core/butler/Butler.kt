@@ -31,6 +31,11 @@ data class ButlerItem(
     val notifiedAt: Long?,
     val createdAt: Long,
     val doneAt: Long?,
+    /** Sync version (hybrid logical clock), the device that made it, and deletion (kept as a tombstone so it syncs). */
+    val hlc: String = "",
+    val origin: String = "",
+    val deleted: Boolean = false,
+    val updatedAt: Long = createdAt,
 )
 
 /** When something is due: the first time and the repeat rule ("" = once). */
@@ -40,6 +45,10 @@ data class When(val at: Long, val recur: String = "")
  * The owner's tasks, lists and reminders: local, offline, in CLU's own database (table butler_items). Nothing here is
  * inferred: every item exists because the owner asked for it. Reminders are delivered by the platform (Android:
  * AlarmManager → notification); this class only decides what is due and what comes next.
+ *
+ * Synchronised with the paired device (setting sync.tasks): every change is stamped with the store's hybrid logical
+ * clock and logged, removals are tombstones, and an incoming version is applied only if it is newer, so both devices
+ * converge on the same lists without duplicates however often they sync.
  */
 class Butler(private val store: CluStore, private val zone: () -> ZoneId = { ZoneId.systemDefault() }) {
     private val db = store.db
@@ -48,30 +57,68 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
         val t = title.trim().trimEnd('.', '!').ifEmpty { throw IllegalArgumentException("An item needs a title.") }
         require(recur in RECURS) { "Unknown repeat rule: $recur" }
         val now = store.clock.now()
-        val item = ButlerItem(newId(), t.take(300), normaliseList(list), dueAt, recur, false, null, now, null)
-        db.execute("INSERT INTO butler_items(id, title, list_name, due_at, recur, done, notified_at, created_at, updated_at, done_at) VALUES(?,?,?,?,?,0,NULL,?,?,NULL)",
-            listOf(item.id, item.title, item.list, item.dueAt, item.recur, now, now))
-        return item
+        return save(ButlerItem(newId(), t.take(300), normaliseList(list), dueAt, recur, false, null, now, null))
     }
 
-    fun get(id: String): ButlerItem? = db.query("SELECT $COLS FROM butler_items WHERE id = ?", listOf(id), ::read).firstOrNull()
+    /** Writes a local change: stamped, logged for sync, observers told. */
+    private fun save(item: ButlerItem): ButlerItem {
+        var row = item.copy(updatedAt = store.clock.now(), origin = store.deviceId)
+        db.transaction { row = row.copy(hlc = store.stamp(TABLE, row.id)); write(row) }
+        store.notifyChanged(TABLE)
+        return row
+    }
+
+    private fun write(r: ButlerItem) = db.execute("""INSERT INTO butler_items(id, title, list_name, due_at, recur, done, notified_at, created_at, updated_at, done_at, hlc, origin, deleted)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, list_name=excluded.list_name, due_at=excluded.due_at, recur=excluded.recur,
+        done=excluded.done, notified_at=excluded.notified_at, created_at=excluded.created_at, updated_at=excluded.updated_at, done_at=excluded.done_at,
+        hlc=excluded.hlc, origin=excluded.origin, deleted=excluded.deleted""",
+        listOf(r.id, r.title, r.list, r.dueAt, r.recur, if (r.done) 1 else 0, r.notifiedAt, r.createdAt, r.updatedAt, r.doneAt, r.hlc, r.origin, if (r.deleted) 1 else 0))
+
+    /** Items created before task sync existed (no version yet) get one, so they can be sent. Returns how many. */
+    fun stampUnversioned(): Int {
+        val ids = db.query("SELECT id FROM butler_items WHERE hlc = ''", emptyList()) { it.str(0) }
+        ids.forEach { id -> row(id)?.let { r -> db.transaction { write(r.copy(hlc = store.stamp(TABLE, id), origin = store.deviceId)) } } }
+        return ids.size
+    }
+
+    /** The stored row including tombstones (for synchronisation). */
+    fun row(id: String): ButlerItem? = db.query("SELECT $COLS FROM butler_items WHERE id = ?", listOf(id), ::read).firstOrNull()
+
+    /** A version from the paired device: applied only when newer than ours (idempotent; older or equal versions are ignored). */
+    fun applyRemote(item: ButlerItem): Boolean {
+        val local = row(item.id)
+        if (local != null && local.hlc >= item.hlc) return false
+        require(item.recur in RECURS) { "invalid repeat rule" }
+        store.hlc.observe(item.hlc)
+        db.transaction { write(if (item.deleted) item.copy(title = "") else item.copy(list = normaliseList(item.list))); store.logRemote(TABLE, item.id, item.hlc) }
+        store.notifyChanged(TABLE)
+        return true
+    }
+
+    fun get(id: String): ButlerItem? = row(id)?.takeUnless { it.deleted }
 
     /** Open items, reminders by due time first, then the rest in the order they were added. */
     fun open(list: String? = null): List<ButlerItem> =
-        db.query("SELECT $COLS FROM butler_items WHERE done = 0 ${if (list != null) "AND list_name = ?" else ""} ORDER BY due_at IS NULL, due_at, created_at",
+        db.query("SELECT $COLS FROM butler_items WHERE done = 0 AND deleted = 0 ${if (list != null) "AND list_name = ?" else ""} ORDER BY due_at IS NULL, due_at, created_at",
             listOfNotNull(list?.let(::normaliseList)), ::read)
 
-    fun lists(): List<String> = db.query("SELECT DISTINCT list_name FROM butler_items WHERE done = 0 ORDER BY list_name", emptyList()) { it.str(0) }
+    fun lists(): List<String> = db.query("SELECT DISTINCT list_name FROM butler_items WHERE done = 0 AND deleted = 0 ORDER BY list_name", emptyList()) { it.str(0) }
 
     /** Closes the open item that best matches [query] (exact title, then a title containing all its words). */
     fun complete(query: String, list: String? = null): ButlerItem? {
         val item = find(query, list) ?: return null
-        val now = store.clock.now()
-        db.execute("UPDATE butler_items SET done = 1, done_at = ?, updated_at = ? WHERE id = ?", listOf(now, now, item.id))
-        return get(item.id)
+        return save(item.copy(done = true, doneAt = store.clock.now()))
     }
 
-    fun remove(id: String) = db.execute("DELETE FROM butler_items WHERE id = ?", listOf(id))
+    /** Removes an item everywhere (a tombstone, so the paired device removes it too). */
+    fun remove(id: String) { row(id)?.takeUnless { it.deleted }?.let { save(it.copy(deleted = true, title = "")) } }
+
+    /** Items closed in [from, to) (the evening summary). */
+    fun completedBetween(from: Long, to: Long): List<ButlerItem> =
+        db.query("SELECT $COLS FROM butler_items WHERE done = 1 AND deleted = 0 AND done_at >= ? AND done_at < ? ORDER BY done_at", listOf(from, to), ::read)
+
+    /** Every item ever added, done or not (routine recognition looks for repeats); tombstones excluded. */
+    fun history(since: Long): List<ButlerItem> = db.query("SELECT $COLS FROM butler_items WHERE deleted = 0 AND created_at >= ? ORDER BY created_at", listOf(since), ::read)
 
     fun find(query: String, list: String? = null): ButlerItem? {
         val q = query.trim().lowercase().removePrefix("the ").trim()
@@ -84,18 +131,18 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
 
     /** Reminders whose time has come and that haven't been delivered for this time. */
     fun due(now: Long = store.clock.now()): List<ButlerItem> =
-        db.query("SELECT $COLS FROM butler_items WHERE done = 0 AND due_at IS NOT NULL AND due_at <= ? AND (notified_at IS NULL OR notified_at < due_at) ORDER BY due_at",
+        db.query("SELECT $COLS FROM butler_items WHERE done = 0 AND deleted = 0 AND due_at IS NOT NULL AND due_at <= ? AND (notified_at IS NULL OR notified_at < due_at) ORDER BY due_at",
             listOf(now), ::read)
 
     /** The next reminder time after [now] (for the platform alarm), or null when none is pending. */
     fun nextDue(now: Long = store.clock.now()): Long? =
-        db.query("SELECT MIN(due_at) FROM butler_items WHERE done = 0 AND due_at IS NOT NULL AND (notified_at IS NULL OR notified_at < due_at) AND due_at > ?", listOf(now)) { it.long(0) }.firstOrNull()
+        db.query("SELECT MIN(due_at) FROM butler_items WHERE done = 0 AND deleted = 0 AND due_at IS NOT NULL AND (notified_at IS NULL OR notified_at < due_at) AND due_at > ?", listOf(now)) { it.long(0) }.firstOrNull()
 
     /** Records that [item] was delivered: a repeating reminder moves to its next time, a one-off one stays open (it is a task until closed). */
     fun delivered(item: ButlerItem, now: Long = store.clock.now()) {
         val next = item.dueAt?.let { nextOccurrence(it, item.recur, now) }
-        if (next != null) db.execute("UPDATE butler_items SET due_at = ?, updated_at = ? WHERE id = ?", listOf(next, now, item.id))
-        else db.execute("UPDATE butler_items SET notified_at = ?, updated_at = ? WHERE id = ?", listOf(now, now, item.id))
+        // Synced too: once one device has rung it, the other one won't ring it again later.
+        save(if (next != null) item.copy(dueAt = next) else item.copy(notifiedAt = now))
     }
 
     private fun nextOccurrence(dueAt: Long, recur: String, now: Long): Long? {
@@ -129,13 +176,14 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
         return "$day at ${clock(ms)}"
     }
 
-    private fun read(r: SqlRow) = ButlerItem(r.str(0), r.str(1), r.str(2), r.long(3), r.str(4), r.bool(5), r.long(6), r.lng(7), r.long(8))
+    private fun read(r: SqlRow) = ButlerItem(r.str(0), r.str(1), r.str(2), r.long(3), r.str(4), r.bool(5), r.long(6), r.lng(7), r.long(8), r.str(9), r.str(10), r.bool(11), r.lng(12))
 
     companion object {
+        const val TABLE = "butler_items"
         const val TASKS = "tasks"
         const val SHOPPING = "shopping"
         val RECURS = setOf("", "daily", "weekly")
-        private const val COLS = "id, title, list_name, due_at, recur, done, notified_at, created_at, done_at"
+        private const val COLS = "id, title, list_name, due_at, recur, done, notified_at, created_at, done_at, hlc, origin, deleted, updated_at"
 
         fun normaliseList(name: String): String {
             val n = name.trim().lowercase().removePrefix("my ").removePrefix("the ").removeSuffix(" list").trim()

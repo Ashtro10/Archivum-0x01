@@ -130,7 +130,7 @@ class ButlerTest {
         Schema.migrations.take(6).forEach { step -> step.forEach { db.execute(it) } }; db.userVersion = 6
         db.execute("INSERT INTO diary_entries(id, entry_date, title, body, source, created_at, updated_at, deleted, hlc, origin) VALUES('d1','2026-11-01','Day','A good day','manual',1,1,0,'h','o')")
         val c = newCore(db = db)
-        assertEquals(7, db.userVersion)
+        assertEquals(Schema.currentVersion, db.userVersion)
         assertEquals("A good day", c.diary.get("d1")!!.body)
         c.butler.add("first task"); assertEquals(1, c.butler.open().size)
     }
@@ -160,5 +160,25 @@ class PersonalRoutesTest {
         assertNull(r("call me Ishaan"))
         assertNull(r("pause"), "a bare 'pause' may be meant for CLU's own speech")
         assertNull(r("stop"))
+    }
+}
+
+/** Vision is optional: no tool claims to see images unless a real engine is present (unit). */
+class VisionSeamTest {
+    @Test fun noEngineNoVisionTool() {
+        val core = newCore()
+        val conv = core.conversations.create("v").id
+        val said = runBlocking { core.agent.respond(TurnRequest(conv, "what's in this photo?", ai.clu.core.security.Actor.ownerInApp())).toList() }
+            .filterIsInstance<AgentEvent.Done>().single().text
+        assertTrue(said.startsWith("I can't see images yet"), "without a vision model CLU says so instead of guessing: $said")
+        core.visionEngine = object : ai.clu.core.vision.VisionEngine {
+            override val model = "test-engine"
+            override fun ask(path: String, question: String): String? = if (path.endsWith(".png")) "A red square." else null
+        }
+        val t = core.toolRegistry["vision.describe"]!!
+        val ctx = ai.clu.core.tools.ToolContext(ai.clu.core.security.Actor.ownerInApp(), core.personas.active(), null, 0)
+        fun go(p: String) = kotlinx.coroutines.runBlocking { t.run(kotlinx.serialization.json.buildJsonObject { put("path", kotlinx.serialization.json.JsonPrimitive(p)) }, ctx) }
+        assertEquals("A red square.", go("x.png").summary)
+        assertFalse(go("broken.jpg").success, "an image the engine couldn't process is reported, not described")
     }
 }

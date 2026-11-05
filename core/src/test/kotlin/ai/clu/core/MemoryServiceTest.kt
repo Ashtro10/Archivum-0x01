@@ -240,7 +240,7 @@ class MemoryServiceTest {
         db.execute("INSERT INTO memory_terms(memory_id, term, tf) VALUES('m1','chai',1)")
         db.execute("""INSERT INTO memory_proposals(id, kind, text, rationale, status, created_at, fingerprint) VALUES('p1','OBSERVATION','Likes chai','seen twice','PENDING',1,'fp')""")
         val c = newCore(db = db)
-        assertEquals(Schema.currentVersion, db.userVersion); assertEquals(7, Schema.currentVersion, "the current schema is v7 (the butler added its items table)")
+        assertEquals(Schema.currentVersion, db.userVersion); assertEquals(8, Schema.currentVersion, "the current schema is v8 (butler items gained sync columns)")
         assertEquals("Likes masala chai.", c.memories.get("m1")!!.content)
         assertEquals(MemoryKind.CORE, c.memory.metaOf(c.memories.get("m1")!!).kind, "records without metadata get derived defaults")
         assertEquals("m1", c.memory.recall(RecallRequest("chai", touch = false)).single().memory!!.id)

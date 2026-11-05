@@ -21,9 +21,28 @@ class ReminderAlarms(private val app: CluApp) : ReminderScheduler {
 
     val exact: Boolean get() = am.canScheduleExactAlarms()
 
+    /** Minutes before a calendar event that CLU reminds (0 = off), when it can read the calendar. */
+    private fun lead(): Long = app.core.settings.int(ai.clu.core.config.Settings.CAL_REMIND_MIN).toLong() * 60_000L
+
+    /** Start of the next timed calendar event that still needs a reminder, minus the lead. */
+    private fun nextEventAlert(now: Long): Long? {
+        val l = lead(); val cal = app.core.calendarSource
+        if (l <= 0 || cal == null || !cal.canRead()) return null
+        return cal.events(now, now + 2 * 86_400_000L).filter { !it.allDay && it.start - l > now && !alerted(it) }.minOfOrNull { it.start - l }
+    }
+
+    private fun alertKey(e: ai.clu.core.calendar.CalEvent) = "${e.id}@${e.start}"
+    private fun alerted(e: ai.clu.core.calendar.CalEvent) = alertKey(e) in (app.core.store.meta("cal_alerted") ?: "").split(',')
+    private fun markAlerted(e: ai.clu.core.calendar.CalEvent) {
+        val keep = (app.core.store.meta("cal_alerted") ?: "").split(',').filter { it.isNotBlank() }.takeLast(50)
+        app.core.store.setMeta("cal_alerted", (keep + alertKey(e)).joinToString(","))
+    }
+
     override fun reschedule() {
         val pi = PendingIntent.getBroadcast(app, REQ, Intent(app, ReminderReceiver::class.java).setAction(ACTION), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val next = app.core.butler.nextDue()
+        val now = System.currentTimeMillis()
+        // One alarm for the soonest of: a reminder, an appointment alert, the evening summary.
+        val next = listOfNotNull(app.core.butler.nextDue(now), runCatching { nextEventAlert(now) }.getOrNull(), app.core.dayBrief.nextEvening(now)).minOrNull()
         if (next == null) { am.cancel(pi); return }
         if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi) else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi)
     }
@@ -42,8 +61,22 @@ class ReminderAlarms(private val app: CluApp) : ReminderScheduler {
             b.delivered(item, now)
             app.core.diag.i("butler", "reminder delivered${if (item.recur.isNotEmpty()) " (${item.recur})" else ""}") // no title: private
         }
+        // Appointments starting within the lead time get one notification each ("In 15 minutes: Dentist at 4:00 PM").
+        val l = lead(); val cal = app.core.calendarSource
+        val alerts = if (l > 0 && cal != null && cal.canRead()) cal.events(now, now + l + 60_000L).filter { !it.allDay && it.start >= now && !alerted(it) } else emptyList()
+        alerts.forEach { e ->
+            val z = java.time.ZoneId.systemDefault()
+            val mins = ((e.start - now + 59_999) / 60_000L)
+            val n = Notification.Builder(app, CluApp.CH_REMINDERS).setSmallIcon(android.R.drawable.ic_popup_reminder)
+                .setContentTitle("In $mins min: ${e.title.ifBlank { "event" }}").setContentText(ai.clu.core.calendar.CalendarLogic.line(e, z, false))
+                .setCategory(Notification.CATEGORY_EVENT).setAutoCancel(true).build()
+            runCatching { nm.notify(NOTIFY_BASE + 0x10000 + (e.id.toInt() and 0xffff), n) }
+            markAlerted(e)
+        }
+        // The evening summary's time: let the proactive planner deliver it (it checks the switch, the day and quiet hours).
+        if (app.core.dayBrief.eveningDue(now)) runCatching { ProactiveScheduler.evaluate(app, appOpenedNow = false) }
         reschedule()
-        return due.map { it.title }
+        return due.map { it.title } + alerts.map { "event:" + it.title }
     }
 
     companion object {

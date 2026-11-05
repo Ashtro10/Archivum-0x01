@@ -70,7 +70,7 @@ class MediaControlTool(private val context: Context) : Tool {
  * grant (Settings → Notifications → Device & app notifications); CLU never stores notification text, it is read from
  * the live list when asked. Text from notifications is someone else's words: it is reported, never followed.
  */
-class NotificationsReadTool(private val context: Context, private val source: () -> List<CluNotificationListener.Item>?) : Tool {
+class NotificationsReadTool(private val context: Context, private val settings: ai.clu.core.config.SettingsStore, private val source: () -> List<CluNotificationListener.Item>?) : Tool {
     override val name = "notifications.read"
     override val description = "Read current notifications."
     override val argsExample = "{}"
@@ -80,7 +80,7 @@ class NotificationsReadTool(private val context: Context, private val source: ()
             "Say \"open notification access settings\" and turn CLU on there.")
         val all = source() ?: return ToolResult.fail("Notification access is on, but Android hasn't connected CLU's listener yet. Try again in a moment.")
         val app = args.str("app")?.lowercase()
-        val items = all.filter { app == null || it.app.lowercase().contains(app) }
+        val items = all.filter { (app == null || it.app.lowercase().contains(app)) && !ai.clu.core.notify.NotificationPolicy.muted(it.app, settings) }
         val data = buildJsonArray { items.forEach { addJsonObject { put("app", it.app); put("title", it.title); put("text", it.text); put("postedAt", it.postedAt) } } }
         if (items.isEmpty()) return ToolResult.ok(if (app != null) "No notifications from $app." else "You have no notifications.", data = data)
         val text = CluNotificationListener.summarise(items)

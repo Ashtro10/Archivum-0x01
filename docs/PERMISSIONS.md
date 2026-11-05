@@ -12,6 +12,8 @@
 | `CHANGE_WIFI_MULTICAST_STATE` | mDNS discovery of the paired device | Install time | Manual/gateway address still works |
 | `com.android.alarm.permission.SET_ALARM` | Set alarms and timers through the clock app | Install time | Alarm/timer commands fail with a clear message |
 | `READ_CONTACTS` | "Call Mom", "text Rahul…", "what's Priya's number": finding a contact's number or email. Read on request only, nothing copied into CLU | The first time a command needs a contact (runtime prompt) | CLU says it needs the permission; numbers still work |
+| `READ_CALENDAR`, `WRITE_CALENDAR` | "What's on my calendar", free time, conflicts, creating, moving and cancelling events, appointment alerts. Read on request; nothing is copied into CLU | The first time a calendar request needs them (one runtime prompt for both) | CLU says it needs calendar access; calendar parts of the briefings are left out |
+| Call-screening role (`BIND_SCREENING_SERVICE`, granted by the owner in a system dialog) | Saying who is calling ("Call from Mom"). CLU lets every call through unchanged | When you turn on call announcements | CLU can't name callers; it still pauses its own speech and listening during calls (audio mode, no permission) |
 | `WRITE_SETTINGS` (special) | Changing screen brightness | Only you can allow it, in "Modify system settings" (CLU opens that screen when you ask for brightness) | CLU opens display settings instead |
 | `SCHEDULE_EXACT_ALARM` (special on Android 14+) | Reminders exactly on time | "Alarms & reminders" in system settings | Reminders still ring, possibly a few minutes late in deep sleep |
 | `RECEIVE_BOOT_COMPLETED` | Setting reminder alarms again after a restart | Install time | Reminders set before a restart wait until CLU is next opened |

@@ -65,7 +65,7 @@ class MainActivity : BaseActivity() {
         scope.launch { core.store.changes.collect { t -> if (t == "messages" || t == "conversations" || t == "memory_proposals") refresh() } }
         scope.launch { app.engine.ui.collect { render(it) } }
         // A tool needs a runtime permission (e.g. contacts for "call Mom"): Android's own prompt, asked from the visible screen.
-        scope.launch { app.permissionWanted.collect { p -> if (p != null) { app.permissionWanted.value = null; if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(p), 2) } } }
+        scope.launch { app.permissionWanted.collect { p -> if (p != null) { app.permissionWanted.value = null; askFor(p) } } }
         scope.launch { core.chat.state.collect { st -> if (!app.engine.server && (st.status != null || st.events.lastOrNull() is ai.clu.core.agent.AgentEvent.Error)) showItems() } }
         if (core.store.meta("onboarded") == null) onboarding()
     }
@@ -200,6 +200,19 @@ class MainActivity : BaseActivity() {
             input.text.isNotBlank() -> send()
             else -> toggleMic()
         }
+    }
+
+    /** A permission or role a tool needs, through Android's own dialog (calendar asks for reading and writing together). */
+    private fun askFor(p: String) {
+        if (p == ai.clu.tools.CallsAnnounceTool.ROLE_REQUEST) {
+            val rm = getSystemService(android.app.role.RoleManager::class.java)
+            if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_CALL_SCREENING) && !rm.isRoleHeld(android.app.role.RoleManager.ROLE_CALL_SCREENING))
+                runCatching { startActivityForResult(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_CALL_SCREENING), 3) }
+            askFor(Manifest.permission.READ_CONTACTS); return
+        }
+        val group = if (p == Manifest.permission.READ_CALENDAR || p == Manifest.permission.WRITE_CALENDAR) arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR) else arrayOf(p)
+        val missing = group.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 2)
     }
 
     private fun toggleMic() {

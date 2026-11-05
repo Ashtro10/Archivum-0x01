@@ -40,6 +40,7 @@ class CluApp : Application() {
     lateinit var engine: ai.clu.voice.Engine
     lateinit var sync: SyncManager
     lateinit var reminders: ai.clu.proactive.ReminderAlarms
+    lateinit var callState: ai.clu.voice.CallStateWatcher
     /** A runtime permission a tool needs; the visible screen asks Android for it and clears this. */
     val permissionWanted = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -92,6 +93,9 @@ class CluApp : Application() {
         whisper = ai.clu.voice.WhisperStt(this, core.diag)
         reminders = ai.clu.proactive.ReminderAlarms(this)
         core.reminderScheduler = reminders
+        core.calendarSource = ai.clu.tools.AndroidCalendar(this) { ai.clu.tools.PermissionAsker { p -> permissionWanted.value = p } }
+        // Apps with notifications today (names only), for the evening summary when the owner enables that section.
+        core.notifiedApps = { ai.clu.tools.CluNotificationListener.current()?.filter { it.postedAt >= java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli() }?.map { it.app } }
         registerAndroidTools()
         voice = VoiceSession(this)
         liveKit = LiveKitSession(this)
@@ -106,6 +110,9 @@ class CluApp : Application() {
         sync.start()
         ProactiveScheduler.schedule(this)
         runCatching { reminders.deliverDue() } // anything that came due while CLU wasn't running; sets the next alarm
+        // Lists synced from the paired device, or settings changed: the next reminder alarm may have moved.
+        scope.launch { core.store.changes.collect { t -> if (t == ai.clu.core.butler.Butler.TABLE || t == "settings") runCatching { reminders.reschedule() } } }
+        callState = ai.clu.voice.CallStateWatcher(this).also { it.start() }
         scope.launch { core.settings.values.collect { applyServicePolicy() } }
         core.diag.perf("app_create_ms", (System.currentTimeMillis() - t0).toDouble())
         core.diag.i("app", "started on ${ai.clu.platform.DeviceInfo.summary(this)}")
@@ -135,7 +142,13 @@ class CluApp : Application() {
             DeviceStatusTool(this, platform::isOnline) { statusLine() }).forEach(r::register)
         val contacts = ai.clu.tools.Contacts(this)
         val asker = { ai.clu.tools.PermissionAsker { p -> permissionWanted.value = p } }
-        listOf(ai.clu.tools.MediaControlTool(this), ai.clu.tools.NotificationsReadTool(this) { ai.clu.tools.CluNotificationListener.current() },
+        val live = { ai.clu.tools.CluNotificationListener.current() }
+        listOf(ai.clu.tools.NotificationsMissedTool(this, core.settings, { lastInteractionAt }, live),
+            ai.clu.tools.NotificationsReplyTool(this, core.settings, live) { key, text -> ai.clu.tools.CluNotificationListener.instance?.reply(key, text) ?: false },
+            ai.clu.tools.NotificationsDismissTool(this) { app -> ai.clu.tools.CluNotificationListener.instance?.dismiss(app) },
+            ai.clu.tools.NotificationsAnnounceTool(this, core.settings),
+            ai.clu.tools.CallsAnnounceTool(core.settings, { ai.clu.voice.CluCallScreeningService.roleHeld(this) }) { p -> permissionWanted.value = p }).forEach(r::register)
+        listOf(ai.clu.tools.MediaControlTool(this), ai.clu.tools.NotificationsReadTool(this, core.settings, live),
             ai.clu.tools.ContactFindTool(contacts, asker), ai.clu.tools.CallTool(this, contacts, asker), ai.clu.tools.SmsComposeTool(this, contacts, asker),
             ai.clu.tools.EmailComposeTool(this, contacts, asker), ai.clu.tools.BrightnessTool(this),
             ai.clu.tools.ClipboardCopyTool(this) { conv -> conv?.let { c -> core.conversations.messages(c, 50).lastOrNull { it.role == ai.clu.core.conversation.Role.ASSISTANT }?.content } })

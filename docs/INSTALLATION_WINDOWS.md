@@ -3,7 +3,7 @@
 **You need:** Windows 10 or 11, 64-bit; a processor with AVX2 (every Ryzen and every Intel since 2013); 8 GB RAM minimum (16–32 GB recommended); about 1 GB for CLU plus 1–3 GB per language model. No administrator rights.
 
 ## Install
-1. Get `CLU-Setup-0.6.0.exe` (and, optionally, check it against `SHA256SUMS.txt`: PowerShell `Get-FileHash CLU-Setup-0.6.0.exe`).
+1. Get `CLU-Setup-0.8.0.exe` (419 MB; SHA-256 `2b3cf92a713d9fcf147b99b7a5a90f0310f8c687fd4e1fb7d1acf5ac4b17c0b7`, also in `dist/installer/SHA256SUMS.txt`). Check it in PowerShell with `Get-FileHash CLU-Setup-0.8.0.exe`. The installer is too large for the Git repository, so it is handed over separately.
 2. Double-click it. Windows SmartScreen may say "Windows protected your PC" because the installer is not code-signed: choose **More info → Run anyway**.
 3. The installer checks your PC and explains anything missing (64-bit Windows, AVX2, Edge). Click through: license/notices → components (desktop shortcut is optional; the GPU engine is off) → folder (default `%LOCALAPPDATA%\Programs\CLU`) → Install → "Open CLU now".
 4. CLU opens in its own window with the **first-run guide**: it checks your PC, helps you pick or download a model (it always asks first, showing size, source and licence), lets you set options, and tests the model. You can skip any step; CLU works without a model, it just cannot talk yet.

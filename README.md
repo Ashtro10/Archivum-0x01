@@ -13,10 +13,10 @@ and keeps working without an internet connection. The phone and tablet are two e
 
 ## Get the APK
 
-* `dist/clu-release.apk` (65 MB, arm64-v8a, Android 13+, release-signed). Direct download link for a phone or tablet
+* `dist/clu-release.apk` (86 MB, version 1.9.0, arm64-v8a, Android 13+, release-signed). Direct download link for a phone or tablet
   browser:
   https://github.com/Ashtro10/Archivum-0x01/raw/claude/clu-android-ai-build-5cspi2/dist/clu-release.apk
-* SHA-256 `3bd51c9792bb94748e764c4d5f5b53a8a92881a7e462f42e121b7c0d4037f32f`. Signature, certificate and provenance:
+* SHA-256 `8351f220213443f91451d6cd774bfd7b5c5e1eb9bed0c1e07bb907089d7319d8`. Signature, certificate and provenance:
   [docs/RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md).
 * Install steps without a PC: [docs/INSTALL.md](docs/INSTALL.md).
 * First run: enter your name, choose the device role, then load a language model

@@ -17,6 +17,27 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-05: Android capability audit, butler and device integrations
+
+The owner asked for implementation, which lifts the feature freeze for this work.
+
+* **Audit:** [docs/CLU_CAPABILITY_AUDIT.md](docs/CLU_CAPABILITY_AUDIT.md) covers every capability, A–Q.
+* **New:**
+  * tasks, shopping and other lists;
+  * reminders (once, daily, weekly) delivered by AlarmManager and kept across reboots;
+  * a daily briefing, also added to the first greeting of the day;
+  * media control;
+  * notification reading (after the owner grants access);
+  * contacts and calls by name;
+  * SMS and email drafts (the owner sends);
+  * clipboard;
+  * brightness.
+* **Status:** host and Robolectric tests pass; device unverified.
+* **Details:**
+  * [docs/CLU_IMPLEMENTATION_REPORT.md](docs/CLU_IMPLEMENTATION_REPORT.md)
+  * [docs/CLU_PERFORMANCE_REPORT.md](docs/CLU_PERFORMANCE_REPORT.md)
+  * [docs/CLU_ANDROID_LIMITATIONS.md](docs/CLU_ANDROID_LIMITATIONS.md)
+
 ## 2026-11-04: General software authoring (desktop)
 
 Requests for applications no kit family covers now go to an authoring engine instead of being declined.

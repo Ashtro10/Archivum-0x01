@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,501,965 bytes | `stat` |
-| SHA-256 | `6f739b604329776e1dcffe7858b428fb94f299ea04d49d7fdf2b80dc24cb528a` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,903,372 bytes | `stat` |
+| SHA-256 | `8351f220213443f91451d6cd774bfd7b5c5e1eb9bed0c1e07bb907089d7319d8` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.8.2-prototype` (versionCode 19; installs as an update over versionCodes 1–18, same package and signer; database migrates v3 → v4 on first start (1.8.0/1.8.1 installs are already v4; 1.8.2 changes no schema), extending memories and adding archive tables, nothing removed; the migration is one transaction. Previous APKs: 1.8.1 in commit `5dffe1d`, 1.8.0 in `9c9327e`, 1.7.0 in `cc18766`, 1.6.2 in `ac3eda6`; going back needs an uninstall, which erases app data — export a sync file first) | `aapt2 dump badging` |
+| Version | `1.9.0-prototype` (versionCode 22; installs as an update over earlier versionCodes, same package and signer; the database migrates to v7 on first start, adding the `butler_items` table for tasks, lists and reminders, nothing removed; the migration is one transaction. Going back needs an uninstall, which erases app data: export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |

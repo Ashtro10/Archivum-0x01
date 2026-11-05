@@ -1,0 +1,77 @@
+[
+    {
+        "model": "Smollm2 135M 8k Lc100K Mix1 Ep2",
+        "file": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "fileMb": 93,
+        "quantization": "Q4_1",
+        "threads": 4,
+        "contextTokens": 4096,
+        "coreStartupMs": 352,
+        "modelLoadCallMs": 7320,
+        "nativeLoadMs": 7275,
+        "loadsLogged": [
+            "loaded Smollm2 135M 8k Lc100K Mix1 Ep2 in 7275ms (ctx=4096, threads=4, backend=cpu)"
+        ],
+        "instructionTokens": 0,
+        "instructionWarmUpMs": 1524,
+        "turns": [
+            {
+                "question": "Hello! How are you today?",
+                "firstTokenMs": 298,
+                "totalMs": 2542,
+                "promptTokens": 767,
+                "reusedTokens": 691,
+                "promptReadMs": 207,
+                "generatedTokens": 77,
+                "tokensPerSecond": 35.70195115382377,
+                "memoryLookupMs": 5,
+                "reply": ""
+            },
+            {
+                "question": "What is the capital of France?",
+                "firstTokenMs": 251,
+                "totalMs": 1166,
+                "promptTokens": 779,
+                "reusedTokens": 693,
+                "promptReadMs": 224,
+                "generatedTokens": 25,
+                "tokensPerSecond": 28.016647402233136,
+                "memoryLookupMs": 1,
+                "reply": "L'avenue de la femme, un jeune femme est du Canada.\n[/Lemma]"
+            },
+            {
+                "question": "Why is the sky blue? Explain briefly.",
+                "firstTokenMs": 346,
+                "totalMs": 1700,
+                "promptTokens": 824,
+                "reusedTokens": 705,
+                "promptReadMs": 329,
+                "generatedTokens": 40,
+                "tokensPerSecond": 30.180781971037863,
+                "memoryLookupMs": 1,
+                "reply": "D'accord, on peut vous raconter cette question: \"Où est la couleur de l'emblène?\"\n[/LemonText]"
+            },
+            {
+                "question": "Thanks. And what about sunsets?",
+                "firstTokenMs": 365,
+                "totalMs": 1013,
+                "promptTokens": 883,
+                "reusedTokens": 748,
+                "promptReadMs": 346,
+                "generatedTokens": 21,
+                "tokensPerSecond": 33.66430712148731,
+                "memoryLookupMs": 2,
+                "reply": "Oui, les suns sont morts mourants.\n[/LemonText]"
+            }
+        ],
+        "cancelLatencyMs": 24,
+        "modelAfterCancel": "READY",
+        "memoryLookup2000RecordsMsMedian": 3,
+        "memoryLookup2000RecordsMsMax": 3,
+        "unloadMs": 13,
+        "rssMbStart": 89,
+        "rssMbModelLoaded": 310,
+        "rssMbAfterTurns": 332,
+        "rssMbAfterUnload": 198
+    }
+]

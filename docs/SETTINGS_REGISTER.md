@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.4-prototype.
 
-* Settings: **228** · verifying test passed: **228** · other: **0**
+* Settings: **254** · verifying test passed: **254** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -192,6 +192,16 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.trains.lookup.confirm` | Confirm before trains.lookup | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.external.ai.enabled` | Allow external.ai | `true` | true / false | SHARED | ToolExecutor | When off, external.ai is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.external.ai.confirm` | Confirm before external.ai | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.task.add.enabled` | Allow task.add | `true` | true / false | SHARED | ToolExecutor | When off, task.add is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.task.add.confirm` | Confirm before task.add | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.task.list.enabled` | Allow task.list | `true` | true / false | SHARED | ToolExecutor | When off, task.list is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.task.list.confirm` | Confirm before task.list | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.task.done.enabled` | Allow task.done | `true` | true / false | SHARED | ToolExecutor | When off, task.done is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.task.done.confirm` | Confirm before task.done | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.reminder.set.enabled` | Allow reminder.set | `true` | true / false | SHARED | ToolExecutor | When off, reminder.set is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.reminder.set.confirm` | Confirm before reminder.set | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.butler.briefing.enabled` | Allow butler.briefing | `true` | true / false | SHARED | ToolExecutor | When off, butler.briefing is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.butler.briefing.confirm` | Confirm before butler.briefing | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.app.open.enabled` | Allow app.open | `true` | true / false | SHARED | ToolExecutor | When off, app.open is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.app.open.confirm` | Confirm before app.open | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.alarm.set.enabled` | Allow alarm.set | `true` | true / false | SHARED | ToolExecutor | When off, alarm.set is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
@@ -214,6 +224,22 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.calendar.add.confirm` | Confirm before calendar.add | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.device.status.enabled` | Allow device.status | `true` | true / false | SHARED | ToolExecutor | When off, device.status is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.device.status.confirm` | Confirm before device.status | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.media.control.enabled` | Allow media.control | `true` | true / false | SHARED | ToolExecutor | When off, media.control is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.media.control.confirm` | Confirm before media.control | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.notifications.read.enabled` | Allow notifications.read | `true` | true / false | SHARED | ToolExecutor | When off, notifications.read is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.notifications.read.confirm` | Confirm before notifications.read | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.contacts.find.enabled` | Allow contacts.find | `true` | true / false | SHARED | ToolExecutor | When off, contacts.find is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.contacts.find.confirm` | Confirm before contacts.find | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.phone.call.enabled` | Allow phone.call | `true` | true / false | SHARED | ToolExecutor | When off, phone.call is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.phone.call.confirm` | Confirm before phone.call | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.sms.compose.enabled` | Allow sms.compose | `true` | true / false | SHARED | ToolExecutor | When off, sms.compose is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.sms.compose.confirm` | Confirm before sms.compose | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.email.compose.enabled` | Allow email.compose | `true` | true / false | SHARED | ToolExecutor | When off, email.compose is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.email.compose.confirm` | Confirm before email.compose | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.device.brightness.enabled` | Allow device.brightness | `true` | true / false | SHARED | ToolExecutor | When off, device.brightness is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.device.brightness.confirm` | Confirm before device.brightness | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.clipboard.copy.enabled` | Allow clipboard.copy | `true` | true / false | SHARED | ToolExecutor | When off, clipboard.copy is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.clipboard.copy.confirm` | Confirm before clipboard.copy | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 
 ## Internet & external services
 

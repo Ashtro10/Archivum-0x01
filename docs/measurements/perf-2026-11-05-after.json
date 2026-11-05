@@ -1,0 +1,77 @@
+[
+    {
+        "model": "Smollm2 135M 8k Lc100K Mix1 Ep2",
+        "file": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "fileMb": 93,
+        "quantization": "Q4_1",
+        "threads": 4,
+        "contextTokens": 4096,
+        "coreStartupMs": 334,
+        "modelLoadCallMs": 599,
+        "nativeLoadMs": 581,
+        "loadsLogged": [
+            "loaded Smollm2 135M 8k Lc100K Mix1 Ep2 in 581ms (ctx=4096, threads=4, backend=cpu)"
+        ],
+        "instructionTokens": 0,
+        "instructionWarmUpMs": 1866,
+        "turns": [
+            {
+                "question": "Hello! How are you today?",
+                "firstTokenMs": 352,
+                "totalMs": 1756,
+                "promptTokens": 883,
+                "reusedTokens": 807,
+                "promptReadMs": 248,
+                "generatedTokens": 60,
+                "tokensPerSecond": 44.02259173080253,
+                "memoryLookupMs": 6,
+                "reply": ""
+            },
+            {
+                "question": "What is the capital of France?",
+                "firstTokenMs": 292,
+                "totalMs": 1844,
+                "promptTokens": 895,
+                "reusedTokens": 809,
+                "promptReadMs": 266,
+                "generatedTokens": 59,
+                "tokensPerSecond": 38.511234925645226,
+                "memoryLookupMs": 1,
+                "reply": ""
+            },
+            {
+                "question": "Why is the sky blue? Explain briefly.",
+                "firstTokenMs": 294,
+                "totalMs": 804,
+                "promptTokens": 909,
+                "reusedTokens": 821,
+                "promptReadMs": 274,
+                "generatedTokens": 11,
+                "tokensPerSecond": 22.70716370410327,
+                "memoryLookupMs": 1,
+                "reply": "The answer:"
+            },
+            {
+                "question": "Thanks. And what about sunsets?",
+                "firstTokenMs": 338,
+                "totalMs": 423,
+                "promptTokens": 931,
+                "reusedTokens": 833,
+                "promptReadMs": 319,
+                "generatedTokens": 3,
+                "tokensPerSecond": 48.76002762158044,
+                "memoryLookupMs": 2,
+                "reply": "The answer:"
+            }
+        ],
+        "cancelLatencyMs": 23,
+        "modelAfterCancel": "READY",
+        "memoryLookup2000RecordsMsMedian": 4,
+        "memoryLookup2000RecordsMsMax": 4,
+        "unloadMs": 14,
+        "rssMbStart": 90,
+        "rssMbModelLoaded": 340,
+        "rssMbAfterTurns": 358,
+        "rssMbAfterUnload": 196
+    }
+]

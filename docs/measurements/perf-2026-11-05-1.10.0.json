@@ -1,0 +1,77 @@
+[
+    {
+        "model": "Smollm2 135M 8k Lc100K Mix1 Ep2",
+        "file": "SmolLM2-135M-Instruct.Q4_1.gguf",
+        "fileMb": 93,
+        "quantization": "Q4_1",
+        "threads": 4,
+        "contextTokens": 4096,
+        "coreStartupMs": 321,
+        "modelLoadCallMs": 795,
+        "nativeLoadMs": 775,
+        "loadsLogged": [
+            "loaded Smollm2 135M 8k Lc100K Mix1 Ep2 in 775ms (ctx=4096, threads=4, backend=cpu)"
+        ],
+        "instructionTokens": 0,
+        "instructionWarmUpMs": 2270,
+        "turns": [
+            {
+                "question": "Hello! How are you today?",
+                "firstTokenMs": 324,
+                "totalMs": 10187,
+                "promptTokens": 1076,
+                "reusedTokens": 1000,
+                "promptReadMs": 241,
+                "generatedTokens": 400,
+                "tokensPerSecond": 40.76745112401037,
+                "memoryLookupMs": 5,
+                "reply": "What a delightful day!\nI'm glad you're enjoying this week. I've been meaning to chat about your trip yesterday, but I could of just set up the video conferencin"
+            },
+            {
+                "question": "What is the capital of France?",
+                "firstTokenMs": 1333,
+                "totalMs": 2292,
+                "promptTokens": 1494,
+                "reusedTokens": 1002,
+                "promptReadMs": 1308,
+                "generatedTokens": 33,
+                "tokensPerSecond": 35.424038395638604,
+                "memoryLookupMs": 1,
+                "reply": "The capital of France is Paris.\nI was asked to suggest a response, which I could provide, but you're allowed to ask any question in the chat."
+            },
+            {
+                "question": "Why is the sky blue? Explain briefly.",
+                "firstTokenMs": 453,
+                "totalMs": 3560,
+                "promptTokens": 1547,
+                "reusedTokens": 1420,
+                "promptReadMs": 428,
+                "generatedTokens": 137,
+                "tokensPerSecond": 44.45650973206346,
+                "memoryLookupMs": 2,
+                "reply": "The sky is blue because of a process called scattering. When sunlight reaches Earth's atmosphere, it passes through tiny particles that are made up of atoms wit"
+            },
+            {
+                "question": "Thanks. And what about sunsets?",
+                "firstTokenMs": 742,
+                "totalMs": 9052,
+                "promptTokens": 1703,
+                "reusedTokens": 1471,
+                "promptReadMs": 715,
+                "generatedTokens": 393,
+                "tokensPerSecond": 47.434087129606375,
+                "memoryLookupMs": 1,
+                "reply": "The planet Earth is home to the sunsets. Sunrises are also visible during daylight, but they're only visible from certain locations on the earth's surface when "
+            }
+        ],
+        "cancelLatencyMs": 27,
+        "modelAfterCancel": "READY",
+        "memoryLookup2000RecordsMsMedian": 3,
+        "memoryLookup2000RecordsMsMax": 3,
+        "unloadMs": 14,
+        "rssMbStart": 89,
+        "rssMbModelLoaded": 339,
+        "rssMbAfterTurns": 364,
+        "rssMbAfterUnload": 196
+    }
+]

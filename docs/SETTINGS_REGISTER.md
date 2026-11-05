@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.8.4-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.9.0-prototype.
 
-* Settings: **254** · verifying test passed: **254** · other: **0**
+* Settings: **294** · verifying test passed: **294** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -202,6 +202,20 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.reminder.set.confirm` | Confirm before reminder.set | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.butler.briefing.enabled` | Allow butler.briefing | `true` | true / false | SHARED | ToolExecutor | When off, butler.briefing is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.butler.briefing.confirm` | Confirm before butler.briefing | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.butler.evening.enabled` | Allow butler.evening | `true` | true / false | SHARED | ToolExecutor | When off, butler.evening is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.butler.evening.confirm` | Confirm before butler.evening | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.calendar.read.enabled` | Allow calendar.read | `true` | true / false | SHARED | ToolExecutor | When off, calendar.read is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.calendar.read.confirm` | Confirm before calendar.read | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.calendar.free.enabled` | Allow calendar.free | `true` | true / false | SHARED | ToolExecutor | When off, calendar.free is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.calendar.free.confirm` | Confirm before calendar.free | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.calendar.create.enabled` | Allow calendar.create | `true` | true / false | SHARED | ToolExecutor | When off, calendar.create is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.calendar.create.confirm` | Confirm before calendar.create | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.calendar.move.enabled` | Allow calendar.move | `true` | true / false | SHARED | ToolExecutor | When off, calendar.move is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.calendar.move.confirm` | Confirm before calendar.move | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.calendar.delete.enabled` | Allow calendar.delete | `true` | true / false | SHARED | ToolExecutor | When off, calendar.delete is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.calendar.delete.confirm` | Confirm before calendar.delete | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.vision.describe.enabled` | Allow vision.describe | `true` | true / false | SHARED | ToolExecutor | When off, vision.describe is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.vision.describe.confirm` | Confirm before vision.describe | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.app.open.enabled` | Allow app.open | `true` | true / false | SHARED | ToolExecutor | When off, app.open is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.app.open.confirm` | Confirm before app.open | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.alarm.set.enabled` | Allow alarm.set | `true` | true / false | SHARED | ToolExecutor | When off, alarm.set is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
@@ -224,6 +238,16 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.calendar.add.confirm` | Confirm before calendar.add | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.device.status.enabled` | Allow device.status | `true` | true / false | SHARED | ToolExecutor | When off, device.status is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.device.status.confirm` | Confirm before device.status | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.notifications.missed.enabled` | Allow notifications.missed | `true` | true / false | SHARED | ToolExecutor | When off, notifications.missed is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.notifications.missed.confirm` | Confirm before notifications.missed | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.notifications.reply.enabled` | Allow notifications.reply | `true` | true / false | SHARED | ToolExecutor | When off, notifications.reply is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.notifications.reply.confirm` | Confirm before notifications.reply | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.notifications.dismiss.enabled` | Allow notifications.dismiss | `true` | true / false | SHARED | ToolExecutor | When off, notifications.dismiss is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.notifications.dismiss.confirm` | Confirm before notifications.dismiss | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.notifications.announce.enabled` | Allow notifications.announce | `true` | true / false | SHARED | ToolExecutor | When off, notifications.announce is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.notifications.announce.confirm` | Confirm before notifications.announce | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.calls.announce.enabled` | Allow calls.announce | `true` | true / false | SHARED | ToolExecutor | When off, calls.announce is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.calls.announce.confirm` | Confirm before calls.announce | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.media.control.enabled` | Allow media.control | `true` | true / false | SHARED | ToolExecutor | When off, media.control is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.media.control.confirm` | Confirm before media.control | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.notifications.read.enabled` | Allow notifications.read | `true` | true / false | SHARED | ToolExecutor | When off, notifications.read is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
@@ -276,6 +300,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `sync.intervalMin` | Auto-sync interval (min) | `5` | integer 0–240 | DEVICE | SyncService | Periodic sync attempts | Applies immediately | `SyncSettingsTest#interval` | passed | – |
 | `sync.memories` | Sync memories | `true` | true / false | SHARED | SyncEngine | memories table included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
 | `sync.diary` | Sync diary | `false` | true / false | SHARED | SyncEngine, SyncBundle | diary entries included | Applies immediately | `SyncStage2Test#diaryScope` | passed | – |
+| `sync.tasks` | Sync tasks, lists and reminders | `true` | true / false | SHARED | SyncEngine, Butler | butler items included | Applies immediately | `ButlerSyncTest#scope` | passed | – |
 | `sync.conversations` | Sync conversation history | `true` | true / false | SHARED | SyncEngine | conversations/messages included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
 | `sync.settings` | Sync shared settings | `true` | true / false | SHARED | SyncEngine | shared settings included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
 | `sync.characters` | Sync characters | `true` | true / false | SHARED | SyncEngine | characters included | Applies immediately | `SyncSettingsTest#scopes` | passed | – |
@@ -306,12 +331,27 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `proactive.wellbeing` | Gentle well-being check-ins | `true` | true / false | SHARED | ProactivePlanner | Well-being candidate | Applies immediately | `ProactiveSettingsTest#kinds` | passed | – |
 | `proactive.greetOnOpen` | Greet when the app opens | `true` | true / false | SHARED | ProactivePlanner | Greeting candidate | Applies immediately | `ProactiveSettingsTest#kinds` | passed | – |
 | `proactive.delivery` | Delivery | `"notification"` | `notification`, `speak` | SHARED | ProactiveScheduler | Notification vs speech | Applies immediately | `ProactiveSettingsTest#delivery` | passed (binding) · device effect unverified | – |
+| `evening.enabled` | Evening summary | `false` | true / false | SHARED | ProactivePlanner, DayBrief | Evening summary is delivered once at the set time | Applies immediately | `DayBriefTest#evening` | passed | – |
+| `evening.time` | Evening summary time | `"20:30"` | HH:MM (24 h) | SHARED | ProactivePlanner | Earliest delivery time | Applies immediately | `DayBriefTest#evening` | passed | – |
+| `evening.days` | Evening summary days | `"daily"` | `daily`, `weekdays`, `weekends` | SHARED | ProactivePlanner | Days the summary is given | Applies immediately | `DayBriefTest#evening` | passed | – |
+| `evening.tasks` | Evening: tasks | `true` | true / false | SHARED | DayBrief | Section included | Applies immediately | `DayBriefTest#sections` | passed | – |
+| `evening.calendar` | Evening: tomorrow's calendar | `true` | true / false | SHARED | DayBrief | Section included | Applies immediately | `DayBriefTest#sections` | passed | – |
+| `evening.diary` | Evening: diary | `true` | true / false | SHARED | DayBrief | Section included | Applies immediately | `DayBriefTest#sections` | passed | – |
+| `evening.notifications` | Evening: notifications | `false` | true / false | SHARED | DayBrief | Section included | Applies immediately | `DayBriefTest#sections` | passed | – |
+| `calendar.remindBefore` | Remind me before appointments (min) | `0` | integer 0–240 | SHARED | ReminderAlarms | Reminder before each timed event | Applies immediately | `CalendarTest#remindBefore` | passed (binding) · device effect unverified | – |
+| `notifications.announce` | Announce notifications | `false` | true / false | DEVICE | CluNotificationListener, NotificationPolicy | Matching notifications are spoken once | Applies immediately | `NotificationPolicyTest#rules` | passed (binding) · device effect unverified | – |
+| `notifications.apps` | Apps to announce | `[]` | list of ≤ 30 entries (≤ 120 chars each) | SHARED | NotificationPolicy | Announcement filter | Applies immediately | `NotificationPolicyTest#rules` | passed | – |
+| `notifications.muted` | Apps CLU ignores | `[]` | list of ≤ 30 entries (≤ 120 chars each) | SHARED | NotificationPolicy, NotificationsReadTool | Excluded from reading and announcing | Applies immediately | `NotificationPolicyTest#rules` | passed | – |
+| `notifications.readContent` | Read notification text aloud | `false` | true / false | DEVICE | NotificationPolicy | Announcement wording | Applies immediately | `NotificationPolicyTest#rules` | passed | – |
+| `calls.announce` | Announce incoming calls | `false` | true / false | DEVICE | CluCallScreeningService, CallAnnouncer | Caller announced while ringing | Applies immediately | `CallAwarenessTest#announce` | passed (binding) · device effect unverified | – |
+| `calls.unknown` | Unknown callers | `"say"` | `say`, `silent` | DEVICE | CallAnnouncer | Announcement for unknown numbers | Applies immediately | `CallAwarenessTest#announce` | passed | – |
 | `awareness.battery` | Battery awareness | `true` | true / false | SHARED | ProactivePlanner | Low-battery candidate | Applies immediately | `ProactiveSettingsTest#battery` | passed | – |
 
 ## Learning & adaptation
 
 | Setting ID | Display name | Default | Accepted values | Scope | Responsible component | Observable effect | Applies | Test | Result | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `learning.routines` | Notice my routines | `true` | true / false | SHARED | RoutineDetector | Routine suggestions appear among memory suggestions | Applies immediately | `RoutinesTest#propose` | passed | – |
 | `learning.enabled` | Adapt to my preferences | `true` | true / false | SHARED | PreferenceEngine, PromptBuilder | Preference instructions included in the prompt | Applies immediately | `LearningSettingsTest#enabled` | passed | – |
 | `learning.alternatives` | Occasionally offer two styles | `true` | true / false | SHARED | PreferenceEngine | Alternative-response prompts are offered | Applies immediately | `LearningSettingsTest#alternatives` | passed | – |
 | `learning.alternativesEvery` | Alternatives at most every N replies | `25` | integer 5–200 | SHARED | PreferenceEngine | Cooldown between alternative offers | Applies immediately | `LearningSettingsTest#alternatives` | passed | – |

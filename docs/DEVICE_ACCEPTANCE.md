@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.8.2-prototype
+# Device acceptance checklist — Clu 1.10.0-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -478,6 +478,30 @@ already be installed.
 server engine in section X.
 
 ---
+
+## Q. Personal assistant integrations (1.9.x) – iQOO Neo 9 Pro and Xiaomi Pad 6
+
+Install over the previous version first: your conversations, memories and settings must still be there (database v6/v7 → v8).
+
+| # | Do this | Pass if | Collect if it fails |
+|---|---|---|---|
+| Q1 | Say or type "remind me to stretch in 2 minutes", then lock the screen | A "Reminder: stretch" notification within about 2 minutes (exact if *Alarms & reminders* is allowed; otherwise it may be a few minutes late) | Settings → Apps → CLU → Alarms & reminders state; battery-saver state |
+| Q2 | "Remind me to take vitamins every day at 9 am", restart the phone, wait until 9 am | The reminder still rings after the reboot, and again the next day | Diagnostics → Copy |
+| Q3 | "Add milk, eggs and bread to my shopping list", then "what's on my shopping list?" and "I bought the eggs" | Three items listed; eggs removed | – |
+| Q4 | Pair phone and tablet (Devices), add a list item on the phone, sync | The item appears on the tablet; ticking it off on the tablet ticks it off on the phone; a reminder rung on one device doesn't ring again on the other | Sync history on both devices |
+| Q5 | "What's on my calendar today?" | Android asks for calendar access once; then today's events, with any overlaps called out | Calendar app used; whether events are in a Google or local calendar |
+| Q6 | "When am I free tomorrow?" and "am I free tomorrow at 3 pm?" | Gaps between events from 8 am to 9 pm; busy/free answer matching the calendar | – |
+| Q7 | "Schedule a meeting with Priya tomorrow at 4 pm", then "move my meeting with Priya to Friday at 11", then "cancel the meeting with Priya" | The event appears in the calendar app, moves, and is deleted only after you confirm | – |
+| Q8 | Settings → Proactive → *Remind me before appointments* = 15; create an event 20 minutes ahead | "In 15 min: …" notification about 15 minutes before | – |
+| Q9 | "Open notification access settings", turn CLU on, then "read my notifications" and "what did I miss?" | Notifications summarised per app; muted apps (Settings → *Apps CLU ignores*) never mentioned | – |
+| Q10 | "Turn on notification announcements"; have someone message you | "Message from <name> on <app>" spoken once, not during quiet hours; the text only if *Read notification text aloud* is on | – |
+| Q11 | With a WhatsApp/SMS notification showing: "reply to <name> saying on my way" | CLU asks to confirm, then the reply arrives in that chat | App name, Android version |
+| Q12 | "Turn on call announcements", accept Android's call-screening prompt, have someone call you | "Call from <contact>" spoken while ringing; unknown numbers announced as "unknown number" (or silent if chosen); the call itself is never blocked or answered | Whether the prompt appeared; dialer app |
+| Q13 | Start a voice conversation, then receive a phone call | CLU stops listening when it rings and stops speaking when you answer | – |
+| Q14 | Settings → Proactive → *Evening summary* on, time = in 5 minutes | One summary (done today, still open, tomorrow's calendar) at that time; not again the same day | – |
+| Q15 | Add the same task on three different days | A suggestion "You regularly add …" appears among memory suggestions; nothing is saved until you approve it | – |
+| Q16 | "What's in this photo?" | CLU says it can't see images yet (no vision model in this build); it never describes an image | – |
+| Q17 | Turn on airplane mode and repeat Q1, Q3 and Q5 | All three work offline | – |
 
 ## Results summary (fill in)
 

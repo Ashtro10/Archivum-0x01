@@ -1,4 +1,4 @@
-# CLU performance report (2026-11-05)
+# CLU performance report (updated 2026-11-05, release 1.10.0)
 
 ## What was measured, and where
 
@@ -73,3 +73,36 @@ the core side (measured) and about the same again for the 8 Android-only tools (
 - Memory pressure on 8 GB devices with memory extension.
 
 The app records cold start, speech-end → first audio and stop latency in Diagnostics, ready for the device run.
+
+## Release 1.10.0 (calendar, notifications, calls, evening summary, routines, task sync)
+
+Same baseline, same model and settings, on the idle build host (host-only numbers). Raw results:
+`docs/measurements/perf-2026-11-05-1.10.0.json`.
+
+| Metric | 1.9.0 | 1.10.0 | Notes |
+|---|---|---|---|
+| Core start-up | 334 ms | 321 ms | The v8 migration (three columns) runs once |
+| Instruction prompt | 883 tokens | 1,076 tokens | +193 for seven new core tools: five calendar, the evening summary, and the honest vision fallback |
+| Instruction warm-up (once per model load) | 1,866 ms | 2,270 ms | The cost of the longer prompt, paid once in the background |
+| Time to first token, first turn (same question, cached prefix) | 352 ms | 324 ms | Per-turn latency is unaffected by the tool list |
+| Time to first token, median of 4 turns | 316 ms | 598 ms | **Not comparable.** In the 1.9.0 run the 135M model produced empty replies, so the conversation never grew. In this run it wrote real answers (400 tokens on turn 1), and later turns read that longer history. Per-turn prompt reading tracks conversation length, not this release |
+| Memory lookup, 2,000 records | 4 ms | 3 ms | Unchanged |
+| Cancel latency | 23 ms | 27 ms | Within noise |
+| Process memory after turns | 358 MB | 364 MB | Within run-to-run variation |
+
+### Background cost of the new features (by design)
+
+- Reminders, appointment alerts and the evening summary share one AlarmManager alarm, set to the soonest of the three.
+  Nothing polls; between alarms nothing runs.
+- Notification announcements react to Android's "posted" callback only when the owner enabled them. No notification
+  is stored; the announced-key set is in memory and bounded to 300 entries.
+- Call awareness uses Android's audio-mode callback (no permission, no polling). Call screening runs only when a call
+  arrives.
+- Routine recognition runs at most once a day, inside the existing hourly proactive job, over 30 days of local rows.
+- Task sync rides the existing sync session: a change-log entry per change, no extra connections.
+
+### On-device expectation (not measured)
+
+With a 1–3B model on the Snapdragon 870, the 193 extra prompt tokens add roughly 1–3 s to the one-time warm-up after
+a model load. Owners can drop tools they don't use from the prompt (Settings → Tools → "Allow <tool>"); disabled tools
+are not offered to the model.

@@ -1,238 +1,173 @@
-# CLU Android: capability audit (2026-11-05)
+# CLU Android: capability audit (updated 2026-11-05, release 1.10.0)
 
-Audit of the Android app (`app/`) and the shared core it runs (`core/`), against the full CLU capability specification.
-Each capability was traced along its execution path: input → intent understanding (IntentRouter / model) → tool
-selection → execution → result check → memory/context → feedback.
+Every capability of the CLU specification, checked against the source code, not against earlier reports. Each one was
+traced along its execution path: input → intent understanding (IntentRouter or the model's tool calls) → tool → Android
+API → result check → memory/context → reply.
 
-**Evidence available in this environment:** JVM unit and integration tests against real SQLite and real engines
-(llama.cpp, sherpa-onnx, whisper.cpp on the build host), plus Robolectric runs of the real app on Android 15
-framework classes. **No physical device was available.** So nothing below is verified on a Xiaomi Pad 6 or iQOO Neo 9 Pro.
-"Verified" means verified by the tests named, not on hardware.
+**Evidence in this environment:**
+- JVM unit and integration tests against real SQLite, plus real engines on the build host (llama.cpp, sherpa-onnx,
+  whisper.cpp).
+- Phone ↔ tablet sync between two real installations over localhost TCP, with production pairing and encryption.
+- Robolectric runs of the real app on Android 15 framework classes.
 
-## Status codes
+**No physical device was available.** Nothing is verified on the Xiaomi Pad 6 or the iQOO Neo 9 Pro.
+[DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md) section Q lists the exact manual checks for this release.
 
-| Code | Status | Meaning |
-|---|---|---|
-| **V** | Implemented and verified | Working implementation; tests exercise its real execution path |
-| **I** | Implemented but incomplete | Exists but lacks important functionality |
-| **B** | Implemented but broken | Fails when executed |
-| **P** | Partially implemented | Only part of the intended behaviour works |
-| **M** | Missing | No meaningful implementation |
-| **PR** | Platform restricted | Android prevents it; the actual limit is in [CLU_ANDROID_LIMITATIONS.md](CLU_ANDROID_LIMITATIONS.md) |
-| **HR** | Hardware restricted | Not feasible on the target hardware without more resources |
-| **EX** | Requires external integration | Needs another app, service, account or permission outside CLU |
+**Feature freeze.** STATUS.md recorded a freeze pending device acceptance. The owner explicitly authorised this
+continuation, so code work went ahead. Device acceptance remains the open gate and is tracked separately from the code.
 
-"(new)" marks capabilities implemented or repaired in this assignment.
+## Status scale
+
+| Status | Meaning |
+|---|---|
+| **Verified** | Implemented. Automated tests exercise the real execution path, and the behaviour does not depend on device hardware (logic, database, sync protocol) |
+| **Awaiting device** | Implemented, with automated tests of the real code against Android's framework classes. Real-device behaviour (vendor ROMs, audio, timing, permissions UI) is unconfirmed |
+| **Partial** | Some of the intended behaviour works; what remains is stated |
+| **Not implemented** | Nothing meaningful exists yet; the reason is stated |
+| **Android-restricted** | Android doesn't allow it, or only within a limit. See [CLU_ANDROID_LIMITATIONS.md](CLU_ANDROID_LIMITATIONS.md) |
+| **Hardware-restricted** | Not feasible on the target hardware, or the needed model couldn't be obtained or verified |
+| **External integration** | Needs another app, service or account |
 
 ## A. Voice and conversation
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Configurable wake word | V | `voice/VoiceSession.kt`, sherpa KWS, `Settings.WAKE_*` | KWS tests on host audio; custom wake words (`WakeWordsActivity`); device effect unverified |
-| Voice recognition (offline) | V | streaming zipformer (sherpa), whisper.cpp EN/HI | `VoiceRecognitionTest`, ASR eval sets (`docs/measurements/asr_eval_*`) |
-| Speaker identification / owner voice | V | `Speaker.kt`, `voiceprints` table, `Security.kt` | Enrolment and matching tested on host; needs the 30 MB speaker model |
-| Continuous conversation, turn-taking | V | `VoiceSession`, endpointer | `EndpointerTest`, `VoiceAgentTest` |
-| Interruption / speech cancellation (barge-in) | V | `SpeechOutput`, `CancellationRaceTest` | Cancellation latency measured 21–24 ms (host) |
-| Context and follow-ups | V | `ConversationContext.kt`, `FollowUpResolver` | `ConversationContextTest`, `TurnRoutingTest` |
-| Conversation history | V | `conversations`/`messages` tables | `MemoryAndConversationTest` |
-| Multilingual (EN, HI, Hinglish) | P | whisper multilingual, Hindi Piper voice, `Settings.LANGUAGE` | English and Hindi only; other languages depend on the model |
-| Natural speech, consistent voice | V | Piper/Kokoro/Kitten/system TTS, one selected voice | `TtsSelectionTest`, pacing audits; no silent engine switching |
-| Speaking speed and volume | V | `voice.speed`, `voice.pitch`, `device.volume` | Bindings tested; audible effect device-unverified |
-| Background voice availability | P | `ListeningService` (foreground service, microphone type) | Works while the service runs; Android shows a notification and may stop it under battery saver (PR) |
-| Activation / termination phrases | V | wake words, termination phrase setting | Settings register tests |
-| Noise-resistant recognition | P | `voice.noiseSuppression`, audio source choice | Uses Android's suppressor; no dedicated denoiser model |
-| Voice authentication for sensitive actions | P | `AuthorizationPolicy` + voiceprint | Voice match lowers friction; sensitive actions still need PIN/biometric (by design: voice alone is spoofable) |
-| No empty replies / no false tool completion | V | `AgentController` (claim validation, bounded repair), `ToolResult.verified` | `AgentAcceptanceTest`, `ConversationRepairTest`; the agent never reports unverified success as success |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| Wake word (configurable) | Awaiting device | sherpa KWS, `Settings.WAKE_*`; host audio tests |
+| Speech recognition (offline, EN/HI) | Awaiting device | zipformer + whisper.cpp; `VoiceRecognitionTest`, ASR evaluation sets |
+| Speaker / owner voice recognition | Awaiting device | voiceprints, `Speaker.kt`; host tests |
+| Continuous conversation, turn-taking, barge-in, cancellation | Awaiting device | `VoiceSession`, endpointer; `EndpointerTest`, `CancellationRaceTest` (21–24 ms cancel on host) |
+| Context and follow-ups | Verified | `ConversationContext`; `ConversationContextTest`, `TurnRoutingTest` |
+| Multilingual | Partial | English and Hindi. Other languages depend on the model |
+| Consistent voice, speed, volume | Awaiting device | One selected TTS engine, never switched silently; bindings tested |
+| Background voice | Partial | Microphone foreground service. Battery savers on MIUI/OriginOS may stop it (Android-restricted) |
+| Pauses for phone calls | Awaiting device (new) | `CallStateWatcher`: Android's audio mode, no permission needed. Ringing stops listening; an answered call also stops speech. `AssistantIntegrationsTest` |
+| Voice authentication for sensitive actions | Partial | Voice match plus PIN/biometric. Voice alone is never enough, by design |
+| No empty replies / no false completion | Verified | Claim validation, bounded repair, `ToolResult.verified`; `AgentAcceptanceTest`, `ConversationRepairTest` |
 
-## B. Intelligence and reasoning
+## B. Intelligence
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| General Q&A, reasoning, explanations | P | local GGUF via llama.cpp | Quality is bounded by the on-device model; 1–3B models make mistakes. Measured in `docs/MODEL_AND_ANSWER_QUALITY.md` |
-| Planning / task decomposition | V | `TaskPlan.kt` (multi-step plans, progress, cancel, confirm) | `TaskPlanTest` |
-| Maths | V | `calc` tool, routed deterministically | `AgentTest` |
-| Coding assistance | P | model only on Android | Explanations and small snippets; no code execution on the phone |
-| Document summarisation | V | archive documents (txt, md, csv, html, json, docx, pdf text) + model | `HistoryArchiveTest` |
-| Research assistance and verification | V | `ResearchPolicy`, multi-source Wikipedia/SearXNG/Brave, claim checks | `ResearchTest`, `AgentAcceptanceTest` (needs internet at run time) |
-| Tool selection, conversation vs action | V | `IntentRouter` (deterministic) + model tool calls | `IntentRouterTest`, `PersonalRoutesTest` (new), `TurnRoutingTest` |
-| Uncertainty / self-check / error recovery | V | evidence-bound answers, bounded retries, honest failures | `AgentContractTest` (21 shared conversations) |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| Q&A, reasoning, explanations | Partial | Bounded by the on-device model (1–3B). The paired PC answers when available |
+| Planning, multi-step tasks | Verified | `TaskPlan`; `TaskPlanTest` |
+| Maths | Verified | `calc` |
+| Coding help | Partial | Explanations through the model; no code execution on the phone |
+| Document summaries | Verified | Archive documents (txt, md, csv, html, json, docx, pdf text) |
+| Research with verification | Verified | Multi-source research, pinned fetch; `ResearchTest` |
+| Natural-language tool use | Verified | Deterministic routes for explicit commands, model tool calls for paraphrases. `IntentRouterTest`, `PersonalRoutesTest` and `CalendarTest` cover about 90 phrasings, including non-commands |
 
 ## C. Memory and personalisation
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Persistent personal memory (kinds: core, episodic, project, preference, instruction, relationship) | V | `MemoryService`, schema v5 | `MemoryServiceTest` |
-| Conversational / working memory | V | `working_memory` | `ContextMemoryTest` |
-| Diary / journal | V | `diary_entries`, Diary screens | `DiaryTest` |
-| Task memory | V (new) | `butler_items` (schema v7) | `ButlerTest` |
-| Knowledge memory (documents, people, projects, timeline) | V | archive tables | `HistoryArchiveTest` |
-| Retrieval: keyword (BM25-like) + optional vectors, relevance ranking | V | `memory_terms`, `memory_vectors` | 2,000-record lookup median 3–4 ms (host) |
-| Summarisation, consolidation, duplicates, conflicts | V | `consolidation_log`, archive conflicts | `ConsolidationTest` |
-| Correction, deletion, export | V | Memory editor, encrypted export bundle | `SafeDeleteTest`, `SyncStage2Test` |
-| Fact vs preference vs inference vs temporary | V | `memory_proposals` (inferences need approval), `approval` column, working memory expiry | `MemoryFormationTest`: inferred observations never become facts without approval |
-| Migrations keep user data | V | `Schema.migrate` (single transaction, rollback) | `MemoryServiceTest`, `ButlerTest` (v6→v7, new) |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| Persistent memory (all kinds), working memory, diary, archive | Verified | `MemoryServiceTest`, `DiaryTest`, `HistoryArchiveTest` |
+| Facts vs approved preferences vs inferences vs temporary context | Verified | Inferences go to `memory_proposals` and need approval; working memory expires. `MemoryFormationTest` |
+| Routine recognition | Verified (new) | `RoutineDetector`: repeated tasks and reminders, and apps opened through CLU at similar times. Suggestions need approval; rejected ones never return; switch `learning.routines`. `RoutinesTest` |
+| Correction, deletion, export, duplicates | Verified | `SafeDeleteTest`, `ConsolidationTest`, encrypted export |
+| Migrations keep data | Verified | v6→v7→v8 tested (`ButlerTest`, `ButlerSyncTest`) |
 
-## D. Android system integration
+## D. Android integration
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Launch apps | V | `OpenAppTool` | Robolectric |
-| Open settings screens | V | `SettingsPanelTool` (now also notification access, alarms & reminders) | Robolectric |
-| Wi-Fi / Bluetooth / hotspot toggles | PR | opens the system panel | Android 10+ forbids apps toggling them |
-| Brightness | V (new) | `BrightnessTool` | `PersonalToolsTest`: changes the system value once "Modify system settings" is allowed; otherwise opens that screen |
-| Volume | V | `VolumeTool` | — |
-| Media controls (play, pause, next, previous) | V (new) | `MediaControlTool` (media keys) | `PersonalToolsTest`: key events reach the media system; "pause" with nothing playing says so |
-| Notification reading and summaries | V (new) | `CluNotificationListener`, `NotificationsReadTool` | Needs owner-granted notification access (EX/PR); summary format tested; nothing stored |
-| Replying to notifications | M | — | Possible via `RemoteInput` actions; not implemented |
-| Phone calls | V (new: by name) | `CallTool`, `DialTool` | Dialer opens with the number filled in; the owner presses call |
-| Contact lookup | V (new) | `Contacts`, `ContactFindTool` | READ_CONTACTS is asked when first needed. Lookup against a real contacts provider isn't testable in Robolectric |
-| SMS | P (new) | `SmsComposeTool` | Drafted in the messaging app; the owner sends it. Silent sending needs the default-SMS-app role (PR) |
-| Alarms / timers | V | `AlarmTool` (verified via the system next-alarm), `TimerTool` | — |
-| Calendar | P | `CalendarAddTool` (insert via calendar app) | Reading the calendar (READ_CALENDAR) not implemented |
-| File management | P | user-picked document import | No general file browser (scoped storage, PR) |
-| Clipboard | V (new) | `ClipboardCopyTool` | Writing works; background reading is blocked by Android 10+ (PR) |
-| Screenshot / screen understanding / app navigation | M | — | Needs an accessibility service or MediaProjection, plus a vision model (HR) |
-| Battery / network / diagnostics | V | `DeviceStatusTool`, Diagnostics screens | — |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| Apps, settings screens, volume, torch, alarms, timers | Awaiting device | `AndroidTools.kt`; Robolectric |
+| Wi-Fi, Bluetooth, hotspot toggles | Android-restricted | CLU opens the system panel |
+| Brightness | Awaiting device | `BrightnessTool`, after "Modify system settings" is allowed |
+| Media control | Awaiting device | Media keys; `PersonalToolsTest` |
+| Calendar: read, ranges, conflicts, free time, create, move, delete | Awaiting device (new) | `core/calendar` + `AndroidCalendar` (CalendarContract.Instances and Events). Permissions are asked when first needed, and revocation is handled. Deletion asks first. `CalendarTest` (logic plus agent integration), `AssistantIntegrationsTest` (provider bridge against a contract-faithful provider) |
+| Alerts before appointments | Awaiting device (new) | `calendar.remindBefore` (off by default), AlarmManager, notified once per event |
+| Notifications: read, summarise, what did I miss, priorities, muted apps | Awaiting device (new) | `CluNotificationListener` + `NotificationPolicy`; `NotificationPolicyTest`, `AssistantIntegrationsTest` |
+| Notification announcements | Awaiting device (new) | Off by default. Chosen apps (or messages, calls, alarms and reminders), once each, quiet hours respected, text only if allowed |
+| Notification replies and dismissal | Awaiting device (new) | The app's own reply box (RemoteInput), asks first by default; `cancelNotification`. Robolectric verifies the reply reaches the app's intent |
+| Contacts, call by name, SMS and email drafts | Awaiting device | The owner presses call or send |
+| Incoming-call announcements | Awaiting device (new) | `CluCallScreeningService` (the call-screening role, granted once). The caller comes from contacts; unknown numbers are never read out; every call is allowed unchanged. `CallAwarenessTest` |
+| Clipboard | Awaiting device | Write only. Background reading is Android-restricted |
+| Screen reading / app navigation / screenshots | Not implemented | Needs an accessibility service, with Play policy limits, and a vision model |
+| Battery, network, diagnostics | Awaiting device | `device.status`, Diagnostics |
 
-## E. Personal butler
+## E. Butler
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Tasks and to-do lists | V (new) | `Butler`, `task.add/list/done` | `ButlerTest`, through CLU's agent with a real DB |
-| Reminders (one-off, daily, weekly) | V (new) | `reminder.set` + `ReminderAlarms` (AlarmManager → notification, reboot-safe) | `ButlerTest` (parsing, recurrence), `PersonalToolsTest` (alarm scheduled, notification posted once) |
-| Shopping lists | V (new) | `shopping` list ("milk, eggs and bread" become three items) | `ButlerTest` |
-| Daily briefing | V (new) | `butler.briefing`, first greeting of the day | `ButlerTest` |
-| Evening summary | P | evening check-in (proactive) | Doesn't yet list the day's completed tasks |
-| Pending-task / deadline tracking | V (new) | overdue items in the briefing | `ButlerTest` |
-| Calendar management / scheduling | P | add events only | — |
-| Navigation, weather | V | `maps.open/distance`, weather tool | Needs internet (OSM, Open-Meteo) |
-| Travel planning | P | routes, trains lookup | No bookings (EX) |
-| Email integration | P (new) | `EmailComposeTool` drafts in the mail app | Inbox access needs an account integration (EX) |
-| Document organisation | V | archive documents and projects | — |
-| Financial / academic organisation, attendance | M | — | Can be kept as lists and projects, but there is no dedicated model or data source |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| Tasks, shopping and named lists | Verified | `ButlerTest` |
+| Reminders (once, daily, weekly), reboot-safe | Awaiting device | AlarmManager path; `PersonalToolsTest`, `AssistantIntegrationsTest` |
+| Morning briefing with calendar | Verified (new: calendar) | `DayBrief.morning`; greeting addition |
+| Evening summary | Verified (new) | Off by default. Configurable time, days and sections; once a day; quiet hours respected. `DayBriefTest`, plus the alarm path in `AssistantIntegrationsTest` |
+| Weather, navigation | Verified (needs internet) | — |
+| Email inbox, bookings, finance, attendance | External integration | — |
 
 ## F. Personality and companion
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Stable identity, one entity | V | `store.entityId`, `PersonaRegistry`, synced identity | Characters share CLU's memory scope rules |
-| Character profiles that change behaviour | V | `characters` (prompt, style, memory scope, tool permissions) | `PersonaMeasurement`, `AgentTest` |
-| Humour, depth, disagreement, preferences | V | personality settings, preference learner | `PreferenceLearnerTest` |
-| Proactive check-ins, situational talk | V | `ProactivePlanner` (caps, quiet hours, spacing) | `ResponseTemplatesTest` |
-| Silence and interruption awareness | V | barge-in, quiet hours | — |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| One stable identity across devices; characters that change behaviour; proactive check-ins | Verified | `PersonaMeasurement`, `ResponseTemplatesTest` |
 
-## G. Visual perception
+## G. Vision
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Image input / camera / OCR / objects / scenes / VQA / QR / screenshots | HR | — | The on-device text model can't see; CLU says so instead of pretending. A local vision model (SmolVLM-class GGUF + mmproj, roughly 200–600 MB) needs a native rebuild with llama.cpp's multimodal library and a download that is blocked in this build environment (Hugging Face returns HTTP 403). See limitations |
+| Capability | Status | Where / evidence |
+|---|---|---|
+| Image description, OCR, objects, screenshots, camera, visual troubleshooting | Hardware-restricted (model unavailable here) | The `VisionEngine` interface and the `vision.describe` tool are ready. Without an engine, CLU answers image questions honestly instead of letting the text model guess (`VisionSeamTest`). Evaluation and requirements are in the limitations doc |
 
 ## H. Internet and research
 
-| Capability | Status | Where | Evidence and notes |
-|---|---|---|---|
-| Web search, multi-source comparison, verification | V | `WebSearchTool`, research policy, pinned fetch (DNS-rebinding safe) | `ResearchTest`, `PinnedFetchTest` |
-| News | P | general search | No news provider |
-| Maps | V | geocode, distance, open in maps | `MapsToolTest` |
-| Translation | P | model translation (EN/HI quality) | No dedicated translation model |
-| Downloads | V | model and voice downloads (hash-verified, owner-confirmed) | — |
-| Research history / saved research | P | conversation history and diary | No dedicated research library |
-| Offline behaviour | V | every online tool fails gracefully | `OfflineConversationTest`, `scripts/test_offline.sh` |
-
-## I. Entertainment and media
-
-| Capability | Status | Notes |
+| Capability | Status | Where / evidence |
 |---|---|---|
-| Music / video playback control | V (new) | Media keys (`media.control`) |
-| Streaming-app or playlist control | PR / EX | Needs per-app APIs (e.g. Spotify SDK and account) |
-| Reading documents aloud, storytelling, trivia, discussions, recommendations | P | Through the model and TTS; quality bounded by the model |
+| Search, multi-source comparison, maps, downloads | Verified | Needs internet; fails gracefully offline |
+| News, translation, saved research library | Partial | General search and the model |
 
-## J. Communication
+## I–K. Media, communication, productivity
 
-| Capability | Status | Notes |
+| Capability | Status | Where / evidence |
 |---|---|---|
-| Incoming-call awareness / caller ID announcement | M | Needs READ_PHONE_STATE and a call-screening role; not implemented |
-| Notification announcements and reading | V (new) | Reading on request; automatic announcement not implemented |
-| Message drafting / sending | P (new) | Drafted in the messaging app; the owner sends |
-| Email composition | P (new) | Drafted in the mail app; organisation needs an account (EX) |
-| Contacts | V (new) | Lookup by name; editing contacts not implemented |
-| Relationship context | V | Archive people and relationship memories (owner-approved) |
+| Media control | Awaiting device | — |
+| Streaming-app control, playlists | External integration | — |
+| Message drafting, replies through notifications, email drafts | Awaiting device | — |
+| Notes, diary, documents, projects | Verified | — |
+| Study plans, presentations, spreadsheets | Partial | Model plus lists and reminders; CSV import only |
 
-## K. Productivity and education
+## L–M. Autonomy and proactivity
 
-| Capability | Status | Notes |
+| Capability | Status | Where / evidence |
 |---|---|---|
-| Notes, voice-to-text notes, diary | V | Diary and memories; voice input goes through ASR |
-| PDF and document reading | V | Text extraction for import; scanned PDFs need OCR (HR) |
-| Project tracking / knowledge organisation | V | Archive projects, links, timeline |
-| Study help, learning plans, exam prep, presentations | P | Through the model plus lists and reminders; no dedicated planner |
-| Spreadsheets | P | CSV import only |
-
-## L. Autonomous task execution
-
-| Capability | Status | Notes |
-|---|---|---|
-| Multi-step plans, tracking, cancellation, confirmation | V | `TaskPlan` (core), `TaskPlanTest` |
-| Recurring tasks | V (new) | Daily and weekly reminders |
-| Event-triggered workflows, task queues, background execution | P | Custom commands and routines; proactive job (JobScheduler); no general event-trigger engine on Android |
-| Supervised agents with approvals and audit trail | P | The M7 orchestrator lives in core; its UI is on the PC only |
-| Execution history | V | `tool_runs` and the Tool history screen |
-
-## M. Proactive and contextual intelligence
-
-| Capability | Status | Notes |
-|---|---|---|
-| Configurable proactive notifications with caps and quiet hours | V | `ProactivePlanner` |
-| Context-aware reminders / upcoming events / unfinished tasks | V (new) | Briefing in the first greeting of the day when something is due |
-| Battery warnings | V | Battery candidate |
-| Network awareness | V | Online state in status and tools |
-| Notification prioritisation | M | — |
-| Routine recognition | M | — |
+| Multi-step execution, history, confirmation, cancellation | Verified | — |
+| Recurring tasks | Verified | — |
+| Event-triggered workflows | Partial | Reminders, appointment alerts, the evening summary and proactive messages are event/time triggered. No general rule engine |
+| Context-aware proactive messages (caps, quiet hours, upcoming events, open tasks) | Verified | `ProactivePlanner`, `DayBrief` |
+| Routine recognition | Verified (new) | — |
 
 ## N. Security and privacy
 
-| Capability | Status | Notes |
+| Capability | Status | Where / evidence |
 |---|---|---|
-| Biometric / PIN owner verification | V | `verifyOwner` (BiometricPrompt) |
-| Sensitive-action authorisation, confirmations | V | `AuthorizationPolicy`, per-tool confirm settings (dynamic `tool.*.confirm`) |
-| Secrets in Android Keystore | V | API keys and device keys |
-| Encrypted personal database | P | App-private SQLite with Android file-based encryption; no SQLCipher layer (documented) |
-| Prompt-injection protection | V | Untrusted web and notification text is reported, never followed (`PromptSafetyTest`) |
-| Action history, privacy controls, export/delete | V | Tool history, Diagnostics (no content), memory export and delete |
+| Permissions only when needed | Verified | Contacts, calendar and the call role are requested on first use; notification access is the owner's switch |
+| Private content not stored | Verified | Notification text is never stored or logged. The diagnostics log records app names and counts only, never names, numbers or titles |
+| Sensitive-action confirmation | Verified | Calendar delete and notification reply confirm by default; per-tool switches |
+| Encrypted DB beyond Android's file encryption | Partial | No SQLCipher layer (documented) |
+| Prompt injection from web and notification text | Verified | `PromptSafetyTest`; notification text is reported, never followed |
 
-## O. Multi-device
+## O. Multi-device continuity
 
-| Capability | Status | Notes |
+| Capability | Status | Where / evidence |
 |---|---|---|
-| Shared identity, memory, history, personality | V | Encrypted LAN sync (`SyncEngine`, HLC), `SecuritySyncRegistryTest` |
-| PC host integration | V | "Automatic" engine: the paired PC answers, otherwise the phone (`EnginePolicy`) |
-| Task continuity | P | Butler items are local to each device (not yet in the sync scope) |
+| Shared identity, memory, conversations, preferences, characters, diary (opt-in) | Verified | `SyncSettingsTest`, `SyncStage2Test` |
+| Tasks, lists and reminders | Verified (new) | Schema v8 (version, origin, tombstone) and scope `sync.tasks`. Newer edit wins, no duplicates, deletions propagate, a delivered reminder isn't rung again, offline edits converge, pre-sync items get versions. `ButlerSyncTest` over real TCP with encryption |
+| Offline queueing, interrupted sync recovery | Verified | Change log with acknowledged sequence; one transaction per batch |
+| PC host | Verified | "Automatic" engine (`EnginePolicy`) |
 
-## P. Offline and optimisation
+## P–Q. Offline, optimisation, diagnostics
 
-| Capability | Status | Notes |
+| Capability | Status | Where / evidence |
 |---|---|---|
-| Local inference, STT, TTS, memory, reminders, app control offline | V | `docs/OFFLINE_MATRIX.md`; reminders are AlarmManager-based (no network) |
-| KV-cache reuse, warm-up, model load on demand, auto-unload, memory-trim release | V | `LLM_RELIABILITY.md`; reuse of 690–890 prompt tokens measured per turn |
-| No second model on the phone when the PC answers | V | Previous milestone |
-| Battery and thermal management | P | Unload on idle and trim; no thermal throttling policy measured (no device) |
-
-## Q. Self-diagnostics
-
-| Capability | Status | Notes |
-|---|---|---|
-| Model, voice, STT, TTS, network, tools, permissions status | V | Diagnostics, Speech diagnostics, `device.status` |
-| Request lifecycle and timings, crash reports, self-test | V | `RequestTrace`, `CrashReport`, `PerfReport` |
+| Offline: model, STT, TTS, memory, reminders, calendar, lists | Verified (host) / Awaiting device | `OFFLINE_MATRIX.md`. Calendar and reminders need no network |
+| One alarm for reminders, appointment alerts and the evening summary; no polling | Awaiting device | `ReminderAlarms.reschedule` |
+| Diagnostics, self-test, request traces | Verified | — |
 
 ## Settings audit
 
-The settings registry is the single source of truth: 254 settings plus a dynamic pair per tool (`tool.<name>.enabled` and
-`tool.<name>.confirm`, 26 more for the 13 tools added here).
-
-- Every setting names its component and its verifying test.
-- `RegistryTest` checks persistence across restart and rejection of invalid values for every setting.
-- [SETTINGS_REGISTER.md](SETTINGS_REGISTER.md) is regenerated from the JUnit results. All verifying tests pass. Twenty
-  voice, wake, sync and proactive settings are marked "device effect unverified": their binding is tested, but the
-  audible effect needs a phone.
-- No decorative toggle was found.
-- The new tools get working enable and confirm switches automatically (`ToolSettingsTest#perToolEnable/perToolConfirm`).
+- Every setting names its component and a verifying test that exists and passes:
+  - `RegistryTest#everySettingHasAnExistingVerificationTest`;
+  - persistence and invalid-value rejection for every setting.
+- This release adds 15 settings: evening summary (7), calendar lead time, notification announcing / apps / muted / read
+  text, call announcing / unknown callers, routines, and task sync.
+- All are off or neutral by default where they speak, notify or share.
+- [SETTINGS_REGISTER.md](SETTINGS_REGISTER.md) is regenerated from the JUnit results.

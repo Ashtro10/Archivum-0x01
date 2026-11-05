@@ -6,6 +6,14 @@ Chat · Memory · People · Timeline · Documents · Suggestions · Capabilities
 ## Hands (camera gestures)
 The camera picture fills the view with CLU's widgets on top (core status, weather, your applications, time). The first time, CLU shows what it needs (Google MediaPipe's hand tracking, 17.6 MB, Apache-2.0) and downloads it only when you click; it is checked file by file and then works offline. The camera runs only while Hands is open, and its picture never leaves the PC. **Point** with your index finger to move the ring; a **quick pinch** (thumb to index) taps (opens an application from the list); **pinch and move** drags a widget; **pinch with both hands** on one widget and move them apart or together to resize it. **C** calibrates (hold your fingertip on two circles), **D** shows the tracked points. Keep your hand within about arm's length of the webcam.
 
+## Your day (phone and tablet)
+* **Lists and reminders:** "add milk to my shopping list", "remind me to call the bank tomorrow at 10", "every day at 8 am…". They sync between your phone and tablet.
+* **Calendar:** "what's on my calendar this week?", "when am I free tomorrow?", "schedule a meeting with Priya on Friday at 4", "move…", "cancel…". Android asks for calendar access the first time.
+* **Briefings:** "brief me" in the morning; turn on *Evening summary* (Settings → Proactive) for a short wrap-up at a time you choose.
+* **Notifications and calls:** "what did I miss?", "reply to Rahul saying on my way" (CLU asks first), "clear WhatsApp notifications". "Turn on notification announcements" and "turn on call announcements" make CLU say who is messaging or calling. Choose the apps it announces and the ones it ignores in Settings → Proactive.
+* **Routines:** CLU may notice things you do regularly and suggest them under memory suggestions. Nothing is saved unless you approve it.
+* **Images:** this build has no vision model, so CLU says so instead of guessing.
+
 ## The phone
 With **Settings → Connection → Automatic** (the default), the phone is a terminal for CLU on your PC once it is paired: the PC listens, thinks and speaks for voice and typed messages, and the phone doesn't load a model of its own. Before pairing, or with **Always this device**, the phone answers on its own without any network.
 

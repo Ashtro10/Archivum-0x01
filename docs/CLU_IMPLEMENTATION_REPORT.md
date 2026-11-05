@@ -1,4 +1,4 @@
-# CLU Android: implementation report (2026-11-05)
+# CLU Android: implementation report (updated 2026-11-05, release 1.10.0)
 
 This is a progress record for the "complete capability audit and implementation" assignment. It holds enough to
 resume without repeating work. Full audit: [CLU_CAPABILITY_AUDIT.md](CLU_CAPABILITY_AUDIT.md). Limits:
@@ -95,3 +95,59 @@ No test was skipped, disabled or weakened.
 - New explicit commands go in `IntentRouter`, with cases in `PersonalRoutesTest`/`ButlerTest`. The ICU regex check runs
   in `:app:verifyApk`.
 - Physical-device acceptance is still the top open item: [DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md).
+
+## Continuation: release 1.10.0
+
+Verified first: the branch `claude/clu-android-ai-build-5cspi2` of `Ashtro10/Archivum-0x01` was at `8f4f6f3`,
+matching the remote; `bba1a07`, `3a257f4` and `8f4f6f3` were in history, and the working tree was clean. The feature
+freeze in STATUS.md is recorded; this continuation was explicitly authorised, and device acceptance stays a separate,
+open gate.
+
+### Implemented
+
+| Capability | Code | How it works |
+|---|---|---|
+| Task, list and reminder sync (phone ↔ tablet) | `Butler` (versioned writes, tombstones, `applyRemote`), schema v8, `SyncEngine` scope `sync.tasks`, sync files | Same protocol as memories and diary: hybrid-logical-clock versions, change log, newer wins, idempotent. A reminder rung on one device carries `notifiedAt` to the other. Items from 1.9.0 get a version on first sync |
+| Calendar intelligence | `core/calendar` (ranges, conflicts, free slots, wording, five tools); `AndroidCalendar` (CalendarContract) | "What's on my calendar this week", "am I free tomorrow at 3", "when am I free on Friday", "schedule a meeting with Priya tomorrow at 4", "move…", "cancel…" (asks first). Permissions on first use; revocation handled |
+| Appointment alerts | `ReminderAlarms` | `calendar.remindBefore` minutes before timed events (off by default), once per event |
+| Evening summary | `DayBrief.evening`, `ProactivePlanner`, `ReminderAlarms` | Done today, still open, reminders and calendar tomorrow, diary count, optionally notifying apps. Own switch, time and days; once a day; quiet hours respected; exact time through the shared alarm |
+| Morning briefing with calendar | `DayBrief.morning` | Calendar for the rest of today plus lists, in "brief me" and the first greeting |
+| Notification intelligence | `CluNotificationListener`, `core/notify/NotificationPolicy`, four tools | Priorities (chosen apps, or messages, calls, alarms and reminders), muted apps, announce once, quiet hours, read text only if allowed, "what did I miss", replies through the app's reply box (asks first), dismissal |
+| Call awareness | `CluCallScreeningService`, `CallAnnouncer`, `CallStateWatcher`, `calls.announce` | Caller from contacts announced while ringing (call-screening role, granted once; calls are never blocked or answered). Unknown numbers are never read out. CLU stops listening when the phone rings and stops speaking when a call is answered |
+| Routine recognition | `RoutineDetector` | Repeated tasks and reminders, and apps opened through CLU at similar times. Offered as suggestions; approval needed; rejections remembered |
+| Vision (architecture only) | `core/vision` | `VisionEngine` interface and `vision.describe`. Without an engine, image questions get an honest "I can't see images yet". No model could be obtained, so no capability is claimed |
+
+### Tests added (by category)
+
+| Test | Category |
+|---|---|
+| `ButlerSyncTest` (4) | Integration: two installations over real TCP with production pairing and encryption. Scope switch, both directions, no duplicates, tombstones, delivered-once, offline convergence, v7→v8 upgrade |
+| `CalendarTest` (4) | Unit (ranges, conflicts, free slots, about 20 routes) and integration through CLU's agent: denied permission, create/move/delete, confirmation before delete, nothing invented |
+| `NotificationPolicyTest`, `CallAwarenessTest` | Unit: every owner control |
+| `DayBriefTest` (2), `RoutinesTest` | Integration with the real database, planner and proposals |
+| `VisionSeamTest` | Integration: honest answer without an engine; an engine's real output when present |
+| `AssistantIntegrationsTest` (4) | Robolectric: calendar provider bridge (read, insert, update, delete, revoked permission); notification reply through RemoteInput and dismissal; call-screening role request and call-state behaviour; appointment alert and evening summary through the alarm path |
+
+### Results (build host)
+
+| Suite | Tests | Failed | Skipped |
+|---|---|---|---|
+| core | 694 | 0 | 16 (opt-in) |
+| app | 85 | 0 | 0 |
+| desktop | 137 | 0 | 13 (opt-in) |
+
+- `apiCheck` passes.
+- `verifyApk` passes, with ICU accepting all 625 regular expressions.
+- No test was disabled or weakened. Expectations that moved with intended changes:
+  - schema version 7 → 8 (`MemoryServiceTest`; `ButlerTest` now checks "the current version");
+  - "evening summary" now routes to the evening tool instead of the morning briefing.
+
+### What remains
+
+See [CLU_ANDROID_LIMITATIONS.md](CLU_ANDROID_LIMITATIONS.md):
+- vision (model files unobtainable here);
+- screen reading and app navigation (accessibility policy);
+- a general event-rule engine;
+- learned notification importance;
+- streaming-service, email-inbox and booking integrations (external);
+- physical-device acceptance of everything ([DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md) §Q).

@@ -17,6 +17,22 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-05 (1.10.0): calendar, notification and call awareness, evening summary, routines, task sync
+
+The owner authorised a continuation of feature work despite the freeze. Code is done and tested on the host;
+device acceptance is still open ([docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md) §Q).
+
+* **New:**
+  * calendar reading, free time, conflicts, create/move/delete, appointment alerts;
+  * notification priorities, announcements, "what did I miss", replies and dismissal;
+  * call announcements (call-screening role) and pausing during calls;
+  * an evening summary;
+  * routine suggestions, offered for approval;
+  * phone ↔ tablet sync of tasks, lists and reminders (schema v8).
+* **Vision:** architecture only. The model files were unobtainable here.
+* **Tests:** core 694, app 85, desktop 137, 0 failures.
+* **Details:** [docs/CLU_IMPLEMENTATION_REPORT.md](docs/CLU_IMPLEMENTATION_REPORT.md).
+
 ## 2026-11-05: Android capability audit, butler and device integrations
 
 The owner asked for implementation, which lifts the feature freeze for this work.

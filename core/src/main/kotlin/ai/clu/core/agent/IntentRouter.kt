@@ -45,6 +45,26 @@ object IntentRouter {
         r("^(?:diary(?:\\s+entry)?|dear diary)[:,]\\s*(.{2,})$").find(t)?.let { return RoutedIntent("diary.add", obj("text" to it.groupValues[1].trim()), "diary") }
         r("^(?:make|write)\\s+a\\s+(?:diary|journal)\\s+(?:entry|note)[:,]?\\s+(?:that\\s+)?(.{2,})$").find(t)?.let { return RoutedIntent("diary.add", obj("text" to it.groupValues[1].trim()), "diary") }
 
+        // Butler: reminders, lists and the day's briefing (local, offline).
+        r("^(?:remind\\s+me|set\\s+(?:a\\s+)?reminder|create\\s+(?:a\\s+)?reminder)\\s+(?:to\\s+|about\\s+|that\\s+)?(.{3,})$").find(t)?.let { m ->
+            val split = ai.clu.core.butler.Butler.splitReminder(m.groupValues[1])
+            return if (split != null) RoutedIntent("reminder.set", obj("what" to split.first, "when" to split.second), "reminder")
+                else RoutedIntent("reminder.set", obj("what" to m.groupValues[1]), "reminder") }
+        r("^(?:add|put)\\s+(.+?)\\s+(?:to|on|in)\\s+(?:my\\s+|the\\s+)?(shopping|grocery|groceries|to-?do|todo|task|tasks|[a-z]+)\\s*(?:list)?$").find(t)?.let { m ->
+            val list = m.groupValues[2]
+            if (t.lowercase().contains("list") || list.lowercase() in setOf("tasks", "task", "todo", "to-do", "groceries")) return RoutedIntent("task.add", obj("title" to m.groupValues[1], "list" to list), "list add") }
+        r("^(?:what(?:'s| is)\\s+on|show(?:\\s+me)?|read(?:\\s+(?:me|out))?|open|check)\\s+(?:my\\s+|the\\s+)?(shopping|grocery|to-?do|todo|[a-z]+)\\s+list\\??$").find(t)?.let {
+            return RoutedIntent("task.list", obj("list" to it.groupValues[1]), "list read") }
+        if (r("^(?:what\\s+are\\s+my\\s+(?:tasks|to-?dos|reminders)|(?:show|list|read)(?:\\s+me)?\\s+my\\s+(?:tasks|to-?dos|reminders|lists)|my\\s+(?:tasks|to-?do\\s+list|reminders))\\??$").matches(t))
+            return RoutedIntent("task.list", obj(), "list read")
+        r("^(?:mark|tick\\s+off|check\\s+off|cross\\s+off)\\s+(.+?)(?:\\s+(?:as\\s+)?(?:done|complete|completed|finished))?$").find(t)?.let { m ->
+            if (!lower.startsWith("mark") || Regex("\\b(?:done|complete|completed|finished)$").containsMatchIn(lower)) return RoutedIntent("task.done", obj("title" to m.groupValues[1]), "list done") }
+        r("^(?:remove|delete|take)\\s+(.+?)\\s+(?:from|off)\\s+(?:my\\s+|the\\s+)?(shopping|grocery|to-?do|todo|[a-z]+)\\s+list$").find(t)?.let {
+            return RoutedIntent("task.done", obj("title" to it.groupValues[1], "list" to it.groupValues[2]), "list done") }
+        r("^i(?:'ve|\\s+have)?\\s+bought\\s+(?:the\\s+)?(.+)$").find(t)?.let { return RoutedIntent("task.done", obj("title" to it.groupValues[1], "list" to "shopping"), "list done") }
+        if (r("^(?:what(?:'s| is| does)\\s+my\\s+day(?:\\s+look\\s+like)?(?:\\s+today)?|(?:give\\s+me\\s+)?(?:my\\s+)?(?:daily|morning|evening)\\s+(?:briefing|summary)|brief\\s+me|what(?:'s| is)\\s+(?:on\\s+)?(?:for\\s+)?today|what(?:'s| is)\\s+pending|what\\s+do\\s+i\\s+(?:have|need)\\s+to\\s+do(?:\\s+today)?)\\??$").matches(t))
+            return RoutedIntent("butler.briefing", obj(), "briefing")
+
         r("^(?:set|create|add|make)\\s+(?:an?\\s+)?alarm\\s+(?:for|at)\\s+(.+?)(?:\\s+(?:called|named|labell?ed|for)\\s+(.+))?$").find(t)?.let {
             return RoutedIntent("alarm.set", obj("time" to it.groupValues[1], "label" to it.groupValues[2]), "alarm") }
         r("^wake\\s+me\\s+(?:up\\s+)?(?:at|by)\\s+(.+)$").find(t)?.let { return RoutedIntent("alarm.set", obj("time" to it.groupValues[1]), "alarm") }
@@ -93,6 +113,30 @@ object IntentRouter {
         r("^(?:calculate|compute|what(?:'s| is))\\s+([\\d\\s.,+\\-*/x×÷^%()]+)\\??$").find(t)?.let {
             val e = it.groupValues[1].trim(); if (e.any(Char::isDigit) && e.any { c -> c in "+-*/x×÷^%" }) return RoutedIntent("calc", obj("expression" to e), "calc") }
         r("^(?:call|dial)\\s+([+\\d][\\d\\s\\-]{4,})$").find(t)?.let { return RoutedIntent("phone.dial", obj("number" to it.groupValues[1].replace(" ", "")), "dial") }
+
+        // Media playing in any app (media keys).
+        r("^(?:(pause|stop|resume|play|unpause|continue)\\s+(?:the\\s+|my\\s+)?(?:music|song|track|video|playback|podcast|audio|media)|(next|previous)\\s+(?:song|track)|skip\\s+(?:this\\s+)?(?:song|track)|go\\s+back\\s+a\\s+(?:song|track))$").find(t)?.let { m ->
+            val a = m.groupValues[1].ifEmpty { m.groupValues[2] }.ifEmpty { if (lower.startsWith("skip")) "next" else "previous" }
+            return RoutedIntent("media.control", obj("action" to a.lowercase()), "media") }
+        // Notifications (needs notification access).
+        r("^(?:(?:read|show|check|summari[sz]e|tell\\s+me)\\s+(?:me\\s+)?(?:my\\s+|the\\s+)?(?:new\\s+|latest\\s+|recent\\s+)?notifications|(?:do\\s+i\\s+have\\s+)?any\\s+(?:new\\s+)?notifications|what\\s+(?:are\\s+)?(?:my\\s+)?notifications(?:\\s+do\\s+i\\s+have)?)(?:\\s+from\\s+(.+?))?\\??$").find(t)?.let {
+            return RoutedIntent("notifications.read", obj("app" to it.groupValues[1]), "notifications") }
+        // Contacts, calls, messages, email: CLU prepares, the owner sends or presses call.
+        r("^what(?:'s|\\s+is)\\s+(.+?)(?:'s|s')\\s+(?:phone\\s+|mobile\\s+)?number\\??$").find(t)?.let { return RoutedIntent("contacts.find", obj("name" to it.groupValues[1]), "contact") }
+        r("^(?:text|message|sms|send\\s+(?:a\\s+)?(?:text|message|sms)\\s+to)\\s+(.+?)(?:\\s+saying|\\s+that|:)\\s+(.+)$").find(t)?.let {
+            return RoutedIntent("sms.compose", obj(if (it.groupValues[1].any(Char::isDigit)) "number" to it.groupValues[1] else "name" to it.groupValues[1], "text" to it.groupValues[2]), "sms") }
+        r("^(?:e-?mail|write\\s+(?:an\\s+)?e-?mail\\s+to|send\\s+(?:an\\s+)?e-?mail\\s+to)\\s+(.+?)(?:\\s+(?:about|saying|that)\\s+(.+))?$").find(t)?.let {
+            return RoutedIntent("email.compose", obj("to" to it.groupValues[1], "subject" to it.groupValues[2], "text" to it.groupValues[2]), "email") }
+        r("^(?:call|ring|phone)\\s+(.{2,40})$").find(t)?.let { m ->
+            val who = m.groupValues[1].trim(); val w = who.lowercase().split(Regex("\\s+"))
+            if (w.size <= 3 && w.first() !in setOf("me", "it", "us", "back", "off", "them", "him", "her", "the", "this", "that", "a", "an", "out", "up", "in", "for", "you", "your"))
+                return RoutedIntent("phone.call", obj("name" to who), "call") }
+        // Clipboard and brightness.
+        r("^copy\\s+(?:that|this|it|your\\s+(?:last\\s+)?(?:answer|reply|message))(?:\\s+to\\s+(?:the\\s+|my\\s+)?clipboard)?$").find(t)?.let { return RoutedIntent("clipboard.copy", obj(), "copy") }
+        r("^(?:set\\s+)?(?:the\\s+)?(?:screen\\s+)?brightness\\s+(?:to\\s+)?(\\d{1,3})\\s*(?:%|percent)?$").find(t)?.let { return RoutedIntent("device.brightness", obj("level" to it.groupValues[1]), "brightness") }
+        r("^(?:turn\\s+(?:the\\s+)?brightness|brightness)\\s+(up|down)$").find(t)?.let { return RoutedIntent("device.brightness", obj("direction" to it.groupValues[1].lowercase()), "brightness") }
+        r("^make\\s+(?:the\\s+)?screen\\s+(brighter|darker|dimmer)$").find(t)?.let { return RoutedIntent("device.brightness", obj("direction" to if (it.groupValues[1].lowercase() == "brighter") "up" else "down"), "brightness") }
+        r("^(?:turn|switch)\\s+(on|off)\\s+(?:auto(?:matic)?|adaptive)\\s+brightness$").find(t)?.let { return RoutedIntent("device.brightness", obj("adaptive" to it.groupValues[1].lowercase()), "brightness") }
         return null
     }
 

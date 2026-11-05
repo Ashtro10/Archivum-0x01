@@ -36,6 +36,8 @@ class ProactivePlanner(
     private val templates: ResponseTemplates,
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
     private val diag: ai.clu.core.diag.DiagnosticsLog? = null,
+    /** The owner's day from their own lists and reminders (null = nothing worth saying); added to the first greeting of the day. */
+    private val briefing: (() -> String?)? = null,
 ) {
     private val db = store.db
     private val wellbeing = Regex("\\b(sick|ill|unwell|fever|cold|flu|stressed|stress|sad|upset|anxious|anxiety|headache|hurt|injur\\w*|exhausted|depressed|lonely)\\b", RegexOption.IGNORE_CASE)
@@ -102,7 +104,8 @@ class ProactivePlanner(
     private fun greetingCandidate(ctx: ProactiveContext, now: Long, dayStart: Long): ProactiveMessage? {
         if (!settings.bool(Settings.PROACTIVE_GREET_OPEN) || !ctx.appOpenedNow) return null
         if (db.queryOne("SELECT COUNT(*) FROM proactive_log WHERE kind = 'greeting' AND ts >= ?", listOf(dayStart)) > 0) return null
-        return ProactiveMessage("greeting", templates.pick(Settings.GREETINGS, now))
+        val day = runCatching { briefing?.invoke() }.getOrNull()
+        return ProactiveMessage("greeting", templates.pick(Settings.GREETINGS, now) + (day?.let { " $it" } ?: ""))
     }
 
     private fun checkInCandidate(ctx: ProactiveContext, now: Long, hour: Int, dayStart: Long): ProactiveMessage? {

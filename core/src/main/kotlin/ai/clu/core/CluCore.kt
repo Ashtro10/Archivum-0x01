@@ -68,6 +68,10 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val proposals = ProposalRepository(store, settings, memories)
     /** The owner's diary: separate from memory; entries reach memory only when promoted. */
     val diary = ai.clu.core.diary.DiaryRepository(store, memories)
+    /** Tasks, lists and reminders (local). */
+    val butler = ai.clu.core.butler.Butler(store)
+    /** Set by the platform that can deliver reminders (Android: AlarmManager); null = reminders are kept but cannot ring. */
+    @Volatile var reminderScheduler: ai.clu.core.butler.ReminderScheduler? = null
     /** Web search through documented provider APIs (key/URL configured on the device; none built in). */
     val search = ai.clu.core.search.SearchService(settings, platform.http, { platform.secret(BRAVE_SEARCH_KEY) }, clock::now)
     val prefs = PreferenceEngine(store, settings)
@@ -92,7 +96,8 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     val network = NetworkPolicy(settings, platform::isOnline)
     val toolRegistry = ToolRegistry()
     val tools = ToolExecutor(store, toolRegistry, settings, auth, network, diag)
-    val proactive = ProactivePlanner(store, settings, memories, templates, diag = diag)
+    val proactive = ProactivePlanner(store, settings, memories, templates, diag = diag,
+        briefing = { if (butler.open().any { it.dueAt != null && it.dueAt < clock.now() + 86_400_000L }) butler.briefing() else null })
     /** Optional LiveKit voice path: room tokens from the owner's token endpoint (no LiveKit secrets in the app). */
     val liveKitTokens = ai.clu.core.livekit.TokenProvisioner(settings, platform.http, { platform.secret(LIVEKIT_DEVICE_KEY) }, clock::now)
     val syncEngine = SyncEngine(store, settings, conversations, memories, characters, people, prefs, commands, diag, diary)
@@ -167,7 +172,9 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         val geo = Geocoder(platform.http)
         listOf(TimeTool(time::conversationNow), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
             DiaryAddTool(diary, conversations), PersonaSwitchTool(personas),
-            web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") })
+            web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") },
+            ai.clu.core.butler.TaskAddTool(butler), ai.clu.core.butler.TaskListTool(butler), ai.clu.core.butler.TaskDoneTool(butler) { reminderScheduler },
+            ai.clu.core.butler.ReminderSetTool(butler, { java.time.ZoneId.systemDefault() }) { reminderScheduler }, ai.clu.core.butler.BriefingTool(butler))
             .forEach(toolRegistry::register)
     }
 

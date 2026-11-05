@@ -208,6 +208,13 @@ object Schema {
                 output TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', flagged INTEGER NOT NULL DEFAULT 0, destructive INTEGER NOT NULL DEFAULT 0,
                 started_at INTEGER, finished_at INTEGER, PRIMARY KEY (task_id, id))""",
         ),
+        // v6 -> v7 (butler): the owner's tasks, shopping and other lists, and reminders (an item with a due time; "daily"/"weekly"
+        // repeat). Local to this device. Existing tables are untouched.
+        listOf(
+            """CREATE TABLE butler_items (id TEXT PRIMARY KEY, title TEXT NOT NULL, list_name TEXT NOT NULL, due_at INTEGER, recur TEXT NOT NULL DEFAULT '',
+                done INTEGER NOT NULL DEFAULT 0, notified_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, done_at INTEGER)""",
+            """CREATE INDEX idx_butler_open ON butler_items(done, due_at)""",
+        ),
     )
 
     val currentVersion: Int get() = migrations.size

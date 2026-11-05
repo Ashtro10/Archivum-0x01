@@ -39,6 +39,9 @@ class CluApp : Application() {
     /** The conversation engine both screens use (server agent or on-device). */
     lateinit var engine: ai.clu.voice.Engine
     lateinit var sync: SyncManager
+    lateinit var reminders: ai.clu.proactive.ReminderAlarms
+    /** A runtime permission a tool needs; the visible screen asks Android for it and clears this. */
+    val permissionWanted = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val _conversation = MutableStateFlow<String?>(null)
@@ -87,6 +90,8 @@ class CluApp : Application() {
             }
         }
         whisper = ai.clu.voice.WhisperStt(this, core.diag)
+        reminders = ai.clu.proactive.ReminderAlarms(this)
+        core.reminderScheduler = reminders
         registerAndroidTools()
         voice = VoiceSession(this)
         liveKit = LiveKitSession(this)
@@ -100,6 +105,7 @@ class CluApp : Application() {
         core.startModel(preload = false)
         sync.start()
         ProactiveScheduler.schedule(this)
+        runCatching { reminders.deliverDue() } // anything that came due while CLU wasn't running; sets the next alarm
         scope.launch { core.settings.values.collect { applyServicePolicy() } }
         core.diag.perf("app_create_ms", (System.currentTimeMillis() - t0).toDouble())
         core.diag.i("app", "started on ${ai.clu.platform.DeviceInfo.summary(this)}")
@@ -127,6 +133,13 @@ class CluApp : Application() {
         listOf(OpenAppTool(this, core.settings), AlarmTool(this), TimerTool(this), FlashlightTool(this), VolumeTool(this), MapsOpenTool(this),
             DialTool(this), WebOpenTool(this), SettingsPanelTool(this), CalendarAddTool(this),
             DeviceStatusTool(this, platform::isOnline) { statusLine() }).forEach(r::register)
+        val contacts = ai.clu.tools.Contacts(this)
+        val asker = { ai.clu.tools.PermissionAsker { p -> permissionWanted.value = p } }
+        listOf(ai.clu.tools.MediaControlTool(this), ai.clu.tools.NotificationsReadTool(this) { ai.clu.tools.CluNotificationListener.current() },
+            ai.clu.tools.ContactFindTool(contacts, asker), ai.clu.tools.CallTool(this, contacts, asker), ai.clu.tools.SmsComposeTool(this, contacts, asker),
+            ai.clu.tools.EmailComposeTool(this, contacts, asker), ai.clu.tools.BrightnessTool(this),
+            ai.clu.tools.ClipboardCopyTool(this) { conv -> conv?.let { c -> core.conversations.messages(c, 50).lastOrNull { it.role == ai.clu.core.conversation.Role.ASSISTANT }?.content } })
+            .forEach(r::register)
     }
 
     fun statusLine(): String {
@@ -166,6 +179,7 @@ class CluApp : Application() {
         nm.createNotificationChannel(NotificationChannel(CH_LISTEN, "Background listening", NotificationManager.IMPORTANCE_LOW))
         nm.createNotificationChannel(NotificationChannel(CH_CLU, "Messages from Clu", NotificationManager.IMPORTANCE_DEFAULT))
         nm.createNotificationChannel(NotificationChannel(CH_DOWNLOAD, "Downloads", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(CH_REMINDERS, "Reminders", NotificationManager.IMPORTANCE_HIGH))
     }
 
     /** A pending release of the models after the app went to the background (cancelled if the owner comes back). */
@@ -214,5 +228,6 @@ class CluApp : Application() {
         const val CH_LISTEN = "listen"
         const val CH_CLU = "clu"
         const val CH_DOWNLOAD = "download"
+        const val CH_REMINDERS = "reminders"
     }
 }

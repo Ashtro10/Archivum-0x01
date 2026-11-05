@@ -64,6 +64,8 @@ class MainActivity : BaseActivity() {
         scope.launch { app.conversation.collectLatest { refresh() } }
         scope.launch { core.store.changes.collect { t -> if (t == "messages" || t == "conversations" || t == "memory_proposals") refresh() } }
         scope.launch { app.engine.ui.collect { render(it) } }
+        // A tool needs a runtime permission (e.g. contacts for "call Mom"): Android's own prompt, asked from the visible screen.
+        scope.launch { app.permissionWanted.collect { p -> if (p != null) { app.permissionWanted.value = null; if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(p), 2) } } }
         scope.launch { core.chat.state.collect { st -> if (!app.engine.server && (st.status != null || st.events.lastOrNull() is ai.clu.core.agent.AgentEvent.Error)) showItems() } }
         if (core.store.meta("onboarded") == null) onboarding()
     }

@@ -250,6 +250,9 @@ class SettingsPanelTool(private val context: Context) : Tool {
             "accessibility" -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS) to "Accessibility"
             "security" -> Intent(Settings.ACTION_SECURITY_SETTINGS) to "Security"
             "privacy" -> Intent(Settings.ACTION_PRIVACY_SETTINGS) to "Privacy"
+            "notification access", "notification listener", "notifications access" -> notificationAccessIntent(context) to "Notification access"
+            "alarms", "alarms and reminders", "alarms & reminders", "exact alarms", "reminders" ->
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg) to "Alarms & reminders"
             "notifications", "notification", "clu notifications" ->
                 Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName) to "Clu's notifications"
             "clu", "app info", "clu app info", "clue", "permissions", "clu permissions" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg) to "Clu's app info"

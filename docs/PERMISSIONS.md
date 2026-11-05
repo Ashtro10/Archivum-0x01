@@ -11,6 +11,11 @@
 | `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE` | Detect offline state, find local addresses and the hotspot gateway | Install time | — |
 | `CHANGE_WIFI_MULTICAST_STATE` | mDNS discovery of the paired device | Install time | Manual/gateway address still works |
 | `com.android.alarm.permission.SET_ALARM` | Set alarms and timers through the clock app | Install time | Alarm/timer commands fail with a clear message |
+| `READ_CONTACTS` | "Call Mom", "text Rahul…", "what's Priya's number": finding a contact's number or email. Read on request only, nothing copied into CLU | The first time a command needs a contact (runtime prompt) | CLU says it needs the permission; numbers still work |
+| `WRITE_SETTINGS` (special) | Changing screen brightness | Only you can allow it, in "Modify system settings" (CLU opens that screen when you ask for brightness) | CLU opens display settings instead |
+| `SCHEDULE_EXACT_ALARM` (special on Android 14+) | Reminders exactly on time | "Alarms & reminders" in system settings | Reminders still ring, possibly a few minutes late in deep sleep |
+| `RECEIVE_BOOT_COMPLETED` | Setting reminder alarms again after a restart | Install time | Reminders set before a restart wait until CLU is next opened |
+| Notification access (`BIND_NOTIFICATION_LISTENER_SERVICE`, granted in settings) | "Read my notifications": reading and summarising current notifications on request. Nothing is stored | Only you can turn it on (say "open notification access settings") | CLU explains that it can't see notifications |
 
 Not requested: contacts, location, camera, storage-wide access, accessibility, SMS, call placement. Files and
 pictures are accessed only through the system picker (you choose each one). The dialer is opened with a number;

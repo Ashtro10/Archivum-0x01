@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.9.0-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.11.0-prototype.
 
-* Settings: **294** · verifying test passed: **294** · other: **0**
+* Settings: **300** · verifying test passed: **300** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -216,6 +216,8 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.calendar.delete.confirm` | Confirm before calendar.delete | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.vision.describe.enabled` | Allow vision.describe | `true` | true / false | SHARED | ToolExecutor | When off, vision.describe is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.vision.describe.confirm` | Confirm before vision.describe | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.clu.presence.enabled` | Allow clu.presence | `true` | true / false | SHARED | ToolExecutor | When off, clu.presence is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.clu.presence.confirm` | Confirm before clu.presence | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.app.open.enabled` | Allow app.open | `true` | true / false | SHARED | ToolExecutor | When off, app.open is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.app.open.confirm` | Confirm before app.open | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.alarm.set.enabled` | Allow alarm.set | `true` | true / false | SHARED | ToolExecutor | When off, alarm.set is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
@@ -248,6 +250,10 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.notifications.announce.confirm` | Confirm before notifications.announce | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.calls.announce.enabled` | Allow calls.announce | `true` | true / false | SHARED | ToolExecutor | When off, calls.announce is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.calls.announce.confirm` | Confirm before calls.announce | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.browser.open.enabled` | Allow browser.open | `true` | true / false | SHARED | ToolExecutor | When off, browser.open is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.browser.open.confirm` | Confirm before browser.open | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.browser.search.enabled` | Allow browser.search | `true` | true / false | SHARED | ToolExecutor | When off, browser.search is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.browser.search.confirm` | Confirm before browser.search | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.media.control.enabled` | Allow media.control | `true` | true / false | SHARED | ToolExecutor | When off, media.control is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.media.control.confirm` | Confirm before media.control | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.notifications.read.enabled` | Allow notifications.read | `true` | true / false | SHARED | ToolExecutor | When off, notifications.read is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |

@@ -60,6 +60,9 @@ None of these can be completed without the model files, so no vision capability 
 
 ## Not yet implemented (feasible)
 
+- Driving web pages on the phone (reading, clicking, typing). The phone only opens sites and site searches; page
+  control exists on the PC, where CLU has its own browser window.
+
 - Screen reading and app navigation (accessibility service; Play policy review).
 - Notification prioritisation beyond the owner's app rules (learned importance).
 - A general event-trigger rule engine ("when I get home, …"); time and event triggers exist only for reminders,

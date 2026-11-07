@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.10.0-prototype
+# Device acceptance checklist — Clu 1.11.0-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -503,6 +503,20 @@ Install over the previous version first: your conversations, memories and settin
 | Q16 | "What's in this photo?" | CLU says it can't see images yet (no vision model in this build); it never describes an image | – |
 | Q17 | Turn on airplane mode and repeat Q1, Q3 and Q5 | All three work offline | – |
 
+## R. 1.11.0: websites, confirmations, phone connection (phone, tablet and PC 0.9.0)
+
+| # | Do this | Pass if | Collect if it fails |
+|---|---|---|---|
+| R1 | On the phone: "search YouTube for lo-fi music" | The YouTube app (or the site) opens on the search results | Whether YouTube is installed |
+| R2 | On the phone: "go to Wikipedia", "open example.org" | The site opens in your browser | – |
+| R3 | "Cancel the meeting with Priya" (create one first), answer "no"; repeat, answer "yes" | First time nothing is deleted ("Okay, I won't."); second time it is deleted | – |
+| R4 | On the PC: "open YouTube", then "search YouTube for cats", "read the page" | A CLU browser window opens on YouTube results; CLU reads the page text | Edge/Chrome version; `%LOCALAPPDATA%\CLU\logs` |
+| R5 | On the PC, on any site with a sign-up or delete button: "click sign up" | CLU asks first; nothing happens until you say "yes" | – |
+| R6 | While CLU is giving a long answer, say "mhm" and then "wait" | "Mhm" doesn't stop it; "wait" does | – |
+| R7 | "CLU, you there?" | "At your service." at once | – |
+| R8 | Connect the phone to the PC, then switch the PC to another Wi-Fi or hotspot | Within about 15 s the PC shows the new address; the phone reconnects after you update the address (or re-pair) | Phone diagnostics |
+| R9 | If the phone says "token server not reachable" | The message lists what to check; following it (same Wi-Fi, firewall rule, hotspot) fixes it | Which check fixed it |
+
 ## Results summary (fill in)
 
 | Section | Pad 6 | Neo 9 Pro | Blocking issues |
@@ -524,6 +538,8 @@ Install over the previous version first: your conversations, memories and settin
 | Y Stage 1 (search, memory, diary) | | | |
 | Z Stage 2 (research, memory, sync, tasks) | | | |
 | P Performance (1.5.1) | | | |
+| Q Assistant integrations (1.10) | | | |
+| R Websites, confirmations, connection (1.11) | | | |
 
 **Acceptance rule:** v1 is accepted when sections A–E, G, H and M pass on both devices, and every FAIL in F, I, J, K
 or L either passes after tuning or is written up as a known limitation that you have agreed to. No new features

@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-11-04_
+_Last updated: 2026-11-07_
 
 ## Current state
 
@@ -16,6 +16,36 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-11-07 (1.11.0 / PC 0.9.0): ideas from the jarvis-voice-butler repo
+
+The owner asked to improve CLU using a YouTube tutorial and the `ruxakK/jarvis-voice-butler` repository. **The video
+could not be watched**: this environment's network refuses youtube.com. The work below comes from reading the
+repository. Gemini realtime (a paid cloud model), Playwright and video input were not adopted. CLU stays local-first
+with no new dependencies.
+
+* **Fixed:** in 1.10.0, tools that confirm first (calendar delete, notification reply) always cancelled on devices,
+  because no confirmation handler was installed. CLU now asks "Shall I go ahead?" in the conversation and acts on
+  yes/no.
+  * Only the owner can answer, and the question expires after 3 minutes.
+  * Any other request drops the question.
+* **New on the PC:** CLU drives a browser window with its own profile, over the DevTools protocol of the installed
+  Edge or Chrome.
+  * Open sites by name, search a named site, read the page, list its buttons, click, type, press keys, scroll, go
+    back, take screenshots.
+  * Clicks that send, buy, delete, submit or confirm are asked first. The model cannot skip the question.
+  * Only http(s) addresses without passwords open.
+* **New on the phone:** "search YouTube for …", "find headphones on Amazon", "go to Wikipedia". The site opens, in
+  its app when one is installed.
+* **Conversation:**
+  * "You there?" is answered at once.
+  * "Mhm", "yeah" and "right" while CLU speaks no longer interrupt it. "Wait" or a real question still does.
+* **Phone ↔ PC connection:** the PC re-offers phone access when its Wi-Fi address changes, so it no longer serves a
+  stale address. The phone's "token server not reachable" error lists what to check: the same Wi-Fi, Windows
+  Firewall, and router client isolation.
+* **Tests:** core 700, app 85, desktop 138, 0 failures. The browser test drives real headless Chromium against a
+  local test site.
+* **Device acceptance:** still open ([docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md) §R).
 
 ## 2026-11-05 (1.10.0): calendar, notification and call awareness, evening summary, routines, task sync
 

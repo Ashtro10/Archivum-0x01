@@ -26,10 +26,10 @@ repository.
 
 | Property | Value | How it was checked |
 |---|---|---|
-| File | `dist/clu-release.apk`, 85,948,431 bytes | `stat` |
-| SHA-256 | `f60814e1900a0af00640f553b83b393a2ab9c42e609cfa39d575df0097e9ee61` | `sha256sum` |
+| File | `dist/clu-release.apk`, 85,952,525 bytes | `stat` |
+| SHA-256 | `b85f1d121d311c248e04e283c45d5039d78ad86b863af0f74ce696829988958d` | `sha256sum` |
 | Package ID | `ai.clu` | `aapt2 dump badging` |
-| Version | `1.10.0-prototype` (versionCode 23; installs as an update over earlier versionCodes, same package and signer; the database migrates to v8 on first start, adding sync columns to `butler_items`, nothing removed; one transaction. Going back needs an uninstall, which erases app data: export a sync file first) | `aapt2 dump badging` |
+| Version | `1.11.0-prototype` (versionCode 24; installs as an update over earlier versionCodes, same package and signer; no database change since v8 (1.10.0). Going back needs an uninstall, which erases app data: export a sync file first) | `aapt2 dump badging` |
 | Minimum Android | API 33 (Android 13) | manifest `minSdkVersion=33` |
 | Target / compile SDK | 35 / 35 | manifest |
 | ABI | `arm64-v8a` only | `native-code: 'arm64-v8a'` |

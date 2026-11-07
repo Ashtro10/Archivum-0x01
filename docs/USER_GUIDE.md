@@ -14,6 +14,12 @@ The camera picture fills the view with CLU's widgets on top (core status, weathe
 * **Routines:** CLU may notice things you do regularly and suggest them under memory suggestions. Nothing is saved unless you approve it.
 * **Images:** this build has no vision model, so CLU says so instead of guessing.
 
+## Websites
+* **Phone and PC:** "open YouTube", "go to Wikipedia", "search YouTube for lo-fi music", "find headphones on Amazon". On the phone the site's app opens if you have it.
+* **PC only:** CLU uses a browser window of its own (separate from your usual browser profile; sign in there if you want). Say "read the page", "what buttons are on this page?", "click About us", "type cats into the search box", "press enter", "scroll down", "go back", "take a screenshot" (saved in CLU's `screenshots` folder).
+* CLU asks before clicking anything that sends, buys, deletes, submits or confirms. Answer "yes" or "no". If you say something else, or wait more than 3 minutes, it doesn't click.
+* While CLU is talking, "mhm", "yeah" or "right" won't stop it; "wait" or a question will. "You there?" checks it's listening.
+
 ## The phone
 With **Settings → Connection → Automatic** (the default), the phone is a terminal for CLU on your PC once it is paired: the PC listens, thinks and speaks for voice and typed messages, and the phone doesn't load a model of its own. Before pairing, or with **Always this device**, the phone answers on its own without any network.
 

@@ -1,4 +1,4 @@
-# CLU Android: capability audit (updated 2026-11-05, release 1.10.0)
+# CLU Android: capability audit (updated 2026-11-07, release 1.11.0)
 
 Every capability of the CLU specification, checked against the source code, not against earlier reports. Each one was
 traced along its execution path: input → intent understanding (IntentRouter or the model's tool calls) → tool → Android
@@ -141,7 +141,9 @@ continuation, so code work went ahead. Device acceptance remains the open gate a
 |---|---|---|
 | Permissions only when needed | Verified | Contacts, calendar and the call role are requested on first use; notification access is the owner's switch |
 | Private content not stored | Verified | Notification text is never stored or logged. The diagnostics log records app names and counts only, never names, numbers or titles |
-| Sensitive-action confirmation | Verified | Calendar delete and notification reply confirm by default; per-tool switches |
+| Sensitive-action confirmation | Verified | Asked in the conversation ("Shall I go ahead?"), answered by yes/no; owner only, 3-minute expiry. Calendar delete, notification reply and consequential browser clicks confirm by default; per-tool switches. 1.10.0 cancelled these on devices (no handler); fixed in 1.11.0 |
+| Website open and search by name | Awaiting device (phone); verified (PC) | Phone: VIEW intent, the site's app if installed. PC: CLU's own browser window, read/click/type/scroll/screenshot (`BrowserControlTest`) |
+| Presence check, backchannels while speaking | Verified (host) | "You there?" answered without the model; "mhm/yeah/right" don't interrupt |
 | Encrypted DB beyond Android's file encryption | Partial | No SQLCipher layer (documented) |
 | Prompt injection from web and notification text | Verified | `PromptSafetyTest`; notification text is reported, never followed |
 

@@ -1,4 +1,4 @@
-# CLU Android: implementation report (updated 2026-11-05, release 1.10.0)
+# CLU Android: implementation report (updated 2026-11-05, release 1.11.0)
 
 This is a progress record for the "complete capability audit and implementation" assignment. It holds enough to
 resume without repeating work. Full audit: [CLU_CAPABILITY_AUDIT.md](CLU_CAPABILITY_AUDIT.md). Limits:
@@ -151,3 +151,39 @@ See [CLU_ANDROID_LIMITATIONS.md](CLU_ANDROID_LIMITATIONS.md):
 - learned notification importance;
 - streaming-service, email-inbox and booking integrations (external);
 - physical-device acceptance of everything ([DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md) §Q).
+
+## Continuation: release 1.11.0 (PC 0.9.0)
+
+Request: improve CLU using a YouTube tutorial (`youtu.be/Fhm8goKN6rM`) and the `ruxakK/jarvis-voice-butler`
+repository. **The video was not watched**: the environment's proxy refuses youtube.com, and no workaround was used.
+The ideas below come from the repository's code and README.
+
+| Idea in the repo | In CLU | Code |
+|---|---|---|
+| Browser automation (Playwright: open, search, click, type, screenshot) | PC only. CLU drives Edge or Chrome through the DevTools protocol (`java.net.http` WebSocket), with no new dependency. Its own profile; headless only in tests | `desktop/browser/CluBrowser.kt`, `BrowserTools.kt` |
+| Ask before risky clicks | Clicks on controls that send, buy, delete, submit, confirm or log out return `needsConfirmation`. The `_confirmed` flag is set only by `ToolExecutor` after a spoken yes; a model-supplied flag is stripped | `Sites.consequential`, `ToolExecutor.execute`, `CluAgent.askToConfirm` |
+| Spoken confirmation ("shall I?" → yes/no) | Per conversation, owner only, 3-minute expiry, dropped by any other request. **Also fixes a 1.10.0 bug:** confirm-first tools always cancelled on devices because no handler was installed | `CluAgent.answerConfirmation` |
+| Named sites ("open YouTube", "search Amazon for …") | 18 sites with their own search pages. PC opens them in CLU's browser; the phone opens a VIEW intent, so the site's app opens if installed | `core/browser/Sites.kt`, `IntentRouter`, `SiteOpenTool`/`SiteSearchTool` |
+| Presence check ("you there?") | Deterministic route, no model call | `PresenceTool` |
+| Adaptive interruptions | Backchannels (at most 4 words, all listener noises, no "wait/stop/no/but/what") do not barge in or get answered while CLU speaks | `core/voice/Backchannel.kt`, `VoiceAgent` |
+| Not adopted | Gemini realtime (paid cloud), preemptive generation (no gain with a local model that serves one request at a time), video input (no vision model) | – |
+
+Also fixed, from the owner's phone diagnostics (token server timeouts on the same subnet):
+* The PC bound phone access to the address it found at start and never rebound it. It now checks every 15 s and
+  re-offers phone access when the Wi-Fi address changes (`VoiceService.rebindIfAddressChanged`).
+* The phone's error lists the checks: same Wi-Fi (not mobile data), the address, Windows Firewall, and client
+  isolation (use a hotspot).
+
+### Tests added
+
+| Test | Category |
+|---|---|
+| `BrowserControlTest` | Integration: CLU's real host and agent drive headless Chromium against a local site that records requests. Inspect, type, Enter (form really submitted), read, back, a consequential click asked first ("no" → nothing; "yes" → clicked), a self-set confirmation flag ignored, credentialed URL refused, presence, screenshot |
+| `SiteRoutesTest` (6) | Unit: site search/open routes, page-action routes, URL safety, consequential controls, presence, backchannels |
+| `CalendarTest` (extended) | Integration: delete asks first; "no", a stale "yes" after another request, and an expired question delete nothing; "yes, go ahead" deletes |
+
+### Results (build host)
+
+Core 700 (16 skipped), app 85, desktop 138 (13 skipped): 0 failures. apiCheck and verifyApk pass; the ICU regex
+check compiled 645 patterns with 0 rejected. Release APK 1.11.0 (versionCode 24) was signed with the same certificate.
+Nothing was tested on a physical device.

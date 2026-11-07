@@ -24,6 +24,11 @@ Settings → Apps → CLU → Uninstall. It removes the program, shortcuts and t
 * "CLU stopped right after starting": the message shows the reason; details in `…\CLU\logs\launcher.log` and `host.log`.
 * "database is damaged": CLU refuses to open it and tells you which backup to restore (`Settings → Health & backups` or `clu.exe --restore-backup <file>` from a terminal).
 * Model won't load: Models shows the exact reason and what to try (smaller model, lower context); the rest of CLU keeps working.
+* Phone says "token server not reachable": the phone and PC must be on the same Wi-Fi (not mobile data). Windows may be blocking CLU: allow it when Windows asks, or run in an administrator PowerShell
+  `New-NetFirewallRule -DisplayName "CLU phone" -Direction Inbound -Profile Private -Action Allow -Protocol TCP -LocalPort 47822,7880,7881` and
+  `New-NetFirewallRule -DisplayName "CLU phone audio" -Direction Inbound -Profile Private -Action Allow -Protocol UDP -LocalPort 50000-60000`
+  (the Wi-Fi network must be set to *Private*). Some routers keep devices apart ("client/AP isolation"); a phone hotspot avoids that. Since 0.9.0 CLU notices when the PC's Wi-Fi address changes and offers the new one.
+* Browser control: CLU opens its own Edge (or Chrome) window with a separate profile in `…\CLU\browser-profile`; screenshots go to `…\CLU\screenshots`.
 * Start again from a clean state without losing data: Quit CLU, delete `…\CLU\window-profile`.
 
 ## Acceptance checklist (what to run and report back)

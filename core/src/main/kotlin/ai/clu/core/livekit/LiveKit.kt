@@ -79,7 +79,9 @@ class TokenProvisioner(
             putJsonObject("room_config") { putJsonArray("agents") { addJsonObject { put("agent_name", settings.string(Settings.LK_AGENT_NAME)) } } }
         }
         val resp = runCatching { http.postJson(url, body.toString(), mapOf("Authorization" to "Bearer $key")) }
-            .getOrElse { throw LiveKitException("Token server not reachable: ${it.message}", it) }
+            .getOrElse { throw LiveKitException("Token server not reachable: ${it.message}. Check: CLU is running on the PC with phone access on; " +
+                "the phone is on the same Wi-Fi or hotspot as the PC (not mobile data); the address matches the one the PC shows now; " +
+                "Windows Firewall allows CLU on this network; some public or college Wi-Fi blocks devices from reaching each other (use the phone's hotspot).", it) }
         // The token server explains refusals in {"error": "..."}; it never echoes the key.
         val reason = runCatching { CluJson.parseToJsonElement(resp.body).jsonObject["error"]?.jsonPrimitive?.contentOrNull }.getOrNull()?.take(160)
         when (resp.code) {

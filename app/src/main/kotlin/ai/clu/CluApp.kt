@@ -148,7 +148,7 @@ class CluApp : Application() {
             ai.clu.tools.NotificationsDismissTool(this) { app -> ai.clu.tools.CluNotificationListener.instance?.dismiss(app) },
             ai.clu.tools.NotificationsAnnounceTool(this, core.settings),
             ai.clu.tools.CallsAnnounceTool(core.settings, { ai.clu.voice.CluCallScreeningService.roleHeld(this) }) { p -> permissionWanted.value = p }).forEach(r::register)
-        listOf(ai.clu.tools.MediaControlTool(this), ai.clu.tools.NotificationsReadTool(this, core.settings, live),
+        listOf(ai.clu.tools.SiteOpenTool(this), ai.clu.tools.SiteSearchTool(this), ai.clu.tools.MediaControlTool(this), ai.clu.tools.NotificationsReadTool(this, core.settings, live),
             ai.clu.tools.ContactFindTool(contacts, asker), ai.clu.tools.CallTool(this, contacts, asker), ai.clu.tools.SmsComposeTool(this, contacts, asker),
             ai.clu.tools.EmailComposeTool(this, contacts, asker), ai.clu.tools.BrightnessTool(this),
             ai.clu.tools.ClipboardCopyTool(this) { conv -> conv?.let { c -> core.conversations.messages(c, 50).lastOrNull { it.role == ai.clu.core.conversation.Role.ASSISTANT }?.content } })

@@ -188,7 +188,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
             ai.clu.core.butler.ReminderSetTool(butler, { java.time.ZoneId.systemDefault() }) { reminderScheduler }, ai.clu.core.butler.BriefingTool(dayBrief), ai.clu.core.butler.EveningTool(dayBrief),
             ai.clu.core.calendar.CalendarReadTool({ calendarSource }, zone), ai.clu.core.calendar.CalendarFreeTool({ calendarSource }, zone),
             ai.clu.core.calendar.CalendarCreateTool({ calendarSource }, zone), ai.clu.core.calendar.CalendarMoveTool({ calendarSource }, zone),
-            ai.clu.core.calendar.CalendarDeleteTool({ calendarSource }, zone), ai.clu.core.vision.VisionUnavailableTool())
+            ai.clu.core.calendar.CalendarDeleteTool({ calendarSource }, zone), ai.clu.core.vision.VisionUnavailableTool(), PresenceTool { settings.string(Settings.CLU_NAME) })
             .forEach(toolRegistry::register)
     }
 

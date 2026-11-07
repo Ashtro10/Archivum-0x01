@@ -23,7 +23,7 @@ class RunningHost(val core: CluCore, val api: ApiServer, val governor: ResourceG
 }
 
 object Host {
-    const val VERSION = "0.8.0"
+    const val VERSION = "0.9.0"
 
     /**
      * Starts CLU on this PC: opens (and migrates) the database in [paths], starts the model service without loading a
@@ -71,6 +71,10 @@ object Host {
         val capabilities = runCatching { ai.clu.desktop.capability.CapabilitySetup.open(core, paths.root, { "http://127.0.0.1:${apiRef!!.port}" }, { apiRef!!.issueLaunchCode() },
             ai.clu.desktop.evolution.InferenceRepairModel(core), log) }.onFailure { log("capabilities unavailable: ${it.message}") }.getOrNull()
         capabilities?.let { core.toolRegistry.register(it.tool) }
+        // Browser control: a browser window of CLU's own (separate profile), driven by voice or text; asks before consequential clicks.
+        val browser = ai.clu.desktop.browser.CluBrowser({ browserExe() }, java.io.File(paths.root, "browser-profile"),
+            headless = System.getProperty("clu.browserHeadless") == "true")
+        ai.clu.desktop.browser.browserTools(browser, java.io.File(paths.root, "screenshots")).forEach(core.toolRegistry::register)
         evolution?.let { evo -> capabilities?.manager?.core = object : ai.clu.desktop.capability.CoreUpgrades {
             override fun repository() = evo.service.repoRoot()?.path
             override fun relevantFiles(goal: String) = evo.service.knowledge.relevantFiles(goal, 5).map { it.first }
@@ -78,8 +82,9 @@ object Host {
         val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
             platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice, evolution = evolution?.routes, capabilities = capabilities).also { apiRef = it }.start()
         voice.applyPhoneAccess()?.let { log("voice: $it") }
+        ticker.scheduleWithFixedDelay({ runCatching { voice.rebindIfAddressChanged() } }, 15, 15, TimeUnit.SECONDS)
         return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog, voice) {
-            runCatching { voice.shutdown() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); runCatching { evolution?.close() }; capabilities?.close(); core.shutdown(); db.close()
+            runCatching { voice.shutdown() }; runCatching { browser.close() }; api.stop(); maintenance.stop(); ticker.shutdownNow(); runCatching { evolution?.close() }; capabilities?.close(); core.shutdown(); db.close()
         }
     }
 }
@@ -253,3 +258,6 @@ private fun postJson(port: Int, token: String, path: String) {
     c.outputStream.use { it.write("{}".toByteArray()) }
     check(c.responseCode == 200) { "HTTP ${c.responseCode}" }
 }
+
+/** The browser CLU drives: `-Dclu.browser` / CLU_BROWSER, else Edge or Chrome; never a headless-only build (the owner must see it). */
+internal fun browserExe(): java.io.File? = ai.clu.desktop.capability.ExperienceVerifier.candidates().firstOrNull { !it.name.contains("headless") }

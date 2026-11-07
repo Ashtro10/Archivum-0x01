@@ -224,6 +224,19 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
             log("voice: phone token endpoint on http://$ip:$port/token"); null
         } catch (e: IOException) { "The phone endpoint could not listen on $ip:$port (${e.message})." }
     }
+    /**
+     * The PC's network address can change (another Wi-Fi, a hotspot, a new DHCP lease). The phone endpoint was bound to
+     * the old one, so phones could no longer reach it until CLU restarted. Checked every few seconds; moves it.
+     */
+    @Synchronized fun rebindIfAddressChanged(): Boolean {
+        if (!settings.phoneAccess) return false
+        val now = server.detectLanAddress() ?: return false
+        val bound = lan?.address?.address?.hostAddress
+        if (now == bound) return false
+        log("voice: this PC's network address changed (${bound ?: "none"} -> $now); phone endpoint moved")
+        applyPhoneAccess(); return true
+    }
+
     fun phoneEndpoint(): String? = lan?.address?.let { "http://${it.address.hostAddress}:${it.port}/token" }
 
     // ------------------------------------------------------------------------------------------------ previews and downloads

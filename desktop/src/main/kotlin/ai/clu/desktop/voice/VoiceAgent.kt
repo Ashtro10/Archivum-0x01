@@ -126,13 +126,21 @@ class VoiceAgent(
                 if (p.isNotBlank() && p != lastPartial && !(s.mode == ListenMode.WAKE_WORD && !awake)) { lastPartial = p; scope.launch { transcript(p, final = false) } }
                 // Barge-in: the owner talks over CLU for bargeInMs of continuous speech (the clients cancel CLU's own voice from the
                 // microphone with WebRTC echo cancellation, so what the detector hears here is the owner).
-                if ((phase == AgentPhase.SPEAKING || phase == AgentPhase.THINKING) && now - speechStartedAt >= s.bargeInMs) interrupt("barge-in")
+                // Adaptive: "mhm", "yeah", "right" while CLU talks are the owner following along, not taking the turn. With no
+                // words recognised yet, it waits a little longer before deciding the sound is someone talking over it.
+                val talkedFor = now - speechStartedAt
+                if ((phase == AgentPhase.SPEAKING || phase == AgentPhase.THINKING) && talkedFor >= s.bargeInMs &&
+                    (if (p.isBlank()) talkedFor >= s.bargeInMs + 600 else !ai.clu.core.voice.Backchannel.only(p))) interrupt("barge-in")
             }
             if (!v.speaking) endUtterance()
         }
     }
 
+    /** Whether CLU was speaking when the current utterance began (a backchannel then is not a new request). */
+    @Volatile private var heardWhileSpeaking = false
+
     private fun beginUtterance() {
+        heardWhileSpeaking = phase == AgentPhase.SPEAKING
         inSpeech = true; speechStartedAt = System.currentTimeMillis(); vadAt = monoMs(); lastPartial = ""; segment = "u" + turnSeq.incrementAndGet()
         val rec = stt ?: engines.recognizer().also { stt = it }
         // Prime with 1 s of silence (stable features for the streaming model), then the pre-roll.
@@ -163,6 +171,8 @@ class VoiceAgent(
                 if (text.isEmpty()) { transcript(heard, final = true); setPhase(AgentPhase.LISTENING); say("Yes?"); return }
             }
         }
+        // "Mhm" / "right" while CLU is still speaking: it keeps talking, and the noise isn't sent as a request.
+        if (heardWhileSpeaking && phase == AgentPhase.SPEAKING && ai.clu.core.voice.Backchannel.only(text)) { log("voice: backchannel while speaking (kept talking)"); return }
         transcript(heard, final = true)
         // "Stop talking", "be quiet", "never mind": stop at once (audio and generation) and wait; never a question for the model.
         if (isStopPhrase(text)) {

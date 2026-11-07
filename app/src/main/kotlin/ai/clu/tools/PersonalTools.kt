@@ -258,3 +258,37 @@ class BrightnessTool(private val context: Context, private val canWrite: (Contex
 /** Opens the notification-access screen (the only way to grant it). */
 fun notificationAccessIntent(context: Context) = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
     .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, ComponentName(context, CluNotificationListener::class.java).flattenToString())
+
+// ------------------------------------------------------------------------------------------------ websites
+
+/** "Open example.org", "go to Wikipedia": the phone opens the page in its browser (or the site's app, if installed). */
+class SiteOpenTool(private val context: Context) : Tool {
+    override val name = "browser.open"
+    override val description = "Open a website by name or address."
+    override val argsExample = """{"site":"Wikipedia"}"""
+    override val sensitivity = Sensitivity.ROUTINE
+    override val deviceAction = true
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        val what = args.str("site") ?: args.str("url") ?: return ToolResult.fail("Which website?")
+        val url = ai.clu.core.browser.Sites.urlFor(what) ?: return ToolResult.fail("I don't know a website called \"$what\". Say its address, like example.org.")
+        return if (context.open(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) ToolResult(true, false, "Opened $url.", spoken = "Opening ${ai.clu.core.browser.Sites.named(what)?.name ?: Uri.parse(url).host}.")
+            else ToolResult.fail("No browser is available on this device.")
+    }
+}
+
+/** "Search YouTube for lo-fi": the site's own search page, so the YouTube/Amazon/Spotify app opens on it when installed. */
+class SiteSearchTool(private val context: Context) : Tool {
+    override val name = "browser.search"
+    override val description = "Search a website (YouTube, Amazon…) in its app or the browser."
+    override val argsExample = """{"site":"YouTube","query":"lo-fi music"}"""
+    override val sensitivity = Sensitivity.ROUTINE
+    override val deviceAction = true
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        val q = args.str("query") ?: return ToolResult.fail("Search for what?")
+        val site = args.str("site")
+        val url = ai.clu.core.browser.Sites.searchUrl(site, q)
+        val where = site?.let { ai.clu.core.browser.Sites.named(it)?.name } ?: "the web"
+        return if (context.open(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) ToolResult(true, false, "Opened $where search for \"$q\".", spoken = "Searching $where for $q.")
+            else ToolResult.fail("No browser is available on this device.")
+    }
+}

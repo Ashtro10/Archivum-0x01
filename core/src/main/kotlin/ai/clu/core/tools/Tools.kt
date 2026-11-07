@@ -64,6 +64,9 @@ interface Tool {
     suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult
 }
 
+/** Set on a tool's arguments only after the owner confirmed the action (see [ToolExecutor.execute]). */
+const val CONFIRMED_ARG = "_confirmed"
+
 fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
 fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.let { it.intOrNull ?: it.contentOrNull?.trim()?.toIntOrNull() }
 
@@ -114,6 +117,8 @@ class ToolExecutor(
     private val db = store.db
 
     fun has(name: String) = registry[name] != null
+    /** A tool's description without the final period ("Delete an event from the calendar"), for confirmation questions. */
+    fun describe(name: String) = registry[name]?.description?.trimEnd('.', ' ') ?: name
     fun tool(name: String): Tool? = registry[name]
     fun networkCategory(name: String) = registry[name]?.network
 
@@ -130,7 +135,10 @@ class ToolExecutor(
         return "${p.name} is not permitted to use ${t.name}."
     }
 
-    suspend fun execute(name: String, args: JsonObject, ctx: ToolContext, confirmed: Boolean = false): ToolResult {
+    suspend fun execute(name: String, argsIn: JsonObject, ctx: ToolContext, confirmed: Boolean = false): ToolResult {
+        // CONFIRMED_ARG tells a tool that asks for confirmation itself (a consequential browser click) that the owner said
+        // yes. Only the agent sets it, through [confirmed]; anything the model or a command sends under that name is dropped.
+        val args = if (confirmed) JsonObject(argsIn + (CONFIRMED_ARG to JsonPrimitive("yes"))) else JsonObject(argsIn - CONFIRMED_ARG)
         val t0 = store.clock.now()
         val tool = registry[name] ?: return log(name, args, ctx, t0, ToolResult.fail("Unknown tool '$name'."))
         if (!isEnabled(name)) return log(name, args, ctx, t0, ToolResult.fail("The ${tool.name} tool is disabled in settings."))
@@ -148,8 +156,9 @@ class ToolExecutor(
         val needConfirm = when (confirmMode) { "always" -> true; "never" -> false; else -> tool.confirmByDefault }
         if (needConfirm && !confirmed) {
             val ok = confirmation.confirm(tool, args, "${tool.description}: $args")
-            if (!ok) return log(name, args, ctx, t0, ToolResult(false, false, "Cancelled: not confirmed.", error = "not confirmed", needsConfirmation = true,
-                spoken = "Cancelled."))
+            // No interactive handler (the usual case): the agent asks in the conversation and runs it on the owner's "yes".
+            if (!ok) return log(name, args, ctx, t0, ToolResult(false, false, "Not done yet: waiting for the owner's confirmation.", error = "not confirmed", needsConfirmation = true,
+                spoken = null))
         }
         val result = try {
             withTimeout(45_000) { tool.run(args, ctx) }

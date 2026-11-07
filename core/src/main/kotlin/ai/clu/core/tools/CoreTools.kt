@@ -460,3 +460,13 @@ class ExternalAiTool(private val http: HttpFetcher, private val settings: Settin
         return ToolResult.ok("External AI ($model) answered:\n$text", spoken = null, usedNetwork = true)
     }
 }
+
+/** "CLU, you there?": an instant answer (no model), in the active character's name. */
+class PresenceTool(private val name_: () -> String) : Tool {
+    override val name = "clu.presence"
+    override val description = "Answer a presence check."
+    override val argsExample = "{}"
+    override val sensitivity = ai.clu.core.security.Sensitivity.ROUTINE
+    override suspend fun run(args: kotlinx.serialization.json.JsonObject, ctx: ToolContext): ToolResult =
+        ToolResult.ok(if (ctx.persona.isClu) "At your service." else "${ctx.persona.name} here.")
+}

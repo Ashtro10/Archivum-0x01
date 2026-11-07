@@ -104,12 +104,18 @@ class CalendarTest {
         assertEquals(at(6, 11), cal.events.single { it.title == "Meeting with Priya" }.start)
         assertTrue("couldn't find" in ask("move the board meeting to Friday at 9"), "nothing invented for an unknown event")
         // Deleting asks for confirmation first (irreversible); nothing is deleted before.
-        var asked = 0
-        core.tools.confirmation = ai.clu.core.tools.ConfirmationHandler { _, _, _ -> asked++; false }
-        assertTrue("Cancelled" in ask("cancel the design review meeting"))
-        assertEquals(1, asked, "the owner was asked"); assertTrue(cal.events.any { it.title == "Design review" }, "not deleted without a yes")
-        core.tools.confirmation = ai.clu.core.tools.ConfirmationHandler { _, _, _ -> true }
-        assertTrue(ask("cancel the design review meeting").startsWith("Deleted \"Design review\""))
+        // Deleting is irreversible: CLU asks in the conversation (no app dialog is needed), and acts only on the owner's yes.
+        val q = ask("cancel the design review meeting")
+        assertTrue(q.endsWith("Shall I go ahead?") || q.endsWith("?"), q); assertTrue(cal.events.any { it.title == "Design review" }, "nothing deleted before the yes")
+        assertEquals("Okay, I won't.", ask("no")); assertTrue(cal.events.any { it.title == "Design review" })
+        ask("cancel the design review meeting")
+        ask("what's on my calendar today?") // the owner moved on: the pending question lapses
+        assertFalse(ask("yes").startsWith("Deleted"), "a stale yes deletes nothing"); assertTrue(cal.events.any { it.title == "Design review" })
+        ask("cancel the design review meeting")
+        clock.time += 4 * 60_000L
+        assertFalse(ask("yes").startsWith("Deleted"), "an expired question deletes nothing")
+        ask("cancel the design review meeting")
+        assertTrue(ask("yes, go ahead").startsWith("Deleted \"Design review\""))
         assertTrue(cal.events.none { it.title == "Design review" })
     }
 

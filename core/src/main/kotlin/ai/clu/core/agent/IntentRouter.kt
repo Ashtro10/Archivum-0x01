@@ -129,6 +129,25 @@ object IntentRouter {
         r("^(?:turn|switch)\\s+(?:the\\s+)?(wi-?fi|bluetooth|location|gps|mobile\\s+data|airplane\\s+mode|flight\\s+mode)\\s+(?:on|off)$").find(t)?.let {
             return RoutedIntent("device.settings", obj("panel" to it.groupValues[1], "toggle" to "true"), "settings") }
 
+        // Presence check ("CLU, you there?"): answered at once, no model.
+        if (r("^(?:are\\s+)?you\\s+(?:there|around|awake|listening|here)\\??$").matches(t)) return RoutedIntent("clu.presence", obj(), "presence")
+        // Websites: a named site is searched with its own search, a domain is opened directly (PC: CLU's browser; phone: its browser/app).
+        r("^(?:search|look\\s+up|find)\\s+(?:on\\s+)?($SITES)\\s+for\\s+(.+)$").find(t)?.let { return RoutedIntent("browser.search", obj("site" to it.groupValues[1], "query" to it.groupValues[2]), "site search") }
+        r("^(?:search\\s+(?:for\\s+)?|look\\s+up\\s+|find\\s+|play\\s+)(.+?)\\s+on\\s+($SITES)$").find(t)?.let { return RoutedIntent("browser.search", obj("site" to it.groupValues[2], "query" to it.groupValues[1]), "site search") }
+        r("^(?:open|go\\s+to|visit|browse\\s+to)\\s+((?:https?://)?(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.[a-z]{2,}(?:/\\S*)?)$").find(t)?.let { return RoutedIntent("browser.open", obj("url" to it.groupValues[1]), "open site") }
+        r("^(?:go\\s+to|visit)\\s+(?:the\\s+)?($SITES)(?:\\s+website|\\s+site)?$").find(t)?.let { return RoutedIntent("browser.open", obj("site" to it.groupValues[1]), "open site") }
+        // The page open in CLU's browser (PC).
+        if (r("^(?:read\\s+(?:me\\s+)?(?:the|this)\\s+page|what(?:'s|\\s+is)\\s+on\\s+(?:the|this)\\s+page|read\\s+(?:me\\s+)?the\\s+(?:results|article))\\??$").matches(t)) return RoutedIntent("browser.read", obj(), "page")
+        if (r("^(?:what\\s+can\\s+i\\s+click|what\\s+(?:buttons|links|options)\\s+are\\s+(?:there|on\\s+(?:the|this)\\s+page)|inspect\\s+(?:the|this)\\s+page)\\??$").matches(t)) return RoutedIntent("browser.inspect", obj(), "page")
+        r("^scroll\\s+(up|down)(?:\\s+(?:the|a)\\s+(?:page|bit))?$").find(t)?.let { return RoutedIntent("browser.scroll", obj("direction" to it.groupValues[1].lowercase()), "scroll") }
+        if (r("^(?:go\\s+back(?:\\s+a\\s+page)?|previous\\s+page|back\\s+a\\s+page)$").matches(t)) return RoutedIntent("browser.back", obj(), "back")
+        r("^(?:click|tap|press)\\s+(?:on\\s+)?(?:the\\s+)?(.+?)(?:\\s+(?:button|link))?$").find(t)?.let { m ->
+            val k = m.groupValues[1]
+            if (r("^(?:enter|escape|esc|tab|backspace|up|down|left|right|return)$").matches(k)) return RoutedIntent("browser.key", obj("key" to k), "key")
+            if (!lower.startsWith("press") && k.split(' ').size <= 6) return RoutedIntent("browser.click", obj("target" to k), "click") }
+        r("^type\\s+(.+?)\\s+(?:in|into)\\s+(?:the\\s+)?(.+?)(?:\\s+(?:box|field|bar))?$").find(t)?.let { return RoutedIntent("browser.type", obj("text" to it.groupValues[1], "target" to it.groupValues[2]), "type") }
+        if (r("^(?:take\\s+a\\s+)?screenshot(?:\\s+(?:of\\s+)?(?:the|this)\\s+page)?$").matches(t)) return RoutedIntent("browser.screenshot", obj(), "screenshot")
+
         r("^(?:open|launch|start|run)\\s+(?:the\\s+|my\\s+)?(.+?)(?:\\s+app)?$").find(t)?.let {
             val app = it.groupValues[1]
             // An app has a name; "run me through it", "start over", "start a story" are not apps (M1).
@@ -189,6 +208,8 @@ object IntentRouter {
         }
         return d.trim() to mode
     }
+
+    private val SITES = ai.clu.core.browser.Sites.KNOWN.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
 
     private fun persona(name: String) = RoutedIntent("persona.switch", obj("name" to name.trim()), "persona")
     private fun isClu(name: String) = name.trim().lowercase() in setOf("clu", "clue")

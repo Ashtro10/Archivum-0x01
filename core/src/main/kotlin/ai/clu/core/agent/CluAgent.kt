@@ -263,6 +263,45 @@ class CluAgent(
     private val recall = archive?.let { ai.clu.core.history.Recall(it, settings) }
     /** Unfinished multi-step tasks per conversation (in memory only: after a restart there is not enough state to resume safely). */
     private val tasks = java.util.concurrent.ConcurrentHashMap<String, TaskState>()
+
+    /**
+     * An action waiting for the owner's yes (deleting an event, sending a reply, a consequential browser click). It is
+     * asked in the conversation itself, so it works by voice and by text on every device; it expires after a few
+     * minutes or when the owner talks about something else, and only the owner can confirm it.
+     */
+    private data class PendingConfirm(val tool: String, val args: JsonObject, val at: Long)
+    private val confirmations = java.util.concurrent.ConcurrentHashMap<String, PendingConfirm>()
+    /** How long a "Shall I go ahead?" stays open. */
+    private val CONFIRM_TTL_MS = 3 * 60_000L
+    private val yesRe = Regex("(?i)^(?:yes|yeah|yep|yup|sure|ok(?:ay)?|confirm(?:ed)?|do it|go ahead|proceed|please do|yes please|correct|that'?s right|affirmative)(?:[,.! ]+(?:please|go ahead|do it|clu|clue|sir))*[.!]*$")
+    private val noRe = Regex("(?i)^(?:no|nope|nah|don'?t|do not|cancel|stop|never ?mind|leave it|not now|no thanks?)(?:[,.! ]+\\w+)*[.!]*$")
+
+    /** Asks for confirmation of [tool] with [args]; the owner's next "yes" runs it. */
+    private fun askToConfirm(req: TurnRequest, turn: Turn, tool: String, args: JsonObject, r: ToolResult, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit) {
+        confirmations[req.conversationId] = PendingConfirm(tool, args, now())
+        val q = r.spoken?.takeIf { it.endsWith("?") } ?: "Please confirm: ${tools.describe(tool)}${argsPreview(args)}. Shall I go ahead?"
+        finish(req, turn, q, baseMeta.copy(source = "tool", tools = listOf(tool)), emit)
+    }
+
+    private fun argsPreview(args: JsonObject): String = args.entries.mapNotNull { (k, v) -> (v as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeIf { it.isNotBlank() }?.let { "$k \"${it.take(60)}\"" } }
+        .takeIf { it.isNotEmpty() }?.joinToString(", ", " (", ")") ?: ""
+
+    /** The owner's answer to a pending confirmation: runs, cancels, or (anything else) drops it. True when handled. */
+    private suspend fun answerConfirmation(req: TurnRequest, turn: Turn, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit, text: String): Boolean {
+        val p = confirmations.remove(req.conversationId) ?: return false
+        if (now() - p.at > CONFIRM_TTL_MS || req.actor.role != PersonRole.OWNER) return false
+        val t = text.trim().lowercase()
+        return when {
+            yesRe.matches(t) -> {
+                emit(AgentEvent.ToolStarted(p.tool, p.args))
+                val r = tools.execute(p.tool, p.args, ctx, confirmed = true)
+                emit(AgentEvent.ToolFinished(p.tool, r))
+                finish(req, turn, r.spoken ?: r.summary, baseMeta.copy(source = "tool", tools = listOf(p.tool)), emit); true
+            }
+            noRe.matches(t) -> { finish(req, turn, "Okay, I won't.", baseMeta.copy(source = "template"), emit); true }
+            else -> false
+        }
+    }
     fun activeTask(conversationId: String): TaskState? = tasks[conversationId]
     private val turns = CopyOnWriteArrayList<Turn>()
     /** Request lifecycle (Diagnostics → Requests, logcat tag CluTurn). No conversation content. */
@@ -410,6 +449,9 @@ class CluAgent(
         }
         val ctx = ToolContext(req.actor, persona, req.conversationId, now())
 
+        // 2b. An answer to "Shall I go ahead?" for an action waiting for confirmation.
+        if (answerConfirmation(req, turn, ctx, baseMeta, emit, text)) return
+
         // 3. Owner-defined custom commands.
         commands.match(text)?.let { cmd -> runCommand(cmd, req, turn, ctx, baseMeta, emit); return }
 
@@ -530,6 +572,7 @@ class CluAgent(
                     "that you are offline and the answer may be outdated.")
             }
             if (r.needsVerification) { emit(AgentEvent.NeedsVerification(r.error ?: "verification")); finish(req, turn, r.spoken ?: r.summary, baseMeta.copy(source = "tool", tools = listOf(routed.tool)), emit); return }
+            if (r.needsConfirmation) { askToConfirm(req, turn, routed.tool, routed.args, r, baseMeta, emit); return }
             val composeWithModel = r.spoken == null && (r.success || r.summary.startsWith("OFFLINE:"))
             if (!composeWithModel) {
                 finish(req, turn, r.spoken ?: r.summary, baseMeta.copy(source = "tool", tools = listOf(routed.tool)), emit)
@@ -1116,6 +1159,7 @@ class CluAgent(
                     finish(req, turn, "That requires your verification first.", baseMeta.copy(source = engine.source, tools = usedTools), emit)
                     return
                 }
+                if (r.needsConfirmation) { askToConfirm(req, turn, call.name, args, r, baseMeta.copy(source = engine.source), emit); return }
                 extra += ChatMessage("assistant", "<tool>{\"name\": \"${call.name}\", \"args\": ${call.args}}</tool>")
                 extra += ChatMessage("user", "[Tool result: ${call.name}] ${if (r.success) "" else "FAILED: "}${r.summary.take(3000)}")
                 emit(AgentEvent.Status("Using ${call.name}…"))

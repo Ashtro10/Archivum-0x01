@@ -231,3 +231,8 @@ The PC window (Edge in app mode showing `desktop/.../shell`) has the same redesi
   * silence during voice, Markdown safety, and no page errors.
 * **Not verified on Windows itself** (tests run Chromium on Linux): Edge's rendering, the Windows fonts, and sound
   output on the PC.
+* **Results:**
+  * Desktop suite with the opt-in window tests: 139 tests, 138 passed.
+  * The one failure was `SpeechEnginesTest` (wake word "Clue" missed in synthesised speech while the browser tests loaded
+    the CPU). It passed when re-run on its own, and the recogniser wasn't changed.
+* **Installer:** `CLU-Setup-0.10.0.exe`, SHA-256 `2e41f92a…ec15`. Its static checks all pass.

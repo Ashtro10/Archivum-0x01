@@ -195,3 +195,39 @@ existing `TurnRequest.attachments`.
 * The streaming caret doesn't blink (a static caret avoids rebuilding the row twice a second).
 * CLU can't see images. Attachments are kept and shown, and CLU says so instead of guessing.
 * Dialogs still use the platform's dark Material buttons inside the new panel.
+
+## 10. CLU on Windows (PC 0.10.0)
+
+The PC window (Edge in app mode showing `desktop/.../shell`) has the same redesign.
+
+* **Design (`shell.css`):**
+  * the same palette (dark only);
+  * chamfered panels, buttons and fields, with hairline borders, corner ticks and focus rings drawn inside the cut corners;
+  * a numbered navigation rail (01–12) with the active section lit;
+  * "CLU // Section" titles with a fading hairline;
+  * condensed headings (Bahnschrift, part of Windows) and monospace labels (Cascadia Mono / Consolas).
+* **CLU's face:** the Primus particle head with its eyes stays as it was, full-window behind the interface and following
+  CLU's real state. Its rising sparks are now ice and electric blue instead of orange and violet (the only change,
+  recorded in `primus/NOTICE.txt`).
+* **Start-up (`fx.js`):**
+  * the boot log of CLU's real state (version, model, suggestions, voice, sounds), then the name: filled, outlined, derez
+    and a scan line;
+  * the rail, title bar and composer then open out of a line;
+  * once per window, never takes clicks, and any key or click ends it.
+* **Chat:**
+  * CLU's replies render Markdown (built as DOM nodes, never HTML), with code panels that have Copy;
+  * a blinking caret while streaming, and a scanning bar beside the state while thinking;
+  * new messages rise in, and sections rise in when opened;
+  * "YOU" and "CLU" labels.
+* **Sounds:** the same synthesised set, made with the Web Audio API.
+  * They are silent while a voice conversation is open.
+  * The window starts with `--autoplay-policy=no-user-gesture-required`, so the start-up sound can play.
+* **Settings → General:** *Interface sounds* and *Interface motion* (shared registry; changes apply at once). The system's
+  reduced-motion preference counts as "Reduced".
+* **Tested:** `PrimusShellTest#theRedesignedWindowWorks` drives the real host in Chromium (opt-in `-Dclu.shellUi=<node>`)
+  and makes 15 checks:
+  * the start-up sequence, the design, the streaming caret, and Markdown and code rendering;
+  * entrance motion, the sounds, and the effect of both settings;
+  * silence during voice, Markdown safety, and no page errors.
+* **Not verified on Windows itself** (tests run Chromium on Linux): Edge's rendering, the Windows fonts, and sound
+  output on the PC.

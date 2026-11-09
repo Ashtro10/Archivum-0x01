@@ -30,6 +30,7 @@
       api("/v1/capabilities").then((list) => { const c = list.find((x) => x.id === e.data.capId); if (c && window.CluCapabilities) { $("handsFrame").src = "about:blank"; CluCapabilities.open(c); } }).catch(() => {});
     });
     if (window.CluPrimus && $("primusCore")) CluPrimus.attach($("primusCore")); // the Primus core behind the interface
+    startUp();
     initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initVoice(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     CluCapabilities.init(api, (t) => { show("chat"); $("input").value = t; send(); }, show); loaders.capabilities = CluCapabilities.refresh;
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
@@ -37,6 +38,26 @@
     // While this window is open it tells CLU so (CLU treats a window that stops answering as closed: it goes to the tray or quits, as chosen in Settings).
     const beat = () => api("/v1/shell/ping", { method: "POST", json: {} }).catch(() => {}); beat(); setInterval(beat, 5000);
     CluWizard.maybeStart(api, () => { loadModelsIfOpen(); refreshStatus(); });
+  }
+  /** Interface preferences, then the start-up sequence with CLU's real state, then the interface opening out. */
+  async function startUp() {
+    document.body.classList.add("fx-booting");
+    const [s, st, app] = await Promise.all([api("/v1/settings").catch(() => null), api("/v1/status").catch(() => null), api("/v1/app/config").catch(() => null)]);
+    CluFx.setPrefs(s);
+    const m = st && st.model;
+    const lines = [
+      `CLU ${app ? app.version : "?"} // ${navigator.platform || "PC"}`,
+      "core ............. online",
+      "model ............ " + (!m ? "unknown" : m.status === "READY" ? `${m.name} ready` : m.status === "NO_MODEL" ? "none registered" : String(m.status).toLowerCase()),
+      "suggestions ...... " + (st ? st.pendingSuggestions : 0),
+      "voice ............ on this PC",
+      "interface sounds . " + (CluFx.prefs.sounds ? "on" : "off"),
+      "ready"];
+    CluFx.boot(lines, () => {
+      document.body.classList.remove("fx-booting");
+      CluFx.expand(document.querySelector(".rail"), 0); CluFx.stagger(document.querySelector(".rail"), 160, 30);
+      CluFx.expand(document.querySelector(".topbar"), 80); CluFx.expand($("composer"), 220); CluFx.rise(document.querySelector(".presence"), 160);
+    });
   }
   function loadModelsIfOpen() { if (!$("view-models").classList.contains("hidden")) loadModels(); }
 
@@ -62,6 +83,7 @@
     const on = /hands\.html/.test(hands ? hands.src : ""); // (an iframe keeps its page when src is removed, so it is replaced by a blank one)
     if (hands) { if (view === "hands") { if (!on) hands.src = "/shell/hands.html"; } else if (on) hands.src = "about:blank"; }
     if (loaders[view]) loaders[view]();
+    const v = $("view-" + view); if (v && view !== "chat") { CluFx.rise(v); CluFx.stagger(v, 60, 35, 10); }
   }
 
   // ------------------------------------------------------------------------------------------ chat
@@ -84,12 +106,14 @@
     conversation = id;
     await listConversations();
     const msgs = await api(`/v1/conversations/${id}/messages`);
-    $("messages").replaceChildren(...msgs.map((m) => bubble(m.role, m.content, m.sources, m.error)));
+    loadingHistory = true; $("messages").replaceChildren(...msgs.map((m) => bubble(m.role, m.content, m.sources, m.error))); loadingHistory = false;
     scrollChat();
   }
+  let loadingHistory = false;
   function bubble(role, text, sources, error) {
-    const li = el("li", "msg " + role + (error ? " error" : ""));
+    const li = el("li", "msg " + role + (error ? " error" : "") + (loadingHistory ? "" : " enter"));
     const body = el("span", "body", text); li.append(body);
+    if (role === "assistant" && text && !error) CluFx.md(body, text); // CLU's replies: Markdown, code panels with Copy
     if (sources && sources.length) addSources(li, sources);
     if (role === "assistant" && text && !error) addFeedback(li);
     return li;
@@ -113,7 +137,7 @@
     li.append(toggle, list);
   }
   function scrollChat() { const m = $("messages"); m.scrollTop = m.scrollHeight; }
-  function setPresence(state, label) { CluFace.set(state); $("presenceState").textContent = label; }
+  function setPresence(state, label) { CluFace.set(state); $("presenceState").textContent = label; document.body.dataset.clu = state; }
 
   function initVoice() {
     CluVoice.init(api, {
@@ -142,7 +166,8 @@
     const reply = bubble("assistant", ""); const body = reply.querySelector(".body");
     $("messages").append(reply); scrollChat();
     streaming = true; $("stop").classList.remove("hidden"); $("send").disabled = true; setPresence("thinking", "Thinking…");
-    let action = null;
+    CluFx.sound("process");
+    let action = null, raw = "";
     try {
       const r = await fetch(`/v1/conversations/${conversation}/turns`, { method: "POST",
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", Accept: "text/event-stream" }, body: JSON.stringify({ text }) });
@@ -156,12 +181,12 @@
           const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
           const name = (/^event: (.*)$/m.exec(chunk) || [])[1]; const data = JSON.parse((/^data: (.*)$/m.exec(chunk) || [])[1] || "{}");
           if (name === "status") $("presenceState").textContent = data.text;
-          else if (name === "text") { if (CluFace.state !== "speaking") setPresence("speaking", "Answering"); body.textContent += data.delta; CluFace.pulse(); scrollChat(); }
+          else if (name === "text") { if (CluFace.state !== "speaking") setPresence("speaking", "Answering"); raw += data.delta; CluFx.md(body, raw, true); CluFace.pulse(); scrollChat(); }
           else if (name === "suggestion") refreshStatus();
           else if (name === "action") action = data;
           else if (name === "error") { reply.classList.add("error"); reply.append(el("span", "meta", data.text)); }
           else if (name === "done") {
-            body.textContent = data.text || body.textContent;
+            raw = data.text || raw; if (raw) CluFx.md(body, raw); else body.textContent = "";
             if (data.interrupted) reply.append(el("span", "meta", "Stopped."));
             if (data.sources && data.sources.length) addSources(reply, data.sources);
           }
@@ -171,6 +196,7 @@
     if (action) CluCapabilities.handle(action, reply); // a capability instruction: progress, "which one?", open, list
     else if (!reply.querySelector("select.feedback") && body.textContent && !reply.classList.contains("error")) addFeedback(reply);
     streaming = false; $("stop").classList.add("hidden"); $("send").disabled = false; setPresence("idle", "Ready"); scrollChat();
+    if (!reply.classList.contains("error") && !document.hasFocus()) CluFx.sound("notify"); // a reply arrived while you were elsewhere
     listConversations();
   }
 
@@ -648,7 +674,7 @@
     });
     $("runSetup").addEventListener("click", () => CluWizard.maybeStart(api, () => loadModelsIfOpen(), true));
     $("restartCLU").addEventListener("click", async () => { if (confirm("Restart CLU? Any running answer is stopped, and the window reopens in a few seconds.")) { await api("/v1/shell/restart", { method: "POST", json: {} }).catch(() => {}); document.body.textContent = "CLU is restarting… this window will close; CLU opens a new one."; } });
-    $("quitCLU").addEventListener("click", async () => { if (confirm("Quit CLU completely? It stops running until you open it again from the Start Menu.")) { await api("/v1/shell/quit", { method: "POST", json: {} }).catch(() => {}); document.body.textContent = "CLU has quit. You can close this window."; } });
+    $("quitCLU").addEventListener("click", async () => { if (confirm("Quit CLU completely? It stops running until you open it again from the Start Menu.")) { CluFx.sound("shutdown"); await api("/v1/shell/quit", { method: "POST", json: {} }).catch(() => {}); document.body.textContent = "CLU has quit. You can close this window."; } });
     $("settingsCategory").addEventListener("change", renderSettings);
     $("hostForm").addEventListener("submit", async (e) => {
       e.preventDefault(); const f = e.target;
@@ -679,7 +705,7 @@
       const err = el("div", "err"); left.append(err);
       const control = settingControl(d, async (value) => {
         err.textContent = "";
-        try { const r = await api("/v1/settings", { method: "PUT", json: { key: d.key, value } }); d.value = r.value; } catch (e) { err.textContent = e.message; }
+        try { const r = await api("/v1/settings", { method: "PUT", json: { key: d.key, value } }); d.value = r.value; CluFx.setPref(d.key, r.value); } catch (e) { err.textContent = e.message; }
       });
       if (d.sensitive) { control.disabled = true; control.title = "Needs owner verification (M6)"; }
       row.append(left, control); box.append(row);

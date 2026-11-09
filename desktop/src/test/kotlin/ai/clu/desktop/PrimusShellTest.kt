@@ -41,4 +41,33 @@ class PrimusShellTest {
             assertTrue(done, "timed out"); assertEquals(0, p.exitValue(), log)
         } finally { host.stop() }
     }
+
+    /** The 1.12 redesign in the real window: start-up, design, Markdown and code panels, motion, sounds and their settings. */
+    @Test fun theRedesignedWindowWorks() {
+        val node = System.getProperty("clu.shellUi"); assumeTrue(!node.isNullOrBlank(), "opt-in: -Dclu.shellUi=<node>")
+        val script = listOf(File("src/test/ui/redesign.ui.js"), File("desktop/src/test/ui/redesign.ui.js")).first { it.exists() }
+        val out = File(System.getProperty("clu.shellUiShots") ?: "build/redesign-ui").apply { mkdirs() }
+        val dir = Files.createTempDirectory("clu-redesign").toFile()
+        val host = Host.start(DesktopPaths(File(dir, "home")), HostConfig(), port = 0, log = {})
+        try {
+            val md = "Use a **for** loop:\n\n```kotlin\nfor (i in 1..3) {\n    println(i)\n}\n```\n\n- prints 1, 2, 3\n- `until` excludes the end"
+            val engine = object : LlmEngine {
+                override val id = "scripted"; override val source = "local"
+                override fun isReady() = true
+                override fun countTokens(messages: List<ChatMessage>) = messages.sumOf { it.content.length / 4 + 4 }
+                override fun contextSize() = 8192
+                override fun cancel() {}
+                override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult {
+                    md.chunked(4).forEach { onText(it); Thread.sleep(25) }
+                    return GenResult(md, GenStats(promptTokens = 10, generatedTokens = 40, stopReason = "eog"), source)
+                }
+            }
+            host.core.remoteEngineProvider = { engine }
+            host.core.settings.set(ai.clu.core.config.Settings.REMOTE_INFERENCE, "prefer_home")
+            val p = ProcessBuilder(node, script.absolutePath, host.url, host.api.issueLaunchCode(), out.absolutePath).redirectErrorStream(true).start()
+            val log = p.inputStream.bufferedReader().readText(); val done = p.waitFor(180, TimeUnit.SECONDS)
+            println(log); File(out, "redesign-transcript.txt").writeText(log)
+            assertTrue(done, "timed out"); assertEquals(0, p.exitValue(), log)
+        } finally { host.stop() }
+    }
 }

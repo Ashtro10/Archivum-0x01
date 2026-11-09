@@ -1,12 +1,11 @@
 :root {
-  --bg: #0a1016; --panel: #0f1820; --raise: #15212b; --line: #223241; --fg: #dbe7ee; --muted: #8aa0ad;
-  --accent: #3ed6e6; --accent-ink: #052126; --danger: #e07a6a; --ok: #6cc28a; --warn: #e6c45e;
-  --radius: 10px; --font: "Segoe UI", system-ui, sans-serif;
+  --bg: #020406; --panel: rgba(10, 16, 22, 0.86); --raise: rgba(16, 24, 32, 0.9); --line: #22303c; --line-hi: #3a5464; --fg: #e4eef4; --muted: #7d8d9b;
+  --accent: #5ce1ff; --ice: #a8e8ff; --blue: #1e7bff; --teal: #3fd0c0; --accent-ink: #021018; --danger: #ff5c5c; --ok: #3fd0a0; --warn: #e3a72f;
+  --radius: 2px; --cut: 10px; --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --heading: "Bahnschrift", "Segoe UI Semilight", "Segoe UI", system-ui, sans-serif; --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: light) {
-  :root { --bg: #f4f6f7; --panel: #ffffff; --raise: #eef2f4; --line: #d6dee3; --fg: #15222b; --muted: #5d707c;
-    --accent: #0f8c9b; --accent-ink: #ffffff; --danger: #b2442f; --ok: #237a43; --warn: #8a6a0c; }
-}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font); }
 .hidden { display: none !important; }
@@ -223,3 +222,138 @@ body.primus-software .rail, body.primus-software .topbar, body.primus-software .
 /* Hands: the camera gesture interface fills the view. */
 .hands-view { padding: 0; display: flex; }
 .hands-frame { flex: 1; width: 100%; min-height: 520px; border: 0; background: #02040a; }
+
+
+/* =====================================================================================================================
+ * 1.12 redesign (shared with the phone): TRON-like restraint, the eDEX-UI reference's motion language, CLU's identity.
+ * Graphite surfaces, cyan / ice light, chamfered panels (top-right and bottom-left cut at 45°), hairline borders,
+ * condensed headings, monospace labels. Animations only open things up; nothing waits for them.
+ * ===================================================================================================================== */
+.chamfer, .card, .cards li, .msg, .composer, .voice-bar, .wiz-card, .locked-card, .codeblock, .rail .nav.active, .pill, button, .button-like, input, select, textarea {
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+}
+button, .button-like, input, select, textarea, .pill { --cut: 6px; }
+h1, h2, h3, h4 { font-family: var(--heading); font-weight: 400; letter-spacing: 0.04em; }
+.topbar h2 { font-size: 20px; }
+.topbar h2::before { content: "CLU // "; font: 10.5px var(--mono); letter-spacing: 0.18em; color: var(--accent); opacity: 0.8; vertical-align: middle; margin-right: 6px; }
+.topbar { position: relative; border-bottom: none; }
+.topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(92, 225, 255, 0.6), transparent); }
+.muted, .desc, .why, .meta, .tag, .pill, .badge, label.inline { letter-spacing: 0.01em; }
+.pill { font: 11px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; border-radius: 0; border-color: var(--line-hi); background: rgba(16, 24, 32, 0.7); }
+.pill.ready { color: var(--accent); border-color: rgba(92, 225, 255, 0.6); }
+code { background: rgba(20, 40, 52, 0.7); color: var(--ice); border-radius: 0; font-family: var(--mono); }
+
+/* Controls: graphite with a hairline; pressed dips; primary is the cyan-lit panel; focus is a cyan ring. */
+button, .button-like { background: linear-gradient(180deg, rgba(22, 32, 42, 0.95), rgba(12, 18, 24, 0.95)); border-color: var(--line-hi); border-radius: 0;
+  transition: border-color .15s, box-shadow .15s, transform .08s, color .15s; }
+button:hover, .button-like:hover { border-color: var(--accent); box-shadow: inset 0 0 12px rgba(92, 225, 255, 0.18); color: #fff; }
+button:active:not(:disabled) { transform: scale(0.96); box-shadow: inset 0 0 18px rgba(92, 225, 255, 0.35); }
+button:disabled { opacity: 0.42; cursor: not-allowed; }
+button.primary { background: linear-gradient(180deg, rgba(8, 52, 70, 0.95), rgba(4, 22, 34, 0.95)); color: var(--ice); border-color: rgba(92, 225, 255, 0.85);
+  box-shadow: inset 0 0 14px rgba(92, 225, 255, 0.22); font-weight: 600; letter-spacing: 0.04em; }
+button.primary:hover { box-shadow: inset 0 0 20px rgba(92, 225, 255, 0.4), 0 0 12px rgba(92, 225, 255, 0.15); }
+button.danger { color: var(--danger); border-color: rgba(255, 92, 92, 0.5); }
+input, select, textarea { background: rgba(8, 12, 17, 0.9); border-color: var(--line-hi); border-radius: 0; caret-color: var(--accent); }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: inset 0 0 10px rgba(92, 225, 255, 0.15); outline: none; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 1px solid var(--accent); outline-offset: -4px; }
+input[type=checkbox] { accent-color: var(--accent); clip-path: none; width: auto; }
+::selection { background: rgba(92, 225, 255, 0.35); }
+* { scrollbar-width: thin; scrollbar-color: #2a3c48 transparent; }
+
+/* Navigation rail: brand, numbered sections, the active one lit. */
+.rail { background: rgba(4, 8, 12, 0.88); border-right: 1px solid var(--line); counter-reset: nav; }
+.brand { font-family: var(--heading); font-weight: 400; letter-spacing: 0.45em; font-size: 17px; }
+.hex { background: var(--accent); filter: drop-shadow(0 0 5px rgba(92, 225, 255, 0.8)); width: 14px; height: 14px; }
+.nav { counter-increment: nav; position: relative; clip-path: none; border-radius: 0; font-family: var(--heading); letter-spacing: 0.05em; color: #c9d8e0; padding-left: 38px; }
+.nav::before { content: counter(nav, decimal-leading-zero); position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font: 10px var(--mono); color: var(--accent); opacity: 0.75; letter-spacing: 0.1em; }
+.nav:hover { background: rgba(16, 24, 32, 0.7); box-shadow: none; }
+.nav.active { background: linear-gradient(90deg, rgba(92, 225, 255, 0.14), rgba(16, 24, 32, 0.6)); border-color: var(--line-hi); color: #fff; }
+.nav.active::after { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.badge { border-radius: 0; font: 11px var(--mono); background: var(--accent); }
+.sub.active, .chip.active { background: rgba(92, 225, 255, 0.14); border-color: var(--accent); color: #fff; }
+.chip { border-radius: 0; }
+
+/* Cards and lists: chamfered graphite panels; corner ticks on cards. */
+.card, .cards li { background: var(--panel); border-color: var(--line); border-radius: 0; position: relative; }
+.card::before { content: ""; position: absolute; left: 0; top: 0; width: 8px; height: 8px; border-left: 1px solid var(--accent); border-top: 1px solid var(--accent); opacity: 0.7; }
+.cards li.clickable:hover { border-color: var(--accent); box-shadow: inset 0 0 14px rgba(92, 225, 255, 0.1); }
+.list li { border-radius: 0; }
+.list li.active { background: linear-gradient(90deg, rgba(92, 225, 255, 0.14), transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.year { font-family: var(--heading); font-weight: 400; letter-spacing: 0.1em; }
+.subview h3, .card h3, h3 { text-transform: uppercase; letter-spacing: 0.16em; font-size: 12.5px; color: var(--ice); }
+h3::before { content: ""; display: inline-block; width: 3px; height: 11px; background: var(--accent); margin-right: 8px; vertical-align: -1px; }
+.setting { border-bottom-color: rgba(34, 48, 60, 0.7); }
+.bar { border-radius: 0; background: rgba(16, 24, 32, 0.9); }
+.bar > div { background: linear-gradient(90deg, var(--blue), var(--accent)); box-shadow: 0 0 8px rgba(92, 225, 255, 0.5); }
+
+/* Chat: your messages in ice-bordered panels, CLU's on a cyan rail with a label; Markdown and code panels. */
+.presence { border-bottom: none; }
+.presence-name { font-family: var(--heading); font-weight: 400; letter-spacing: 0.45em; }
+#presenceState { font: 11px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.scanbar { display: none; gap: 3px; margin-left: 10px; }
+.scanbar i { display: block; width: 8px; height: 5px; background: var(--accent); opacity: 0.15; animation: scan 0.9s linear infinite; }
+.scanbar i:nth-child(2) { animation-delay: .075s; } .scanbar i:nth-child(3) { animation-delay: .15s; } .scanbar i:nth-child(4) { animation-delay: .225s; }
+.scanbar i:nth-child(5) { animation-delay: .3s; } .scanbar i:nth-child(6) { animation-delay: .375s; } .scanbar i:nth-child(7) { animation-delay: .45s; } .scanbar i:nth-child(8) { animation-delay: .525s; }
+body[data-clu="thinking"] .scanbar { display: inline-flex; }
+@keyframes scan { 0% { opacity: 1; } 60%, 100% { opacity: 0.12; } }
+.msg { border-radius: 0; max-width: 76%; }
+.msg.user { background: rgba(16, 30, 40, 0.88) !important; color: var(--fg) !important; border: 1px solid rgba(168, 232, 255, 0.55); }
+.msg.user::before, .msg.assistant::before { display: block; font: 10px var(--mono); letter-spacing: 0.18em; margin-bottom: 4px; }
+.msg.user::before { content: "YOU"; color: var(--muted); text-align: right; }
+.msg.assistant { background: rgba(6, 10, 15, 0.82) !important; border: none; border-left: 2px solid var(--accent); clip-path: none; padding-left: 14px;
+  box-shadow: -6px 0 14px -10px rgba(92, 225, 255, 0.8); }
+.msg.assistant::before { content: "CLU"; color: var(--accent); }
+.msg.error { border-left-color: var(--warn); }
+.msg .body.md { white-space: normal; }
+.md p { margin: 0 0 0.6em; } .md p:last-child { margin-bottom: 0; }
+.md h3, .md h4, .md h5, .md h6 { color: var(--ice); margin: 0.4em 0 0.4em; font-size: 15px; text-transform: none; letter-spacing: 0.03em; }
+.md h3::before, .md h4::before { display: none; }
+.md strong { color: #fff; } .md a { color: var(--accent); }
+.md-li { position: relative; margin: 0.15em 0; } .md-mark { position: absolute; margin-left: -14px; color: var(--accent); }
+.md blockquote { margin: 0.4em 0; padding-left: 10px; border-left: 2px solid var(--blue); color: var(--muted); }
+.md hr { border: none; height: 1px; background: var(--line-hi); margin: 0.8em 0; }
+.codeblock { background: rgba(2, 8, 12, 0.96); border: 1px solid var(--line-hi); margin: 0.5em 0 0.7em; }
+.code-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 10px; font: 10.5px var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--line); }
+.code-copy { font: 10.5px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; padding: 2px 10px; }
+.codeblock pre { margin: 0; padding: 10px 12px; overflow-x: auto; }
+.codeblock code { background: none; color: #c8ecfa; font-size: 13px; line-height: 1.5; padding: 0; white-space: pre; }
+.caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 3px; vertical-align: -2px; background: var(--accent); animation: blink 1s steps(1) infinite; box-shadow: 0 0 6px var(--accent); }
+@keyframes blink { 50% { opacity: 0; } }
+.composer { border-top: none; background: rgba(6, 10, 15, 0.86) !important; border: 1px solid var(--line-hi); padding: 10px; margin-bottom: 12px; }
+.composer textarea { border: none; background: transparent; clip-path: none; }
+#voiceBtn::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border: 1.5px solid currentColor; border-radius: 50%; vertical-align: 0; }
+.voice-bar { border: 1px solid var(--line-hi); background: rgba(6, 10, 15, 0.9); }
+.voice-level { border-radius: 0; } .voice-level > div { background: linear-gradient(90deg, var(--blue), var(--accent)); }
+.sources-toggle { clip-path: none; font: 11px var(--mono); letter-spacing: 0.08em; color: var(--ice); background: none; border: none; }
+
+/* Dialogs (wizard, download): panels with corner ticks, opening like the others. */
+.wizard { background: rgba(0, 0, 0, 0.72); backdrop-filter: blur(3px); }
+.wiz-card { background: rgba(6, 10, 15, 0.97); border: 1px solid var(--line-hi); border-radius: 0; box-shadow: 0 0 40px rgba(30, 123, 255, 0.12); }
+
+/* Motion (the reference's vocabulary): panels open out of a line; content rises in. Off when reduced. */
+@keyframes fx-expand { 0% { opacity: 0; transform: scaleX(0.04) scaleY(0.06); } 55% { opacity: 1; transform: scaleX(1) scaleY(0.06); } 100% { opacity: 1; transform: none; } }
+@keyframes fx-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.fx-expand { animation: fx-expand .42s cubic-bezier(.65, 0, .35, 1) both; }
+.fx-rise { animation: fx-rise .32s cubic-bezier(.16, 1, .3, 1) both; }
+.msg.enter { animation: fx-rise .3s cubic-bezier(.16, 1, .3, 1) both; }
+body.fx-reduced .fx-expand, body.fx-reduced .fx-rise, body.fx-reduced .msg.enter, body.fx-reduced .caret, body.fx-reduced .scanbar i { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .fx-expand, .fx-rise, .msg.enter, .caret, .scanbar i { animation: none !important; } }
+
+/* Start-up sequence: boot log, the name (filled, outlined, derez), a scan line, then the interface. Never takes clicks. */
+#boot { position: fixed; inset: 0; z-index: 9999; background: #020406; pointer-events: none; transition: opacity .3s; }
+#boot.boot-out { opacity: 0; }
+.boot-log { position: absolute; left: 28px; bottom: 34px; margin: 0; font: 12px/1.45 var(--mono); color: var(--ice); opacity: 0.85; }
+.boot-title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 300 76px var(--heading); letter-spacing: 0.35em; padding: 6px 4px 6px 30px;
+  color: var(--fg); opacity: 0; border-bottom: 3px solid var(--accent); }
+.boot-title.on { opacity: 1; transition: opacity .12s linear; }
+.boot-title.filled { background: var(--accent); color: #021018; }
+.boot-title.framed { border: 3px solid var(--accent); }
+.boot-title.derez { color: transparent; border-color: transparent; }
+.boot-title.derez::before, .boot-title.derez::after { content: attr(data-text); position: absolute; left: 30px; top: 6px; color: var(--ice); }
+.boot-title.derez::before { clip-path: inset(0 0 55% 0); animation: derez-a 60ms steps(2) infinite alternate; }
+.boot-title.derez::after { clip-path: inset(45% 0 0 0); animation: derez-b 50ms steps(2) infinite alternate; }
+@keyframes derez-a { from { transform: translateX(-6px); } to { transform: translateX(5px); } }
+@keyframes derez-b { from { transform: translateX(7px); } to { transform: translateX(-4px); } }
+#boot.scan::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); box-shadow: 0 0 14px var(--accent); animation: scanline .3s linear forwards; }
+@keyframes scanline { to { top: 100%; } }
+.presence-row { display: flex; align-items: center; }

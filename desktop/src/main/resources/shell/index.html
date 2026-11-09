@@ -63,7 +63,7 @@
       <div class="chat">
         <div class="presence">
           <canvas class="face" id="face" width="120" height="120" aria-hidden="true"></canvas>
-          <div><div class="presence-name">CLU</div><div class="muted" id="presenceState">Ready</div></div>
+          <div><div class="presence-name">CLU</div><div class="presence-row"><span class="muted" id="presenceState">Ready</span><span class="scanbar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div></div>
         </div>
         <ol id="messages" class="messages" aria-live="polite"></ol>
         <div id="voiceBar" class="voice-bar hidden" role="region" aria-label="Voice conversation">
@@ -431,6 +431,7 @@
     </section>
   </main>
 </div>
+<script src="/shell/fx.js"></script>
 <script src="/shell/face.js"></script>
 <script src="/shell/wizard.js"></script>
 <script src="/shell/agents.js"></script>

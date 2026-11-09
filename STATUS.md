@@ -37,6 +37,9 @@ source; nothing copied), and CLU's own particle presence and eyes kept. Details:
 * **Sound:** synthesised interface sounds (start-up, activate, click, listening, processing, notification, shutdown).
   They are never played while the microphone listens or CLU speaks.
 * **Settings:** a new Interface section with *Interface sounds* (on/off) and *Interface motion* (full/reduced).
+* **Windows (PC 0.10.0):** the same redesign in CLU's PC window. The Primus particle face is kept; the window gets the
+  start-up sequence, chamfered panels, a numbered rail, Markdown and code panels, motion, sounds and the Interface
+  settings.
 * **Not verified on a phone.** The screens were rendered with Robolectric at the Neo 9 Pro's resolution. Device checks are
   in [docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md) §S.
 

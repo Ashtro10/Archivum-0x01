@@ -1084,7 +1084,7 @@ window.addEventListener('error', function(e) {
       void main(){vL=aLife;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mv;gl_PointSize=(0.011*aLife+0.003)*uScale/(-mv.z);}`,
     fragmentShader: `precision highp float;uniform float uOp;varying float vL;
       void main(){float d=length(gl_PointCoord-vec2(0.5));float a=pow(smoothstep(0.5,0.0,d),1.7);
-        vec3 hot=vec3(1.0,0.72,0.30),cool=vec3(0.62,0.08,0.85);vec3 c=mix(cool,hot,clamp(vL,0.0,1.0));
+        vec3 hot=vec3(0.66,0.91,1.0),cool=vec3(0.12,0.30,0.95); /* CLU: rising sparks in ice and electric blue (originally orange/violet) */vec3 c=mix(cool,hot,clamp(vL,0.0,1.0));
         gl_FragColor=vec4(c*(0.5+vL),a*clamp(vL,0.0,1.0)*uOp);}`
   });
   spin.add(new THREE.Points(wg, wm));

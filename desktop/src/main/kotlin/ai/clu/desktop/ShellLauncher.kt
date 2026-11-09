@@ -24,6 +24,7 @@ object ShellLauncher {
     /** Edge started with CLU's own profile folder, so its processes can be told apart (and counted against the memory ceiling). */
     fun edgeCommand(url: String, profile: java.io.File?): List<String> = buildList {
         add("cmd"); add("/c"); add("start"); add(""); add("msedge"); add("--app=$url"); add("--window-size=1100,780")
+        add("--autoplay-policy=no-user-gesture-required") // CLU's own window: its start-up sound may play before the first click
         if (profile != null) { add("--user-data-dir=${profile.absolutePath}"); add("--no-first-run"); add("--disable-features=msEdgeSidebarV2") }
     }
 

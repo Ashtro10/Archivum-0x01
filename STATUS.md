@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-11-07_
+_Last updated: 2026-11-09_
 
 ## Current state
 
@@ -16,6 +16,29 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-11-09 (1.12.0): interface redesign
+
+The owner asked for a complete redesign: TRON: Legacy restraint, the motion language of eDEX-UI (studied from its
+source; nothing copied), and CLU's own particle presence and eyes kept. Details: [docs/UI_REDESIGN.md](docs/UI_REDESIGN.md).
+
+* **CLU's entity:** a particle field shaped like a head, with the HUD's slanted eyes in it. It has idle, listening,
+  thinking, speaking and offline states, blended smoothly and driven by the real engine state and audio levels.
+* **Start-up:** a boot log of CLU's real state, the name with a derez flicker, then the interface opens out. About
+  1.5 s, once per launch; a tap ends it.
+* **Design system:** chamfered graphite panels with hairline borders, restrained cyan and ice light, condensed headings,
+  monospace labels, drawn line icons, press feedback, and entrance animations on every screen.
+* **Chat:**
+  * Markdown and code blocks with copy;
+  * a streaming caret and a scanning "thinking" bar;
+  * rows that rise in as they arrive;
+  * image attachments kept with messages (CLU says honestly that it can't see them);
+  * a slide-in navigation panel.
+* **Sound:** synthesised interface sounds (start-up, activate, click, listening, processing, notification, shutdown).
+  They are never played while the microphone listens or CLU speaks.
+* **Settings:** a new Interface section with *Interface sounds* (on/off) and *Interface motion* (full/reduced).
+* **Not verified on a phone.** The screens were rendered with Robolectric at the Neo 9 Pro's resolution. Device checks are
+  in [docs/DEVICE_ACCEPTANCE.md](docs/DEVICE_ACCEPTANCE.md) §S.
 
 ## 2026-11-07 (1.11.0 / PC 0.9.0): ideas from the jarvis-voice-butler repo
 

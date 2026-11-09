@@ -14,6 +14,11 @@ The camera picture fills the view with CLU's widgets on top (core status, weathe
 * **Routines:** CLU may notice things you do regularly and suggest them under memory suggestions. Nothing is saved unless you approve it.
 * **Images:** this build has no vision model, so CLU says so instead of guessing.
 
+## Look and sound (phone and tablet)
+* CLU's face is a field of light with two eyes. It draws in while it listens, an orbit circles it while it thinks, and it ripples as it speaks. When it can't reach the PC it greys out.
+* ☰ opens navigation. In chat, the image control attaches a photo to your message (CLU can't see images yet and will say so). Code in replies has a COPY control.
+* Settings → Interface: turn *Interface sounds* off, or set *Interface motion* to *Reduced* to skip the start-up sequence and animations.
+
 ## Websites
 * **Phone and PC:** "open YouTube", "go to Wikipedia", "search YouTube for lo-fi music", "find headphones on Amazon". On the phone the site's app opens if you have it.
 * **PC only:** CLU uses a browser window of its own (separate from your usual browser profile; sign in there if you want). Say "read the page", "what buttons are on this page?", "click About us", "type cats into the search box", "press enter", "scroll down", "go back", "take a screenshot" (saved in CLU's `screenshots` folder).

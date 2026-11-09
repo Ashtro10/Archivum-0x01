@@ -1,4 +1,4 @@
-# Device acceptance checklist — Clu 1.11.0-prototype
+# Device acceptance checklist — Clu 1.12.0-prototype
 
 **Status: not yet run on any device.** Everything automated was tested on a build computer only. Until you tick a
 check below on a real device, that behaviour is *unverified*.
@@ -517,6 +517,21 @@ Install over the previous version first: your conversations, memories and settin
 | R8 | Connect the phone to the PC, then switch the PC to another Wi-Fi or hotspot | Within about 15 s the PC shows the new address; the phone reconnects after you update the address (or re-pair) | Phone diagnostics |
 | R9 | If the phone says "token server not reachable" | The message lists what to check; following it (same Wi-Fi, firewall rule, hotspot) fixes it | Which check fixed it |
 
+## S. 1.12.0: interface redesign (phone and tablet)
+
+| # | Do this | Pass if | Collect if it fails |
+|---|---|---|---|
+| S1 | Install over 1.11 and open CLU | A short boot log, then "CLU" flickers and the interface opens out. All of it takes under about 2 s, and your conversations are still there | Screen recording |
+| S2 | Open CLU again and tap the screen during the boot | The sequence ends at once and the tap still reaches the control | – |
+| S3 | Watch CLU on the empty chat for 20 s | The particles move smoothly (no stutter), the eyes drift and now and then narrow | Settings → Diagnostics → Copy |
+| S4 | Voice chat: speak, wait for the reply | The entity draws in while you speak, an orbit circles it while thinking, it ripples while speaking; the transitions are smooth | Screen recording |
+| S5 | Ask "show me a Kotlin example of a loop" | The code appears in its own panel; COPY copies it | – |
+| S6 | Tap the image control, pick a photo, send | The preview appears above the field, the photo shows in your message, and CLU says it can't see images yet | – |
+| S7 | Tap ☰ | The navigation slides in; every entry opens its screen; tapping outside closes it | – |
+| S8 | With sounds on, tap buttons, open voice chat, send a message | Soft, quiet sounds; none while the microphone is on or CLU is speaking; the listening tone is not recognised as words | Phone volume level |
+| S9 | Settings → Interface → *Interface sounds* off; *Interface motion* reduced | No sounds; no boot sequence or entrance animations; CLU's eyes still react to voice | – |
+| S10 | Keep the chat open for 10 minutes while idle | The phone doesn't get warm; battery use for CLU stays low (Settings → Battery) | Battery percentage before and after |
+
 ## Results summary (fill in)
 
 | Section | Pad 6 | Neo 9 Pro | Blocking issues |
@@ -540,6 +555,7 @@ Install over the previous version first: your conversations, memories and settin
 | P Performance (1.5.1) | | | |
 | Q Assistant integrations (1.10) | | | |
 | R Websites, confirmations, connection (1.11) | | | |
+| S Interface redesign (1.12) | | | |
 
 **Acceptance rule:** v1 is accepted when sections A–E, G, H and M pass on both devices, and every FAIL in F, I, J, K
 or L either passes after tuning or is written up as a known limitation that you have agreed to. No new features

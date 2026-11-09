@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.11.0-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.12.0-prototype.
 
-* Settings: **300** · verifying test passed: **300** · other: **0**
+* Settings: **302** · verifying test passed: **302** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -33,6 +33,8 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `quiet.start` | Quiet hours start | `"22:30"` | HH:MM (24 h) | SHARED | QuietHours | Defines the quiet window | Applies immediately | `PersonaSettingsTest#quietHours` | passed | – |
 | `quiet.end` | Quiet hours end | `"07:00"` | HH:MM (24 h) | SHARED | QuietHours | Defines the quiet window | Applies immediately | `PersonaSettingsTest#quietHours` | passed | – |
 | `quiet.muteSpeech` | Mute speech in quiet hours | `false` | true / false | SHARED | SpeechOutput | TTS is skipped inside the quiet window | Applies immediately | `PersonaSettingsTest#quietMuteSpeech` | passed | – |
+| `ui.sounds` | Interface sounds | `true` | true / false | DEVICE | UiPolicy.interfaceSound, Sfx | Interface sounds play or stay silent | Applies immediately | `InterfaceSettingsTest#sounds` | passed (binding) · device effect unverified | – |
+| `ui.motion` | Interface motion | `"full"` | `full`, `reduced` | DEVICE | UiPolicy.reducedMotion, Motion, BootOverlay | Start-up sequence and entrance animations skipped when reduced | Applies immediately | `InterfaceSettingsTest#motion` | passed (binding) · device effect unverified | – |
 | `persona.active` | Active persona | `"clu"` | text ≤ 200 chars | SHARED | PersonaManager | Prompt identity/instructions/memory scope switch | Applies immediately | `PersonaSettingsTest#activePersona` | passed | – |
 
 ## Voice

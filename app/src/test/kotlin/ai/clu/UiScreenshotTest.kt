@@ -94,4 +94,45 @@ class UiScreenshotTest {
     @Test fun voiceThinking() = voice("voice-thinking", connected.copy(phase = ai.clu.core.live.AgentPhase.THINKING, thinking = true, userLive = "what's the weather like in Pune tomorrow"))
     @Test fun voiceSpeaking() = voice("voice-speaking", connected.copy(phase = ai.clu.core.live.AgentPhase.SPEAKING, agentLevel = 0.7f, agentLive = "Tomorrow in Pune: mostly sunny, around 31 degrees."))
     @Test fun voiceDisconnected() = voice("voice-disconnected", connected.copy(link = ai.clu.core.live.Link.FAILED, error = "Can't reach Clu's server. Retrying in 4 s."))
+
+    // ---- 1.12 redesign: the screens after their entrance animations (main-looper time advanced), CLU's states, the boot.
+    private fun settle(ms: Long = 1500) { shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(ms)) }
+    private val app get() = org.robolectric.RuntimeEnvironment.getApplication() as CluApp
+
+    @Test fun redesignChatEmpty() { if (label == null) return
+        app.core.store.setMeta("onboarded", "1"); MainActivity.booted = true
+        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); settle(); render(a, "chat-empty", false) }
+
+    @Test fun redesignChatConversation() { if (label == null) return
+        app.core.store.setMeta("onboarded", "1"); MainActivity.booted = true
+        app.openConversation(null); val conv = app.currentConversation()
+        app.core.conversations.addMessage(conv, ai.clu.core.conversation.Role.USER, "How do I reverse a list in Kotlin?")
+        app.core.conversations.addMessage(conv, ai.clu.core.conversation.Role.ASSISTANT,
+            "Use **reversed()** for a new list, or `reverse()` to change a mutable one in place:\n\n```kotlin\nval a = listOf(1, 2, 3)\nprintln(a.reversed())  // [3, 2, 1]\n```\n\n- `reversed()` keeps the original\n- `asReversed()` is a live view")
+        app.core.conversations.addMessage(conv, ai.clu.core.conversation.Role.USER, "Thanks. Remind me to review it at 6 pm.")
+        app.core.conversations.addMessage(conv, ai.clu.core.conversation.Role.ASSISTANT, "Done. I'll remind you to **review the list code** at 18:00.")
+        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); settle(); render(a, "chat-conversation", false) }
+
+    @Test fun redesignDrawer() { if (label == null) return
+        app.core.store.setMeta("onboarded", "1"); MainActivity.booted = true
+        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get(); settle()
+        fun all(v: View): List<View> = listOf(v) + if (v is android.view.ViewGroup) (0 until v.childCount).flatMap { all(v.getChildAt(it)) } else emptyList()
+        all(a.window.decorView).first { it.contentDescription == "Conversations and settings" }.performClick(); settle(); render(a, "navigation", false) }
+
+    @Test fun redesignBoot() { if (label == null) return
+        app.core.store.setMeta("onboarded", "1"); MainActivity.booted = false; app.core.settings.set(ai.clu.core.config.Settings.UI_MOTION, "full")
+        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        Thread.sleep(420); render(a, "boot-log", false)
+        Thread.sleep(330); render(a, "boot-title", false) }
+
+    @Test fun redesignVoiceStates() { if (label == null) return
+        val v = Robolectric.buildActivity(ai.clu.ui.VoiceChatActivity::class.java).setup().get(); settle()
+        fun all(x: View): List<View> = listOf(x) + if (x is android.view.ViewGroup) (0 until x.childCount).flatMap { all(x.getChildAt(it)) } else emptyList()
+        val e = all(v.window.decorView).filterIsInstance<ai.clu.ui.EntityView>().single()
+        for (m in ai.clu.ui.EntityView.Mode.values()) {
+            e.mode = m; e.level = 0.7f
+            repeat(30) { e.draw(Canvas(Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888))); Thread.sleep(16) }   // let the state blend in
+            render(v, "voice-" + m.name.lowercase(), false)
+        }
+    }
 }

@@ -14,6 +14,12 @@ object UiPolicy {
         "hold" -> MicBehavior.HOLD_TO_TALK; "conversation" -> MicBehavior.CONVERSATION; else -> MicBehavior.TAP_AUTO_STOP
     }
 
+    /** Interface sounds play only when switched on, and never while the microphone listens or CLU speaks. */
+    fun interfaceSound(s: SettingsStore, listening: Boolean, speaking: Boolean): Boolean = s.bool(Settings.UI_SOUNDS) && !listening && !speaking
+
+    /** Reduced motion: no start-up sequence or entrance animations; everything appears at once. */
+    fun reducedMotion(s: SettingsStore): Boolean = s.string(Settings.UI_MOTION) == "reduced"
+
     /** Whether a reply should be spoken aloud. */
     fun shouldSpeak(s: SettingsStore, viaVoice: Boolean, nowMs: Long): Boolean {
         if (QuietHours.speechMuted(s, nowMs)) return false

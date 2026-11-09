@@ -28,7 +28,7 @@ class SettingsActivity : BaseActivity() {
         section(SimpleSettings.CONVERSATION.title, SimpleSettings.CONVERSATION.description) {
             startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", SimpleSettings.CONVERSATION.id))
         }
-        for (sec in listOf(SimpleSettings.MEMORY, SimpleSettings.TOOLS)) section(sec.title, sec.description) {
+        for (sec in listOf(SimpleSettings.MEMORY, SimpleSettings.TOOLS, SimpleSettings.INTERFACE)) section(sec.title, sec.description) {
             startActivity(Intent(this@SettingsActivity, SettingsCategoryActivity::class.java).putExtra("section", sec.id))
         }
         section("Phone & tablet", "Pair this device with your other one, sync memories and settings, or move them with an encrypted sync file.") {

@@ -16,6 +16,7 @@ object SimpleSettings {
     val TOOLS = Section("tools", "Search & internet", "What Clu may look up and do for you. Ordinary chat and voice never need the internet.", listOf(
         Settings.NET_ENABLED, Settings.NET_WEB, Settings.SEARCH_AUTO, Settings.SEARCH_PROVIDER, Settings.SEARXNG_URL, Settings.NET_MAPS, Settings.NET_TRAVEL,
         Settings.OFFLINE_BEHAVIOR, Settings.APP_POLICY, Settings.SHOW_SOURCES))
-    val all = listOf(CONVERSATION, MEMORY, TOOLS)
+    val INTERFACE = Section("interface", "Interface", "CLU's interface sounds and motion.", listOf(Settings.UI_SOUNDS, Settings.UI_MOTION))
+    val all = listOf(CONVERSATION, MEMORY, TOOLS, INTERFACE)
     fun byId(id: String?) = all.firstOrNull { it.id == id }
 }

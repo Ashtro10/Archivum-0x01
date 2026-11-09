@@ -22,35 +22,32 @@ import android.widget.*
 import kotlinx.coroutines.*
 
 object C {
-    val BG = Color.parseColor("#000000")
-    val SURFACE = Color.parseColor("#10141A")
-    val SURFACE2 = Color.parseColor("#192029")
-    val BORDER = Color.parseColor("#26303A")
-    val TEXT = Color.parseColor("#F2F4F6")
-    val MUTED = Color.parseColor("#8A94A0")
-    // Clu's identity (hexagonal HUD): teal -> cyan -> deep blue.
-    val ACCENT = Color.parseColor("#3FD0C0")      // teal
-    val ACCENT2 = Color.parseColor("#2AA7E0")     // cyan
-    val ACCENT3 = Color.parseColor("#2B5BD7")     // deep blue
+    // Graphite and black, lit by restrained cyan / ice blue (TRON-like), with CLU's teal kept for continuity.
+    val BG = Color.parseColor("#020406")
+    val SURFACE = Color.parseColor("#C80A1016")
+    val SURFACE2 = Color.parseColor("#D9101820")
+    val BORDER = Color.parseColor("#22303C")
+    val BORDER_HI = Color.parseColor("#3A5464")
+    val TEXT = Color.parseColor("#E4EEF4")
+    val MUTED = Color.parseColor("#7D8D9B")
+    val ACCENT = Color.parseColor("#5CE1FF")      // electric cyan
+    val ACCENT2 = Color.parseColor("#A8E8FF")     // ice blue
+    val ACCENT3 = Color.parseColor("#1E7BFF")     // electric blue
+    val TEAL = Color.parseColor("#3FD0C0")        // CLU's original teal
     val OK = Color.parseColor("#3FD0A0")
     val WARN = Color.parseColor("#E3A72F")
     val ERROR = Color.parseColor("#FF5C5C")
 }
 
-/** Dark "glass" circle/pill: near-black fill with a subtle light border (header and control buttons). */
-fun glassBg(radius: Float = 200f) = GradientDrawable().apply {
-    colors = intArrayOf(Color.parseColor("#1E2630"), Color.parseColor("#11161C")); orientation = GradientDrawable.Orientation.TOP_BOTTOM
-    cornerRadius = radius; setStroke(2, C.BORDER)
-}
-
-/** Clu's accent gradient (teal -> cyan -> blue), used for the microphone and send buttons. */
-fun accentBg(radius: Float = 200f) = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(C.ACCENT, C.ACCENT2, C.ACCENT3)).apply { cornerRadius = radius }
+/** Kept for screens that still ask for the old helpers: now the chamfered panel style. */
+fun glassBg(radius: Float = 200f): android.graphics.drawable.Drawable = Panel(C.SURFACE2, C.BORDER_HI, 8f, C.ACCENT, android.content.res.Resources.getSystem().displayMetrics.density)
+fun accentBg(radius: Float = 200f): android.graphics.drawable.Drawable = Panel(Color.argb(200, 6, 34, 48), Color.argb(230, 92, 225, 255), 8f, C.ACCENT,
+    android.content.res.Resources.getSystem().displayMetrics.density, glow = true, fill2 = Color.argb(220, 4, 18, 30))
 
 fun Context.dp(v: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
-fun roundBg(color: Int, radius: Float = 24f, stroke: Int? = null) = GradientDrawable().apply {
-    setColor(color); cornerRadius = radius; stroke?.let { setStroke(2, it) }
-}
+fun roundBg(color: Int, radius: Float = 24f, stroke: Int? = null): android.graphics.drawable.Drawable =
+    Panel(color, stroke ?: Color.TRANSPARENT, (radius / 3f).coerceIn(4f, 12f), C.ACCENT, android.content.res.Resources.getSystem().displayMetrics.density)
 
 /** Base activity: dark theme, coroutine scope, access to the Clu app. */
 abstract class BaseActivity : Activity() {
@@ -65,6 +62,27 @@ abstract class BaseActivity : Activity() {
         window.setDecorFitsSystemWindows(false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        window.decorView.setBackgroundColor(C.BG)
+        Motion.reduced = runCatching { ai.clu.core.config.UiPolicy.reducedMotion(core.settings) }.getOrDefault(false)
+        // Screens hand over with a short fade; each screen's own content then rises in (see onPostCreate).
+        @Suppress("DEPRECATION") overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+
+    /** Set by screens that run their own entrance (the chat and voice screens). */
+    open val ownEntrance = false
+
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        if (!ownEntrance && savedInstanceState == null) (findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as? ViewGroup)?.let { root ->
+            // Title bar opens out of a line; the rest rises in, column by column.
+            for (i in 0 until root.childCount) { val v = root.getChildAt(i); if (i == 0) Motion.expand(v, 0, 360) else Motion.rise(v, 120L + 50 * i) }
+            (root.getChildAt(1) as? ScrollView)?.getChildAt(0)?.let { (it as? ViewGroup)?.let { body -> Motion.stagger(body, 140, 35) } }
+        }
+    }
+
+    override fun finish() {
+        super.finish()
+        @Suppress("DEPRECATION") overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 
     /**
@@ -99,17 +117,21 @@ abstract class BaseActivity : Activity() {
 
     fun titleBar(title: String, actions: LinearLayout.() -> Unit = {}): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(12), dp(8), dp(12), dp(8)); setBackgroundColor(C.BG)
-        addView(TextView(context).apply { text = "←"; textSize = 20f; setTextColor(C.TEXT); gravity = Gravity.CENTER; background = glassBg(); contentDescription = "Back"
-            setOnClickListener { finish() } }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(12) })
-        addView(TextView(context).apply { text = title; textSize = 19f; setTextColor(C.TEXT); typeface = Typeface.DEFAULT_BOLD }, LinearLayout.LayoutParams(0, -2, 1f))
+        setPadding(dp(12), dp(8), dp(12), dp(10)); background = HairlineBg(C.ACCENT, resources.displayMetrics.density)
+        addView(TextView(context).apply { text = "‹"; textSize = 24f; setTextColor(C.ACCENT2); gravity = Gravity.CENTER; background = panel(C.SURFACE2, C.BORDER_HI, 8f); contentDescription = "Back"
+            Motion.press(this); setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); finish() } }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(14) })
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(context).apply { text = "CLU // " + title.uppercase(); label(C.ACCENT, 9.5f); alpha = 0.8f; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO })
+            addView(TextView(context).apply { text = title; textSize = 21f; setTextColor(C.TEXT); typeface = Type.heading; letterSpacing = 0.04f })
+        }, LinearLayout.LayoutParams(0, -2, 1f))
         actions()
     }
 
     fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 
     fun confirm(title: String, msg: String, ok: String = "OK", onOk: () -> Unit) {
-        AlertDialog.Builder(this).setTitle(title).setMessage(msg).setPositiveButton(ok) { _, _ -> onOk() }.setNegativeButton("Cancel", null).show()
+        AlertDialog.Builder(this).setTitle(title).setMessage(msg).setPositiveButton(ok) { _, _ -> onOk() }.setNegativeButton("Cancel", null).show().styled()
     }
 
     fun prompt(title: String, initial: String = "", hint: String = "", multiline: Boolean = false, numeric: Boolean = false, password: Boolean = false, onOk: (String) -> Unit) {
@@ -125,11 +147,18 @@ abstract class BaseActivity : Activity() {
             if (multiline) { minLines = 3; gravity = Gravity.TOP }
         }
         AlertDialog.Builder(this).setTitle(title).setView(FrameLayout(this).apply { setPadding(dp(20), dp(8), dp(20), 0); addView(e) })
-            .setPositiveButton("OK") { _, _ -> onOk(e.text.toString()) }.setNegativeButton("Cancel", null).show()
+            .setPositiveButton("OK") { _, _ -> onOk(e.text.toString()) }.setNegativeButton("Cancel", null).show().styled()
     }
 
     fun choose(title: String, items: List<String>, onPick: (Int) -> Unit) {
-        AlertDialog.Builder(this).setTitle(title).setItems(items.toTypedArray()) { _, i -> onPick(i) }.show()
+        AlertDialog.Builder(this).setTitle(title).setItems(items.toTypedArray()) { _, i -> onPick(i) }.show().styled()
+    }
+
+    /** Dialogs in CLU's style: a chamfered graphite panel with the cyan hairline, opening like the other panels. */
+    fun AlertDialog.styled(): AlertDialog = apply {
+        window?.setBackgroundDrawable(panel(Color.parseColor("#F00A1016"), C.BORDER_HI, 14f, ticks = true))
+        window?.decorView?.let { Motion.expand(it, 0, 300) }
+        Sfx.play(SfxSynth.Sound.ACTIVATE)
     }
 
     /**
@@ -174,21 +203,29 @@ abstract class BaseActivity : Activity() {
 }
 
 // ------------------------------------------------------------------ view builders
-fun LinearLayout.h1(t: String) = addView(TextView(context).apply { text = t; textSize = 18f; setTextColor(C.TEXT); typeface = Typeface.DEFAULT_BOLD; setPadding(0, context.dp(14), 0, context.dp(6)) })
+/** Section header: a short cyan tick, then the title in spaced capitals. */
+fun LinearLayout.h1(t: String) = addView(TextView(context).apply {
+    text = t; textSize = 13f; setTextColor(C.ACCENT2); typeface = Type.headingBold; letterSpacing = 0.16f; isAllCaps = true
+    setPadding(0, context.dp(18), 0, context.dp(6)); compoundDrawablePadding = context.dp(8)
+    setCompoundDrawablesRelative(TickDrawable(context.resources.displayMetrics.density), null, null, null)
+})
 fun LinearLayout.p(t: String, color: Int = C.MUTED, size: Float = 14f): TextView = TextView(context).apply { text = t; textSize = size; setTextColor(color); setPadding(0, context.dp(2), 0, context.dp(4)); setTextIsSelectable(true) }.also { addView(it) }
 
 fun LinearLayout.button(t: String, primary: Boolean = false, onClick: () -> Unit): Button = Button(context).apply {
-    text = t; isAllCaps = false; setTextColor(C.TEXT); background = if (primary) accentBg(80f) else roundBg(C.SURFACE2, 80f, C.BORDER)
-    setOnClickListener { onClick() }
-}.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = context.dp(6) }) }
+    text = t; isAllCaps = false; setTextColor(if (primary) C.ACCENT2 else C.TEXT); typeface = Type.heading; textSize = 15f; letterSpacing = 0.03f
+    background = if (primary) context.accentPanel() else context.panel(C.SURFACE2, C.BORDER_HI); stateListAnimator = null
+    minHeight = context.dp(48); Motion.press(this)
+    setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); onClick() }
+}.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = context.dp(8) }) }
 
 fun LinearLayout.row(build: LinearLayout.() -> Unit): LinearLayout = LinearLayout(context).apply {
     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; build()
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2)) }
 
 fun LinearLayout.smallButton(t: String, onClick: () -> Unit): Button = Button(context).apply {
-    text = t; isAllCaps = false; textSize = 13f; setTextColor(C.TEXT); background = roundBg(C.SURFACE2, 80f, C.BORDER); minWidth = 0; minimumWidth = 0
-    setPadding(context.dp(10), 0, context.dp(10), 0); setOnClickListener { onClick() }
+    text = t; isAllCaps = false; textSize = 13f; setTextColor(C.ACCENT2); typeface = Type.heading; background = context.panel(C.SURFACE2, C.BORDER_HI, 6f); minWidth = 0; minimumWidth = 0
+    stateListAnimator = null; Motion.press(this)
+    setPadding(context.dp(12), 0, context.dp(12), 0); setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); onClick() }
 }.also { addView(it, LinearLayout.LayoutParams(-2, context.dp(38)).apply { marginEnd = context.dp(6); topMargin = context.dp(4) }) }
 
 /**
@@ -208,25 +245,28 @@ fun LinearLayout.tappable(onClick: () -> Unit): LinearLayout = apply {
     foreground = android.util.TypedValue().let { tv ->
         if (context.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) context.getDrawable(tv.resourceId) else null }
     contentDescription = (0 until childCount).mapNotNull { (getChildAt(it) as? TextView)?.text?.toString() }.joinToString(". ")
-    setOnClickListener { onClick() }
+    Motion.press(this)
+    setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); onClick() }
 }
 
 fun LinearLayout.card(build: LinearLayout.() -> Unit): LinearLayout = LinearLayout(context).apply {
-    orientation = LinearLayout.VERTICAL; background = roundBg(C.SURFACE, 36f, C.BORDER); setPadding(context.dp(14), context.dp(10), context.dp(14), context.dp(10)); build()
+    orientation = LinearLayout.VERTICAL; background = context.panel(C.SURFACE, C.BORDER, 12f); setPadding(context.dp(14), context.dp(12), context.dp(14), context.dp(12)); build()
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = context.dp(8) }) }
 
 fun LinearLayout.field(label: String, value: String, multiline: Boolean = false, hint: String = ""): EditText {
     p(label, C.TEXT, 13f)
     return EditText(context).apply {
-        setText(value); this.hint = hint; setTextColor(C.TEXT); setHintTextColor(C.MUTED); background = roundBg(C.SURFACE2, 16f)
+        setText(value); this.hint = hint; setTextColor(C.TEXT); setHintTextColor(C.MUTED); background = context.panel(C.SURFACE2, C.BORDER_HI, 6f)
+        textCursorDrawable?.setTint(C.ACCENT); highlightColor = Color.argb(90, 92, 225, 255)
         setPadding(context.dp(12), context.dp(10), context.dp(12), context.dp(10))
         if (multiline) { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE; minLines = 3; gravity = Gravity.TOP }
     }.also { addView(it, LinearLayout.LayoutParams(-1, -2)) }
 }
 
 fun LinearLayout.check(label: String, checked: Boolean, onChange: (Boolean) -> Unit = {}): Switch = Switch(context).apply {
-    text = label; isChecked = checked; setTextColor(C.TEXT); setPadding(0, context.dp(6), 0, context.dp(6))
-    setOnCheckedChangeListener { _, v -> onChange(v) }
+    text = label; isChecked = checked; setTextColor(C.TEXT); setPadding(0, context.dp(8), 0, context.dp(8)); minHeight = context.dp(48)
+    switchTints().let { (thumb, track) -> thumbTintList = thumb; trackTintList = track }
+    setOnCheckedChangeListener { _, v -> Sfx.play(SfxSynth.Sound.CLICK); onChange(v) }
 }.also { addView(it, LinearLayout.LayoutParams(-1, -2)) }
 
 fun LinearLayout.spinner(options: List<String>, selected: Int, onChange: (Int) -> Unit = {}): Spinner = Spinner(context).apply {
@@ -234,7 +274,7 @@ fun LinearLayout.spinner(options: List<String>, selected: Int, onChange: (Int) -
         override fun getView(position: Int, convertView: View?, parent: ViewGroup) = (super.getView(position, convertView, parent) as TextView).apply { setTextColor(C.TEXT) }
     }.apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
     setSelection(selected.coerceAtLeast(0), false)
-    background = roundBg(C.SURFACE2, 16f)
+    background = context.panel(C.SURFACE2, C.BORDER_HI, 6f)
     onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
         var first = true
         override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) { if (first) { first = false; return }; onChange(pos) }
@@ -253,3 +293,27 @@ class RowAdapter<T>(var items: List<T>, private val bind: (T, Context) -> View) 
 
 fun fmtTime(ms: Long): String = java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.ENGLISH).format(java.util.Date(ms))
 fun fmtBytes(b: Long): String = when { b >= 1e9 -> "%.2f GB".format(b / 1e9); b >= 1e6 -> "%.1f MB".format(b / 1e6); else -> "${b / 1000} KB" }
+
+/** The cyan tick before section headers. */
+class TickDrawable(private val d: Float) : android.graphics.drawable.Drawable() {
+    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = C.ACCENT }
+    init { setBounds(0, 0, (3 * d).toInt(), (12 * d).toInt()) }
+    override fun draw(c: android.graphics.Canvas) { c.drawRect(bounds, p) }
+    override fun getIntrinsicWidth() = (3 * d).toInt(); override fun getIntrinsicHeight() = (12 * d).toInt()
+    override fun setAlpha(alpha: Int) { p.alpha = alpha }
+    override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+    @Deprecated("Deprecated in Java") override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+}
+
+/** Background with a hairline along the bottom that fades out to both sides (title bars). */
+class HairlineBg(private val color: Int, private val d: Float) : android.graphics.drawable.Drawable() {
+    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { strokeWidth = d }
+    override fun onBoundsChange(b: android.graphics.Rect) {
+        p.shader = android.graphics.LinearGradient(b.left.toFloat(), 0f, b.right.toFloat(), 0f,
+            intArrayOf(Color.TRANSPARENT, Color.argb(150, Color.red(color), Color.green(color), Color.blue(color)), Color.TRANSPARENT), null, android.graphics.Shader.TileMode.CLAMP)
+    }
+    override fun draw(c: android.graphics.Canvas) { c.drawColor(C.BG); c.drawLine(bounds.left.toFloat(), bounds.bottom - d, bounds.right.toFloat(), bounds.bottom - d, p) }
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+    @Deprecated("Deprecated in Java") override fun getOpacity() = android.graphics.PixelFormat.OPAQUE
+}

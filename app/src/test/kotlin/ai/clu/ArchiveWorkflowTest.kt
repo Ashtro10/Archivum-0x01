@@ -105,7 +105,7 @@ class ArchiveWorkflowTest {
         val before = core.conversations.messages(app.currentConversation()).size
         val views = allViews(a.window.decorView)
         views.filterIsInstance<EditText>().first().setText(text)
-        views.filterIsInstance<TextView>().first { it.contentDescription == "Send" }.performClick()
+        views.first { it.contentDescription == "Send" }.performClick()
         until("a reply to \"$text\"") { core.conversations.messages(app.currentConversation()).size >= before + 2 }
         return core.conversations.messages(app.currentConversation()).last().content
     }
@@ -135,7 +135,7 @@ class ArchiveWorkflowTest {
         core.store.setMeta("onboarded", "1")
         val main = launch(MainActivity::class.java)
         allViews(main.window.decorView).first { it.contentDescription == "Conversations and settings" }.performClick(); idle()
-        pick("Memory")
+        allViews(main.window.decorView).first { it.contentDescription == "Memory" && it.isShown }.performClick(); idle()
         assertEquals(MemoryActivity::class.java.name, nextStarted(main).component?.className)
     }
 

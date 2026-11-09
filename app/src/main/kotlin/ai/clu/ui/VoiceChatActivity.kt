@@ -18,12 +18,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Voice chat: Clu's hexagonal HUD. Everything on screen reflects the engine's real state ([EngineUi]): the HUD
- * listens only while the microphone is live, "thinks" only while the agent is thinking, and pulses with the level of
- * Clu's actual audio while speaking. Leaving the screen stops listening (the conversation history stays).
+ * Voice chat: CLU's entity full screen (particles and eyes). Everything on screen reflects the engine's real state
+ * ([EngineUi]): it listens only while the microphone is live, "thinks" only while the agent is thinking, and moves with
+ * the level of CLU's actual audio while speaking. Leaving the screen stops listening (the conversation history stays).
  */
 class VoiceChatActivity : BaseActivity() {
-    private lateinit var hud: HexHudView
+    private lateinit var hud: EntityView
     private lateinit var phaseLabel: TextView
     private lateinit var timerLabel: TextView
     private lateinit var connDot: View
@@ -31,8 +31,13 @@ class VoiceChatActivity : BaseActivity() {
     private lateinit var youText: TextView
     private lateinit var cluText: TextView
     private lateinit var errorText: TextView
-    private lateinit var mainBtn: TextView
-    private lateinit var speakerBtn: TextView
+    private lateinit var mainBtn: android.widget.ImageView
+    private var mainBg: HexButtonBg? = null
+    private var mainActive: Boolean? = null
+    private lateinit var speakerBtn: android.widget.ImageView
+    private lateinit var top: View
+    private lateinit var controls: View
+    override val ownEntrance = true
     private var sessionStart = 0L
     private var last = EngineUi()
 
@@ -63,67 +68,72 @@ class VoiceChatActivity : BaseActivity() {
     }
 
     private fun build(): View {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.BLACK) }
-        // Top: back to chat, title and connection status.
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
-        top.addView(iconButton("←", "Back to chat") { finish() }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.BLACK, Color.parseColor("#02060A"), Color.parseColor("#051019"))) }
+        // Top: back to chat, connection status, end.
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        bar.addView(iconButton(Icon.Kind.BACK, "Back to chat") { finish() }, LinearLayout.LayoutParams(dp(46), dp(46)))
         val pill = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = glassBg(); setPadding(dp(14), dp(8), dp(14), dp(8))
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = panel(C.SURFACE2, C.BORDER_HI, 6f); setPadding(dp(14), dp(8), dp(14), dp(8))
             connDot = View(context).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(C.MUTED) } }
-            addView(connDot, LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(8) })
-            connText = TextView(context).apply { text = "Clu"; textSize = 13f; setTextColor(C.TEXT) }
+            addView(connDot, LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(8) })
+            connText = TextView(context).apply { text = "Clu"; label(C.TEXT, 10.5f) }
             addView(connText)
         }
-        top.addView(FrameLayout(this).apply { addView(pill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) }, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(iconButton("✕", "End voice session") { app.engine.end(); finish() }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        root.addView(top)
+        bar.addView(FrameLayout(this).apply { addView(pill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) }, LinearLayout.LayoutParams(0, -2, 1f))
+        bar.addView(iconButton(Icon.Kind.CLOSE, "End voice session") { Sfx.play(SfxSynth.Sound.SHUTDOWN); app.engine.end(); finish() }, LinearLayout.LayoutParams(dp(46), dp(46)))
+        top = bar
+        root.addView(bar)
 
-        // Centre: the HUD (Clu's eyes; no text inside). The state is written on one line just below it.
+        // Centre: CLU (no text inside). The state is written on one line just below it.
         val stage = FrameLayout(this)
-        hud = HexHudView(this)
+        hud = EntityView(this)
         stage.addView(hud, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-        root.addView(stage, LinearLayout.LayoutParams(-1, 0, 1.25f).apply { setMargins(dp(16), 0, dp(16), 0) })
+        root.addView(stage, LinearLayout.LayoutParams(-1, 0, 1.3f))
         val status = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(2), 0, dp(2)) }
-        phaseLabel = TextView(this).apply { textSize = 14f; setTextColor(C.ACCENT); typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); letterSpacing = 0.35f; gravity = Gravity.CENTER }
-        timerLabel = TextView(this).apply { textSize = 12f; setTextColor(C.MUTED); typeface = Typeface.MONOSPACE; gravity = Gravity.CENTER; setPadding(dp(12), 0, 0, 0) }
+        phaseLabel = TextView(this).apply { textSize = 13f; setTextColor(C.ACCENT); typeface = Type.monoBold; letterSpacing = 0.45f; gravity = Gravity.CENTER }
+        timerLabel = TextView(this).apply { textSize = 12f; setTextColor(C.MUTED); typeface = Type.mono; gravity = Gravity.CENTER; setPadding(dp(14), 0, 0, 0) }
         status.addView(phaseLabel); status.addView(timerLabel)
         root.addView(status, LinearLayout.LayoutParams(-1, -2))
 
-        // Live words: what Clu heard, and what Clu is saying.
-        val words = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(28), dp(4), dp(28), dp(4)) }
-        youText = TextView(this).apply { textSize = 15f; setTextColor(C.MUTED); gravity = Gravity.CENTER; maxLines = 2 }
-        cluText = TextView(this).apply { textSize = 19f; setTextColor(C.TEXT); gravity = Gravity.CENTER; maxLines = 5; setLineSpacing(0f, 1.15f); setPadding(0, dp(8), 0, 0) }
+        // Live words: what CLU heard, and what CLU is saying.
+        val words = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(28), dp(6), dp(28), dp(4)) }
+        youText = TextView(this).apply { textSize = 14.5f; setTextColor(C.MUTED); gravity = Gravity.CENTER; maxLines = 2; typeface = Type.body }
+        cluText = TextView(this).apply { textSize = 19f; setTextColor(C.TEXT); gravity = Gravity.CENTER; maxLines = 5; setLineSpacing(0f, 1.15f); setPadding(0, dp(8), 0, 0); typeface = Type.light }
         errorText = TextView(this).apply { textSize = 13f; setTextColor(C.WARN); gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0)
             setOnClickListener { if (last.link == Link.NOT_CONFIGURED) startActivity(Intent(this@VoiceChatActivity, ConnectionActivity::class.java)) } }
         words.addView(youText); words.addView(cluText); words.addView(errorText)
-        root.addView(words, LinearLayout.LayoutParams(-1, 0, 0.75f))
+        root.addView(words, LinearLayout.LayoutParams(-1, 0, 0.7f))
 
         // Controls, kept away from the screen edges and the gesture bar.
-        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(24), dp(8), dp(24), dp(20)) }
-        speakerBtn = iconButton("🔊", "Spoken replies on/off") { app.engine.setSpokenReplies(!last.spokenReplies) }
-        controls.addView(speakerBtn, LinearLayout.LayoutParams(dp(56), dp(56)))
-        controls.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        mainBtn = TextView(this).apply {
-            gravity = Gravity.CENTER; textSize = 26f; setTextColor(Color.WHITE); background = accentBg(); elevation = dp(6).toFloat()
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(28), dp(8), dp(28), dp(22)) }
+        speakerBtn = iconButton(Icon.Kind.SPEAKER, "Spoken replies on/off") { Sfx.play(SfxSynth.Sound.CLICK); app.engine.setSpokenReplies(!last.spokenReplies) }
+        row.addView(speakerBtn, LinearLayout.LayoutParams(dp(54), dp(54)))
+        row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        mainBtn = android.widget.ImageView(this).apply {
+            scaleType = android.widget.ImageView.ScaleType.CENTER; Motion.press(this)
             setOnClickListener {
                 when {
-                    last.busy -> app.engine.stop()                                   // interrupt Clu
+                    last.busy -> { Sfx.play(SfxSynth.Sound.CLICK); app.engine.stop() }                                   // interrupt CLU
                     last.link == Link.NOT_CONFIGURED -> startActivity(Intent(this@VoiceChatActivity, ConnectionActivity::class.java))
+                    !last.micOn && Sfx.play(SfxSynth.Sound.LISTEN) -> postDelayed({ app.engine.setMic(true) }, 150)    // tone first, then the mic
                     else -> app.engine.setMic(!last.micOn)
                 }
             }
         }
-        controls.addView(mainBtn, LinearLayout.LayoutParams(dp(78), dp(78)))
-        controls.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        controls.addView(iconButton("⌨", "Text chat") { finish() }, LinearLayout.LayoutParams(dp(56), dp(56)))
-        root.addView(controls)
+        row.addView(mainBtn, LinearLayout.LayoutParams(dp(84), dp(84)))
+        row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        row.addView(iconButton(Icon.Kind.KEYBOARD, "Text chat") { finish() }, LinearLayout.LayoutParams(dp(54), dp(54)))
+        controls = row
+        root.addView(row)
         applySystemInsets(root)
+        if (Motion.enabled()) { Motion.expand(top, 0, 360); Motion.rise(stage, 80, 16f, 520); Motion.rise(status, 260); Motion.rise(words, 320); Motion.expand(row, 180, 420) }
         return root
     }
 
-    private fun iconButton(icon: String, label: String, onClick: () -> Unit) = TextView(this).apply {
-        text = icon; textSize = 20f; gravity = Gravity.CENTER; setTextColor(C.TEXT); background = glassBg(); contentDescription = label
-        setOnClickListener { onClick() }
+    private fun iconButton(kind: Icon.Kind, label: String, onClick: () -> Unit) = android.widget.ImageView(this).apply {
+        setImageDrawable(icon(kind, C.ACCENT2, 22f)); scaleType = android.widget.ImageView.ScaleType.CENTER; background = panel(C.SURFACE2, C.BORDER_HI, 8f); contentDescription = label
+        Motion.press(this); setOnClickListener { onClick() }
     }
 
     private fun render(s: EngineUi) {
@@ -140,32 +150,35 @@ class VoiceChatActivity : BaseActivity() {
         (connDot.background as GradientDrawable).setColor(dot); connText.text = conn
         val connected = !s.server || s.link == Link.CONNECTED
         hud.mode = when {
-            !connected -> HexHudView.Mode.OFFLINE
-            s.phase == AgentPhase.SPEAKING -> HexHudView.Mode.SPEAKING
-            s.phase == AgentPhase.THINKING || s.thinking -> HexHudView.Mode.THINKING
-            s.phase == AgentPhase.LISTENING && s.micOn -> HexHudView.Mode.LISTENING
-            else -> HexHudView.Mode.IDLE
+            !connected -> EntityView.Mode.OFFLINE
+            s.phase == AgentPhase.SPEAKING -> EntityView.Mode.SPEAKING
+            s.phase == AgentPhase.THINKING || s.thinking -> EntityView.Mode.THINKING
+            s.phase == AgentPhase.LISTENING && s.micOn -> EntityView.Mode.LISTENING
+            else -> EntityView.Mode.IDLE
         }
-        hud.level = if (hud.mode == HexHudView.Mode.SPEAKING) s.agentLevel else s.micLevel
+        hud.level = if (hud.mode == EntityView.Mode.SPEAKING) s.agentLevel else s.micLevel
         phaseLabel.text = when (hud.mode) {
-            HexHudView.Mode.LISTENING -> "LISTENING"; HexHudView.Mode.THINKING -> "THINKING"; HexHudView.Mode.SPEAKING -> "SPEAKING"
-            HexHudView.Mode.OFFLINE -> if (s.link == Link.NOT_CONFIGURED) "NOT SET UP" else if (s.link == Link.CONNECTING || s.link == Link.RECONNECTING) "CONNECTING" else "OFFLINE"
-            HexHudView.Mode.IDLE -> when {
+            EntityView.Mode.LISTENING -> "LISTENING"; EntityView.Mode.THINKING -> "THINKING"; EntityView.Mode.SPEAKING -> "SPEAKING"
+            EntityView.Mode.OFFLINE -> if (s.link == Link.NOT_CONFIGURED) "NOT SET UP" else if (s.link == Link.CONNECTING || s.link == Link.RECONNECTING) "CONNECTING" else "OFFLINE"
+            EntityView.Mode.IDLE -> when {
                 s.server && s.phase == AgentPhase.ABSENT -> "WAITING"
                 s.phase == AgentPhase.INITIALIZING -> "STARTING"
                 !s.micOn -> "MIC OFF"
                 else -> "READY"
             }
         }
-        phaseLabel.setTextColor(if (hud.mode == HexHudView.Mode.OFFLINE) C.ERROR else C.ACCENT)
+        phaseLabel.setTextColor(if (hud.mode == EntityView.Mode.OFFLINE) C.ERROR else C.ACCENT)
         hud.contentDescription = "Clu: " + phaseLabel.text.toString().lowercase()
         youText.text = s.userLive.ifBlank { lastMessage(true) }
         cluText.text = s.agentLive.ifBlank { lastMessage(false) }
         errorText.text = s.error ?: if (s.server && s.link == Link.RECONNECTING && s.reconnectAttempt > 0) "Reconnecting (attempt ${s.reconnectAttempt})…" else ""
-        mainBtn.text = if (s.busy) "■" else if (s.micOn) "🎙" else "🎤"
+        mainBtn.setImageDrawable(icon(if (s.busy) Icon.Kind.STOP else if (s.micOn) Icon.Kind.MIC_ON else Icon.Kind.MIC, if (s.busy || s.micOn) C.ACCENT2 else C.TEXT, 28f))
+        val active = s.busy || s.micOn
+        if (mainActive != active) { mainBg = HexButtonBg(resources.displayMetrics.density, active); mainActive = active; mainBtn.background = mainBg }
+        mainBg?.level = if (s.micOn && !s.busy) s.micLevel else 0f
         mainBtn.contentDescription = if (s.busy) "Stop Clu" else if (s.micOn) "Mute microphone" else "Unmute microphone"
-        mainBtn.alpha = if (s.busy || s.micOn) 1f else 0.55f
-        speakerBtn.alpha = if (s.spokenReplies) 1f else 0.4f
+        mainBtn.alpha = if (s.busy || s.micOn) 1f else 0.75f
+        speakerBtn.setImageDrawable(icon(if (s.spokenReplies) Icon.Kind.SPEAKER else Icon.Kind.SPEAKER_OFF, if (s.spokenReplies) C.ACCENT2 else C.MUTED, 22f))
     }
 
     private fun lastMessage(user: Boolean): String = runCatching {

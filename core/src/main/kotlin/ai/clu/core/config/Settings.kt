@@ -136,6 +136,13 @@ object Settings {
         "Defines the quiet window", "PersonaSettingsTest#quietHours")
     val QUIET_MUTE_SPEECH = bool("quiet.muteSpeech", "Mute speech in quiet hours", GENERAL, false,
         "Reply in text only (no spoken audio) during quiet hours.", "SpeechOutput", "TTS is skipped inside the quiet window", "PersonaSettingsTest#quietMuteSpeech")
+    val UI_SOUNDS = bool("ui.sounds", "Interface sounds", GENERAL, true,
+        "Soft sounds for start-up, buttons, listening and new replies. Never while the microphone is listening or CLU is speaking.",
+        "UiPolicy.interfaceSound, Sfx", "Interface sounds play or stay silent", "InterfaceSettingsTest#sounds", scope = DEVICE, deviceOnly = true)
+    val UI_MOTION = choice("ui.motion", "Interface motion", GENERAL, "full",
+        listOf("full" to "Full (start-up sequence and animated panels)", "reduced" to "Reduced (everything appears at once)"),
+        "How much the interface animates. CLU's eyes keep reacting to voice either way.", "UiPolicy.reducedMotion, Motion, BootOverlay",
+        "Start-up sequence and entrance animations skipped when reduced", "InterfaceSettingsTest#motion", scope = DEVICE, deviceOnly = true)
 
     // ---------------------------------------------------------------- Voice
     val TTS_ENGINE = choice("voice.ttsEngine", "TTS engine", VOICE, "piper",

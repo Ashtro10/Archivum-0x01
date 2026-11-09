@@ -113,13 +113,13 @@ class Engine(private val app: CluApp) {
         if (server) app.liveKit.setSpokenReplies(on) else if (!on) app.speech.stop()
     }
 
-    /** Sends a typed message to the active engine. */
-    fun send(text: String): Boolean {
-        if (server) return app.liveKit.sendText(text)
+    /** Sends a typed message to the active engine. [attachments] (images) are kept with the message on this device. */
+    fun send(text: String, attachments: List<ai.clu.core.conversation.Attachment> = emptyList()): Boolean {
+        if (server) return if (attachments.isEmpty()) app.liveKit.sendText(text) else false
         val core = app.core
         val speak = UiPolicy.shouldSpeak(core.settings, viaVoice = false, nowMs = System.currentTimeMillis())
         val cfg = VoiceConfig.from(core.settings)
-        return core.chat.send(TurnRequest(app.currentConversation(), text, app.ownerActor()), text,
+        return core.chat.send(TurnRequest(app.currentConversation(), text, app.ownerActor(), attachments = attachments), text,
             speech = if (speak) ({ app.speech.reply(cfg) }) else null, incremental = cfg.incremental)
     }
 

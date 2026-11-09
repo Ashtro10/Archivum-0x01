@@ -39,7 +39,9 @@ class TouchDispatchTest {
     }
 
     private val app get() = RuntimeEnvironment.getApplication() as CluApp
-    private fun idle(ms: Long = 50) { repeat(20) { shadowOf(Looper.getMainLooper()).idle(); Thread.sleep(ms / 10 + 1) } }
+    // Main-looper time advances with the wait (animations — the navigation sliding in and out — run on it), and real time
+    // passes for background work.
+    private fun idle(ms: Long = 50) { repeat(20) { shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(ms / 10 + 1)); Thread.sleep(ms / 10 + 1) } }
     private fun <T : Activity> launch(cls: Class<T>, intent: Intent? = null): T =
         (if (intent != null) Robolectric.buildActivity(cls, intent) else Robolectric.buildActivity(cls)).setup().get().also { idle() }
     private fun allViews(v: View): List<View> = listOf(v) + if (v is ViewGroup) (0 until v.childCount).flatMap { allViews(v.getChildAt(it)) } else emptyList()
@@ -101,8 +103,10 @@ class TouchDispatchTest {
         val a = c.get()
         assertNoBlockingOverlay(a)
         tap(a, byDescription(a, "Conversations and settings"))
-        assertTrue("☰ opens the menu", org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()?.isShowing == true)
-        org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().dismiss(); idle()
+        assertTrue("☰ opens the navigation", byDescription(a, "Navigation").isShown)
+        // Every destination is a real control in it; tapping outside closes it.
+        tap(a, byDescription(a, "Settings")); assertEquals(SettingsActivity::class.java.name, shadowOf(a).nextStartedActivity.component!!.className)
+        idle(400); assertFalse("the navigation closes after choosing", byDescription(a, "Navigation").isShown)
         tap(a, byDescription(a, "Voice chat"))
         assertEquals(VoiceChatActivity::class.java.name, shadowOf(a).nextStartedActivity.component!!.className)
         // Send a message with a real tap on Send, then check everything still responds.
@@ -115,15 +119,16 @@ class TouchDispatchTest {
         repeat(2) { c.pause().stop(); idle(); c.restart().start().resume(); idle() }
         assertNoBlockingOverlay(a)
         tap(a, byDescription(a, "Conversations and settings"))
-        assertTrue("☰ still opens after a reply and backgrounding", org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()?.isShowing == true)
-        org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog().dismiss(); idle()
+        assertTrue("☰ still opens after a reply and backgrounding", byDescription(a, "Navigation").isShown)
+        tap(a, byDescription(a, "Close navigation")); idle(400)
+        assertFalse("tapping outside closes the navigation", byDescription(a, "Navigation").isShown)
         tap(a, byDescription(a, "Voice chat"))
         assertEquals(VoiceChatActivity::class.java.name, shadowOf(a).nextStartedActivity.component!!.className)
     }
 
     @Test fun voiceScreenControlsWorkAndTheHudNeverTakesTouches() {
         val v = launch(VoiceChatActivity::class.java)
-        val hud = allViews(v.window.decorView).filterIsInstance<HexHudView>().single()
+        val hud = allViews(v.window.decorView).filterIsInstance<EntityView>().single()
         assertFalse("the HUD is decoration: not clickable", hud.isClickable || hud.isLongClickable || hud.isFocusable)
         assertNoBlockingOverlay(v)
         // A tap on the HUD does nothing and doesn't stop the controls around it from working.
@@ -165,7 +170,7 @@ class TouchDispatchTest {
 
     @Test fun theHudDrawsNoTextInAnyState() {
         val v = launch(VoiceChatActivity::class.java)
-        val hud = allViews(v.window.decorView).filterIsInstance<HexHudView>().single()
+        val hud = allViews(v.window.decorView).filterIsInstance<EntityView>().single()
         val texts = mutableListOf<String>()
         val canvas = object : android.graphics.Canvas(android.graphics.Bitmap.createBitmap(hud.width.coerceAtLeast(1), hud.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)) {
             override fun drawText(text: String, x: Float, y: Float, paint: android.graphics.Paint) { texts += text }
@@ -175,9 +180,9 @@ class TouchDispatchTest {
             override fun drawTextOnPath(text: String, path: android.graphics.Path, h: Float, vv: Float, paint: android.graphics.Paint) { texts += text }
         }
         // The static frame is rendered into a cached bitmap (that is where the old labels were drawn): check it too.
-        HexHudView::class.java.getDeclaredMethod("drawFrame", android.graphics.Canvas::class.java).apply { isAccessible = true }.invoke(hud, canvas)
-        for (m in HexHudView.Mode.values()) { hud.mode = m; hud.level = 0.6f; hud.draw(canvas) }
-        assertTrue("no text inside the hexagon: $texts", texts.isEmpty())
+        EntityView::class.java.getDeclaredMethod("drawFrame", android.graphics.Canvas::class.java).apply { isAccessible = true }.invoke(hud, canvas)
+        for (m in EntityView.Mode.values()) repeat(3) { hud.mode = m; hud.level = 0.6f; hud.draw(canvas) }
+        assertTrue("no text inside the entity: $texts", texts.isEmpty())
         // The state is still announced (outside the hexagon and to accessibility services).
         assertTrue(hud.contentDescription.toString().startsWith("Clu"))
     }

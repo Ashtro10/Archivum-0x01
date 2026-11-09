@@ -100,6 +100,9 @@ class CluApp : Application() {
         voice = VoiceSession(this)
         liveKit = LiveKitSession(this)
         engine = ai.clu.voice.Engine(this)
+        // Interface sounds (synthesised once into the cache): silent while listening or speaking.
+        ai.clu.ui.Sfx.init(this, enabled = { runCatching { ai.clu.core.config.UiPolicy.interfaceSound(core.settings, listening = false, speaking = false) }.getOrDefault(false) },
+            quiet = { runCatching { engine.ui.value.let { it.micOn || it.phase == ai.clu.core.live.AgentPhase.SPEAKING } || speech.busy || voice.isRunning }.getOrDefault(true) })
         sync = SyncManager(this)
         createChannels()
         // The model loads when a screen becomes visible or voice starts (LlmService.prepare), not in a process Android

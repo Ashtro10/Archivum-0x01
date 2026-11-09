@@ -83,7 +83,7 @@ class AppSmokeTest {
         val views = allViews(a.window.decorView)
         val input = views.filterIsInstance<EditText>().first()
         input.setText("tell me something interesting")
-        views.filterIsInstance<android.widget.TextView>().first { it.contentDescription == "Send" }.performClick()
+        views.first { it.contentDescription == "Send" }.performClick()
         val deadline = System.currentTimeMillis() + 10_000
         val list = views.filterIsInstance<ListView>().first()
         while (System.currentTimeMillis() < deadline) { idle(); if (app.core.conversations.messages(app.currentConversation()).size >= 2) break }
@@ -99,7 +99,7 @@ class AppSmokeTest {
         val a = launch(MainActivity::class.java)
         val views = allViews(a.window.decorView)
         views.filterIsInstance<EditText>().first().setText("what time is it?")
-        views.filterIsInstance<android.widget.TextView>().first { it.contentDescription == "Send" }.performClick()
+        views.first { it.contentDescription == "Send" }.performClick()
         val deadline = System.currentTimeMillis() + 10_000
         while (System.currentTimeMillis() < deadline) { idle(); if (app.core.conversations.messages(app.currentConversation()).size >= 2) break }
         assertTrue(app.core.conversations.messages(app.currentConversation())[1].content.startsWith("It is"))

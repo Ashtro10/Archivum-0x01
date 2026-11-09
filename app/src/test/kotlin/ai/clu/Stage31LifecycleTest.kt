@@ -43,7 +43,7 @@ class Stage31LifecycleTest {
     private fun send(a: Activity, text: String) {
         val views = allViews(a.window.decorView)
         views.filterIsInstance<EditText>().first().setText(text)
-        views.filterIsInstance<TextView>().first { it.contentDescription == "Send" }.performClick()
+        views.first { it.contentDescription == "Send" }.performClick()
     }
 
     @Test fun backgroundingAndRecreatingNeitherDuplicatesNorResendsNorLeavesLoading() {

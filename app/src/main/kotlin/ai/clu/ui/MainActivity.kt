@@ -43,16 +43,32 @@ class MainActivity : BaseActivity() {
     private lateinit var list: ListView
     private lateinit var adapter: Adapter
     private lateinit var input: EditText
-    private lateinit var actionBtn: TextView
-    private lateinit var speakerBtn: TextView
+    private lateinit var actionBtn: ImageView
+    private lateinit var actionBg: HexButtonBg
+    private lateinit var speakerBtn: ImageView
+    private lateinit var attachBtn: ImageView
     private lateinit var connDot: View
     private lateinit var connText: TextView
     private lateinit var emptyState: View
     private lateinit var greeting: TextView
+    private lateinit var entity: EntityView
+    private lateinit var entityBox: FrameLayout
+    private lateinit var topBar: View
+    private lateinit var composer: View
+    private lateinit var drawer: LinearLayout
+    private lateinit var scrim: View
+    private lateinit var attachStrip: LinearLayout
+    private val pending = mutableListOf<ai.clu.core.conversation.Attachment>()
     private var msgItems: List<Item> = emptyList()
     private var last = EngineUi()
     private var lastTyped: String? = null
     private var redirected = false
+    private var compact: Boolean? = null
+    /** Rows already shown: only rows that appear after the first render animate in. */
+    private val seen = HashSet<String>()
+    private var firstRender = true
+    private var wasBusy = false
+    override val ownEntrance = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +83,7 @@ class MainActivity : BaseActivity() {
         // A tool needs a runtime permission (e.g. contacts for "call Mom"): Android's own prompt, asked from the visible screen.
         scope.launch { app.permissionWanted.collect { p -> if (p != null) { app.permissionWanted.value = null; askFor(p) } } }
         scope.launch { core.chat.state.collect { st -> if (!app.engine.server && (st.status != null || st.events.lastOrNull() is ai.clu.core.agent.AgentEvent.Error)) showItems() } }
+        if (savedInstanceState == null) startUp()
         if (core.store.meta("onboarded") == null) onboarding()
     }
 
@@ -88,56 +105,122 @@ class MainActivity : BaseActivity() {
         refresh()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() { if (::drawer.isInitialized && drawer.visibility == View.VISIBLE) closeDrawer() else { Sfx.play(SfxSynth.Sound.SHUTDOWN); @Suppress("DEPRECATION") super.onBackPressed() } }
+
+    // ------------------------------------------------------------------------------------------------ start-up
+    /**
+     * Once per launch: the boot sequence (CLU's real state, line by line, then its name), and the interface opening out
+     * of it. Reduced motion or the system's animations off: everything is simply there. The controls work from the first
+     * frame; a tap anywhere ends the sequence.
+     */
+    private fun startUp() {
+        val content = window.decorView as ViewGroup
+        if (booted || !Motion.enabled()) { booted = true; entrance(); return }
+        booted = true
+        val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
+        val lines = listOf(
+            "CLU $version // ${android.os.Build.MODEL}",
+            "core ............. online",
+            "memory ........... ${runCatching { core.memories.count() }.getOrDefault(0)} records",
+            "messages ......... ${runCatching { core.conversations.countMessages() }.getOrDefault(0)}",
+            "link ............. " + if (app.engine.server) "CLU on your PC" else "this device",
+            "interface sounds . " + if (core.settings.bool(Settings.UI_SOUNDS)) "on" else "off",
+            "ready")
+        val overlay = BootOverlay(this, lines) { entrance() }
+        content.addView(overlay, ViewGroup.LayoutParams(-1, -1))
+        bootOverlay = overlay
+        topBar.alpha = 0f; composer.alpha = 0f; entityBox.alpha = 0f; emptyState.alpha = 0f
+    }
+    private var bootOverlay: BootOverlay? = null
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) bootOverlay?.let { if (it.visibility == View.VISIBLE) it.skip() }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** The interface opens: the bars out of a line, the entity and the greeting rising in. */
+    private fun entrance() {
+        bootOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }; bootOverlay = null
+        Motion.expand(topBar, 0, 380)
+        Motion.rise(entityBox, 140, 14f, 520)
+        Motion.rise(emptyState, 260)
+        Motion.expand(composer, 200, 420)
+        if (!Motion.enabled()) listOf(topBar, composer, entityBox, emptyState).forEach { it.alpha = 1f }
+    }
+
     // ------------------------------------------------------------------------------------------------ layout
     private fun build(): View {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = backdrop() }
-        // Top: menu, Clu pill with the real connection state, voice HUD.
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(6)) }
-        top.addView(iconButton("☰", "Conversations and settings") { menu() }, LinearLayout.LayoutParams(dp(46), dp(46)))
-        val pill = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; background = glassBg(); setPadding(dp(14), dp(8), dp(14), dp(8))
-            connDot = View(context).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(C.MUTED) } }
-            addView(connDot, LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(8) })
-            addView(TextView(context).apply { text = "Clu"; textSize = 15f; setTextColor(C.TEXT); typeface = Typeface.DEFAULT_BOLD })
-            connText = TextView(context).apply { textSize = 12f; setTextColor(C.MUTED); setPadding(dp(8), 0, 0, 0) }
-            addView(connText)
-            setOnClickListener { startActivity(Intent(this@MainActivity, ConnectionActivity::class.java)) }
+        val outer = FrameLayout(this).apply { background = backdrop() }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        // Top: navigation, CLU's name with the real connection state, voice.
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(8), dp(14), dp(6)) }
+        top.addView(iconButton(Icon.Kind.MENU, "Conversations and settings") { openDrawer() }, LinearLayout.LayoutParams(dp(46), dp(46)))
+        val title = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            addView(TextView(context).apply { text = core.settings.string(Settings.CLU_NAME).ifBlank { "Clu" }.uppercase(); textSize = 17f; setTextColor(C.TEXT)
+                typeface = Type.heading; letterSpacing = 0.45f; gravity = Gravity.CENTER })
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+                connDot = View(context).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(C.MUTED) } }
+                addView(connDot, LinearLayout.LayoutParams(dp(6), dp(6)).apply { marginEnd = dp(6) })
+                connText = TextView(context).apply { label(C.MUTED, 9.5f) }
+                addView(connText)
+            })
+            setPadding(dp(12), dp(4), dp(12), dp(4))
+            setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); startActivity(Intent(this@MainActivity, ConnectionActivity::class.java)) }
             contentDescription = "Connection status"
         }
-        top.addView(FrameLayout(this).apply { addView(pill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) }, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(iconButton("⬡", "Voice chat") { startActivity(Intent(this, VoiceChatActivity::class.java)) }.apply { setTextColor(C.ACCENT); textSize = 24f },
+        top.addView(FrameLayout(this).apply { addView(title, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) }, LinearLayout.LayoutParams(0, -2, 1f))
+        top.addView(iconButton(Icon.Kind.HEX, "Voice chat") { Sfx.play(SfxSynth.Sound.ACTIVATE); startActivity(Intent(this, VoiceChatActivity::class.java)) },
             LinearLayout.LayoutParams(dp(46), dp(46)))
+        topBar = top
         root.addView(top)
+
+        // CLU's presence: large while the conversation is empty, a compact band above the conversation otherwise.
+        entityBox = FrameLayout(this)
+        entity = EntityView(this)
+        entityBox.addView(entity, FrameLayout.LayoutParams(-1, -1))
+        root.addView(entityBox, LinearLayout.LayoutParams(-1, dp(300)))
 
         // Conversation (or the empty state).
         val stage = FrameLayout(this)
         adapter = Adapter()
         list = ListView(this).apply {
             divider = null; dividerHeight = 0; transcriptMode = ListView.TRANSCRIPT_MODE_NORMAL; isStackFromBottom = true
-            setPadding(dp(12), dp(8), dp(12), dp(8)); clipToPadding = false; selector = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            setPadding(dp(14), dp(4), dp(14), dp(8)); clipToPadding = false; selector = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            isVerticalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER
+            isVerticalFadingEdgeEnabled = true; setFadingEdgeLength(dp(24))
         }
         list.adapter = adapter
         stage.addView(list, FrameLayout.LayoutParams(-1, -1))
         emptyState = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-            val hud = HexHudView(context)
-            addView(hud, LinearLayout.LayoutParams(dp(150), dp(140)))
-            greeting = TextView(context).apply { textSize = 15f; setTextColor(C.MUTED); gravity = Gravity.CENTER; setPadding(0, dp(18), 0, dp(4)) }
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(24), dp(4), dp(24), 0)
+            greeting = TextView(context).apply { label(C.ACCENT, 11f); gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(6)) }
             addView(greeting)
-            addView(TextView(context).apply { text = "How can I help?"; textSize = 26f; setTextColor(C.TEXT); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER })
+            addView(TextView(context).apply { text = "How can I help?"; textSize = 28f; setTextColor(C.TEXT); typeface = Type.light; gravity = Gravity.CENTER; letterSpacing = 0.02f })
+            addView(TextView(context).apply { text = "Type below, or tap the microphone and speak."; textSize = 13f; setTextColor(C.MUTED); gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) })
         }
-        stage.addView(emptyState, FrameLayout.LayoutParams(-1, -1))
+        stage.addView(emptyState, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
         root.addView(stage, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        // Composer: speaker toggle, message field, mic / send / stop.
+        // Images waiting to be sent, with a remove control each.
+        attachStrip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(18), dp(4), dp(18), 0); visibility = View.GONE }
+        root.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(attachStrip) })
+
+        // Composer: attach, speaker toggle, message field, then mic / send / stop.
         val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(6), dp(14), dp(12)) }
         val field = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = glassBg(dp(26).toFloat()); setPadding(dp(6), 0, dp(14), 0)
-            speakerBtn = TextView(context).apply { text = "🔊"; textSize = 16f; gravity = Gravity.CENTER; contentDescription = "Speak replies aloud"
-                setOnClickListener { app.engine.setSpokenReplies(!last.spokenReplies) } }
-            addView(speakerBtn, LinearLayout.LayoutParams(dp(40), dp(48)))
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = panel(Color.argb(225, 10, 16, 22), C.BORDER_HI, 12f, ticks = true); setPadding(dp(4), 0, dp(12), 0)
+            attachBtn = ImageView(context).apply { setImageDrawable(icon(Icon.Kind.IMAGE, C.ACCENT2, 20f)); scaleType = ImageView.ScaleType.CENTER; contentDescription = "Attach an image"
+                Motion.press(this); setOnClickListener { pickImage() } }
+            addView(attachBtn, LinearLayout.LayoutParams(dp(40), dp(48)))
+            speakerBtn = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER; contentDescription = "Speak replies aloud"
+                Motion.press(this); setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); app.engine.setSpokenReplies(!last.spokenReplies) } }
+            addView(speakerBtn, LinearLayout.LayoutParams(dp(36), dp(48)))
             input = EditText(context).apply {
-                hint = "Message Clu"; setHintTextColor(C.MUTED); setTextColor(C.TEXT); textSize = 16f; background = null; maxLines = 5
+                hint = "Message Clu"; setHintTextColor(C.MUTED); setTextColor(C.TEXT); textSize = 16f; background = null; maxLines = 5; typeface = Type.body
+                textCursorDrawable?.setTint(C.ACCENT); highlightColor = Color.argb(90, 92, 225, 255)
                 imeOptions = EditorInfo.IME_ACTION_SEND; setRawInputType(android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
                 setOnEditorActionListener { _, id, _ -> if (id == EditorInfo.IME_ACTION_SEND) { send(); true } else false }
                 addTextChangedListener(object : TextWatcher {
@@ -148,56 +231,169 @@ class MainActivity : BaseActivity() {
             }
             addView(input, LinearLayout.LayoutParams(0, -2, 1f))
         }
-        bar.addView(field, LinearLayout.LayoutParams(0, dp(52), 1f))
-        actionBtn = TextView(this).apply { gravity = Gravity.CENTER; textSize = 20f; setTextColor(Color.WHITE); setOnClickListener { onAction() } }
-        bar.addView(actionBtn, LinearLayout.LayoutParams(dp(52), dp(52)).apply { marginStart = dp(10) })
+        bar.addView(field, LinearLayout.LayoutParams(0, dp(54), 1f))
+        actionBtn = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER; Motion.press(this); setOnClickListener { onAction() } }
+        bar.addView(actionBtn, LinearLayout.LayoutParams(dp(58), dp(58)).apply { marginStart = dp(8) })
+        composer = bar
         root.addView(bar)
-        applySystemInsets(root)
+        outer.addView(root, FrameLayout.LayoutParams(-1, -1))
+
+        // Navigation drawer (hidden until ☰).
+        scrim = View(this).apply { setBackgroundColor(Color.argb(170, 0, 0, 0)); visibility = View.GONE; contentDescription = "Close navigation"
+            setOnClickListener { closeDrawer() } }
+        outer.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+        drawer = buildDrawer()
+        outer.addView(drawer, FrameLayout.LayoutParams(dp(290), -1, Gravity.START))
+        applySystemInsets(outer)
         updateAction()
-        return root
+        return outer
     }
 
-    private fun backdrop() = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.BLACK, Color.parseColor("#05080C"), Color.parseColor("#0A1420")))
+    private fun backdrop() = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.BLACK, Color.parseColor("#03070B"), Color.parseColor("#06101A")))
 
-    private fun iconButton(icon: String, label: String, onClick: () -> Unit) = TextView(this).apply {
-        text = icon; textSize = 20f; gravity = Gravity.CENTER; setTextColor(C.TEXT); background = glassBg(); contentDescription = label
-        setOnClickListener { onClick() }
+    private fun iconButton(kind: Icon.Kind, label: String, onClick: () -> Unit) = ImageView(this).apply {
+        setImageDrawable(icon(kind, C.ACCENT2, 22f)); scaleType = ImageView.ScaleType.CENTER; background = panel(C.SURFACE2, C.BORDER_HI, 8f); contentDescription = label
+        Motion.press(this); setOnClickListener { onClick() }
+    }
+
+    // ------------------------------------------------------------------------------------------------ navigation
+    private val destinations = listOf("New chat", "Conversations", "Voice chat", "Memory", "Diary", "Connection", "Settings")
+
+    private fun buildDrawer(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL; visibility = View.GONE; contentDescription = "Navigation"
+        background = panel(Color.argb(246, 5, 9, 13), C.BORDER_HI, 18f, ticks = true)
+        setPadding(dp(18), dp(18), dp(18), dp(18)); isClickable = true
+        addView(TextView(context).apply { text = "CLU // NAVIGATION"; label(C.ACCENT, 10f); setPadding(0, 0, 0, dp(14)) })
+        destinations.forEachIndexed { i, name ->
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(52)
+                background = panel(Color.argb(120, 14, 22, 30), C.BORDER, 8f); setPadding(dp(14), 0, dp(12), 0)
+                addView(TextView(context).apply { text = "%02d".format(i + 1); label(C.ACCENT, 11f) }, LinearLayout.LayoutParams(dp(34), -2))
+                addView(TextView(context).apply { text = name; textSize = 16f; setTextColor(C.TEXT); typeface = Type.heading; letterSpacing = 0.05f })
+                contentDescription = name; isClickable = true; Motion.press(this)
+                setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); closeDrawer(); go(i) }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        }
+    }
+
+    private fun openDrawer() {
+        Sfx.play(SfxSynth.Sound.ACTIVATE)
+        scrim.visibility = View.VISIBLE; drawer.visibility = View.VISIBLE
+        if (Motion.enabled()) {
+            scrim.alpha = 0f; scrim.animate().alpha(1f).setDuration(220).start()
+            drawer.translationX = -dp(290).toFloat(); drawer.animate().translationX(0f).setDuration(320).setInterpolator(Motion.out).start()
+            Motion.stagger(drawer, 120, 40)
+        }
+    }
+
+    private fun closeDrawer() {
+        val done = { scrim.visibility = View.GONE; drawer.visibility = View.GONE }
+        if (!Motion.enabled()) { done(); return }
+        scrim.animate().alpha(0f).setDuration(180).start()
+        drawer.animate().translationX(-dp(290).toFloat()).setDuration(220).setInterpolator(Motion.inOut).withEndAction(done).start()
+    }
+
+    private fun go(i: Int) {
+        when (i) {
+            0 -> app.openConversation(null)
+            1 -> startActivity(Intent(this, ConversationsActivity::class.java))
+            2 -> startActivity(Intent(this, VoiceChatActivity::class.java))
+            3 -> startActivity(Intent(this, MemoryActivity::class.java))
+            4 -> startActivity(Intent(this, DiaryActivity::class.java))
+            5 -> startActivity(Intent(this, ConnectionActivity::class.java))
+            6 -> startActivity(Intent(this, SettingsActivity::class.java))
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------ attachments
+    private fun pickImage() {
+        Sfx.play(SfxSynth.Sound.CLICK)
+        if (app.engine.server) { toast("Images stay on this phone: attach them when this device answers (Connection → Always this device)."); return }
+        runCatching { startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_IMAGE) }
+            .onFailure { toast("No app to choose images from") }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data ?: return
+        if (requestCode != REQ_IMAGE || resultCode != RESULT_OK) return
+        scope.launch {
+            val a = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { ChatImages.importImage(this@MainActivity, uri) }.getOrNull() }
+            if (a == null) toast("That image couldn't be opened") else { pending += a; showPending() }
+        }
+    }
+
+    private fun showPending() {
+        attachStrip.removeAllViews()
+        attachStrip.visibility = if (pending.isEmpty()) View.GONE else View.VISIBLE
+        for (a in pending.toList()) attachStrip.addView(FrameLayout(this).apply {
+            background = panel(C.SURFACE2, C.ACCENT, 6f)
+            addView(ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setImageBitmap(ChatImages.thumb(a.uri, dp(64))); contentDescription = "Image to send: ${a.name}" },
+                FrameLayout.LayoutParams(dp(60), dp(60), Gravity.CENTER))
+            addView(ImageView(context).apply { setImageDrawable(icon(Icon.Kind.CLOSE, C.TEXT, 14f)); scaleType = ImageView.ScaleType.CENTER; contentDescription = "Remove image"
+                background = panel(Color.argb(220, 0, 0, 0), C.BORDER_HI, 3f); setOnClickListener { pending.remove(a); showPending() } }, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.TOP or Gravity.END))
+        }, LinearLayout.LayoutParams(dp(66), dp(66)).apply { marginEnd = dp(8) })
+        if (pending.isNotEmpty()) attachStrip.addView(TextView(this).apply {
+            text = "CLU keeps the image with your message but can't see images yet (no vision model in this build)."; textSize = 11f; setTextColor(C.MUTED)
+            maxWidth = dp(200); setPadding(dp(4), 0, 0, 0)
+        })
+        updateAction()
     }
 
     // ------------------------------------------------------------------------------------------------ state
     private fun render(s: EngineUi) {
+        val prev = last
         last = s
         val (dot, label) = when {
-            !s.server -> C.MUTED to "on-device"
+            !s.server -> C.TEAL to "on-device"
             s.link == Link.CONNECTED && s.phase == AgentPhase.ABSENT -> C.WARN to "waiting for agent"
-            s.link == Link.CONNECTED -> C.ACCENT to ""
-            s.link == Link.CONNECTING || s.link == Link.RECONNECTING -> C.WARN to "connecting…"
+            s.link == Link.CONNECTED -> C.ACCENT to "linked to pc"
+            s.link == Link.CONNECTING || s.link == Link.RECONNECTING -> C.WARN to "connecting"
             s.link == Link.NOT_CONFIGURED -> C.ERROR to "not set up"
             else -> C.ERROR to "offline"
         }
-        (connDot.background as GradientDrawable).setColor(dot); connText.text = label; connText.visibility = if (label.isEmpty()) View.GONE else View.VISIBLE
-        speakerBtn.alpha = if (s.spokenReplies) 1f else 0.4f
+        (connDot.background as GradientDrawable).setColor(dot); connText.text = label; connText.setTextColor(if (dot == C.ERROR) C.ERROR else C.MUTED)
+        speakerBtn.setImageDrawable(icon(if (s.spokenReplies) Icon.Kind.SPEAKER else Icon.Kind.SPEAKER_OFF, if (s.spokenReplies) C.ACCENT2 else C.MUTED, 20f))
+        speakerBtn.contentDescription = if (s.spokenReplies) "Speak replies aloud" else "Speak replies aloud (off)"
+        attachBtn.alpha = if (s.server) 0.4f else 1f
         input.hint = if (s.micOn) (s.userLive.ifBlank { "Listening…" }) else "Message Clu"
+        val connected = !s.server || s.link == Link.CONNECTED
+        entity.mode = when {
+            !connected -> EntityView.Mode.OFFLINE
+            s.phase == AgentPhase.SPEAKING -> EntityView.Mode.SPEAKING
+            s.thinking || s.phase == AgentPhase.THINKING || s.agentLive.isNotBlank() -> EntityView.Mode.THINKING
+            s.micOn -> EntityView.Mode.LISTENING
+            else -> EntityView.Mode.IDLE
+        }
+        entity.level = if (entity.mode == EntityView.Mode.SPEAKING) s.agentLevel else s.micLevel
+        entity.contentDescription = "Clu: " + entity.mode.name.lowercase()
+        // A reply finished while nothing is speaking it: a soft notification tone (sounds stay silent while speaking/listening).
+        if (wasBusy && !s.busy && s.error == null && !s.spokenReplies) Sfx.play(SfxSynth.Sound.NOTIFY)
+        wasBusy = s.busy
         updateAction()
         showItems()
     }
 
     private fun updateAction() {
-        val typing = input.text.isNotBlank()
-        val (icon, desc) = when {
-            last.busy -> "■" to "Stop"
-            typing -> "↑" to "Send"
-            last.micOn -> "🎙" to "Stop listening"
-            else -> "🎤" to "Speak"
+        val typing = input.text.isNotBlank() || pending.isNotEmpty()
+        val (kind, desc) = when {
+            last.busy -> Icon.Kind.STOP to "Stop"
+            typing -> Icon.Kind.SEND to "Send"
+            last.micOn -> Icon.Kind.MIC_ON to "Stop listening"
+            else -> Icon.Kind.MIC to "Speak"
         }
-        actionBtn.text = icon; actionBtn.contentDescription = desc
-        actionBtn.background = if (last.busy || typing || last.micOn) accentBg() else glassBg()
+        val active = last.busy || typing || last.micOn
+        actionBtn.setImageDrawable(icon(kind, if (active) C.ACCENT2 else C.TEXT, 22f)); actionBtn.contentDescription = desc
+        if (activeBg != active) { actionBg = HexButtonBg(resources.displayMetrics.density, active); activeBg = active; actionBtn.background = actionBg }
+        actionBg.level = if (last.micOn) last.micLevel else 0f
     }
+    private var activeBg: Boolean? = null
 
     private fun onAction() {
         when {
-            last.busy -> app.engine.stop()
-            input.text.isNotBlank() -> send()
+            last.busy -> { Sfx.play(SfxSynth.Sound.CLICK); app.engine.stop() }
+            input.text.isNotBlank() || pending.isNotEmpty() -> send()
             else -> toggleMic()
         }
     }
@@ -220,18 +416,24 @@ class MainActivity : BaseActivity() {
             AlertDialog.Builder(this).setTitle("Speak to Clu")
                 .setMessage("Clu needs the microphone to hear you. Audio goes only to CLU on your PC (or stays on this device when it answers offline).")
                 .setPositiveButton("Allow microphone") { _, _ -> requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1) }
-                .setNegativeButton("Not now", null).show()
+                .setNegativeButton("Not now", null).show().styled()
             return
         }
-        // Voice in, answer in the chat (spoken too only if the speaker is on).
-        app.engine.setMic(!last.micOn)
+        // Voice in, answer in the chat (spoken too only if the speaker is on). The listening tone plays just before the
+        // microphone opens, so it is never part of what is recognised.
+        if (!last.micOn && Sfx.play(SfxSynth.Sound.LISTEN)) actionBtn.postDelayed({ app.engine.setMic(true) }, 150)
+        else app.engine.setMic(!last.micOn)
     }
 
     private fun send() {
-        val text = input.text.toString().trim()
-        if (text.isEmpty() || last.busy) return
+        var text = input.text.toString().trim()
+        val images = pending.toList()
+        if ((text.isEmpty() && images.isEmpty()) || last.busy) return
+        // An image on its own is a question about it (CLU then says honestly that it can't see images yet).
+        if (text.isEmpty()) text = "What's in this photo?"
         lastTyped = text
-        if (app.engine.send(text)) input.setText("")
+        Sfx.play(SfxSynth.Sound.PROCESS)
+        if (app.engine.send(text, images)) { input.setText(""); pending.clear(); showPending() }
         scrollToEnd()
     }
 
@@ -262,30 +464,69 @@ class MainActivity : BaseActivity() {
         val wasAtEnd = list.lastVisiblePosition >= adapter.count - 2
         adapter.items = msgItems + extra
         adapter.notifyDataSetChanged()
-        emptyState.visibility = if (adapter.items.isEmpty()) View.VISIBLE else View.GONE
+        val empty = adapter.items.isEmpty()
+        emptyState.visibility = if (empty) View.VISIBLE else View.GONE
+        setCompact(!empty)
+        if (firstRender) { adapter.items.forEach { seen += key(it) }; firstRender = false }
         if (wasAtEnd) scrollToEnd()
     }
 
-    private fun scrollToEnd() = list.post { if (adapter.count > 0) list.setSelection(adapter.count - 1) }
+    /** The entity shrinks into a band above the conversation once there is one (and grows back for a new chat). */
+    private fun setCompact(c: Boolean) {
+        if (compact == c) return
+        val first = compact == null
+        compact = c
+        val target = dp(if (c) 104 else 300)
+        val lp = entityBox.layoutParams
+        entity.compact = c
+        if (first || !Motion.enabled()) { lp.height = target; entityBox.layoutParams = lp; return }
+        android.animation.ValueAnimator.ofInt(lp.height, target).apply {
+            duration = 420; interpolator = Motion.inOut
+            addUpdateListener { lp.height = it.animatedValue as Int; entityBox.layoutParams = lp }
+        }.start()
+    }
+
+    private fun key(it: Item) = when (it) {
+        is Item.Msg -> "m:" + it.m.id
+        is Item.Live -> "live"
+        is Item.Problem -> "p:" + it.text
+        is Item.Suggestion -> "s:" + it.p.id
+    }
+
+    private fun scrollToEnd() = list.post { if (adapter.count > 0) { if (Motion.enabled()) list.smoothScrollToPosition(adapter.count - 1) else list.setSelection(adapter.count - 1) } }
 
     private inner class Adapter : BaseAdapter() {
         var items: List<Item> = emptyList()
         override fun getCount() = items.size
         override fun getItem(position: Int) = items[position]
         override fun getItemId(position: Int) = position.toLong()
-        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View = when (val it = items[position]) {
-            is Item.Msg -> if (it.m.role == Role.USER) userRow(it.m) else cluRow(it.m.content, badge(it.m), muted = false, msg = it.m)
-            is Item.Live -> cluRow(if (it.thinking) it.text.ifBlank { "Thinking…" } else it.text, null, muted = it.thinking)
-            is Item.Problem -> problemRow(it.text, it.retry)
-            is Item.Suggestion -> suggestionRow(it.p)
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+            val item = items[position]
+            val v = when (item) {
+                is Item.Msg -> if (item.m.role == Role.USER) userRow(item.m) else cluRow(item.m.content, badge(item.m), muted = false, msg = item.m)
+                is Item.Live -> if (item.thinking) thinkingRow(item.text) else cluRow(item.text, null, muted = false, streaming = true)
+                is Item.Problem -> problemRow(item.text, item.retry)
+                is Item.Suggestion -> suggestionRow(item.p)
+            }
+            // New rows arrive with the reference's motion: a short rise and fade (history and the streaming row don't).
+            val k = key(item)
+            if (k != "live" && seen.add(k)) Motion.rise(v, 0, if (item is Item.Msg && item.m.role == Role.USER) 6f else 10f, 300)
+            return v
         }
     }
 
+    private fun time(ms: Long) = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(ms))
+
     private fun userRow(m: Message): View = LinearLayout(this).apply {
-        gravity = Gravity.END; setPadding(dp(48), dp(6), 0, dp(6))
+        orientation = LinearLayout.VERTICAL; gravity = Gravity.END; setPadding(dp(56), dp(8), 0, dp(6))
+        addView(TextView(context).apply { text = "YOU · ${time(m.createdAt)}"; label(C.MUTED, 9.5f); setPadding(0, 0, dp(4), dp(4)) })
+        m.meta.attachments.filter { it.kind == "image" }.forEach { a ->
+            addView(ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setImageBitmap(ChatImages.thumb(a.uri, dp(200))); contentDescription = "Image: ${a.name}"
+                background = panel(C.SURFACE2, C.BORDER_HI, 8f); setPadding(dp(3), dp(3), dp(3), dp(3)) }, LinearLayout.LayoutParams(dp(180), dp(180)).apply { bottomMargin = dp(6) })
+        }
         addView(TextView(context).apply {
-            this.text = m.content; textSize = 16f; setTextColor(C.TEXT); setLineSpacing(0f, 1.15f)
-            background = roundBg(C.SURFACE2, dp(20).toFloat(), C.BORDER); setPadding(dp(16), dp(11), dp(16), dp(11))
+            this.text = m.content; textSize = 15.5f; setTextColor(C.TEXT); setLineSpacing(0f, 1.18f)
+            background = panel(Color.argb(215, 16, 30, 40), Color.argb(150, 168, 232, 255), 10f); setPadding(dp(14), dp(10), dp(16), dp(11))
             setOnLongClickListener { messageMenu(m); true }
         })
     }
@@ -294,17 +535,16 @@ class MainActivity : BaseActivity() {
     private fun badge(m: Message): String? =
         listOfNotNull(ai.clu.core.config.UiPolicy.sourceBadge(core.settings, m.meta), "interrupted".takeIf { m.meta.interrupted }).joinToString(" · ").ifEmpty { null }
 
-    private fun cluRow(text: String, sub: String?, muted: Boolean = false, msg: Message? = null): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), dp(28), dp(8))
-        addView(TextView(context).apply { this.text = "⬡"; textSize = 18f; setTextColor(C.ACCENT); gravity = Gravity.CENTER_HORIZONTAL },
-            LinearLayout.LayoutParams(dp(30), -2))
+    /** CLU's reply: a cyan rail, CLU's label and time, the reply rendered from Markdown, then its source line. */
+    private fun cluRow(text: String, sub: String?, muted: Boolean = false, msg: Message? = null, streaming: Boolean = false): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), dp(20), dp(8))
+        addView(View(context).apply { background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(C.ACCENT, Color.argb(0, 92, 225, 255))) },
+            LinearLayout.LayoutParams(dp(2), -1).apply { marginEnd = dp(12) })
         addView(LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            addView(TextView(context).apply {
-                this.text = text; textSize = 16f; setTextColor(if (muted) C.MUTED else C.TEXT); setLineSpacing(0f, 1.2f)
-                setOnLongClickListener { if (msg != null) messageMenu(msg) else copy(text); true }
-            })
-            sub?.let { addView(TextView(context).apply { this.text = it; textSize = 11f; setTextColor(C.MUTED); setPadding(0, dp(4), 0, 0) }) }
+            addView(TextView(context).apply { this.text = core.settings.string(Settings.CLU_NAME).ifBlank { "Clu" }.uppercase() + (msg?.let { " · " + time(it.createdAt) } ?: if (streaming) " · RESPONDING" else ""); label(C.ACCENT, 9.5f); setPadding(0, 0, 0, dp(5)) })
+            addView(markdownView(text, if (muted) C.MUTED else C.TEXT, cursor = streaming, onLong = { if (msg != null) messageMenu(msg) else copy(text) }))
+            sub?.let { addView(TextView(context).apply { this.text = it; label(C.MUTED, 9.5f); setPadding(0, dp(4), 0, 0) }) }
             // Answer first: the sources are one collapsed line ("Sources (3)" / "Source: GDACS …"); tapping it lists them
             // exactly as the provider returned them, and tapping one opens it in the browser.
             val sources = msg?.meta?.sources.orEmpty()
@@ -312,11 +552,13 @@ class MainActivity : BaseActivity() {
                 val list = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE
                     sources.forEachIndexed { i, src -> addView(sourceRow(i + 1, src)) } }
                 addView(TextView(context).apply {
-                    this.text = "$summary ▸"; textSize = 12f; setTextColor(C.MUTED); setPadding(0, dp(6), 0, dp(6)); minimumHeight = dp(32)
+                    this.text = "$summary ▸"; textSize = 12f; setTextColor(C.ACCENT2); typeface = Type.mono; setPadding(0, dp(6), 0, dp(6)); minimumHeight = dp(32)
                     contentDescription = "$summary. Double-tap to show."
                     setOnClickListener {
                         val open = list.visibility != View.VISIBLE
+                        Sfx.play(SfxSynth.Sound.CLICK)
                         list.visibility = if (open) View.VISIBLE else View.GONE
+                        if (open) Motion.stagger(list, 0, 40)
                         this.text = "$summary ${if (open) "▾" else "▸"}"
                         contentDescription = "$summary. Double-tap to ${if (open) "hide" else "show"}."
                     }
@@ -324,6 +566,13 @@ class MainActivity : BaseActivity() {
                 addView(list)
             }
         }, LinearLayout.LayoutParams(0, -2, 1f))
+    }
+
+    /** Thinking: the scan bar and what CLU is doing (its real status when the device answers). */
+    private fun thinkingRow(status: String): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(14), dp(20), dp(12))
+        addView(ProcessingBar(context))
+        addView(TextView(context).apply { this.text = status.ifBlank { "Thinking…" }; textSize = 12.5f; setTextColor(C.MUTED); typeface = Type.mono; setPadding(dp(12), 0, 0, 0) })
     }
 
     private fun sourceRow(n: Int, src: ai.clu.core.conversation.SourceRef): View = LinearLayout(this).apply {
@@ -380,32 +629,20 @@ class MainActivity : BaseActivity() {
     }
 
     private fun problemRow(text: String, retry: String?): View = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL; setPadding(dp(30), dp(6), dp(16), dp(6))
-        addView(TextView(context).apply { this.text = text; textSize = 14f; setTextColor(C.WARN) })
-        if (retry != null) addView(TextView(context).apply {
-            this.text = "Retry"; textSize = 14f; setTextColor(C.ACCENT); setPadding(0, dp(6), 0, dp(6))
-            setOnClickListener { app.liveKit.live.onError(null); input.setText(retry); send() }
+        orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(16), dp(8))
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL; background = panel(Color.argb(170, 40, 26, 6), Color.argb(180, 227, 167, 47), 8f); setPadding(dp(12), dp(8), dp(12), dp(8))
+            addView(TextView(context).apply { this.text = "NOTICE"; label(C.WARN, 9.5f) })
+            addView(TextView(context).apply { this.text = text; textSize = 14f; setTextColor(C.TEXT); setPadding(0, dp(3), 0, 0) })
+            if (retry != null) addView(TextView(context).apply {
+                this.text = "Retry"; textSize = 14f; setTextColor(C.ACCENT); typeface = Type.headingBold; setPadding(0, dp(8), dp(8), dp(4))
+                setOnClickListener { Sfx.play(SfxSynth.Sound.CLICK); app.liveKit.live.onError(null); input.setText(retry); send() }
+            })
         })
     }
 
     private fun copy(text: String) {
         getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Clu", text)); toast("Copied")
-    }
-
-    // ------------------------------------------------------------------------------------------------ menu
-    private fun menu() {
-        val items = listOf("New chat", "Conversations", "Voice chat", "Memory", "Diary", "Connection", "Settings")
-        choose("Clu", items) { i ->
-            when (i) {
-                0 -> app.openConversation(null)
-                1 -> startActivity(Intent(this, ConversationsActivity::class.java))
-                2 -> startActivity(Intent(this, VoiceChatActivity::class.java))
-                3 -> startActivity(Intent(this, MemoryActivity::class.java))
-                4 -> startActivity(Intent(this, DiaryActivity::class.java))
-                5 -> startActivity(Intent(this, ConnectionActivity::class.java))
-                6 -> startActivity(Intent(this, SettingsActivity::class.java))
-            }
-        }
     }
 
     private fun onboarding() {
@@ -420,5 +657,11 @@ class MainActivity : BaseActivity() {
                 core.store.setMeta("onboarded", "1")
                 startActivity(Intent(this, ConnectionActivity::class.java))
             }.show()
+    }
+
+    companion object {
+        private const val REQ_IMAGE = 41
+        /** The start-up sequence runs once per launch of the app, not on every return to the chat. */
+        @Volatile var booted = false
     }
 }

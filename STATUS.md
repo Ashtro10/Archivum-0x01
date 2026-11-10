@@ -17,6 +17,26 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-10 (1.12.1): start-up crash fixed
+
+**Crash:** 1.12.0 crashed on the owner's vivo I2304 (Android 16) when the start-up sequence ended:
+`IllegalStateException: DecorView contains null child at index 2 when traversal in dispatchGetDisplayList`.
+
+**Cause:** the boot overlay finished from inside its own `onDraw`, and the chat screen then removed it from the
+window during that same draw pass.
+
+**Fix:**
+* The overlay only hides itself during the draw.
+* Its removal and the interface's entrance run on the next main-loop message.
+* It is attached to the activity's content view rather than the DecorView.
+
+**Tests:**
+* New regression test `InterfaceTest#theStartUpSequenceIsNeverRemovedDuringADrawPass`. It fails on 1.12.0's behaviour
+  ("child removed during a draw pass") and passes on 1.12.1.
+* Core 702, app 97: 0 failures.
+
+**Not yet confirmed on the phone.**
+
 ## 2026-11-09 (1.12.0): interface redesign
 
 The owner asked for a complete redesign: TRON: Legacy restraint, the motion language of eDEX-UI (studied from its

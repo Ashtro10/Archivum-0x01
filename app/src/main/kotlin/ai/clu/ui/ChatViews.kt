@@ -156,7 +156,14 @@ class BootOverlay(context: Context, private val lines: List<String>, private val
     /** Ends the sequence now (a tap, or reduced motion). */
     fun skip() { if (skipAt < 0) { skipAt = now(); invalidate(); postDelayed({ finish() }, 220) } }
 
-    private fun finish() { if (!finished) { finished = true; visibility = GONE; onDone() } }
+    /**
+     * Ends the sequence. It is often reached from inside [onDraw]: removing a view while the window is building its
+     * display list crashes Android ("DecorView contains null child … in dispatchGetDisplayList", seen on Android 16),
+     * so the overlay only hides itself here, and its removal and the interface's entrance run on the next message.
+     */
+    private fun finish() { if (!finished) { finished = true; visibility = GONE; post { onDone() } } }
+    /** True once the sequence has ended (its removal may still be pending). */
+    val isFinished get() = finished
     private fun now() = (System.nanoTime() - t0) / 1e9f
 
     override fun onDraw(c: Canvas) {

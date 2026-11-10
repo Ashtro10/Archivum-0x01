@@ -115,7 +115,7 @@ class MainActivity : BaseActivity() {
      * frame; a tap anywhere ends the sequence.
      */
     private fun startUp() {
-        val content = window.decorView as ViewGroup
+        val content = findViewById<ViewGroup>(android.R.id.content)
         if (booted || !Motion.enabled()) { booted = true; entrance(); return }
         booted = true
         val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
@@ -141,7 +141,8 @@ class MainActivity : BaseActivity() {
 
     /** The interface opens: the bars out of a line, the entity and the greeting rising in. */
     private fun entrance() {
-        bootOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }; bootOverlay = null
+        // Never removed during a draw pass: removal is posted (BootOverlay.finish already runs this from a posted message).
+        bootOverlay?.let { o -> o.visibility = View.GONE; o.post { (o.parent as? ViewGroup)?.removeView(o) } }; bootOverlay = null
         Motion.expand(topBar, 0, 380)
         Motion.rise(entityBox, 140, 14f, 520)
         Motion.rise(emptyState, 260)

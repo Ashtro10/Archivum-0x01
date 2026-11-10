@@ -166,4 +166,33 @@ class InterfaceTest {
         assertTrue(all(m.window.decorView).any { it.contentDescription == "Image: photo.png" })
         app.core.settings.set(Settings.UI_MOTION, "full")
     }
+
+    /**
+     * 1.12.0 crashed on a vivo I2304 (Android 16) at the end of the start-up sequence: "DecorView contains null child
+     * at index 2 when traversal in dispatchGetDisplayList, the view may have been removed". The overlay finished from
+     * inside its own onDraw and was removed from the window during the draw pass. Here a parent fails exactly as
+     * Android does if a child is removed while it draws; the sequence must still end and be removed afterwards.
+     */
+    @Test fun theStartUpSequenceIsNeverRemovedDuringADrawPass() {
+        val a = Robolectric.buildActivity(SettingsActivity::class.java).setup().get(); idle()
+        var drawing = false
+        val guard = object : android.widget.FrameLayout(a) {
+            override fun dispatchDraw(canvas: android.graphics.Canvas) { drawing = true; try { super.dispatchDraw(canvas) } finally { drawing = false } }
+            override fun onViewRemoved(child: View?) { check(!drawing) { "child removed during a draw pass" }; super.onViewRemoved(child) }
+        }
+        var done = 0
+        lateinit var overlay: BootOverlay
+        overlay = BootOverlay(a, listOf("core ... online")) { done++; guard.removeView(overlay) }
+        guard.addView(overlay, android.view.ViewGroup.LayoutParams(-1, -1))
+        a.findViewById<android.view.ViewGroup>(android.R.id.content).addView(guard, android.view.ViewGroup.LayoutParams(-1, -1))
+        guard.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2000, View.MeasureSpec.EXACTLY))
+        guard.layout(0, 0, 1080, 2000)
+        Thread.sleep(1700)                                                  // past the sequence's end (it keeps real time)
+        guard.draw(android.graphics.Canvas(Bitmap.createBitmap(1080, 2000, Bitmap.Config.ARGB_8888)))   // finishes inside onDraw
+        assertTrue("the sequence ended", overlay.isFinished)
+        assertEquals("ended once, not yet removed during the draw", 0, done)
+        idle()
+        assertEquals("then removed, after the draw pass", 1, done)
+        assertNull(overlay.parent)
+    }
 }

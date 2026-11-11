@@ -23,14 +23,22 @@ class LoopbackServer(private val maxBody: Int = 50 * 1024 * 1024, private val ha
     @Volatile private var running = false
 
     val port: Int get() = socket?.localPort ?: -1
+    /** The address actually listened on (127.0.0.1). */
+    val address: InetAddress? get() = socket?.inetAddress
+    /** Started and still accepting connections. */
+    val alive: Boolean get() = running && socket?.isClosed == false
+
+    companion object { val LOOPBACK_V4: InetAddress = InetAddress.getByAddress("localhost", byteArrayOf(127, 0, 0, 1)) }
 
     @Synchronized fun start(port: Int = 0): Int {
         if (running) return this.port
-        val s = ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 32) }
+        // Exactly 127.0.0.1, never InetAddress.getLoopbackAddress(): on Android that is the IPv6 ::1, and a socket bound
+        // there refuses the WebView's http://127.0.0.1 (ERR_CONNECTION_REFUSED on the device; desktop JVMs return 127.0.0.1).
+        val s = ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(LOOPBACK_V4, port), 32) }
         socket = s; running = true
         val p = Executors.newFixedThreadPool(8) { r -> Thread(r, "clu-loopback").apply { isDaemon = true } }; pool = p
         Thread({
-            while (running) {
+            while (running && !s.isClosed) {
                 val c = runCatching { s.accept() }.getOrNull() ?: continue
                 p.execute { serve(c) }
             }

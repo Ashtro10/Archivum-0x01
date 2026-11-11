@@ -17,6 +17,18 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-11 (1.13.2, PC 0.11.1 unchanged): tablet window fixed ("Web page not available")
+
+- **Symptom:** on the owner's tablet, 1.13.0 and 1.13.1 showed "net::ERR_CONNECTION_REFUSED" for `http://127.0.0.1:<port>`
+  instead of CLU's window.
+- **Cause:** the app's local server bound to `InetAddress.getLoopbackAddress()`. On Android that is the IPv6 `::1`
+  (desktop Java returns 127.0.0.1, which is why the JVM and Robolectric tests passed). A socket bound to `::1` refuses
+  `127.0.0.1`.
+- **Fix:** bind exactly 127.0.0.1. If the server ever stops (e.g. the system reclaims memory), the window restarts it
+  and reloads instead of showing an error page.
+- **Regression test:** `LoopbackServerTest.listensOnExactly127001`.
+- **Lesson:** platform defaults differ between desktop Java and Android. Network addresses are now explicit.
+
 ## 2026-11-11 (1.13.1, PC 0.11.1): one CLU, two first-class platforms
 
 - **Shared code:**

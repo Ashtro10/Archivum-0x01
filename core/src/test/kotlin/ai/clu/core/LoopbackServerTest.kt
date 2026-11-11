@@ -64,6 +64,18 @@ class LoopbackServerTest {
         }
     }
 
+    @Test fun listensOnExactly127001() {
+        // Regression (1.13.1 on the Xiaomi Pad 6): bound to getLoopbackAddress(), which is ::1 on Android, so the WebView's
+        // http://127.0.0.1 was refused. The address must be the IPv4 loopback on every platform.
+        val s = LoopbackServer { it.json(200, "{}") }
+        s.start()
+        try {
+            assertEquals("127.0.0.1", s.address?.hostAddress); assertTrue(s.alive)
+            java.net.Socket("127.0.0.1", s.port).close()
+        } finally { s.stop() }
+        assertFalse(s.alive)
+    }
+
     @Test fun listensOnLoopbackOnly() {
         val s = LoopbackServer { it.json(200, "{}") }
         s.start()

@@ -56,6 +56,13 @@ class ShellActivity : BaseActivity() {
         }
         val origin = "http://127.0.0.1:$port"
         w.webViewClient = object : WebViewClient() {
+            // The page could not reach CLU's local server (it was stopped, e.g. after the system reclaimed memory):
+            // restart it and load the window again with a fresh launch code, once; never leave an error page.
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                if (!request.isForMainFrame || reloaded) return
+                reloaded = true
+                view.post { reload(view) }
+            }
             // Only CLU's own pages load here; links in answers open in the browser.
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
@@ -71,6 +78,14 @@ class ShellActivity : BaseActivity() {
         w.loadUrl("$origin/#code=${host.newLaunchCode()}")
     }
 
+    private var reloaded = false
+
+    /** (Re)starts the local server if needed and loads the window from it. */
+    private fun reload(view: WebView) {
+        val (h, p) = runCatching { ShellServer.ensure(app) }.getOrElse { return classic(fallback = true) }
+        view.loadUrl("http://127.0.0.1:$p/#code=${h.newLaunchCode()}")
+    }
+
     private fun version() = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"
 
     private fun classic(fallback: Boolean = false) {
@@ -78,7 +93,10 @@ class ShellActivity : BaseActivity() {
         if (fallback) finish()
     }
 
-    override fun onResume() { super.onResume(); web?.onResume(); app.engine.screenVisible("shell", true) }
+    override fun onResume() {
+        super.onResume(); web?.onResume(); app.engine.screenVisible("shell", true)
+        if (!ShellServer.alive()) web?.let { reloaded = false; reload(it) } // the server went away while CLU was in the background
+    }
     override fun onPause() { web?.onPause(); app.engine.screenVisible("shell", false); super.onPause() }
     override fun onDestroy() {
         web?.let { it.removeJavascriptInterface("CluNative"); it.destroy() }; web = null
@@ -122,8 +140,10 @@ object ShellServer {
     @Volatile private var running: Pair<ShellHost, Int>? = null
     private var server: LoopbackServer? = null
 
+    fun alive() = server?.alive == true
+
     @Synchronized fun ensure(app: CluApp): Pair<ShellHost, Int> {
-        running?.let { return it }
+        running?.let { r -> if (server?.alive == true) return r else { runCatching { server?.stop() }; running = null; server = null } }
         val version = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull() ?: "?"
         val host = ShellHost(app.core, version,
             asset = { name -> runCatching { app.assets.open("shell/$name").use { it.readBytes() } }.getOrNull()

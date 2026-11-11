@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-11_
 
 ## Current state
 
@@ -16,6 +16,21 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-11-11 (1.13.0, PC 0.11.0): the PC window on the tablet
+
+- **Launcher:** the app now opens CLU's PC interface: the same shell, with the Primus head, served from the APK.
+- **Paired with a PC:** the PC answers, with real conversations, memory, models and settings. Voice uses the app's
+  native session.
+- **Alone or offline:** the tablet answers on its own.
+- **Also new:** a calculator for spoken arithmetic, an OpenAI-compatible endpoint on the PC for local tools, and
+  speech chunks that keep phrases whole.
+- **Tests:** core 720, app 99, desktop 143. 0 failures.
+- **Not verified on hardware:** Pad 6 frame rate, memory and battery; voice through the native bridge on a real
+  tablet; Wi-Fi forwarding to a real PC.
+
+See [docs/IMPLEMENTATION_LOG_1.13.md](docs/IMPLEMENTATION_LOG_1.13.md) and the checklist
+[DEVICE_ACCEPTANCE §T](docs/DEVICE_ACCEPTANCE.md).
 
 ## 2026-11-10 (1.12.1): start-up crash fixed
 

@@ -220,7 +220,20 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
                     val b = json.toString().toByteArray(); ex.responseHeaders.set("Content-Type", "application/json"); ex.sendResponseHeaders(code, b.size.toLong()); ex.responseBody.use { it.write(b) }
                 } catch (e: Exception) { runCatching { ex.sendResponseHeaders(500, -1) } } finally { ex.close() }
             }
-            s.executor = Executors.newFixedThreadPool(2) { r -> Thread(r, "clu-phone-token").apply { isDaemon = true } }; s.start(); lan = s
+            // The tablet's shell: the same /v1 API as the PC window, for paired devices only.
+            s.createContext("/v1/") { ex ->
+                try {
+                    val dev = deviceFor(ex.requestHeaders.getFirst("Authorization"), ex.remoteAddress.address.hostAddress)
+                    val api = remoteApi
+                    when {
+                        api == null -> { ex.sendResponseHeaders(503, -1) }
+                        dev == null -> { val b = err("Unknown or revoked device key (or too many wrong keys: wait a minute).").toString().toByteArray()
+                            ex.responseHeaders.set("Content-Type", "application/json"); ex.sendResponseHeaders(401, b.size.toLong()); ex.responseBody.use { it.write(b) } }
+                        else -> api(ex, dev)
+                    }
+                } catch (e: Exception) { runCatching { ex.sendResponseHeaders(500, -1) } } finally { ex.close() }
+            }
+            s.executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-phone-api").apply { isDaemon = true } }; s.start(); lan = s
             log("voice: phone token endpoint on http://$ip:$port/token"); null
         } catch (e: IOException) { "The phone endpoint could not listen on $ip:$port (${e.message})." }
     }
@@ -235,6 +248,19 @@ class VoiceService(private val core: CluCore, private val paths: DesktopPaths, p
         if (now == bound) return false
         log("voice: this PC's network address changed (${bound ?: "none"} -> $now); phone endpoint moved")
         applyPhoneAccess(); return true
+    }
+
+    /** Routes the paired devices' API calls (set by the host): the tablet's shell is served this PC's real data. */
+    @Volatile var remoteApi: ((com.sun.net.httpserver.HttpExchange, String) -> Unit)? = null
+
+    /** The paired device a request's device key belongs to, or null (wrong keys are rate-limited per address, as for /token). */
+    fun deviceFor(auth: String?, remote: String): String? {
+        val now = System.currentTimeMillis()
+        val tries = badKeys.getOrPut(remote) { mutableListOf() }.apply { removeAll { now - it > 60_000 } }
+        if (tries.size >= 5) return null
+        val key = auth?.removePrefix("Bearer ")?.trim().orEmpty()
+        val dev = devices().firstOrNull { key.isNotEmpty() && it.keyHash == sha(key) } ?: run { tries += now; return null }
+        return dev.id
     }
 
     fun phoneEndpoint(): String? = lan?.address?.let { "http://${it.address.hostAddress}:${it.port}/token" }

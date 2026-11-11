@@ -81,6 +81,7 @@ object Host {
         } }
         val api = ApiServer(core, governor, token, port, VERSION, hostConfig = hostConfig, maintenance = maintenance, paths = paths,
             platform = platform.llm, lifecycle = lifecycle, autostart = autostart, voice = voice, evolution = evolution?.routes, capabilities = capabilities).also { apiRef = it }.start()
+        voice.remoteApi = { ex, device -> api.handleRemote(ex, device) } // paired tablets/phones reach the same API
         voice.applyPhoneAccess()?.let { log("voice: $it") }
         ticker.scheduleWithFixedDelay({ runCatching { voice.rebindIfAddressChanged() } }, 15, 15, TimeUnit.SECONDS)
         return RunningHost(core, api, governor, paths, token, maintenance, lifecycle, hostLog, voice) {

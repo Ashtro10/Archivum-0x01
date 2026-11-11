@@ -137,11 +137,26 @@ class ApiServer(
         return if (bytes.size > limit) null else bytes
     }
 
-    private fun handle(ex: HttpExchange) {
+    /**
+     * A request from a paired tablet or phone on the local network, already authenticated with its device key by the
+     * phone endpoint (VoiceService). It reaches the same routes as the window, so the tablet's shell shows this PC's
+     * real data, with these exceptions: no browser may call it (an Origin header is refused, which defeats cross-site
+     * requests from web pages on the network), and actions that only make sense at the PC are not offered remotely.
+     */
+    fun handleRemote(ex: HttpExchange, device: String) {
+        val path = ex.requestURI.path.trimEnd('/').ifEmpty { "/" }
+        val method = ex.requestMethod.uppercase()
+        val c = Call(ex, path, method, JsonObject(emptyMap()))
+        if (ex.requestHeaders.getFirst("Origin") != null) return c.fail(403, "not available to web pages")
+        if (!path.startsWith("/v1/") || path in REMOTE_DENIED) return c.fail(403, "not available from another device")
+        runCatching { handle(ex, remote = device) }.onFailure { e -> runCatching { c.fail(500, "internal error: ${e::class.simpleName}") } }
+    }
+
+    private fun handle(ex: HttpExchange, remote: String? = null) {
         val empty = JsonObject(emptyMap())
         val path = ex.requestURI.path.trimEnd('/').ifEmpty { "/" }
         val method = ex.requestMethod.uppercase()
-        if (!sameMachine(ex)) return Call(ex, path, method, empty).fail(403, "requests must come from this computer")
+        if (remote == null && !sameMachine(ex)) return Call(ex, path, method, empty).fail(403, "requests must come from this computer")
         if (method == "GET" && path.startsWith("/shell/gesture/")) return gesture?.serve(ex, path.removePrefix("/shell/gesture/")) ?: run { ex.sendResponseHeaders(404, -1); ex.close() }
         if (method == "GET" && (path == "/" || path.startsWith("/shell/"))) return ShellAssets.serve(ex, path)
         if (method == "GET" && capabilities?.files?.serves(path) == true) return capabilities.files.serve(ex, path)
@@ -152,7 +167,7 @@ class ApiServer(
             val c = Call(ex, path, method, empty)
             return if (expiry != null && expiry >= System.currentTimeMillis()) c.ok(buildJsonObject { put("token", token) }) else c.fail(401, "launch code missing, used or expired")
         }
-        if (!authorised(ex)) return Call(ex, path, method, empty).fail(401, "missing or wrong token")
+        if (remote == null && !authorised(ex)) return Call(ex, path, method, empty).fail(401, "missing or wrong token")
         if (path == "/v1/documents" && method == "POST") {
             val bytes = readBody(ex, ArchiveRoutes.MAX_UPLOAD) ?: return Call(ex, path, method, empty).fail(413, "file over 50 MB")
             return archive.upload(Call(ex, path, method, empty), bytes)
@@ -228,11 +243,7 @@ class ApiServer(
         put("pendingApprovals", core.agentBroker.pendingCount()); put("activeTasks", core.agents.activeCount())
     }
 
-    private fun message(m: Message) = buildJsonObject {
-        put("id", m.id); put("role", m.role.name.lowercase()); put("content", m.content); put("createdAt", m.createdAt)
-        if (m.meta.error.isNotEmpty()) put("error", m.meta.error)
-        putJsonArray("sources") { m.meta.sources.forEach { s -> addJsonObject { put("title", s.title); put("url", s.url) } } }
-    }
+    private fun message(m: Message) = ai.clu.core.api.ShellApi.message(m)
 
     private fun turn(c: Call, conversationId: String) {
         if (core.conversations.get(conversationId)?.deleted != false) return c.fail(404, "no such conversation")
@@ -256,28 +267,16 @@ class ApiServer(
         c.ex.responseHeaders.apply { set("Content-Type", "text/event-stream; charset=utf-8"); set("Cache-Control", "no-store"); set("X-Content-Type-Options", "nosniff") }
         c.ex.sendResponseHeaders(200, 0)
         c.ex.responseBody.use { out ->
-            fun event(name: String, data: JsonElement) { out.write("event: $name\ndata: $data\n\n".toByteArray()); out.flush() }
-            runBlocking {
-                core.agent.respond(request).collect { e ->
-                    when (e) {
-                        is AgentEvent.Status -> event("status", buildJsonObject { put("text", e.text) })
-                        is AgentEvent.Text -> event("text", buildJsonObject { put("delta", e.delta) })
-                        is AgentEvent.Error -> event("error", buildJsonObject { put("text", e.text); put("kind", e.kind) })
-                        is AgentEvent.ProposalCreated -> event("suggestion", buildJsonObject { put("id", e.proposal.id); put("text", e.proposal.text) })
-                        // A capability instruction's result for the window: open this experience, ask which one, show progress or a list.
-                        is AgentEvent.ToolFinished -> if (e.tool == ai.clu.core.capability.CapabilityCommand.TOOL) (e.result.data as? JsonObject)?.let { event("action", it) }
-                        is AgentEvent.Done -> event("done", buildJsonObject {
-                            put("text", e.text); put("error", e.meta.error); put("interrupted", e.meta.interrupted); put("messageId", e.message?.id ?: "")
-                            putJsonArray("sources") { e.meta.sources.forEach { s -> addJsonObject { put("title", s.title); put("url", s.url) } } }
-                        })
-                        else -> {}
-                    }
-                }
-            }
+            fun event(name: String, data: JsonElement) { out.write(ai.clu.core.api.ShellApi.sse(name, data)); out.flush() }
+            runBlocking { core.agent.respond(request).collect { e -> ai.clu.core.api.ShellApi.event(e)?.let { (n, d) -> event(n, d) } } }
         }
     }
 
-    companion object { const val MAX_BODY = 64 * 1024 }
+    companion object {
+        const val MAX_BODY = 64 * 1024
+        /** Window lifecycle, the launch-code exchange and this PC's own microphone session: never from another device. */
+        val REMOTE_DENIED = setOf("/v1/session", "/v1/shell/quit", "/v1/shell/restart", "/v1/shell/open", "/v1/voice/session", "/v1/voice/session/stop")
+    }
 }
 
 /**

@@ -54,13 +54,18 @@
         android:largeHeap="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
-        <activity android:name=".ui.MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize"
-            android:launchMode="singleTask">
+        <!-- CLU's window (the PC interface in a WebView); kept alive across rotation and resizing so the page is not reloaded. -->
+        <activity android:name=".ui.ShellActivity" android:exported="true" android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask" android:hardwareAccelerated="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- The native screens ("Classic view"), opened from the window or when no system WebView is installed. -->
+        <activity android:name=".ui.MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask" />
         <activity android:name=".ui.VoiceChatActivity" android:screenOrientation="portrait" />
         <activity android:name=".ui.ConnectionActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.ConversationsActivity" />

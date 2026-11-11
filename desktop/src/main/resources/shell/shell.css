@@ -357,3 +357,15 @@ body.fx-reduced .fx-expand, body.fx-reduced .fx-rise, body.fx-reduced .msg.enter
 #boot.scan::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); box-shadow: 0 0 14px var(--accent); animation: scanline .3s linear forwards; }
 @keyframes scanline { to { top: 100%; } }
 .presence-row { display: flex; align-items: center; }
+
+/* ---- CLU's Android app (platform.js): the same window on a tablet or phone; touch-sized targets, no hover reliance. */
+.nav-classic { text-align: left; background: transparent; border: 1px solid transparent; width: 100%; font-family: var(--heading); letter-spacing: 0.05em; color: var(--muted); padding-left: 38px; }
+.link-badge { font: 10.5px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--line); padding: 2px 8px; margin-left: auto; margin-right: 12px; }
+.link-badge:empty { display: none; }
+.link-badge[data-link="offline"] { color: var(--warn); border-color: var(--warn); }
+.link-badge[data-link="device"] { color: var(--muted); }
+body.android { -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior: none; }
+body.android button, body.android .nav, body.android .nav-classic, body.android select { min-height: 44px; }
+body.android input, body.android textarea, body.android select { font-size: 16px; } /* no zoom on focus */
+body.android ::-webkit-scrollbar { width: 0; height: 0; }
+@media (max-width: 760px) { body.android .nav-classic { width: auto; white-space: nowrap; padding-left: 12px; } body.android .link-badge { display: none; } }

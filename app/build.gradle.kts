@@ -71,6 +71,17 @@ val debugKeystore by tasks.registering(DebugKeystoreTask::class) {
     keystore.set(toolchain.file("keystores/debug.keystore"))
 }
 
+// The PC window's interface (desktop shell), served to the app's WebView from assets/shell (ShellActivity). The browser
+// LiveKit client and the camera gesture page stay on the PC: the tablet talks through the app's native voice session.
+val LIVEKIT_PLACEHOLDER = "/* CLU's Android app talks through its native voice session (platform.js); the browser LiveKit client is not shipped. */\n"
+val shellAssets by tasks.registering(Sync::class) {
+    from(rootProject.layout.projectDirectory.dir("desktop/src/main/resources/shell")) {
+        exclude("livekit-client.js", "hands.html", "hands.js", "hands.css", "hand-gestures.js")
+    }
+    into(layout.buildDirectory.dir("shell-assets/shell"))
+    doLast { destinationDir.resolve("livekit-client.js").writeText(LIVEKIT_PLACEHOLDER) }
+}
+
 fun registerVariant(name: String, release: Boolean) {
     val cap = name.replaceFirstChar { it.uppercase() }
     val dex = tasks.register<DexTask>("dex$cap") {
@@ -92,6 +103,7 @@ fun registerVariant(name: String, release: Boolean) {
         jniDirs.from(rootProject.layout.projectDirectory.dir("native/build/jniLibs"))
         assetDirs.from(layout.projectDirectory.dir("src/main/assets"))
         assetDirs.from(toolchain.dir("assets"))
+        assetDirs.from(layout.buildDirectory.dir("shell-assets")); dependsOn(shellAssets)
         javaResJars.from(configurations.runtimeClasspath)
         outputApk.set(apkDir.map { it.file("clu-$name-unsigned.apk") })
     }
@@ -167,6 +179,9 @@ val robolectricConfig by tasks.registering {
     }
 }
 sourceSets.test { resources.srcDir(robolectricConfig) }
+// Robolectric (binary resources) reads assets from the resource APK, which has none: the tests read the same packaged
+// shell from their classpath instead (ShellServer falls back to it only when an asset is missing).
+sourceSets.test { resources.srcDir(shellAssets.map { it.destinationDir.parentFile }) }
 tasks.test {
     useJUnit()
     systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")

@@ -86,7 +86,7 @@ class CrashReportActivity : Activity() {
             text = if (started) "Dismiss" else "Close"
             setOnClickListener {
                 CrashReport.clear(this@CrashReportActivity)
-                if (started) { startActivity(Intent(this@CrashReportActivity, ai.clu.ui.MainActivity::class.java)); finish() }
+                if (started) { startActivity(Intent(this@CrashReportActivity, ai.clu.ui.ShellActivity::class.java)); finish() }
                 else { finishAffinity(); Process.killProcess(Process.myPid()) }
             }
         })

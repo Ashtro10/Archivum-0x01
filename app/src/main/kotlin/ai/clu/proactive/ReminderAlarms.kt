@@ -53,7 +53,7 @@ class ReminderAlarms(private val app: CluApp) : ReminderScheduler {
         val due = b.due(now)
         val nm = app.getSystemService(NotificationManager::class.java)
         due.forEach { item ->
-            val open = PendingIntent.getActivity(app, item.id.hashCode(), Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+            val open = PendingIntent.getActivity(app, item.id.hashCode(), Intent(app, ai.clu.ui.ShellActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
             val n = Notification.Builder(app, CluApp.CH_REMINDERS).setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle("Reminder").setContentText(item.title).setCategory(Notification.CATEGORY_REMINDER)
                 .setContentIntent(open).setAutoCancel(true).build()

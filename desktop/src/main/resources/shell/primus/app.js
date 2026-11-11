@@ -57,7 +57,9 @@ window.addEventListener('error', function(e) {
   camera.position.set(0, 0, 3.9);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // CLU: inside the Android app (tablet/phone screens at 2-3x density) the particles are drawn at 1.25x: about 2.5x fewer
+  // pixels than at 2x on a 2880x1800 tablet, which keeps 60 fps on a mobile GPU with no visible loss at that density.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, /CLU-Android/.test(navigator.userAgent) ? 1.25 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x000000, 0);
   document.getElementById('scene').appendChild(renderer.domElement);

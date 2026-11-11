@@ -45,7 +45,7 @@ object ProactiveScheduler {
     }
 
     private fun notify(app: CluApp, text: String) {
-        val pi = PendingIntent.getActivity(app, 0, Intent(app, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val pi = PendingIntent.getActivity(app, 0, Intent(app, ai.clu.ui.ShellActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n = Notification.Builder(app, CluApp.CH_CLU).setSmallIcon(android.R.drawable.sym_action_chat).setContentTitle(app.core.settings.string(ai.clu.core.config.Settings.CLU_NAME))
             .setContentText(text).setStyle(Notification.BigTextStyle().bigText(text)).setContentIntent(pi).setAutoCancel(true).build()
         runCatching { app.getSystemService(NotificationManager::class.java).notify(100, n) }

@@ -23,7 +23,7 @@ class ListeningService : Service() {
             app.core.settings.set(ai.clu.core.config.Settings.BACKGROUND_LISTENING, false)
             stopSelf(); return START_NOT_STICKY
         }
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(this, 0, Intent(this, ai.clu.ui.ShellActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, ListeningService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         val n = Notification.Builder(this, CluApp.CH_LISTEN)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)

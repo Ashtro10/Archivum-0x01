@@ -33,6 +33,29 @@ object ShellApi {
         putJsonArray("sources") { sources.forEach { (t, u) -> addJsonObject { put("title", t); put("url", u) } } }
     }
 
+    /** Every setting with its category, value and type: the Settings view on both hosts. */
+    fun settings(settings: ai.clu.core.config.SettingsStore) = buildJsonObject {
+        putJsonArray("categories") { ai.clu.core.config.SettingCategory.entries.forEach { addJsonObject { put("id", it.name); put("title", it.title) } } }
+        putJsonArray("settings") { ai.clu.core.config.Settings.all.forEach { d -> addJsonObject {
+            put("key", d.key); put("title", d.title); put("description", d.description); put("category", d.category.name)
+            put("value", settings.raw(d.key)); put("default", d.default); put("sensitive", d.sensitive); put("advanced", d.advanced)
+            put("type", type(d.type))
+        } } }
+    }
+
+    fun type(t: ai.clu.core.config.SettingType): JsonObject = buildJsonObject {
+        when (t) {
+            ai.clu.core.config.SettingType.Bool -> put("kind", "bool")
+            is ai.clu.core.config.SettingType.IntRange -> { put("kind", "int"); put("min", t.min); put("max", t.max) }
+            is ai.clu.core.config.SettingType.FloatRange -> { put("kind", "float"); put("min", t.min); put("max", t.max) }
+            is ai.clu.core.config.SettingType.Choice -> { put("kind", "choice"); putJsonArray("options") { t.options.forEach { (v, l) -> addJsonObject { put("value", v); put("label", l) } } } }
+            is ai.clu.core.config.SettingType.Text -> { put("kind", if (t.multiline) "multiline" else "text"); put("maxLength", t.maxLength) }
+            ai.clu.core.config.SettingType.TimeOfDay -> put("kind", "time")
+            is ai.clu.core.config.SettingType.TextList -> { put("kind", "list"); put("maxItems", t.maxItems) }
+            is ai.clu.core.config.SettingType.Structured -> put("kind", "structured")
+        }
+    }
+
     /** One server-sent event, as written on the wire. */
     fun sse(name: String, data: JsonElement) = "event: $name\ndata: $data\n\n".toByteArray()
 }

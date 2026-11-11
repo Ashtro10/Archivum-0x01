@@ -528,7 +528,11 @@
     const info = $("modelInfo"); info.replaceChildren(el("div", null, `${m.name || "No model"} — ${m.status}`),
       el("div", "muted", m.status === "NO_MODEL" ? "Register a GGUF model in Models (or: clu-host --register-model <file.gguf>)." : m.message || ""));
     if (m.status === "READY") info.append(el("div", "muted", `Context ${m.contextSize} tokens · loaded in ${m.loadMs} ms`));
-    const g = s.governor; const bars = $("memoryBars"); bars.replaceChildren();
+    const g = s.governor || {}; const bars = $("memoryBars"); bars.replaceChildren();
+    if (g.budgetMB == null) { // answered by a tablet or phone on its own: the memory governor is the PC's
+      bars.append(el("div", "muted", "Memory figures are shown when this device is connected to your PC."));
+      $("governorEvents").replaceChildren(el("li", "muted", "Nothing needed doing.")); return;
+    }
     const bar = (label, used, total) => { bars.append(el("div", null, `${label}: ${used.toLocaleString()} MB of ${total.toLocaleString()} MB`));
       const b = el("div", "bar"); const fill = el("div"); fill.style.width = Math.min(100, (100 * used) / Math.max(1, total)) + "%"; b.append(fill); bars.append(b); };
     bar("CLU (incl. model)", g.processMB, g.budgetMB);

@@ -258,7 +258,7 @@ class MainActivity : BaseActivity() {
     }
 
     // ------------------------------------------------------------------------------------------------ navigation
-    private val destinations = listOf("New chat", "Conversations", "Voice chat", "Memory", "Diary", "Connection", "Settings")
+    private val destinations = listOf("New chat", "Conversations", "Voice chat", "Memory", "Diary", "Connection", "Settings", "CLU window")
 
     private fun buildDrawer(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; visibility = View.GONE; contentDescription = "Navigation"
@@ -303,6 +303,7 @@ class MainActivity : BaseActivity() {
             4 -> startActivity(Intent(this, DiaryActivity::class.java))
             5 -> startActivity(Intent(this, ConnectionActivity::class.java))
             6 -> startActivity(Intent(this, SettingsActivity::class.java))
+            7 -> { startActivity(Intent(this, ShellActivity::class.java)); finish() } // back to the PC-style window
         }
     }
 

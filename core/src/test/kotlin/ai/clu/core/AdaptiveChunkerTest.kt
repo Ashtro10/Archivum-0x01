@@ -78,6 +78,22 @@ class AdaptiveChunkerTest {
         assertTrue(chunks.any { "That should work" in it })
     }
 
+    @Test fun aPauseFlushEndsAtAClauseNotMidPhrase() {
+        val c = AdaptiveChunker()
+        val out = mutableListOf<String>()
+        out += c.push("Sure. When you get to the station, take the second exit and walk")
+        out += c.flushIfStalled(minWords = 3, clauseFirst = true, forceAfterWords = 12)
+        out += c.flushIfStalled(minWords = 3, clauseFirst = true, forceAfterWords = 12) // no clause end, 6 words: waits
+        assertTrue(out.any { it.endsWith("station,") }, "a chunk ends at the comma: $out")
+        assertTrue(out.none { it.endsWith("and walk") || it.endsWith(" exit") }, "nothing cut mid-phrase: $out")
+        c.push(" towards the river until you reach the old bridge near the")
+        val long = c.flushIfStalled(minWords = 3, avoidFunctionWordEnd = true, clauseFirst = true, forceAfterWords = 12)
+        assertEquals(1, long.size, "a long clause is still cut between words")
+        assertFalse(long.single().endsWith(" the"), long.single())
+        val n = AdaptiveChunker(); val got = n.push("Okay. It costs 1,500 rupees in total and") + n.flushIfStalled(minWords = 2, clauseFirst = true, forceAfterWords = 12)
+        assertTrue(got.none { it.endsWith("1,") }, "a thousands separator is not a clause: $got")
+    }
+
     @Test fun stallFlushNeedsTwoWords() {
         val c = AdaptiveChunker()
         c.push("Hmm ")

@@ -532,6 +532,24 @@ Install over the previous version first: your conversations, memories and settin
 | S9 | Settings → Interface → *Interface sounds* off; *Interface motion* reduced | No sounds; no boot sequence or entrance animations; CLU's eyes still react to voice | – |
 | S10 | Keep the chat open for 10 minutes while idle | The phone doesn't get warm; battery use for CLU stays low (Settings → Battery) | Battery percentage before and after |
 
+## T. 1.13.0: the PC window on the tablet (Xiaomi Pad 6, PC 0.11.0)
+
+First, read-only, record what the tablet is: `adb shell getprop ro.product.model`, `adb shell getprop ro.soc.model`,
+`adb shell cat /proc/meminfo | head -3`, `adb shell dumpsys display | grep -m3 -i "refresh\|mode"`,
+`adb shell dumpsys webviewupdate | grep -i "current webview"`.
+
+| # | Do this | Success looks like | Collect |
+|---|---|---|---|
+| T1 | Open Clu from the launcher | The same window as on the PC: boot log, Primus head, numbered rail, chamfered panels | Screenshot landscape and portrait |
+| T2 | Not paired: type "hello" | The top bar says "On this device"; the on-device model answers, streamed | — |
+| T3 | Pair with the PC (Classic view → Connection), reopen | "Connected to your PC"; Chat shows the PC's conversations; Memory and Models show the PC's data | Screenshot |
+| T4 | Type "what's 15 percent of 240" | "36", instantly | — |
+| T5 | Tap Talk; ask a question; talk over the answer | The voice bar shows Listening / Thinking / Speaking; your words and CLU's appear live; talking over stops CLU | Time from end of your sentence to CLU's first sound (stopwatch) |
+| T6 | Turn the PC's Wi-Fi off | Within 15 s: "PC offline — on this device"; chat still works on the tablet | — |
+| T7 | Leave the Chat view open 10 minutes | The head stays smooth | `adb shell dumpsys gfxinfo ai.clu` (janky frames %), battery drop |
+| T8 | Rotate; split-screen; back to full | No reload (the conversation and the voice bar stay) | — |
+| T9 | Rail → Classic view, then drawer → CLU window | The native screens open and you can return | — |
+
 ## Results summary (fill in)
 
 | Section | Pad 6 | Neo 9 Pro | Blocking issues |

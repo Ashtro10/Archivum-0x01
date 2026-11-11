@@ -57,31 +57,83 @@ class TimeTool(private val clock: (() -> Long)? = null) : Tool {
 /** Safe arithmetic evaluator (no code execution): + - * / ^ % parentheses, decimals. */
 class CalcTool : Tool {
     override val name = "calc"
-    override val description = "Evaluate an arithmetic expression exactly."
+    override val description = "Evaluate arithmetic exactly: + - * / ^ %, parentheses, sqrt/cbrt/abs/round/floor/ceil/ln/log/exp/sin/cos/tan (degrees), pi, e, and spoken forms (\"15 percent of 240\", \"12 times 7\", \"square root of 2\")."
     override val argsExample = """{"expression":"(12.5*4)/3"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val expr = args.str("expression") ?: return ToolResult.fail("No expression given.")
         return try {
-            val v = Parser(expr).parse()
-            val txt = if (v == floor(v) && abs(v) < 1e15) v.toLong().toString() else "%.6g".format(v)
-            ToolResult.ok("$expr = $txt", data = JsonPrimitive(v))
+            val v = evaluate(expr)
+            ToolResult.ok("${expr.trim()} = ${format(v)}", data = JsonPrimitive(v))
         } catch (e: IllegalArgumentException) { ToolResult.fail("I can't evaluate that: ${e.message}") }
+    }
+
+    companion object {
+        /** Spoken or typed arithmetic to a value. Throws IllegalArgumentException with a short reason. */
+        fun evaluate(expr: String): Double {
+            val v = Parser(normalise(expr)).parse()
+            require(v.isFinite()) { "the result is not a finite number" }
+            return v
+        }
+
+        /** Up to 12 significant digits, no float noise (0.1 + 0.2 = 0.3), grouping for big numbers. */
+        fun format(v: Double): String {
+            if (v == floor(v) && abs(v) < 1e15) return "%,d".format(Locale.ROOT, v.toLong())
+            if (abs(v) >= 1e15 || abs(v) < 1e-6) return "%.6e".format(Locale.ROOT, v).replace(Regex("\\.?0+e"), "e")
+            return java.math.BigDecimal(v).round(java.math.MathContext(12)).stripTrailingZeros().toPlainString()
+        }
+
+        private val NUM = "(\\d[\\d,]*(?:\\.\\d+)?|\\.\\d+)"
+        /** Words people say to symbols: "12 times 7", "15 percent of 240", "2 to the power of 10", "square root of 81". */
+        fun normalise(raw: String): String {
+            var t = " " + raw.lowercase(Locale.ROOT).trim().trimEnd('?', '.', '!', '=') + " "
+            fun sub(pattern: String, with: String) { t = Regex(pattern).replace(t, with) }
+            sub("\\b$NUM\\s*(?:%|percent|per cent)\\s+of\\s+", " ($1/100)* ")
+            sub("\\b(?:the\\s+)?square\\s+root\\s+of\\s+$NUM", " sqrt($1) ")
+            sub("\\b(?:the\\s+)?cube\\s+root\\s+of\\s+$NUM", " cbrt($1) ")
+            sub("\\bmultiplied\\s+by\\b|\\btimes\\b|\\binto\\b", " * ")
+            sub("\\bdivided\\s+by\\b|\\bover\\b", " / ")
+            sub("\\bplus\\b|\\badd\\b", " + ")
+            sub("\\bminus\\b|\\bless\\b", " - ")
+            sub("\\b(?:to\\s+the\\s+power\\s+of|raised\\s+to(?:\\s+the\\s+power\\s+of)?|to\\s+the)\\b", " ^ ")
+            sub("\\bsquared\\b", " ^2 "); sub("\\bcubed\\b", " ^3 ")
+            sub("\\bmod(?:ulo)?\\b", " % ")
+            return t.trim()
+        }
+
+        private val FUNCTIONS: Map<String, (Double) -> Double> = mapOf(
+            "sqrt" to { x -> require(x >= 0) { "square root of a negative number" }; sqrt(x) }, "cbrt" to ::cbrt, "abs" to ::abs,
+            "round" to { x -> round(x) }, "floor" to ::floor, "ceil" to ::ceil, "exp" to ::exp,
+            "ln" to { x -> require(x > 0) { "logarithm of a non-positive number" }; ln(x) },
+            "log" to { x -> require(x > 0) { "logarithm of a non-positive number" }; log10(x) },
+            "sin" to { x -> sin(Math.toRadians(x)) }, "cos" to { x -> cos(Math.toRadians(x)) }, "tan" to { x -> tan(Math.toRadians(x)) })
+        private val CONSTANTS = mapOf("pi" to PI, "π" to PI, "e" to E)
     }
 
     class Parser(private val s: String) {
         private var i = 0
-        fun parse(): Double { val v = expr(); skip(); require(i == s.length) { "unexpected '${s.getOrNull(i)}'" }; return v }
+        private var depth = 0
+        fun parse(): Double { require(s.length <= 500) { "too long" }; val v = expr(); skip(); require(i == s.length) { "unexpected '${s.getOrNull(i)}'" }; return v }
         private fun skip() { while (i < s.length && s[i].isWhitespace()) i++ }
-        private fun expr(): Double { var v = term(); while (true) { skip(); v = when (s.getOrNull(i)) { '+' -> { i++; v + term() }; '-' -> { i++; v - term() }; else -> return v } } }
+        private fun expr(): Double { var v = term(); while (true) { skip(); v = when (s.getOrNull(i)) { '+' -> { i++; v + term() }; '-', '−' -> { i++; v - term() }; else -> return v } } }
         private fun term(): Double { var v = factor(); while (true) { skip(); v = when (s.getOrNull(i)) {
             '*', 'x', '×' -> { i++; v * factor() }; '/', '÷' -> { i++; val d = factor(); require(d != 0.0) { "division by zero" }; v / d }
-            '%' -> { i++; v % factor() }; else -> return v } } }
+            '%' -> { i++; val d = factor(); require(d != 0.0) { "division by zero" }; v % d }; else -> return v } } }
         private fun factor(): Double { val b = unary(); skip(); return if (s.getOrNull(i) == '^') { i++; b.pow(factor()) } else b }
-        private fun unary(): Double { skip(); return when (s.getOrNull(i)) { '-' -> { i++; -unary() }; '+' -> { i++; unary() }; else -> atom() } }
+        private fun unary(): Double { skip(); return when (s.getOrNull(i)) { '-', '−' -> { i++; -unary() }; '+' -> { i++; unary() }; else -> atom() } }
         private fun atom(): Double {
             skip()
-            if (s.getOrNull(i) == '(') { i++; val v = expr(); skip(); require(s.getOrNull(i) == ')') { "missing )" }; i++; return v }
+            if (s.getOrNull(i) == '(') {
+                require(++depth <= 64) { "too deeply nested" }
+                i++; val v = expr(); skip(); require(s.getOrNull(i) == ')') { "missing )" }; i++; depth--; return v
+            }
+            if (i < s.length && (s[i].isLetter() || s[i] == 'π')) {
+                val st = i; while (i < s.length && (s[i].isLetter() || s[i] == 'π')) i++
+                val word = s.substring(st, i)
+                CONSTANTS[word]?.let { return it }
+                val f = FUNCTIONS[word] ?: throw IllegalArgumentException("unknown word '$word'")
+                return f(atom())
+            }
             val st = i
             while (i < s.length && (s[i].isDigit() || s[i] == '.' || s[i] == ',')) i++
             require(i > st) { "number expected" }

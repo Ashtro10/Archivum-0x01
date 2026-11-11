@@ -83,9 +83,24 @@ class AdaptiveChunker(
      * following whitespace has arrived. With [avoidFunctionWordEnd] the cut is moved back so the chunk does not end
      * on "the"/"to"/"for"..., if that still leaves [minWords].
      */
-    fun flushIfStalled(minWords: Int = firstMinWordsSentence, avoidFunctionWordEnd: Boolean = false): List<String> {
+    fun flushIfStalled(minWords: Int = firstMinWordsSentence, avoidFunctionWordEnd: Boolean = false, clauseFirst: Boolean = false,
+                       forceAfterWords: Int = Int.MAX_VALUE): List<String> {
         if (inCode) return emptyList()
         takePending().let { if (it.isNotEmpty()) return it }
+        // Clause first: speak up to the last comma, semicolon, colon or dash (natural prosody: the voice falls at a clause
+        // end); without one, wait unless the pending text is already long ([forceAfterWords]), then cut at a word.
+        if (clauseFirst) {
+            val clause = (buf.length - 2 downTo 1).firstOrNull { i -> buf[i] in CLAUSE_END && buf[i + 1].isWhitespace() && !(buf[i] == ',' && buf[i - 1].isDigit() && buf.getOrNull(i + 2)?.isDigit() == true) }
+            if (clause != null && wordCount(buf.subSequence(0, clause + 1)) >= minWords) {
+                val chunk = clean(buf.substring(0, clause + 1))
+                buf.delete(0, clause + 1)
+                while (buf.isNotEmpty() && buf[0].isWhitespace()) buf.deleteCharAt(0)
+                if (chunk.isEmpty()) return emptyList()
+                emitted++
+                return listOf(chunk)
+            }
+            if (wordCount(buf) < forceAfterWords) return emptyList()
+        }
         var end = buf.indexOfLast { it.isWhitespace() }
         if (avoidFunctionWordEnd) {
             var e = end
@@ -142,6 +157,9 @@ class AdaptiveChunker(
     }
 
     companion object {
+        /** Where a voice may pause mid-sentence without sounding cut off. */
+        private val CLAUSE_END = charArrayOf(',', ';', ':', '—', '–')
+
         private const val STRONG = ".!?;:।॥\n"
         private const val WEAK = ",،"
         private val WS = Regex("\\s+")

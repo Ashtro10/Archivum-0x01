@@ -201,8 +201,13 @@ class StreamingSpeech(
                 if (lastDeltaAt == 0L) continue
                 val t = now()
                 val starving = timings.firstAudio > 0 && inFlight.get() == 0 && audioEndsAt - t < underrunMs
+                // Playback about to run dry: a gap is worse than an early cut (StreamingSpeechTest gap limits), so cut at a
+                // word, never on a function word. Model merely paused: end the chunk at a clause boundary (", ; : —") so the
+                // voice falls in the right place; cut between words only after a long silence (a tool call) or a long clause.
+                val quietFor = t - lastDeltaAt
                 if (starving) emit(synchronized(lock) { chunks.flushIfStalled(minWords = 3, avoidFunctionWordEnd = true) })
-                else if (t - lastDeltaAt >= stallFlushMs) emit(synchronized(lock) { chunks.flushIfStalled() })
+                else if (quietFor >= stallFlushMs * 3) emit(synchronized(lock) { chunks.flushIfStalled(avoidFunctionWordEnd = true) })
+                else if (quietFor >= stallFlushMs) emit(synchronized(lock) { chunks.flushIfStalled(clauseFirst = true, forceAfterWords = 10) })
             }
         }
 

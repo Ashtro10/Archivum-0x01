@@ -163,8 +163,11 @@ object IntentRouter {
         r("^(?:search(?:\\s+(?:the\\s+(?:web|internet|net)|online|google))?|google|look\\s+up)\\s+(?:for\\s+|about\\s+)?(.+)$").find(t)?.let { return RoutedIntent("web.search", obj("query" to it.groupValues[1]), "search") }
         if (r("\\b(pnr|running status|train\\s+(?:no|number)|train\\s+\\d{5}|\\d{5}\\s+(?:express|train|mail))\\b").containsMatchIn(lower))
             return RoutedIntent("trains.lookup", obj("query" to t), "train")
-        r("^(?:calculate|compute|what(?:'s| is))\\s+([\\d\\s.,+\\-*/x×÷^%()]+)\\??$").find(t)?.let {
-            val e = it.groupValues[1].trim(); if (e.any(Char::isDigit) && e.any { c -> c in "+-*/x×÷^%" }) return RoutedIntent("calc", obj("expression" to e), "calc") }
+        // Arithmetic, typed or spoken ("what's 15 percent of 240", "12 times 7", "square root of 81"): answered exactly,
+        // never by the model. Only when the whole remainder parses as arithmetic (a year or "covid-19" is not).
+        r("^(?:(?:please\\s+)?(?:calculate|compute|work\\s+out|what(?:'s|\\s+is)|how\\s+much\\s+is)\\s+)?(.+?)\\??$").find(t)?.let {
+            val e = it.groupValues[1].trim()
+            if (looksLikeArithmetic(e)) return RoutedIntent("calc", obj("expression" to e), "calc") }
         r("^(?:call|dial)\\s+([+\\d][\\d\\s\\-]{4,})$").find(t)?.let { return RoutedIntent("phone.dial", obj("number" to it.groupValues[1].replace(" ", "")), "dial") }
 
         // Media playing in any app (media keys).
@@ -221,4 +224,14 @@ object IntentRouter {
     private val NOT_APP_WORDS = setOf("me", "you", "it", "us", "him", "her", "them", "this", "that", "these", "those", "over", "again", "through",
         "about", "with", "a", "an", "some", "something", "story", "conversation", "discussion", "from", "thinking", "talking", "now", "later", "up")
     private fun obj(vararg kv: Pair<String, String>) = buildJsonObject { kv.filter { it.second.isNotBlank() }.forEach { put(it.first, it.second.trim()) } }
+
+    /** Digits with at least one operation, and nothing the calculator does not know. */
+    fun looksLikeArithmetic(e: String): Boolean {
+        if (e.length > 200 || e.none(Char::isDigit)) return false
+        val n = ai.clu.core.tools.CalcTool.normalise(e)
+        if (n.none { it in "+-−*/x×÷^%" } && !Regex("\\b(?:sqrt|cbrt)\\(").containsMatchIn(n)) return false
+        if (Regex("^[\\d.,]+\\s*%$").matches(n.trim())) return false // "40%" alone is a level, not a sum
+        if (Regex("^\\d{4}-\\d{1,2}-\\d{1,2}$|^\\+?\\d[\\d -]{7,}$").matches(e.trim())) return false // a date or a phone number
+        return runCatching { ai.clu.core.tools.CalcTool.evaluate(e) }.isSuccess
+    }
 }

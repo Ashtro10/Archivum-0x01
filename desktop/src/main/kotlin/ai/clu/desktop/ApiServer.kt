@@ -107,6 +107,38 @@ class ApiServer(
         }
     }
 
+    // ------------------------------------------------------------------------------------------ OpenAI-compatible endpoint
+    /**
+     * Local tools that speak the OpenAI protocol (OpenCode, editors, scripts) use CLU's loaded model through
+     * http://127.0.0.1:<port>/openai/v1 with this computer's local API key (never offered to other devices: the phone
+     * endpoint only forwards /v1, and requests must come from this computer).
+     */
+    private val openAi = ai.clu.core.api.OpenAiEndpoint({ core.inferenceService.generate(it) }, { core.llm.state.value.modelName ?: "" })
+    private val keyFile = paths?.let { java.io.File(it.root, "local-api-key") }
+    /** Created on first use and kept (tools are configured once); 0600 where the file system supports it. */
+    val localApiKey: String by lazy {
+        keyFile?.takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.length >= 32 } ?: run {
+            val k = "clu-" + java.util.UUID.randomUUID().toString().replace("-", "") + java.util.UUID.randomUUID().toString().replace("-", "")
+            keyFile?.let { f -> f.parentFile.mkdirs(); f.writeText(k); runCatching { f.setReadable(false, false); f.setReadable(true, true); f.setWritable(false, false); f.setWritable(true, true) } }
+            k
+        }
+    }
+    private fun openAi(ex: HttpExchange, path: String) {
+        val auth = ex.requestHeaders.getFirst("Authorization")?.removePrefix("Bearer ")?.trim().orEmpty()
+        val exchange = ai.clu.core.api.Exchange(ex.requestMethod.uppercase(), path, ex.requestURI.rawQuery,
+            ex.requestHeaders.entries.associate { (k, v) -> k.lowercase() to v.joinToString(",") },
+            if (ex.requestMethod.uppercase() == "POST") readBody(ex, 4 * 1024 * 1024) ?: return Call(ex, path, "POST", JsonObject(emptyMap())).fail(413, "body over 4 MB") else ByteArray(0)) { code, headers, length ->
+            headers.forEach { (k, v) -> ex.responseHeaders.set(k, v) }
+            ex.sendResponseHeaders(code, if (length == null) 0 else if (length == 0L) -1 else length)
+            ex.responseBody
+        }
+        try {
+            if (!MessageDigest.isEqual(auth.toByteArray(), localApiKey.toByteArray()) && !MessageDigest.isEqual(auth.toByteArray(), token.toByteArray()))
+                exchange.json(401, ai.clu.core.api.OpenAiEndpoint.error("Use CLU's local API key (GET /v1/openai from CLU's window).", "invalid_api_key"))
+            else openAi.handle(exchange, path)
+        } finally { ex.close() } // every path completes the response (an unclosed exchange leaves the client waiting)
+    }
+
     fun start(): ApiServer { server.start(); return this }
     fun stop() { server.stop(0); executor.shutdownNow() }
 
@@ -159,6 +191,7 @@ class ApiServer(
         if (remote == null && !sameMachine(ex)) return Call(ex, path, method, empty).fail(403, "requests must come from this computer")
         if (method == "GET" && path.startsWith("/shell/gesture/")) return gesture?.serve(ex, path.removePrefix("/shell/gesture/")) ?: run { ex.sendResponseHeaders(404, -1); ex.close() }
         if (method == "GET" && (path == "/" || path.startsWith("/shell/"))) return ShellAssets.serve(ex, path)
+        if (path.startsWith("/openai/v1/") && remote == null) return openAi(ex, path)
         if (method == "GET" && capabilities?.files?.serves(path) == true) return capabilities.files.serve(ex, path)
         if (path == "/v1/health" && method == "GET") return Call(ex, path, method, empty).ok(buildJsonObject { put("ok", true); put("name", "CLU"); put("version", version) })
         if (path == "/v1/session" && method == "POST") {
@@ -168,6 +201,8 @@ class ApiServer(
             return if (expiry != null && expiry >= System.currentTimeMillis()) c.ok(buildJsonObject { put("token", token) }) else c.fail(401, "launch code missing, used or expired")
         }
         if (remote == null && !authorised(ex)) return Call(ex, path, method, empty).fail(401, "missing or wrong token")
+        if (path == "/v1/openai" && method == "GET") return Call(ex, path, method, empty).let { c -> if (remote != null) c.fail(403, "not available from another device")
+            else c.ok(buildJsonObject { put("baseUrl", "http://127.0.0.1:$port/openai/v1"); put("apiKey", localApiKey); put("model", core.llm.state.value.modelName ?: "") }) }
         if (path == "/v1/documents" && method == "POST") {
             val bytes = readBody(ex, ArchiveRoutes.MAX_UPLOAD) ?: return Call(ex, path, method, empty).fail(413, "file over 50 MB")
             return archive.upload(Call(ex, path, method, empty), bytes)

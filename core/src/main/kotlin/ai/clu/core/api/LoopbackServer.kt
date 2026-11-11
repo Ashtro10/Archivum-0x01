@@ -75,7 +75,7 @@ class LoopbackServer(private val maxBody: Int = 50 * 1024 * 1024, private val ha
         while (read < body.size) { val n = input.read(body, read, body.size - read); if (n < 0) throw BadRequest(400, "body ended early"); read += n }
         val target = parts[1]
         val q = target.indexOf('?')
-        return Exchange(parts[0].uppercase(), if (q >= 0) target.substring(0, q) else target, if (q >= 0) target.substring(q + 1) else null, headers, body, out)
+        return Exchange(parts[0].uppercase(), if (q >= 0) target.substring(0, q) else target, if (q >= 0) target.substring(q + 1) else null, headers, body, SocketResponder(out))
     }
 
     /** One CRLF- (or LF-) terminated ASCII line, at most 8 KiB. */
@@ -92,8 +92,23 @@ class LoopbackServer(private val maxBody: Int = 50 * 1024 * 1024, private val ha
     }
 }
 
+/** Starts a response: status and headers, then the body stream (fixed [length], or open-ended when null). */
+fun interface Responder { fun start(code: Int, headers: Map<String, String>, length: Long?): OutputStream }
+
+/** HTTP/1.1 on a raw socket (LoopbackServer): one response per connection, closed when the body ends. */
+class SocketResponder(private val out: OutputStream) : Responder {
+    override fun start(code: Int, headers: Map<String, String>, length: Long?): OutputStream {
+        val h = StringBuilder("HTTP/1.1 $code ${Exchange.reason(code)}\r\n")
+        for ((k, v) in headers) h.append(k).append(": ").append(v).append("\r\n")
+        if (length != null) h.append("Content-Length: ").append(length).append("\r\n")
+        h.append("Connection: close\r\n\r\n")
+        out.write(h.toString().toByteArray(Charsets.ISO_8859_1)); out.flush()
+        return out
+    }
+}
+
 /** One request and its response. Answer with [respond]/[json], or [stream] for an open-ended reply (server-sent events). */
-class Exchange(val method: String, val path: String, val rawQuery: String?, val headers: Map<String, String>, val body: ByteArray, private val out: OutputStream) {
+class Exchange(val method: String, val path: String, val rawQuery: String?, val headers: Map<String, String>, val body: ByteArray, private val responder: Responder) {
     var committed = false; private set
 
     fun header(name: String): String? = headers[name.lowercase()]
@@ -102,28 +117,23 @@ class Exchange(val method: String, val path: String, val rawQuery: String?, val 
 
     fun respond(code: Int, contentType: String, bytes: ByteArray, extra: Map<String, String> = emptyMap()) {
         check(!committed) { "response already started" }; committed = true
-        val h = StringBuilder("HTTP/1.1 $code ${reason(code)}\r\nContent-Type: $contentType\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n")
-        for ((k, v) in extra) h.append(k).append(": ").append(v).append("\r\n")
-        h.append("\r\n")
-        out.write(h.toString().toByteArray(Charsets.ISO_8859_1)); out.write(bytes); out.flush()
+        val out = responder.start(code, linkedMapOf("Content-Type" to contentType) + extra, bytes.size.toLong())
+        out.write(bytes); out.flush()
     }
 
     fun json(code: Int, body: String) = respond(code, "application/json; charset=utf-8", body.toByteArray(), mapOf("Cache-Control" to "no-store", "X-Content-Type-Options" to "nosniff"))
 
-    /** Starts an open-ended response (no length; the connection closes when [write] returns). */
+    /** Starts an open-ended response (no length; the reply ends when [write] returns). */
     fun stream(code: Int, contentType: String, extra: Map<String, String> = emptyMap(), write: (OutputStream) -> Unit) {
         check(!committed) { "response already started" }; committed = true
-        val h = StringBuilder("HTTP/1.1 $code ${reason(code)}\r\nContent-Type: $contentType\r\nConnection: close\r\nCache-Control: no-store\r\n")
-        for ((k, v) in extra) h.append(k).append(": ").append(v).append("\r\n")
-        h.append("\r\n")
-        out.write(h.toString().toByteArray(Charsets.ISO_8859_1)); out.flush()
+        val out = responder.start(code, linkedMapOf("Content-Type" to contentType, "Cache-Control" to "no-store") + extra, null)
         write(out); out.flush()
     }
 
     companion object {
         fun reason(code: Int) = when (code) { 200 -> "OK"; 201 -> "Created"; 204 -> "No Content"; 400 -> "Bad Request"; 401 -> "Unauthorized"; 403 -> "Forbidden"
-            404 -> "Not Found"; 405 -> "Method Not Allowed"; 409 -> "Conflict"; 411 -> "Length Required"; 413 -> "Payload Too Large"; 500 -> "Internal Server Error"
-            502 -> "Bad Gateway"; 503 -> "Service Unavailable"; else -> "Status" }
+            404 -> "Not Found"; 405 -> "Method Not Allowed"; 409 -> "Conflict"; 411 -> "Length Required"; 413 -> "Payload Too Large"; 429 -> "Too Many Requests"
+            500 -> "Internal Server Error"; 502 -> "Bad Gateway"; 503 -> "Service Unavailable"; 504 -> "Gateway Timeout"; else -> "Status" }
         internal fun error(out: OutputStream, code: Int, msg: String) = runCatching {
             val b = """{"error":${kotlinx.serialization.json.JsonPrimitive(msg)}}""".toByteArray()
             out.write("HTTP/1.1 $code ${reason(code)}\r\nContent-Type: application/json\r\nContent-Length: ${b.size}\r\nConnection: close\r\n\r\n".toByteArray()); out.write(b); out.flush()

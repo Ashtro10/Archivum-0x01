@@ -25,7 +25,15 @@ class ShellHostTest {
     private var remote: ShellHost.Remote? = null
     private val core = newCore().apply { useEngine(ScriptedEngine().reply("Hello from the tablet.")) }
     private val windowCalls = CopyOnWriteArrayList<String>()
-    private val host = ShellHost(core, "9.9.9", { assets[it]?.toByteArray() }, { remote }, { windowCalls += it })
+    private val volumeCalls = CopyOnWriteArrayList<String>()
+    init { core.toolRegistry.register(object : ai.clu.core.tools.Tool {
+        override val name = "device.volume"; override val description = "volume"; override val argsExample = "{}"
+        override val sensitivity = ai.clu.core.security.Sensitivity.ROUTINE; override val deviceAction = true
+        override suspend fun run(args: JsonObject, ctx: ai.clu.core.tools.ToolContext): ai.clu.core.tools.ToolResult {
+            volumeCalls += args.toString(); return ai.clu.core.tools.ToolResult.ok("Volume set to 40%.") }
+    }) }
+    private val host = ShellHost(core, "9.9.9", { assets[it]?.toByteArray() }, { remote }, { windowCalls += it },
+        deviceTools = setOf("device.volume"), platform = buildJsonObject { put("platform", "android"); putJsonArray("pcOnly") { add("agents") } })
     private val port = serve(host::handle)
 
     private fun call(path: String, method: String = "GET", body: String? = null, token: String? = null, accept: String? = null): Triple<Int, String, Map<String, String>> {
@@ -114,5 +122,34 @@ class ShellHostTest {
         assertTrue(call("/v1/models", token = t).second.contains("can't be reached"))
         val link = Json.parseToJsonElement(call("/v1/shell/link", token = t).second).jsonObject
         assertEquals("offline", link["link"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun withoutAPCTheArchiveAndMemoryViewsWorkOnThisDevice() {
+        val t = session()
+        val (made, body) = call("/v1/memories", "POST", """{"title":"Lonavala trip","content":"Went with Ashutosh","when":"March 2018","people":["Ashutosh"]}""", t)
+        assertEquals(201, made, body)
+        assertTrue(call("/v1/memories?q=Lonavala", token = t).second.contains("Lonavala trip"))
+        assertTrue(call("/v1/timeline", token = t).second.contains("Lonavala trip"), "dated memories on the timeline")
+        assertEquals(201, call("/v1/people", "POST", """{"name":"Ashutosh","relation":"friend"}""", t).first)
+        assertTrue(call("/v1/people", token = t).second.contains("Ashutosh"))
+        assertEquals(200, call("/v1/memory/overview", token = t).first)
+        assertTrue(call("/v1/memory/search?q=Lonavala", token = t).second.contains("Lonavala"))
+        val backups = call("/v1/memory/backups", token = t)
+        assertEquals(404, backups.first, "backups are the PC's: said so, not faked"); assertTrue("not available here" in backups.second)
+    }
+
+    @Test fun whilePairedADeviceCommandRunsHereNotOnThePC() {
+        val seen = CopyOnWriteArrayList<String>()
+        val pcPort = serve { ex -> seen += ex.path; ex.stream(200, "text/event-stream") { o -> o.write("event: done\ndata: {\"text\":\"pc\"}\n\n".toByteArray()) } }
+        remote = ShellHost.Remote("http://127.0.0.1:$pcPort", "dev.key")
+        val t = session()
+        val (code, sse) = call("/v1/conversations/c1/turns", "POST", """{"text":"set volume to 40%"}""", t, "text/event-stream")
+        assertEquals(200, code); assertTrue("Volume set to 40%." in sse && "event: done" in sse, sse)
+        assertEquals(1, volumeCalls.size, "ran on this device"); assertTrue(seen.none { it.endsWith("/turns") }, "the PC was not asked: $seen")
+        call("/v1/conversations/c1/turns", "POST", """{"text":"explain black holes"}""", t, "text/event-stream")
+        assertTrue(seen.any { it.endsWith("/turns") }, "everything else goes to the PC")
+        val p = Json.parseToJsonElement(call("/v1/shell/platform", token = t).second).jsonObject
+        assertEquals("android", p["platform"]!!.jsonPrimitive.content); assertEquals("pc", p["link"]!!.jsonPrimitive.content)
+        assertEquals(listOf("device.volume"), p["deviceTools"]!!.jsonArray.map { it.jsonPrimitive.content })
     }
 }

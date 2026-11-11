@@ -1,4 +1,4 @@
-package ai.clu.desktop
+package ai.clu.core.api
 
 import ai.clu.core.CluCore
 import ai.clu.core.config.Settings
@@ -26,10 +26,10 @@ import java.time.LocalDate
  * | GET, POST | /v1/memory/backups | list / make one now |
  * | GET, POST | /v1/memory/maintenance | job states / run once now |
  */
-class MemoryRoutes(private val core: CluCore, private val maintenance: MaintenanceScheduler?, private val paths: DesktopPaths?) {
+class MemoryRoutes(private val core: CluCore, private val maintenance: MaintenanceHost? = null, private val backupHost: BackupHost? = null) {
     private val svc get() = core.memory
 
-    fun handle(c: Call): Boolean {
+    fun handle(c: ApiCall): Boolean {
         val p = c.path
         if (!p.startsWith("/v1/memory")) return false
         val id = Regex("^/v1/memory/([^/]+)$").find(p)?.groupValues?.get(1)
@@ -72,14 +72,14 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
             }
             p == "/v1/memory/backups" && c.method == "GET" -> backups(c)
             p == "/v1/memory/backups" && c.method == "POST" -> {
-                val dir = paths?.backups ?: return true.also { c.fail(404, "backups are not available here") }
-                runCatching { DatabaseBackup.create(core.db, dir, System.currentTimeMillis(), "manual", keep = 10) }
-                    .onSuccess { b -> c.send(201, buildJsonObject { put("name", b.file.name); put("sizeBytes", b.sizeBytes) }) }.onFailure { c.fail(500, it.message ?: "backup failed") }
+                val host = backupHost ?: return true.also { c.fail(404, "backups are not available here") }
+                runCatching { host.create() }
+                    .onSuccess { b -> c.send(201, buildJsonObject { put("name", b.name); put("sizeBytes", b.sizeBytes) }) }.onFailure { c.fail(500, it.message ?: "backup failed") }
             }
             p == "/v1/memory/maintenance" && c.method == "GET" -> maintenanceStatus(c)
             p == "/v1/memory/maintenance" && c.method == "POST" -> {
                 val m = maintenance ?: return true.also { c.fail(404, "background maintenance is not available here") }
-                val o = m.tick(force = true); c.ok(buildJsonObject { put("ran", o.ran); put("summary", o.summary); put("at", o.at) })
+                val o = m.runNow(); c.ok(buildJsonObject { put("ran", o.ran); put("summary", o.summary); put("at", o.at) })
             }
             sub != null -> link(c, sub.groupValues[1])
             id != null && c.method == "GET" -> detail(c, id)
@@ -89,19 +89,19 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
     }
 
     // ------------------------------------------------------------------------------------------ views
-    private fun overview(c: Call) = c.ok(buildJsonObject {
+    private fun overview(c: ApiCall) = c.ok(buildJsonObject {
         putJsonObject("kinds") { svc.overview().forEach { (k, n) -> putJsonObject(k.name) { put("label", k.label); put("count", n) } } }
         put("suggestions", core.proposals.pending().size)
         put("consolidation", core.consolidator.pending().size)
         put("learning", core.learner.pending().size)
         put("working", svc.working.count())
         putJsonArray("jobs") { ai.clu.core.memory.Jobs.all(core.db).forEach { j -> addJsonObject { put("name", j.name); put("state", j.state); put("detail", j.detail); j.lastRun?.let { put("lastRun", it) } } } }
-        maintenance?.last?.let { o -> putJsonObject("lastMaintenance") { put("at", o.at); put("ran", o.ran); put("summary", o.summary) } }
+        maintenance?.lastRun?.let { o -> putJsonObject("lastMaintenance") { put("at", o.at); put("ran", o.ran); put("summary", o.summary) } }
         put("formation", core.settings.string(Settings.FORMATION))
         put("embeddings", svc.embedder?.id ?: "")
     })
 
-    private fun search(c: Call) {
+    private fun search(c: ApiCall) {
         val q = c.query("q")?.trim().orEmpty()
         val kind = c.query("kind")?.takeIf { it.isNotBlank() }?.let { runCatching { MemoryKind.valueOf(it) }.getOrNull() ?: return c.fail(400, "unknown kind $it") }
         val cat = c.query("category")?.takeIf { it.isNotBlank() }?.let { runCatching { MemoryCategory.valueOf(it) }.getOrNull() ?: return c.fail(400, "unknown category $it") }
@@ -120,7 +120,7 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
         } } })
     }
 
-    private fun detail(c: Call, id: String) {
+    private fun detail(c: ApiCall, id: String) {
         val d = svc.detail(id) ?: return c.fail(404, "no such memory")
         c.ok(buildJsonObject {
             put("memory", ArchiveRoutes.memoryJson(core, d.memory))
@@ -148,7 +148,7 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
         else -> ref
     }
 
-    private fun link(c: Call, id: String) {
+    private fun link(c: ApiCall, id: String) {
         if (core.memories.get(id)?.deleted != false) return c.fail(404, "no such memory")
         when (c.method) {
             "POST" -> {
@@ -166,7 +166,7 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
         }
     }
 
-    private fun consolidation(c: Call) = c.ok(buildJsonObject {
+    private fun consolidation(c: ApiCall) = c.ok(buildJsonObject {
         fun entry(e: ConsolidationEntry) = buildJsonObject {
             put("id", e.id); put("action", e.action); put("status", e.status); put("reason", e.reason); put("createdAt", e.createdAt); e.decidedAt?.let { put("decidedAt", it) }
             putJsonArray("memories") { e.memoryIds.forEach { mid -> core.memories.get(mid)?.let { m -> addJsonObject {
@@ -179,7 +179,7 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
         put("enabled", core.settings.bool(Settings.CONSOLIDATION))
     })
 
-    private fun learning(c: Call) = c.ok(buildJsonObject {
+    private fun learning(c: ApiCall) = c.ok(buildJsonObject {
         put("enabled", core.settings.bool(Settings.LEARN_PREFERENCES))
         putJsonArray("questions") { core.learner.pending().forEach { q -> addJsonObject { put("id", q.id); put("question", q.question); put("evidence", q.evidence); put("createdAt", q.createdAt) } } }
         putJsonArray("noticed") { core.learner.overview().take(30).forEach { s -> addJsonObject {
@@ -190,7 +190,7 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
     })
 
     /** Thumbs and reasons on a reply. They are recorded as evidence, never applied by themselves (one reaction is not a preference). */
-    private fun feedback(c: Call) {
+    private fun feedback(c: ApiCall) {
         val reason = c.str("reason") ?: return c.fail(400, "reason is required")
         val conv = c.str("conversationId").orEmpty()
         val (target, value, polarity) = when (reason) {
@@ -214,18 +214,18 @@ class MemoryRoutes(private val core: CluCore, private val maintenance: Maintenan
         putJsonArray("issues") { h.issues.forEach { i -> addJsonObject { put("code", i.code); put("count", i.count); put("detail", i.detail); put("repairable", i.repairable) } } }
     }
 
-    private fun backups(c: Call) {
-        val dir = paths?.backups ?: return c.fail(404, "backups are not available here")
+    private fun backups(c: ApiCall) {
+        val host = backupHost ?: return c.fail(404, "backups are not available here")
         c.ok(buildJsonObject {
-            put("folder", dir.absolutePath)
-            putJsonArray("backups") { DatabaseBackup.list(dir).forEach { b -> addJsonObject { put("name", b.file.name); put("sizeBytes", b.sizeBytes); put("createdAt", b.createdAt); put("kind", b.label) } } }
+            put("folder", host.folder)
+            putJsonArray("backups") { host.list().forEach { b -> addJsonObject { put("name", b.name); put("sizeBytes", b.sizeBytes); put("createdAt", b.createdAt); put("kind", b.kind) } } }
             put("restore", "With CLU stopped: clu-host --restore-backup \"<file>\" (the current database is kept aside, not deleted)")
         })
     }
 
-    private fun maintenanceStatus(c: Call) = c.ok(buildJsonObject {
+    private fun maintenanceStatus(c: ApiCall) = c.ok(buildJsonObject {
         put("scheduled", maintenance?.scheduled == true)
-        maintenance?.last?.let { o -> putJsonObject("last") { put("at", o.at); put("ran", o.ran); put("summary", o.summary) } }
+        maintenance?.lastRun?.let { o -> putJsonObject("last") { put("at", o.at); put("ran", o.ran); put("summary", o.summary) } }
         maintenance?.busyReason()?.let { put("waiting", it) }
         putJsonArray("jobs") { ai.clu.core.memory.Jobs.all(core.db).forEach { j -> addJsonObject { put("name", j.name); put("state", j.state); put("detail", j.detail); j.lastRun?.let { put("lastRun", it) } } } }
     })

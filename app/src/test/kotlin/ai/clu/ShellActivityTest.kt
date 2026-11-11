@@ -71,6 +71,15 @@ class ShellActivityTest {
         val status = Json.parseToJsonElement(get("$origin/v1/status", token = token).second).jsonObject
         assertEquals("device", status["link"]!!.jsonPrimitive.content) // no PC paired in a fresh install
         assertEquals(401, get("$origin/v1/status").first)
+        // Capability detection with the app's real tools: device commands run here, PC-only views are named.
+        val platform = Json.parseToJsonElement(get("$origin/v1/shell/platform", token = token).second).jsonObject
+        assertEquals("android", platform["platform"]!!.jsonPrimitive.content)
+        val tools = platform["deviceTools"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertTrue(tools.toString(), tools.containsAll(listOf("alarm.set", "timer.set", "device.volume", "app.open")))
+        assertTrue(platform["pcOnly"]!!.jsonArray.map { it.jsonPrimitive.content }.containsAll(listOf("agents", "models")))
+        // Standalone: memory and the timeline answer on the device.
+        assertEquals(201, get("$origin/v1/memories", "POST", """{"title":"Pad 6 test","content":"standalone"}""", token).first)
+        assertTrue(get("$origin/v1/memories?q=Pad", token = token).second.contains("Pad 6 test"))
 
         val voice = Json.parseToJsonElement(ShellServer.voiceState(app)).jsonObject
         assertFalse(voice["micOn"]!!.jsonPrimitive.boolean)

@@ -369,3 +369,5 @@ body.android button, body.android .nav, body.android .nav-classic, body.android 
 body.android input, body.android textarea, body.android select { font-size: 16px; } /* no zoom on focus */
 body.android ::-webkit-scrollbar { width: 0; height: 0; }
 @media (max-width: 760px) { body.android .nav-classic { width: auto; white-space: nowrap; padding-left: 12px; } body.android .link-badge { display: none; } }
+body.android .nav.needs-pc { opacity: 0.55; }
+body.android .nav.needs-pc::after { position: static; width: auto; background: none; box-shadow: none; content: "PC"; font: 9px var(--mono); letter-spacing: 0.12em; color: var(--warn); border: 1px solid var(--warn); padding: 0 4px; margin-left: 6px; vertical-align: middle; }

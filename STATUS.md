@@ -17,6 +17,23 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-11 (1.13.1, PC 0.11.1): one CLU, two first-class platforms
+
+- **Shared code:**
+  - The archive and memory API (memories, timeline, people, documents, suggestions, memory search, health) moved from
+    the PC module into `core`. It is written against a transport-neutral `ApiCall`, so the PC and the Android app run
+    the same code.
+  - PC-only services plug in as adapters: `MaintenanceHost` and `BackupHost`.
+- **Android without the PC** now has memory, timeline, people, documents and suggestions on its own data, besides
+  chat, history, voice and device controls.
+- **Android paired:** device commands typed in the window (alarm, timer, volume, apps…) run on the device, not the PC.
+- **Capability detection:** `/v1/shell/platform`. PC-only views (agents, models, capabilities) are marked "PC" while
+  the PC isn't answering, never faked.
+- **Tests:** core 722, app 99, desktop 143. 0 failures.
+- **Windows launch:** under wine the packaged runtime starts and creates CLU's data folder, then wine's
+  network-adapter emulation crashes the JVM. A real Windows launch is not verified here.
+- Platform matrix and limitations: [docs/PLATFORMS.md](docs/PLATFORMS.md).
+
 ## 2026-11-11 (1.13.0, PC 0.11.0): the PC window on the tablet
 
 - **Launcher:** the app now opens CLU's PC interface: the same shell, with the Primus head, served from the APK.

@@ -19,6 +19,8 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.add
 
 /**
  * CLU's window on a tablet or phone: the PC window's own interface (the desktop shell, packaged in the APK under
@@ -126,12 +128,27 @@ object ShellServer {
         val host = ShellHost(app.core, version,
             asset = { name -> runCatching { app.assets.open("shell/$name").use { it.readBytes() } }.getOrNull()
                 ?: ShellServer::class.java.getResourceAsStream("/shell/$name")?.use { it.readBytes() } }, // JVM tests (no APK assets)
-            pc = { remote(app) })
+            pc = { remote(app) },
+            deviceTools = DEVICE_TOOLS.filter { app.core.toolRegistry[it] != null }.toSet(),
+            platform = kotlinx.serialization.json.buildJsonObject {
+                put("platform", "android"); put("device", android.os.Build.MODEL ?: "")
+                put("tablet", app.resources.configuration.smallestScreenWidthDp >= 600)
+                put("voice", "native"); put("onDeviceModel", app.core.models.list().isNotEmpty())
+                // PC-only: coding agents, model management, self-repair, capabilities, camera gestures.
+                putJsonArray("pcOnly") { ShellHost.PC_ONLY.forEach { add(it) } }
+            })
         val s = LoopbackServer(handler = host::handle)
         val port = s.start()
         server = s
         return (host to port).also { running = it }
     }
+
+    /**
+     * Commands that act on this device: run here even while paired. Sending messages, calling and replying are left out
+     * (they need the confirmation flow of the agent, on whichever host answers).
+     */
+    val DEVICE_TOOLS = listOf("alarm.set", "timer.set", "device.flashlight", "device.volume", "device.brightness", "device.settings", "device.status",
+        "media.control", "app.open", "maps.open", "web.open", "browser.open", "browser.search", "phone.dial", "notifications.read", "notifications.missed")
 
     /** The paired PC (when the owner chose "your PC answers" and a device key is stored), else null. */
     fun remote(app: CluApp): ShellHost.Remote? {

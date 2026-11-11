@@ -1,4 +1,4 @@
-package ai.clu.desktop
+package ai.clu.core.api
 
 import ai.clu.core.CluCore
 import ai.clu.core.history.ArchivePerson
@@ -31,7 +31,7 @@ import kotlinx.serialization.json.*
 class ArchiveRoutes(private val core: CluCore) {
     private val archive get() = core.archive
 
-    fun handle(c: Call): Boolean {
+    fun handle(c: ApiCall): Boolean {
         val memoryId = Regex("^/v1/memories/([^/]+)$").find(c.path)?.groupValues?.get(1)
         val suggestion = Regex("^/v1/suggestions/([^/]+)/(approve|reject)$").find(c.path)
         when {
@@ -94,7 +94,7 @@ class ArchiveRoutes(private val core: CluCore) {
     }
 
     /** Creates or edits a memory: the date is parsed as the owner wrote it; an unreadable date is refused, never guessed. */
-    private fun save(c: Call, existing: Memory?) {
+    private fun save(c: ApiCall, existing: Memory?) {
         val title = c.str("title")?.trim() ?: existing?.title.orEmpty()
         val content = c.str("content") ?: existing?.content.orEmpty()
         if (title.isEmpty() && content.isBlank()) return c.fail(400, "a title or what happened is required")
@@ -131,8 +131,8 @@ class ArchiveRoutes(private val core: CluCore) {
     }
 
     /** A document upload: raw bytes with the file name in `X-File-Name`; refusals are explained, nothing partial is kept. */
-    fun upload(c: Call, bytes: ByteArray) {
-        val name = c.ex.requestHeaders.getFirst("X-File-Name")?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.substringAfterLast('/')?.substringAfterLast('\\')?.trim()
+    fun upload(c: ApiCall, bytes: ByteArray) {
+        val name = c.header("X-File-Name")?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.substringAfterLast('/')?.substringAfterLast('\\')?.trim()
         if (name.isNullOrEmpty()) return c.fail(400, "X-File-Name header is required")
         try {
             val d = archive.documents.import(name, bytes, originalRef = "desktop upload")

@@ -31,8 +31,9 @@ object ApiToken {
 }
 
 /** One API call: the exchange plus the helpers every route uses. */
-class Call(val ex: HttpExchange, val path: String, val method: String, val body: JsonObject) {
-    fun send(code: Int, body: JsonElement) {
+/** The PC's [ai.clu.core.api.ApiCall]: one request on the JDK HTTP server. */
+class Call(val ex: HttpExchange, path: String, method: String, body: JsonObject) : ai.clu.core.api.ApiCall(path, method, body) {
+    override fun send(code: Int, body: JsonElement) {
         val bytes = body.toString().toByteArray()
         ex.responseHeaders.apply {
             set("Content-Type", "application/json; charset=utf-8"); set("Cache-Control", "no-store"); set("X-Content-Type-Options", "nosniff")
@@ -40,16 +41,8 @@ class Call(val ex: HttpExchange, val path: String, val method: String, val body:
         ex.sendResponseHeaders(code, bytes.size.toLong())
         ex.responseBody.use { it.write(bytes) }
     }
-    fun ok(body: JsonElement = buildJsonObject { put("ok", true) }) = send(200, body)
-    fun fail(code: Int, msg: String) = send(code, buildJsonObject { put("error", msg) })
-    fun str(key: String) = body[key]?.jsonPrimitive?.contentOrNull
-    fun strings(key: String): List<String> = when (val v = body[key]) {
-        is JsonArray -> v.mapNotNull { it.jsonPrimitive.contentOrNull?.trim() }.filter { it.isNotEmpty() }
-        is JsonPrimitive -> v.contentOrNull?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
-        else -> emptyList()
-    }
-    fun query(key: String): String? = ex.requestURI.rawQuery?.split('&')?.map { it.split('=', limit = 2) }
-        ?.firstOrNull { it[0] == key }?.getOrNull(1)?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+    override fun header(name: String): String? = ex.requestHeaders.getFirst(name)
+    override val rawQuery: String? get() = ex.requestURI.rawQuery
 }
 
 /**
@@ -87,9 +80,18 @@ class ApiServer(
 ) {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), port), 16)
     private val executor = Executors.newFixedThreadPool(6) { r -> Thread(r, "clu-api").apply { isDaemon = true } }
-    private val archive = ArchiveRoutes(core)
+    private val archive = ai.clu.core.api.ArchiveRoutes(core)
     private val settings = SettingsRoutes(core, governor, hostConfig)
-    private val memory = MemoryRoutes(core, maintenance, paths)
+    private val memory = ai.clu.core.api.MemoryRoutes(core, maintenance?.let { m -> object : ai.clu.core.api.MaintenanceHost {
+        override val scheduled get() = m.scheduled
+        override val lastRun get() = m.last?.let { ai.clu.core.api.MaintenanceHost.Run(it.at, it.ran, it.summary) }
+        override fun busyReason() = m.busyReason()
+        override fun runNow() = m.tick(force = true).let { ai.clu.core.api.MaintenanceHost.Run(it.at, it.ran, it.summary) }
+    } }, paths?.let { p -> object : ai.clu.core.api.BackupHost {
+        override val folder get() = p.backups.absolutePath
+        override fun list() = DatabaseBackup.list(p.backups).map { ai.clu.core.api.BackupHost.Backup(it.file.name, it.sizeBytes, it.createdAt, it.label) }
+        override fun create() = DatabaseBackup.create(core.db, p.backups, System.currentTimeMillis(), "manual", keep = 10).let { ai.clu.core.api.BackupHost.Backup(it.file.name, it.sizeBytes, it.createdAt, it.label) }
+    } })
     private val models = ModelRoutes(core, governor, paths)
     private val agents = AgentRoutes(core, governor)
     private val voiceRoutes = voice?.let { ai.clu.desktop.voice.VoiceRoutes(it) }
@@ -204,7 +206,7 @@ class ApiServer(
         if (path == "/v1/openai" && method == "GET") return Call(ex, path, method, empty).let { c -> if (remote != null) c.fail(403, "not available from another device")
             else c.ok(buildJsonObject { put("baseUrl", "http://127.0.0.1:$port/openai/v1"); put("apiKey", localApiKey); put("model", core.llm.state.value.modelName ?: "") }) }
         if (path == "/v1/documents" && method == "POST") {
-            val bytes = readBody(ex, ArchiveRoutes.MAX_UPLOAD) ?: return Call(ex, path, method, empty).fail(413, "file over 50 MB")
+            val bytes = readBody(ex, ai.clu.core.api.ArchiveRoutes.MAX_UPLOAD) ?: return Call(ex, path, method, empty).fail(413, "file over 50 MB")
             return archive.upload(Call(ex, path, method, empty), bytes)
         }
         val body = if (method == "POST" || method == "PUT" || method == "DELETE") {

@@ -35,6 +35,13 @@ class ShellHost(
     /** The shell asked to close or reload its window. */
     private val window: (String) -> Unit = {},
     private val now: () -> Long = System::currentTimeMillis,
+    /**
+     * Tools that act on this device itself (alarm, volume, open an app…). While paired, a typed command for one of these
+     * runs here, not on the PC, which would otherwise set the alarm or open the app on the PC.
+     */
+    private val deviceTools: Set<String> = emptySet(),
+    /** What this platform can do, for the shell (capability detection; nothing unsupported is pretended). */
+    private val platform: JsonObject = buildJsonObject { put("platform", "android"); putJsonArray("pcOnly") { PC_ONLY.forEach { add(it) } } },
 ) {
     data class Remote(val base: String, val deviceKey: String)
 
@@ -67,6 +74,7 @@ class ShellHost(
         if (!constantTimeEquals(ex.header("Authorization")?.removePrefix("Bearer ")?.trim().orEmpty(), token)) return ex.json(401, err("missing or wrong token"))
         if (path.startsWith("/v1/shell/")) return shell(ex, path)
         val remote = pc()
+        if (remote != null && ex.method == "POST" && TURN.matches(path) && deviceCommand(ex)) return
         if (remote != null && now() >= pcDownUntil && forward(ex, remote)) return
         local.handle(ex, path, link())
     }
@@ -75,6 +83,9 @@ class ShellHost(
         "/v1/shell/ping" -> ex.json(200, """{"ok":true}""")
         // Where answers come from, for the shell's status line (and to reload when it changes).
         "/v1/shell/link" -> ex.json(200, buildJsonObject { put("link", link()); lastPcError?.let { put("error", it) } }.toString())
+        // Capability detection: which host answers and what this platform supports.
+        "/v1/shell/platform" -> ex.json(200, buildJsonObject { platform.forEach { (k, v) -> put(k, v) }; put("link", link()); put("version", version)
+            putJsonArray("deviceTools") { deviceTools.sorted().forEach { add(it) } } }.toString())
         "/v1/shell/quit", "/v1/shell/restart" -> { window(path.substringAfterLast('/')); ex.json(200, """{"ok":true}""") }
         else -> ex.json(404, err("not available on this device"))
     }
@@ -115,6 +126,22 @@ class ShellHost(
         } finally { c.disconnect() }
     }
 
+    /** A device command typed while paired: run on this device, answered in the turn stream's format. False = not one. */
+    private fun deviceCommand(ex: Exchange): Boolean {
+        if (deviceTools.isEmpty()) return false
+        val text = runCatching { Json.parseToJsonElement(String(ex.body)).jsonObject["text"]?.jsonPrimitive?.contentOrNull }.getOrNull()?.trim() ?: return false
+        val intent = ai.clu.core.agent.IntentRouter.route(text) ?: return false
+        if (intent.tool !in deviceTools || core.toolRegistry[intent.tool] == null) return false
+        val r = runBlocking { core.tools.execute(intent.tool, intent.args, ai.clu.core.tools.ToolContext(Actor.ownerInApp(), core.personas.active(), null, now())) }
+        val reply = (r.spoken ?: r.summary).ifBlank { if (r.success) "Done." else "That didn't work." }
+        ex.stream(200, "text/event-stream; charset=utf-8", mapOf("X-Content-Type-Options" to "nosniff", "X-Clu-Link" to "device")) { out ->
+            out.write(ShellApi.sse("status", buildJsonObject { put("text", "On this device") }))
+            out.write(ShellApi.sse("text", buildJsonObject { put("delta", reply) }))
+            out.write(ShellApi.sse("done", ShellApi.done(reply, error = if (r.success) "" else (r.error ?: reply)))); out.flush()
+        }
+        return true
+    }
+
     private fun serveAsset(ex: Exchange, path: String) {
         val primus = path.startsWith("/shell/primus/")
         val name = if (path == "/") "index.html" else path.removePrefix("/shell/")
@@ -135,6 +162,9 @@ class ShellHost(
 
     companion object {
         const val CONNECT_TIMEOUT_MS = 2500
+        private val TURN = Regex("^/v1/conversations/[^/]+/turns$")
+        /** Shell views only the PC provides: coding agents, model management, capabilities (self-built apps), camera gestures. */
+        val PC_ONLY = listOf("agents", "models", "capabilities", "hands")
         const val RETRY_MS = 15_000L
         private val FORWARDED = listOf("Content-Type", "Accept", "X-File-Name")
         private val NAME = Regex("^[a-z0-9_-]+\\.(html|css|js|svg)$")
@@ -154,6 +184,9 @@ class ShellHost(
  */
 class LocalApi(private val core: CluCore, private val version: String, private val now: () -> Long) {
     private val startedAt = now()
+    /** The same archive and memory routes as the PC (shared code, this device's data). */
+    private val archive = ArchiveRoutes(core)
+    private val memory = MemoryRoutes(core)
 
     fun handle(ex: Exchange, path: String, link: String) {
         val m = ex.method
@@ -187,11 +220,10 @@ class LocalApi(private val core: CluCore, private val version: String, private v
             }
             turn != null && m == "POST" -> turn(ex, turn.groupValues[1], body)
             path == "/v1/stop" && m == "POST" -> { core.agent.cancel(null); ex.json(200, """{"ok":true}""") }
-            path == "/v1/suggestions" && m == "GET" -> ok(ex, buildJsonArray { core.proposals.pending().forEach { p -> addJsonObject {
-                put("id", p.id); put("kind", p.kind.name); put("kindLabel", p.kind.label); put("text", p.text); put("rationale", p.rationale); put("createdAt", p.createdAt)
-                p.category?.let { put("category", it.name); put("categoryLabel", it.label) } } } })
+            path == "/v1/documents" && m == "POST" -> archive.upload(ExchangeCall(ex, path), ex.body)
             path == "/v1/capabilities" && m == "GET" -> ok(ex, JsonArray(emptyList()))
             path == "/v1/agents/approvals" && m == "GET" -> ok(ex, JsonArray(emptyList()))
+            ExchangeCall(ex, path).let { c -> archive.handle(c) || memory.handle(c) } -> {}
             else -> ex.json(503, ShellHost.err(if (link == "offline") "Your PC can't be reached right now. This is available again when it is." else "This is available when this device is connected to your PC (Settings → Connection in the classic view)."))
         }
     }

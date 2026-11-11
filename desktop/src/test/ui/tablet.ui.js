@@ -48,6 +48,16 @@ const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); cons
     const badge = await page.textContent("#linkBadge");
     assert(mode === "pc" ? /your PC/.test(badge) : /this device/.test(badge), "shows where answers come from: " + badge);
     await page.waitForTimeout(800); await page.screenshot({ path: path.join(out, `tablet-${mode}-chat.png`) });
+    // Capability detection: PC-only views are marked while the PC isn't answering, never hidden or faked.
+    await page.waitForTimeout(1200);
+    const marked = await page.evaluate(() => ["agents", "models", "capabilities"].map((v) => document.querySelector(`.nav[data-view="${v}"]`)?.classList.contains("needs-pc")));
+    assert(mode === "pc" ? marked.every((m) => !m) : marked.every(Boolean), "PC-only views marked only when the PC isn't answering: " + marked);
+    // Memory works on this device too (shared archive and memory routes).
+    await page.tap('.nav[data-view="memory"]'); await page.waitForTimeout(1500);
+    const memText = await page.textContent("#view-memory");
+    assert(!/connected to your PC|can't be reached/.test(memText), "the Memory view works " + (mode === "pc" ? "from the PC" : "on the device alone"));
+    await page.screenshot({ path: path.join(out, `tablet-${mode}-memory.png`) });
+    await page.tap('.nav[data-view="chat"]'); await page.waitForTimeout(300);
 
     // Typing: the reply streams from wherever answers come from.
     await page.fill("#input", "Hello"); await page.tap("#send");

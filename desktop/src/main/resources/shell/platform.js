@@ -94,10 +94,23 @@
       if (!r.ok) return;
       const now = (await r.json()).link;
       const badge = $("linkBadge"); if (badge) { badge.textContent = LINK_LABEL[now] || now; badge.dataset.link = now; }
+      markPcOnly(now);
       // Conversations, memories and settings come from wherever answers come from: show the new source's data.
       if (link && now !== link && !active && !($("input") && $("input").value.trim()) && !/thinking|speaking/.test(document.body.dataset.clu || "")) location.reload();
       link = now;
     } catch (e) { /* the app is closing */ }
+  }
+  // Capability detection: views that only the PC provides (coding agents, models, capabilities) are marked "PC" while
+  // the PC isn't answering; they stay visible and explain themselves rather than pretending to work.
+  let pcOnly = [];
+  async function loadPlatform() {
+    const token = sessionStorage.getItem("clu-token"); if (!token) return;
+    try { const r = await fetch("/v1/shell/platform", { headers: { Authorization: "Bearer " + token } }); if (r.ok) { const p = await r.json(); pcOnly = p.pcOnly || []; markPcOnly(p.link); } } catch (e) { /* closing */ }
+  }
+  function markPcOnly(now) {
+    pcOnly.forEach((v) => document.querySelectorAll(`.nav[data-view="${v}"]`).forEach((b) => {
+      b.classList.toggle("needs-pc", now !== "pc"); b.title = now !== "pc" ? "Available when this device is connected to your PC" : "";
+    }));
   }
   document.addEventListener("DOMContentLoaded", () => {
     mark();
@@ -110,6 +123,6 @@
     }
     const top = document.querySelector(".topbar");
     if (top) { const b = el("span", "link-badge", ""); b.id = "linkBadge"; top.append(b); }
-    setInterval(() => { if (!document.hidden) checkLink(); }, 5000); setTimeout(checkLink, 1500);
+    setInterval(() => { if (!document.hidden) checkLink(); }, 5000); setTimeout(() => { loadPlatform(); checkLink(); }, 1500);
   });
 })();

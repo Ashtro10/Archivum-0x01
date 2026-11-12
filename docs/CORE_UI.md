@@ -1,21 +1,50 @@
-# CLU Core: the main console (PC 0.12.0 and Android 1.14.0)
+# CLU Core: a reconstruction of the reference machine (PC 0.12.1, Android 1.14.1)
 
-The start view of CLU's window on both platforms (the same files: `shell/core.js`, `shell/core.css`). It is a dark,
-machined-metal console on a faint grid:
-- the seven original modules, joined by thin energy conduits;
-- every instrument driven by CLU's real state.
+The Core is **one vector composition in the reference image's own coordinate space (2000 × 1244)**. It is not a
+dashboard. Every region of the reference is rebuilt where the reference has it, with its proportions:
+- curved and angular boundaries;
+- the hexagonal architecture;
+- connecting pathways;
+- negative space.
 
-When CLU can't measure something here it shows **n/a**, never a made-up value.
+The whole machine scales as one piece. While the Core is shown, the window's sidebar and title bar are gone. The
+hex-crosshair icon (bottom right) brings the navigation rail over the machine.
 
-| Module | What it shows / does | Source of truth |
+## Where CLU's functions live in the reference's geometry
+
+| Reference region (coordinates) | CLU function | Source of truth |
 |---|---|---|
-| **A. Data matrix** (top-left arc) | Six segmented rings: CLU memory, system memory, inference queue, memory records (log scale), suggestions, tasks/approvals. A slow scan sweeps one ring at a time (idle motion, not data) | `/v1/status` (governor, model), `/v1/inference/status`, `/v1/memory/overview`, `/v1/suggestions`, every 5 s while visible |
-| **B. Sources & ideas** (top-right) | Progress ring for the current turn, answer preview, source and suggestion counters. Tap to open the intelligence container: last answer, its sources (links), suggestions waiting (Keep/Drop for real), background discoveries (merge suggestions, preference questions) | the turn stream; `/v1/suggestions`; `/v1/memory/overview` |
-| **C. Core process** (concentric rings) | INPUT, ANALYSIS, SYNTHESIS, OUTPUT. Each ring accelerates while its stage runs, settles when done, and returns to a slow idle drift | the real turn stream (`shell.js` reports every event of every turn: Core terminal, Chat or voice) |
-| **D. Core control** (hexagon) | Three touch sensors: TALK (voice session), STOP (`/v1/stop`), NEW (new conversation). Readouts: model, host, STT, response, queue, voice. Audio waveform. Execution console | live states. Console: real request traces (`/v1/requests`, PC) and app events |
-| **E. Command strip** | Command line plus on-screen keyboard (both type, Enter runs). Hold-to-execute pad: a deliberate visual confirmation, **not** a biometric or security check. Sound settings | the terminal commands below |
-| **F. Modules** | CLU (chat), Research (toggles the real `net.web` setting), Terminal, System, Memory, Voice, Files, Utility (settings) | real views and settings |
-| **G. File explorer** | Pick or drop a file: metadata and preview (images, text). Upload into CLU's archive (cyan burst on success), browse the archive, Inject (asks CLU about the document in the conversation) | `/v1/documents` (PC and Android alike) |
+| Arc quadrant (75–572 × 105–576): six curved bands of blocks, labels along the arcs | Data matrix: CLU memory, system memory, inference queue, memory records (log), suggestions, tasks. Lit blocks are the live value; the dim block texture is structure, not data | `/v1/status`, `/v1/inference/status`, `/v1/memory/overview`, `/v1/suggestions` |
+| Five circles under the arc, with their bus | Lamps: MODEL ready, VOICE session, NET, HOST answering, WEB research | live state |
+| Shield with nested triangles | System status (opens Status) | — |
+| Centre frame: angular mark, three schematic blocks, trefoil hexagon | Count blocks: conversations, memory records, documents (cells lit by real counts). The trefoil opens Chat | live counts |
+| Dotted concentric rings with their cradle | INPUT, ANALYSIS, SYNTHESIS, OUTPUT, plus the stage list (≡○) and the stage line | the real turn stream |
+| Wire hexagon with connector lines | The processing pipeline: documents are injected here (energy runs in; particles on success) | `/v1/documents` |
+| Diagonal stripe ladders, ⊖ control, warning triangle | Turn progress (lit stripes). ⊖ opens the intelligence container. The triangle turns red on a fault | the turn stream |
+| Segmented ring (top right) and dotted ruler | Progress, source and suggestion counts, answer preview. The ruler shows the length of the streamed answer | the turn stream |
+| Left honeycomb | Modules: CLU, WEB (real `net.web` toggle), TERM, SYS, MEM, VOICE, FILES, UTIL | real views and settings |
+| Five pointer dots | Interface sound, ambient hum, motion, voice cues, mute | saved on this device |
+| Open lower region and its progress rail | File explorer: pick or drop, metadata and preview, Upload into the archive (the rail shows progress), Inject | `/v1/documents` |
+| Bottom strip: left and right segments, emblem | ◂ previous command · command line · on-screen keyboard ▸. Holding the triangle-of-triangles emblem executes (a visual confirmation, not a security check) | terminal |
+| Octagon: crosshair with two chevrons | Three touch sensors: ‹ STOP · TALK (crosshair) · NEW › | `/v1/stop`, voice session, new conversation |
+| Octagon: inner hexagonal screen | System log: real request traces and app events | `/v1/requests` (PC), app events |
+| Octagon: honeycomb cells | Readouts: model, host, STT, response, queue, voice (full value in the tooltip) | live state |
+| Octagon: waveform band, trapezoid with grid button | Audio waveform. Grid button: mic monitor on the PC (level only); on Android the native session's level | real audio only, otherwise NO SIGNAL |
+| Black triangle (left) | Clears the log | — |
+| Star / hex crosshair (bottom right) | Sound panel / navigation rail | — |
+
+Expandable surfaces materialize over the machine and leave the architecture recognizable: the intelligence container
+over the top-right region, the keyboard over the lower region, the sound panel over the octagon.
+
+## Screen sizes
+- **Desktop and tablet (Pad 6):** the whole machine is visible at the reference's proportions.
+- **Portrait phone:** the machine fills the height and pans sideways. It never restacks into cards.
+
+## Fidelity check
+- `desktop/build/core-ui/core-idle.png` (1608 × 1000) was compared side by side, and as a 50% overlay, with the
+  reference.
+- Corrections made from that comparison: an opaque background, arc radius and density, the angular mark, label
+  collisions, ring weight, and the explorer clearing the emblem.
 
 ## Terminal
 `help`, `<question>` / `ask <question>` (the same conversation as Chat), `stop`, `status`, `memory <words>`, `docs`,

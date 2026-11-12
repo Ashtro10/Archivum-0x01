@@ -23,7 +23,7 @@ class RunningHost(val core: CluCore, val api: ApiServer, val governor: ResourceG
 }
 
 object Host {
-    const val VERSION = "0.12.0"
+    const val VERSION = "0.12.1"
 
     /**
      * Starts CLU on this PC: opens (and migrates) the database in [paths], starts the model service without loading a

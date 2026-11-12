@@ -20,7 +20,7 @@
 
   // ------------------------------------------------------------------------------------------ state (one store)
   const state = {
-    stage: "idle", stagesDone: [], stageNote: "Idle. Waiting for input.", stageAt: 0, answer: "", sources: [], suggestions: 0,
+    stage: "idle", stagesDone: [], stageNote: "waiting for input", stageAt: 0, answer: "", sources: [], suggestions: 0,
     voice: false, presence: "idle", filesOpen: true, sourceOpen: false, link: ANDROID ? "?" : "pc", model: null, platform: null,
     research: null, processing: false,
   };
@@ -155,24 +155,55 @@
   })();
 
   // ------------------------------------------------------------------------------------------ motion helpers
-  function glitch(node) { if (!node || reduced()) return; node.classList.remove("glitch"); void node.offsetWidth; node.classList.add("glitch"); setTimeout(() => node.classList.remove("glitch"), 160); }
+  const W = 2000, H = 1244; // the reference's coordinate space: every region below is placed in it
+  let stage = null, svgRoot = null;
+  const pct = (x, y, w, h) => ({ left: (x / W * 100) + "%", top: (y / H * 100) + "%", width: (w / W * 100) + "%", height: (h / H * 100) + "%" });
+  function glitch(node) { if (!node || reduced()) return; node.classList.remove("glitch"); void node.getBoundingClientRect(); node.classList.add("glitch"); setTimeout(() => node.classList.remove("glitch"), 160); }
+  function frags(node) {
+    if (!stage || !node || reduced()) return;
+    const s = stage.getBoundingClientRect(), r = node.getBoundingClientRect();
+    for (let i = 0; i < 5; i++) { const f = el("span", "frag"); f.style.left = (r.left - s.left + Math.random() * r.width) + "px"; f.style.top = (r.top - s.top + Math.random() * r.height) + "px"; stage.append(f); setTimeout(() => f.remove(), 320); }
+  }
+  /** Opens or closes an HTML surface with the materialization sequence (scan-line, outline, fragments, light). */
   function materialize(node, open, done) {
     if (!node) return;
     if (reduced()) { node.classList.toggle("hidden", !open); if (done) done(); return; }
     if (open) node.classList.remove("hidden");
     node.classList.remove("mz-in", "mz-out"); void node.offsetWidth; node.classList.add(open ? "mz-in" : "mz-out");
-    Sound.play(open ? "materialize" : "dissolve", xOf(node)); glitch(node);
-    if (open) for (let i = 0; i < 5; i++) { const f = el("span", "frag"); f.style.left = Math.random() * 90 + "%"; f.style.top = Math.random() * 90 + "%"; node.append(f); setTimeout(() => f.remove(), 320); }
+    Sound.play(open ? "materialize" : "dissolve", xOf(node)); glitch(node); if (open) frags(node);
     setTimeout(() => { node.classList.remove("mz-in", "mz-out"); if (!open) node.classList.add("hidden"); if (done) done(); }, open ? 440 : 300);
   }
-  function press(node, e) { // mechanical feedback: ripple at the touch point, click
+  /** Brings an SVG region up (start-up): it flickers into place. */
+  function regionIn(g, delay) { if (!g || reduced()) return; g.style.animationDelay = delay + "ms"; g.classList.add("region-in"); setTimeout(() => { frags(g); Sound.play("tick", xOf(g)); }, delay + 80); }
+  /** Mechanical feedback on a control: a pressed flash, a ripple where it was touched, a click. */
+  function press(node, e) {
     if (!node) return; Sound.play("click", xOf(node));
-    if (reduced() || !e) return;
-    const r = node.getBoundingClientRect(), rp = el("span", "ripple"); const s = Math.max(r.width, r.height) * 1.6;
-    rp.style.width = rp.style.height = s + "px"; rp.style.left = (e.clientX - r.left) + "px"; rp.style.top = (e.clientY - r.top) + "px";
-    if (getComputedStyle(node).position === "static") node.style.position = "relative";
-    node.append(rp); setTimeout(() => rp.remove(), 480);
+    node.classList.add("pressed"); setTimeout(() => node.classList.remove("pressed"), 140);
+    if (reduced() || !e || !stage || e.clientX == null) return;
+    const s = stage.getBoundingClientRect(), rp = el("span", "ripple"), r = node.getBoundingClientRect(), d = Math.max(r.width, r.height) * 1.5;
+    rp.style.width = rp.style.height = d + "px"; rp.style.left = (e.clientX - s.left) + "px"; rp.style.top = (e.clientY - s.top) + "px";
+    stage.append(rp); setTimeout(() => rp.remove(), 480);
   }
+  /** Makes an SVG group a real control: click, Enter/Space, accessible name. */
+  function control(g, label, fn) {
+    g.classList.add("hit"); g.setAttribute("role", "button"); g.setAttribute("tabindex", "0"); g.setAttribute("aria-label", label);
+    const t = svg("title", {}, g); t.textContent = label;
+    g.addEventListener("click", (e) => { press(g, e); fn(e); });
+    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); press(g); fn(e); } });
+    return g;
+  }
+  const hexPts = (cx, cy, r, flat = true) => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 3 * i + (flat ? 0 : Math.PI / 6); return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
+  /** A frame line: faint halo + thin bright stroke + an energy pulse travelling along it (a conduit). */
+  const conduits = {};
+  function frame(parent, d, id, cls) {
+    svg("path", { class: "halo", d }, parent); svg("path", { class: "ln" + (cls ? " " + cls : ""), d }, parent);
+    const f = svg("path", { class: "flow", d }, parent); f.style.animationDelay = (-Math.random() * 9).toFixed(2) + "s";
+    if (id) conduits[id] = (conduits[id] || []).concat(f);
+    return f;
+  }
+  function hot(ids, onNow) { ids.forEach((id) => (conduits[id] || []).forEach((f) => f.classList.toggle("hot", onNow))); }
+  function fo(parent, x, y, w, h, cls) { const f = svg("foreignObject", { x, y, width: w, height: h }, parent); const d = document.createElement("div"); d.className = "fo" + (cls ? " " + cls : ""); f.append(d); return d; }
+  const T = (parent, x, y, text, cls, attrs) => { const t = svg("text", Object.assign({ x, y, class: cls || "" }, attrs || {}), parent); t.textContent = text; return t; };
 
   // ------------------------------------------------------------------------------------------ console / terminal output
   let consoleEl = null; const MAX_LINES = 300;
@@ -184,80 +215,144 @@
     consoleEl.scrollTop = consoleEl.scrollHeight;
   }
 
-  // ------------------------------------------------------------------------------------------ build
-  function panel(cls, title, right) {
-    const p = el("section", "cpanel " + cls); const l = el("div", "clabel"); l.append(el("span", null, title)); const b = el("b", null, right || ""); l.append(b); p.append(l); p._label = b; return p;
-  }
-
+  // ------------------------------------------------------------------------------------------ the machine
+  const UI = {}; // references into the reconstruction
   function build() {
     root.replaceChildren();
-    const conduits = svg("svg", { class: "core-conduits", "aria-hidden": "true" }); root.append(conduits);
-    const grid = el("div", "core-grid"); root.append(grid);
-    const parts = el("canvas", "core-particles"); parts.setAttribute("aria-hidden", "true"); root.append(parts); Particles.attach(parts);
-    const P = { arc: buildArc(), rings: buildRings(), source: buildSource(), hex: buildHex(), files: buildFiles(), mods: buildMods(), keys: buildKeys() };
-    Object.values(P).forEach((p) => grid.append(p));
-    root._panels = P; root._conduits = conduits;
-    root.append(buildSourceWindow());
-    layoutConduits();
-    if (window.ResizeObserver) new ResizeObserver(() => { layoutConduits(); Particles.size(); }).observe(grid);
+    stage = el("div", "core-stage"); root.append(stage);
+    const s = svgRoot = svg("svg", { class: "core-svg", viewBox: `0 0 ${W} ${H}`, role: "application", "aria-label": "CLU core" }, stage);
+    const parts = el("canvas", "core-particles"); parts.setAttribute("aria-hidden", "true"); stage.append(parts); Particles.attach(parts);
+    UI.regions = {
+      frame: buildFrame(s), arc: buildArc(s), rings: buildRings(s), source: buildSource(s), pipe: buildPipeline(s),
+      mods: buildMods(s), files: buildFiles(s), keys: buildCommand(s), hex: buildHex(s), corner: buildCorner(s),
+    };
+    stage.append(buildSourceWindow(), buildKeyboard(), buildAudioPanel());
     built = true;
   }
 
-  // A. arc data matrix ----------------------------------------------------------------------------
+  // The structural line work of the reference (frames, separators, the long conduits) ------------------------------
+  function buildFrame(s) {
+    const g = svg("g", { id: "reg-frame" }, s);
+    frame(g, "M572 106 V440", "arc-rings");                                         // arc's right edge
+    frame(g, "M62 576 H384", "arc");                                                // arc base
+    frame(g, "M612 110 H1110 L1330 482 H1874", "rings-source");                     // top frame → right ruler
+    frame(g, "M628 124 H1100 L1312 468", null, "thin dim");                         // inner top frame
+    frame(g, "M1310 470 V482", null, "thin");
+    frame(g, "M62 666 H404", "mods");                                               // left separator
+    frame(g, "M438 668 H1150 L1262 586 H1300", "pipe-hex");                         // middle separator → octagon
+    frame(g, "M452 722 H1075 L1112 684 H1170 L1270 600", "files-hex", "thin");      // lower frame top
+    frame(g, "M452 722 L246 1062", "files");                                        // lower frame left diagonal
+    frame(g, "M1170 668 L1210 630", null, "thin dim");
+    frame(g, "M440 668 L420 690 V700", null, "thin dim");
+    // progress rail under the lower frame (upload / processing progress)
+    svg("rect", { x: 760, y: 766, width: 262, height: 10, class: "fill-deep" }, g);
+    UI.rail = svg("rect", { x: 762, y: 768, width: 0, height: 6, fill: "#8fd3f0" }, g);
+    for (let i = 0; i < 26; i++) svg("rect", { x: 764 + i * 10, y: 769, width: 6, height: 4, fill: "#5d7c89", opacity: 0.4 }, g);
+    return g;
+  }
+
+  // A. Arc data matrix (top-left quadrant) + five lamps + shield emblem ----------------------------------------------
   const ARC_ROWS = [
-    { key: "proc", label: "CLU MEMORY" }, { key: "sys", label: "SYSTEM MEMORY" }, { key: "infer", label: "INFERENCE QUEUE" },
-    { key: "records", label: "MEMORY RECORDS (log)" }, { key: "sugg", label: "SUGGESTIONS" }, { key: "tasks", label: "TASKS / APPROVALS" },
+    { key: "tasks", label: "TASKS / APPROVALS" }, { key: "sugg", label: "SUGGESTIONS" }, { key: "records", label: "MEMORY RECORDS" },
+    { key: "infer", label: "INFERENCE QUEUE" }, { key: "sys", label: "SYSTEM MEMORY" }, { key: "proc", label: "CLU MEMORY" },
   ];
   const arcBlocks = [];
-  function buildArc() {
-    const p = panel("core-arc", "Data matrix", "live");
-    const s = svg("svg", { class: "arc-svg", viewBox: "0 0 260 240", role: "img", "aria-label": "Processing load, memory and background activity" }, p);
-    const cx = 250, cy = 230;
+  function buildArc(s) {
+    const g = svg("g", { id: "reg-arc" }, s);
+    const cx = 572, cy = 576, A0 = Math.PI, A1 = Math.PI * 1.5;
+    const pt = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    const arcPath = (r0, r1, a0, a1) => { const [x0, y0] = pt(r1, a0), [x1, y1] = pt(r1, a1), [x2, y2] = pt(r0, a1), [x3, y3] = pt(r0, a0);
+      return `M${x0} ${y0} A${r1} ${r1} 0 0 1 ${x1} ${y1} L${x2} ${y2} A${r0} ${r0} 0 0 0 ${x3} ${y3} Z`; };
+    svg("path", { class: "band", d: arcPath(206, 472, A0, A1) }, g);
     ARC_ROWS.forEach((row, ri) => {
-      const r0 = 70 + ri * 26, n = 10 + ri * 4, blocks = [];
+      const r0 = 210 + ri * 44, r1 = r0 + 38, n = 12 + ri * 5, blocks = [];
+      svg("path", { class: "band", d: arcPath(r0 - 2, r1 + 2, A0, A1) }, g);
+      // blocks fill the first 72% of the quarter; the rest carries the curved label (as in the reference)
       for (let i = 0; i < n; i++) {
-        const a0 = Math.PI + (i / n) * (Math.PI / 2) + 0.012, a1 = Math.PI + ((i + 1) / n) * (Math.PI / 2) - 0.012, r1 = r0 + 17;
-        const pt = (r, a) => `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
-        blocks.push(svg("polygon", { class: "blk", points: [pt(r0, a0), pt(r1, a0), pt(r1, a1), pt(r0, a1)].join(" ") }, s));
+        const a0 = A0 + (i / n) * (Math.PI / 2) * 0.72 + 0.006, a1 = A0 + ((i + 1) / n) * (Math.PI / 2) * 0.72 - 0.006;
+        const rr0 = r0 + 4 + (i % 3 === 1 ? 6 : 0), rr1 = r1 - 4 - (i % 4 === 2 ? 8 : 0);
+        const b = svg("path", { class: "blk", d: arcPath(rr0, rr1, a0, a1) }, g);
+        b.style.setProperty("--base", (0.22 + ((i * 7 + ri * 3) % 5) * 0.09).toFixed(2)); // static structure texture, not data
+        blocks.push(b);
       }
       arcBlocks.push(blocks);
+      const id = "arcp" + ri; const [lx0, ly0] = pt(r0 + 13, A0 + Math.PI / 2 * 0.745), [lx1, ly1] = pt(r0 + 13, A1 - 0.01);
+      svg("path", { id, d: `M${lx0} ${ly0} A${r0 + 13} ${r0 + 13} 0 0 1 ${lx1} ${ly1}`, fill: "none" }, g);
+      const t = svg("text", { class: "arc-label" }, g); const tp = svg("textPath", { href: "#" + id }, t); tp.textContent = row.label;
+      const [vx0, vy0] = pt(r0 + 30, A0 + Math.PI / 2 * 0.745), [vx1, vy1] = pt(r0 + 30, A1 - 0.01);
+      svg("path", { id: id + "v", d: `M${vx0} ${vy0} A${r0 + 30} ${r0 + 30} 0 0 1 ${vx1} ${vy1}`, fill: "none" }, g);
+      const tv = svg("text", { class: "val" }, g); const tpv = svg("textPath", { href: "#" + id + "v", id: "arc-" + row.key }, tv); tpv.textContent = "…";
     });
-    for (let i = 0; i <= 5; i++) { const a = Math.PI + (i / 5) * (Math.PI / 2); svg("line", { class: "tick", x1: cx + 62 * Math.cos(a), y1: cy + 62 * Math.sin(a), x2: cx + 56 * Math.cos(a), y2: cy + 56 * Math.sin(a) }, s); }
-    const leg = el("div", "arc-legend"); ARC_ROWS.forEach((r) => { const sp = el("span"); sp.append(el("i", "cdim", r.label)); const v = el("b", "cval", "…"); v.id = "arc-" + r.key; sp.append(v); leg.append(sp); });
-    p.append(leg);
-    return p;
+    // five lamps under the arc, joined by a bus (model, voice, network, host, research)
+    UI.lamps = {};
+    [["model", "MODEL"], ["voice", "VOICE"], ["net", "NET"], ["host", "HOST"], ["research", "WEB"]].forEach(([k, label], i) => {
+      const x = 88 + i * 66.5, lg = svg("g", { class: "lamp" }, g);
+      svg("circle", { class: "ring", cx: x, cy: 606, r: 19 }, lg); svg("circle", { class: "core", cx: x, cy: 606, r: 11 }, lg);
+      svg("path", { class: "ln thin", d: `M${x} 625 V${i % 2 ? 650 : 642}` }, g);
+      T(g, x, 662, label, "lbl", { "text-anchor": "middle", "font-size": 10 });
+      UI.lamps[k] = lg;
+    });
+    svg("path", { class: "ln thin", d: "M88 642 H354 M154 650 H287" }, g);
+    // shield emblem (system status): pentagon with nested triangles
+    const shield = svg("g", {}, g);
+    svg("polygon", { class: "fillp", points: "486,598 572,522 656,598 622,652 522,652" }, shield);
+    svg("polygon", { class: "ln", points: "526,632 572,552 618,632" }, shield);
+    svg("polygon", { class: "ln thin", points: "543,622 572,572 601,622" }, shield);
+    svg("polygon", { class: "glyph dim", points: "560,612 572,592 584,612" }, shield);
+    control(shield, "System status: model, memory, governor", () => { log("", "open status"); show("status"); });
+    UI.shield = shield;
+    return g;
   }
   function setArc(key, fraction, text) {
     const i = ARC_ROWS.findIndex((r) => r.key === key); if (i < 0) return;
     const blocks = arcBlocks[i]; const lit = fraction == null ? 0 : Math.round(clamp(fraction, 0, 1) * blocks.length);
     blocks.forEach((b, j) => { b.classList.toggle("on", j < lit); b.classList.toggle("hi", j < lit && j >= lit - 2); });
-    $("arc-" + key).textContent = text; $("arc-" + key).className = fraction == null ? "cdim" : "cval";
+    const t = $("arc-" + key); if (t) { t.textContent = text; t.setAttribute("opacity", fraction == null ? "0.45" : "1"); }
   }
   let arcScan = 0;
-  function scanArc() { // a slow sequential scan along one row at a time (idle motion, not data)
-    if (reduced()) return;
-    const row = arcBlocks[arcScan % arcBlocks.length]; arcScan++;
-    row.forEach((b, j) => setTimeout(() => { b.classList.add("scan"); setTimeout(() => b.classList.remove("scan"), 140); }, j * 35));
-  }
+  function scanArc() { if (reduced()) return; const row = arcBlocks[arcScan % arcBlocks.length]; arcScan++; row.forEach((b, j) => setTimeout(() => { b.classList.add("scan"); setTimeout(() => b.classList.remove("scan"), 140); }, j * 35)); }
 
-  // C. concentric rings -----------------------------------------------------------------------------
+  // C. Process core (centre frame): CLU mark, three count blocks, trefoil hex, dotted concentric rings ---------------
   const STAGES = ["input", "analysis", "synthesis", "output"];
   const rings = [];
-  function buildRings() {
-    const p = panel("core-rings", "Core process", "idle");
-    const wrap = el("div", "rings-wrap"); p.append(wrap);
-    const s = svg("svg", { class: "rings-svg", viewBox: "0 0 220 220", role: "img", "aria-label": "Processing stages" }, wrap);
-    [100, 82, 64, 46].forEach((r, i) => svg("circle", { class: "hair", cx: 110, cy: 110, r: r + 8 }, s));
-    const dashes = ["3 5", "18 6 4 6", "40 10", "8 4 2 4"];
-    [100, 82, 64, 46].forEach((r, i) => {
-      const g = svg("g", {}, s); const c = svg("circle", { class: "ring", cx: 110, cy: 110, r, "stroke-dasharray": dashes[i] }, g);
-      rings.push({ g, c, a: i * 40, v: (i % 2 ? -1 : 1) * 4 });
+  function buildRings(s) {
+    const g = svg("g", { id: "reg-rings" }, s);
+    // CLU mark (the reference's angular glyph)
+    [["612,128 636,128 656,158 676,128 700,128 668,178 668,212 644,212 644,178"], ["612,190 634,190 634,242 612,242"], ["646,226 668,226 668,248 646,248"], ["612,254 634,254 634,300 612,300"], ["650,262 672,262 672,280 650,280"]]
+      .forEach(([p]) => svg("polygon", { class: "glyph", points: p }, g));
+    // three count blocks: conversations, memory kinds, documents (cells lit by real counts)
+    UI.blocks = {};
+    [["conv", "CONV", 758], ["mem", "MEM", 848], ["docs", "DOCS", 938]].forEach(([k, label, x]) => {
+      T(g, x + 30, 134, label, "lbl", { "text-anchor": "middle", "font-size": 11 });
+      const cells = []; for (let r = 0; r < 5; r++) for (let c = 0; c < 4; c++) cells.push(svg("rect", { class: "cell", x: x + 6 + c * 14, y: 144 + r * 11, width: 10, height: 7 }, g));
+      svg("path", { class: "ln thin", d: `M${x} 142 V200 M${x - 4} ${150 + (k === "mem" ? 30 : 10)} h-6` }, g);
+      svg("circle", { class: "ln thin", cx: x - 12, cy: 150 + (k === "mem" ? 30 : 10), r: 3 }, g);
+      UI.blocks[k] = { cells, n: T(g, x + 30, 214, "…", "val", { "text-anchor": "middle", "font-size": 12 }) };
     });
-    svg("circle", { class: "core-dot", cx: 110, cy: 110, r: 14 }, s);
-    const right = el("div"); const ul = el("ul", "stages"); STAGES.forEach((st) => { const li = el("li"); li.dataset.stage = st; li.append(el("i"), el("span", null, st.toUpperCase()), el("small", "cdim", "")); ul.append(li); });
-    right.append(ul, el("div", "stage-note")); wrap.append(right);
-    p._note = right.querySelector(".stage-note"); p._list = ul;
-    return p;
+    // trefoil hexagon (top right of the frame): opens the conversation
+    const tre = svg("g", {}, g);
+    svg("polygon", { class: "fillp", points: hexPts(1070, 192, 44) }, tre);
+    svg("polygon", { class: "ln thin", points: hexPts(1070, 192, 34) }, tre);
+    [[0], [2], [4]].forEach(([k]) => { const a = Math.PI / 3 * k; const p = (r, b) => `${1070 + r * Math.cos(b)},${192 + r * Math.sin(b)}`; svg("polygon", { class: "glyph", points: `${p(4, a + 0.5)} ${p(28, a + 0.2)} ${p(28, a + 0.85)}` }, tre); });
+    control(tre, "Conversation with CLU (Chat)", () => { log("", "open chat"); show("chat"); });
+    // dotted concentric rings: INPUT (outer) → OUTPUT (inner)
+    const rg = svg("g", {}, g);
+    [[112, "4 12"], [90, "6 10"], [68, "3 9"], [46, "5 11"]].forEach(([r, dash], i) => {
+      const gg = svg("g", {}, rg); const c = svg("circle", { class: "pring", cx: 880, cy: 312, r, "stroke-dasharray": dash }, gg);
+      if (i === 0) svg("circle", { class: "ln thin dim", cx: 880, cy: 312, r: 128, "stroke-dasharray": "2 16" }, rg);
+      rings.push({ g: gg, c, a: i * 37, v: (i % 2 ? -1 : 1) * 4 });
+    });
+    for (let i = 0; i < 22; i++) { const a = Math.random() * Math.PI * 2, r = Math.random() * 38; svg("rect", { class: "glyph dim", x: 880 + r * Math.cos(a), y: 312 + r * Math.sin(a), width: 3, height: 3 }, rg); }
+    // the cradle under the rings, as in the reference
+    svg("path", { class: "ln", d: "M748 300 V378 L838 454 H924 L1004 384 V300" }, g);
+    svg("path", { class: "ln thin", d: "M726 236 H748 M1004 236 H1030 M1004 300 H1030" }, g);
+    svg("circle", { class: "ln thin", cx: 723, cy: 236, r: 4 }, g); svg("circle", { class: "ln thin", cx: 1033, cy: 300, r: 4 }, g);
+    // stage list (the reference's ≡○ marker and short bars)
+    UI.stageRows = {};
+    T(g, 1120, 282, "≡ ○", "lbl", { "font-size": 16 });
+    STAGES.forEach((st, i) => { const row = svg("g", { class: "stage-row" }, g); svg("rect", { class: "dia", x: 1124, y: 302 + i * 22, width: 9, height: 9, transform: `rotate(45 1128.5 ${306.5 + i * 22})` }, row); T(row, 1144, 311 + i * 22, st.toUpperCase(), "", { "font-size": 12 }); UI.stageRows[st] = row; });
+    UI.stageNote = T(g, 880, 482, "IDLE · WAITING FOR INPUT", "lbl", { "text-anchor": "middle", "font-size": 12 });
+    return g;
   }
   const RING_SPEED = { idle: 4, pending: 7, active: 140, done: 22 };
   let ringRaf = 0, ringLast = 0;
@@ -266,44 +361,359 @@
     const cur = STAGES.indexOf(state.stage);
     rings.forEach((r, i) => {
       const mode = cur < 0 ? "idle" : i === cur ? "active" : i < cur || state.stagesDone.includes(STAGES[i]) ? "done" : "pending";
-      const dir = i % 2 ? -1 : 1, target = RING_SPEED[mode] * dir;
-      r.v += (target - r.v) * Math.min(1, dt * (mode === "active" ? 3 : 1.4)); // controlled acceleration and deceleration
-      r.a = (r.a + r.v * dt) % 360; r.g.setAttribute("transform", `rotate(${r.a.toFixed(2)} 110 110)`);
+      const target = RING_SPEED[mode] * (i % 2 ? -1 : 1);
+      r.v += (target - r.v) * Math.min(1, dt * (mode === "active" ? 3 : 1.4));
+      r.a = (r.a + r.v * dt) % 360; r.g.setAttribute("transform", `rotate(${r.a.toFixed(2)} 880 312)`);
       r.c.classList.toggle("active", mode === "active"); r.c.classList.toggle("done", mode === "done");
     });
     ringRaf = visible && !document.hidden && !reduced() ? requestAnimationFrame(ringLoop) : 0;
   }
   function startLoops() { if (!ringRaf && visible && !reduced()) { ringLast = now(); ringRaf = requestAnimationFrame(ringLoop); } }
 
-  // B. source / idea container -----------------------------------------------------------------------
-  function buildSource() {
-    const p = panel("core-source press", "Sources & ideas", "open ›");
-    const m = el("div", "source-min"); p.append(m);
-    const s = svg("svg", { class: "source-ring", viewBox: "0 0 74 74" }, m);
-    svg("circle", { class: "trk", cx: 37, cy: 37, r: 30 }, s); p._bar = svg("circle", { class: "bar", cx: 37, cy: 37, r: 30 }, s); svg("circle", { class: "spin", cx: 37, cy: 37, r: 20 }, s);
-    p._pct = svg("text", { x: 37, y: 41, "text-anchor": "middle", fill: "#eafbff", "font-size": "11", "font-family": "monospace" }, s); p._pct.textContent = "—";
-    const right = el("div"); right.append(el("div", "stripes"), el("div", "source-preview", "No answer yet.")); const counts = el("div", "source-counts");
-    counts.append(el("span", null, "SOURCES "), el("b", null, "0"), el("span", null, " SUGGESTIONS "), el("b", null, "0")); right.append(counts); m.append(right);
-    p._preview = right.querySelector(".source-preview"); p._srcN = counts.children[1]; p._sugN = counts.children[3];
-    p.addEventListener("click", (e) => { press(p, e); openSource(true); });
+  // Pipeline node (lower centre): wire hexagon fed by the connector lines: where documents are injected -------------
+  function buildPipeline(s) {
+    const g = svg("g", { id: "reg-pipe" }, s);
+    frame(g, "M724 536 H930 V512 H972", "pipe", "thin"); frame(g, "M742 560 H948", "pipe", "thin"); frame(g, "M796 606 H900 L930 576 H1000", "pipe", "thin");
+    [[724, 536], [742, 560], [796, 606]].forEach(([x, y]) => svg("circle", { class: "ln thin", cx: x, cy: y, r: 4 }, g));
+    svg("path", { class: "ln thin", d: "M940 488 H1000 V510 M960 500 H990" }, g);
+    const hx = svg("g", {}, g);
+    svg("polygon", { class: "ln", points: hexPts(1090, 566, 82, false) }, hx);
+    svg("polygon", { class: "ln thin", points: hexPts(1090, 566, 62, false) }, hx);
+    svg("path", { class: "ln thin", d: "M1090 492 V640 M1022 566 H1158 M1040 520 L1060 532 M1140 520 L1120 532 M1040 612 L1060 600 M1140 612 L1120 600" }, hx);
+    svg("rect", { class: "glyph", x: 1024, y: 484, width: 34, height: 8 }, hx);
+    UI.pipeHex = hx; UI.pipeLabel = T(g, 856, 584, "", "lbl", { "font-size": 11 });
+    // barcode and readout marks at the bottom-left of the frame
+    for (let i = 0; i < 16; i++) svg("rect", { class: "glyph" + (i % 3 ? " dim" : ""), x: 662 + i * 4.5, y: 622, width: i % 2 ? 2 : 3, height: 14 }, g);
+    UI.pipeCount = T(g, 740, 634, "", "lbl", { "font-size": 10 });
+    svg("rect", { class: "ln thin", x: 952, y: 612, width: 18, height: 30 }, g);
+    return g;
+  }
+
+  // B. Source / idea container (diagonal diagnostics band + segmented ring + ticker) -------------------------------
+  const stripes = [];
+  function buildSource(s) {
+    const g = svg("g", { id: "reg-source" }, s);
+    // header marks + diagonal hatch
+    svg("rect", { class: "ln thin", x: 1264, y: 98, width: 24, height: 14 }, g); T(g, 1294, 111, ":cc", "lbl", { "font-size": 13 });
+    for (let i = 0; i < 9; i++) svg("path", { class: "ln thin", d: `M${1168 + i * 10} 132 L${1176 + i * 10} 118` }, g);
+    svg("path", { class: "ln thin", d: "M1166 118 H1258 V132 H1166 Z" }, g);
+    // two diagonal stripe ladders: lit stripes = the current turn's progress (real stage)
+    for (let i = 0; i < 26; i++) { const x = 1190 + i * 5.6, y = 150 + i * 12.5, w = 8 + (i % 5) * 7; stripes.push(svg("rect", { class: "stripe", x, y, width: w, height: 6 }, g)); }
+    for (let i = 0; i < 28; i++) { const x = 1300 + i * 6.2, y = 196 + i * 10.6, w = 20 + (i % 4) * 9; stripes.push(svg("rect", { class: "stripe", x, y, width: w, height: 5 }, g)); }
+    svg("path", { class: "ln thin dim", d: "M1222 150 L1360 420 M1262 136 L1420 440" }, g);
+    [[1232, 154], [1278, 256], [1338, 330], [1364, 236]].forEach(([x, y]) => svg("polygon", { class: "arrow-g", points: `${x},${y} ${x + 12},${y + 20} ${x - 4},${y + 16}` }, g));
+    // the ⊖ control: opens the intelligence container
+    const opn = svg("g", {}, g);
+    svg("circle", { class: "fill-deep", cx: 1346, cy: 160, r: 22 }, opn); svg("rect", { class: "glyph", x: 1334, y: 157, width: 24, height: 6 }, opn);
+    svg("path", { class: "ln", d: "M1322 160 H1310 M1370 160 H1382 M1346 136 V128 M1346 184 V192" }, opn);
+    control(opn, "Sources and ideas: open the intelligence container", () => openSource(true));
+    // small text bars and the warning triangle (lit on a fault)
+    [[1150, 302, 60], [1162, 316, 52], [1150, 330, 70], [1168, 344, 44], [1150, 358, 64]].forEach(([x, y, w]) => svg("rect", { class: "glyph dim", x, y, width: w, height: 7 }, g));
+    svg("rect", { class: "ln thin", x: 1226, y: 398, width: 30, height: 12 }, g);
+    UI.warn = svg("polygon", { class: "ln", points: "1268,432 1286,462 1250,462" }, g); svg("rect", { class: "glyph dim", x: 1264, y: 446, width: 8, height: 8 }, g);
+    // segmented ring (the container proper)
+    const rg = svg("g", {}, g); const cx = 1692, cy = 240, R = 136;
+    const seg = (a0, a1, r, cls) => { const p = (a) => `${cx + r * Math.cos(a)} ${cy + r * Math.sin(a)}`; svg("path", { class: "sseg " + (cls || ""), d: `M${p(a0)} A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1)}` }, rg); };
+    const D = Math.PI / 180;
+    seg(-80 * D, -30 * D, R); seg(-24 * D, 18 * D, R); seg(24 * D, 70 * D, R, "accent"); seg(78 * D, 150 * D, R); seg(158 * D, 196 * D, R); seg(204 * D, 262 * D, R, "accent");
+    svg("path", { class: "sseg accent", d: `M${cx + 168 * Math.cos(-62 * D)} ${cy + 168 * Math.sin(-62 * D)} A168 168 0 0 1 ${cx + 168 * Math.cos(-18 * D)} ${cy + 168 * Math.sin(-18 * D)}`, "stroke-width": 22 }, rg);
+    svg("path", { class: "ln thin", d: `M${cx - 168} ${cy - 40} V${cy + 40}` }, rg);
+    UI.sprog = svg("circle", { class: "sprog", cx, cy, r: 112, "stroke-dasharray": "0 999", transform: `rotate(-90 ${cx} ${cy})` }, rg);
+    UI.spct = T(rg, cx, cy - 4, "—", "big", { "text-anchor": "middle" });
+    UI.scount = T(rg, cx, cy + 30, "SRC 0 · SUG 0", "lbl", { "text-anchor": "middle", "font-size": 12 });
+    control(rg, "Sources and ideas: open the intelligence container", () => openSource(true));
+    UI.preview = fo(g, 1548, 392, 290, 50, "");
+    UI.preview.classList.add("preview-txt"); UI.preview.textContent = "No answer yet.";
+    // ticker (dotted ruler): characters streamed in the current answer
+    UI.ticks = []; for (let i = 0; i < 52; i++) UI.ticks.push(svg("rect", { class: "tick-bar", x: 1562 + i * 6, y: 454, width: 3, height: 12 }, g));
+    return g;
+  }
+
+  // F. Module honeycomb (left) + five pointer toggles (sound and motion modes) ---------------------------------------
+  const ICONS = {
+    clu: "M0 -12 L10 -6 V6 L0 12 L-10 6 V-6 Z M0 -5 V5", research: "M-3 -9 a7 7 0 1 0 0.1 0 M3 3 L10 10", terminal: "M-10 -7 L-3 0 L-10 7 M0 8 H10",
+    system: "M-10 -8 H10 V5 H-10 Z M-4 10 H4", memory: "M-7 -10 H7 V10 H-7 Z M-7 -3 H7 M-7 4 H7", voice: "M0 -10 V2 M-6 -2 A6 6 0 0 0 6 -2 M0 4 V9",
+    files: "M-10 -8 H10 V9 H-10 Z M-10 -3 H10", utility: "M0 -5 A5 5 0 1 0 0.1 -5 M0 -12 V-8 M0 8 V12 M-12 0 H-8 M8 0 H12",
+  };
+  const MODS = [
+    ["clu", "CLU", "Conversation with CLU"], ["research", "WEB", "Web research on or off (Settings → Network)"], ["terminal", "TERM", "Command line"],
+    ["system", "SYS", "Status: model, memory, governor"], ["memory", "MEM", "Memory and archive"], ["voice", "VOICE", "Voice conversation"],
+    ["files", "FILES", "File explorer"], ["utility", "UTIL", "Settings"],
+  ];
+  function buildMods(s) {
+    const g = svg("g", { id: "reg-mods" }, s); UI.mods = {};
+    // flat-top honeycomb in the reference's position under the arc
+    const cells = [[236, 724], [312, 724], [388, 724], [274, 790], [350, 790], [236, 856], [312, 856], [388, 856]];
+    cells.forEach(([x, y], i) => {
+      const [id, label, title] = MODS[i]; const m = svg("g", { class: "modhex" }, g);
+      svg("polygon", { class: "fillp", points: hexPts(x, y, 36) }, m);
+      const ic = svg("path", { d: ICONS[id], transform: `translate(${x} ${y - 8})`, fill: "none", stroke: "currentColor", class: "ln thin" }, m);
+      T(m, x, y + 22, label, "", { "text-anchor": "middle" });
+      control(m, title, () => module(id, m)); UI.mods[id] = m; void ic;
+    });
+    // pointer toggles: dot + line + label (interface sound, ambient, voice cues, mute, motion)
+    UI.dots = {};
+    [["ui", "INTERFACE", 88, 746, 176], ["ambient", "AMBIENT", 132, 860, 214], ["motion", "MOTION", 258, 940, 302], ["voice", "VOICE CUES", 134, 968, 186], ["mute", "MUTE", 186, 1008, 252]]
+      .forEach(([k, label, x, y, x2]) => {
+        const d = svg("g", { class: "dotsw" }, g);
+        svg("line", { class: "ln thin", x1: x + 10, y1: y, x2, y2: y }, d); svg("circle", { class: "d", cx: x, cy: y, r: 9 }, d);
+        T(d, x - 4, y - 14, label, "", { "font-size": 11 });
+        control(d, label.toLowerCase() + " on or off", () => toggleMode(k)); UI.dots[k] = d;
+      });
+    return g;
+  }
+  function toggleMode(k) {
+    if (k === "motion") { const r = !root.classList.contains("reduced"); root.classList.toggle("reduced", r); try { localStorage.setItem("clu-core-reduced", r ? "1" : "0"); } catch (e) { /* private */ } log("ok", "motion " + (r ? "reduced" : "full")); }
+    else { Sound.set(k, !Sound.prefs[k]); log("ok", `${k === "ui" ? "interface sounds" : k === "voice" ? "voice cues" : k} ${Sound.prefs[k] ? "on" : "off"}`); }
+    syncModes(); Sound.play("confirm");
+  }
+  function syncModes() {
+    if (!UI.dots) return;
+    ["ui", "ambient", "voice", "mute"].forEach((k) => UI.dots[k].classList.toggle("on", !!Sound.prefs[k]));
+    UI.dots.motion.classList.toggle("on", !root.classList.contains("reduced"));
+    const p = $("coreAudio"); if (p) { p.querySelector("input[type=range]").value = Math.round(Sound.prefs.volume * 100); p.querySelectorAll("input[type=checkbox]").forEach((c) => { c.checked = !!Sound.prefs[c.dataset.k]; }); }
+  }
+  const syncAudioUi = syncModes;
+
+  // G. File explorer (the open lower region) --------------------------------------------------------------------------
+  let docs = [], picked = null, selectedDoc = null;
+  function buildFiles(s) {
+    const g = svg("g", { id: "reg-files" }, s);
+    T(g, 520, 760, "FILE EXPLORER", "lbl"); UI.docCount = T(g, 1180, 760, "", "lbl", { "text-anchor": "end" });
+    const box = fo(g, 520, 788, 660, 186, ""); // stops above the emblem (y 986), as the reference's lower region does
+    const files = el("div", "files"); box.append(files);
+    const left = el("div"); const drop = el("div", "drop", "Drop a file here, or tap to choose"); const input = el("input"); input.type = "file"; input.className = "hidden-input"; input.setAttribute("aria-label", "Choose a file");
+    const list = el("ul", "file-list"); left.append(drop, input, list); files.append(left);
+    const right = el("div", "right"); const meta = el("div", "meta-grid"); const prev = el("div", "preview"); const acts = el("div", "acts");
+    const up = el("button", "kbtn", "Upload"), inj = el("button", "kbtn", "Inject"); up.disabled = inj.disabled = true; inj.title = "Ask CLU about this document (it goes into the conversation)";
+    acts.append(up, inj); right.append(meta, prev, acts); files.append(right);
+    Object.assign(UI, { fList: list, fMeta: meta, fPrev: prev, fUp: up, fInj: inj, fDrop: drop });
+    drop.addEventListener("click", (e) => { press(drop, e); input.click(); });
+    input.addEventListener("change", () => input.files[0] && pick(input.files[0]));
+    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("over")));
+    drop.addEventListener("drop", (e) => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) pick(f); });
+    up.addEventListener("click", (e) => { press(up, e); upload(); });
+    inj.addEventListener("click", (e) => { press(inj, e); inject(); });
+    return g;
+  }
+  const kb = (n) => n == null ? "?" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+  function meta(pairs) { UI.fMeta.replaceChildren(); pairs.forEach(([k, v]) => UI.fMeta.append(el("span", "k", k), el("span", "v", v))); }
+  function railTo(f) { UI.rail.setAttribute("width", (clamp(f, 0, 1) * 258).toFixed(1)); }
+  function pick(f) {
+    picked = f; selectedDoc = null;
+    meta([["NAME", f.name], ["TYPE", f.type || "unknown"], ["SIZE", kb(f.size)], ["MODIFIED", new Date(f.lastModified).toLocaleString()], ["STATE", "not uploaded"]]);
+    UI.fPrev.replaceChildren(el("div", "cdim", "Preview…"));
+    if (/^image\//.test(f.type)) { const img = el("img"); img.alt = f.name; img.src = URL.createObjectURL(f); img.onload = () => URL.revokeObjectURL(img.src); UI.fPrev.replaceChildren(img); }
+    else if (/^text\/|json|xml|csv|markdown/.test(f.type) || /\.(txt|md|csv|json|log|kt|js|py)$/i.test(f.name)) { f.slice(0, 6000).text().then((t) => UI.fPrev.replaceChildren(el("pre", null, t))).catch(() => UI.fPrev.replaceChildren(el("div", "cdim", "No preview."))); }
+    else UI.fPrev.replaceChildren(el("div", "cdim", "No preview for this type. CLU reads PDF, Word and text documents when uploaded."));
+    UI.fUp.disabled = false; UI.fInj.disabled = true; Sound.play("chirp", xOf(UI.fDrop)); railTo(0);
+    UI.fList.querySelectorAll("li").forEach((x) => x.classList.remove("sel"));
+  }
+  async function upload() {
+    if (!picked) return;
+    UI.fUp.disabled = true; hot(["files", "files-hex", "pipe"], true); railTo(0.35); log("", `upload ${picked.name} (${kb(picked.size)})…`); Sound.play("processing", 0.4);
+    try {
+      const r = await fetch("/v1/documents", { method: "POST", body: picked, headers: { Authorization: "Bearer " + sessionStorage.getItem("clu-token"), "X-File-Name": encodeURIComponent(picked.name) } });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
+      railTo(1); log("ok", `synchronised: ${d.name} · ${d.textStatus === "indexed" ? (d.chars || 0).toLocaleString() + " characters indexed" : "stored, no searchable text"}`);
+      Sound.play("success", 0.45); Particles.at(UI.pipeHex, 70, { speed: 170 }); glitch(UI.regions.pipe);
+      picked = null; await loadDocs(); const li = [...UI.fList.children].find((x) => x._doc && x._doc.id === d.id); if (li) li.click();
+    } catch (e) { railTo(0); log("err", "upload refused: " + e.message); Sound.play("error", 0.4); glitch(UI.regions.files); UI.fUp.disabled = false; }
+    setTimeout(() => hot(["files", "files-hex", "pipe"], false), 900);
+  }
+  function inject() {
+    if (!selectedDoc || !window.CluShell) return;
+    const q = `Summarise the document "${selectedDoc.name}" and tell me what matters in it.`;
+    log("you", "› " + q); hot(["pipe", "pipe-hex"], true); setTimeout(() => hot(["pipe", "pipe-hex"], false), 1500);
+    Particles.at(UI.pipeHex, 30, { speed: 120 }); CluShell.send(q);
+  }
+  async function loadDocs() {
+    try { docs = await api("/v1/documents"); } catch (e) { UI.fList.replaceChildren(el("li", "cdim", "Documents: " + e.message)); return; }
+    UI.fList.replaceChildren(); UI.docCount.textContent = docs.length + " IN ARCHIVE"; UI.pipeCount.textContent = docs.length + " DOCS";
+    setCells("docs", docs.length);
+    if (!docs.length) UI.fList.append(el("li", "cdim", "No documents yet."));
+    docs.forEach((d) => {
+      const li = el("li"); li._doc = d; li.append(el("span", null, d.name), el("small", null, kb(d.sizeBytes)));
+      li.addEventListener("click", () => {
+        UI.fList.querySelectorAll("li").forEach((x) => x.classList.remove("sel")); li.classList.add("sel"); selectedDoc = d; picked = null;
+        meta([["NAME", d.name], ["TYPE", d.type], ["SIZE", kb(d.sizeBytes)], ["TEXT", d.textStatus === "indexed" ? (d.chars || 0).toLocaleString() + " chars indexed" : d.textStatus], ["DATE", d.date || "—"]]);
+        UI.fPrev.replaceChildren(el("div", "cdim", "Stored in CLU's archive. Inject sends it into the pipeline: CLU reads it in this conversation."));
+        UI.fUp.disabled = true; UI.fInj.disabled = false; Sound.play("tick", xOf(li));
+      });
+      UI.fList.append(li);
+    });
+  }
+  function setCells(k, n) { const b = UI.blocks && UI.blocks[k]; if (!b) return; const lit = n == null ? 0 : Math.round(clamp(Math.log10(n + 1) / 3, 0, 1) * b.cells.length); b.cells.forEach((c, i) => c.classList.toggle("on", i < lit)); b.n.textContent = n == null ? "n/a" : String(n); }
+
+  async function module(id, m) {
+    glitch(UI.regions.mods); hot(["mods"], true); setTimeout(() => hot(["mods"], false), 900);
+    if (!reduced()) Particles.at(m, 14, { speed: 90, life: 0.4 });
+    Sound.play("activate", xOf(m));
+    const go = (view) => { log("", "open " + view); show(view); };
+    if (id === "clu") go("chat"); else if (id === "system") go("status"); else if (id === "memory") go("memory"); else if (id === "utility") go("settings");
+    else if (id === "terminal") { $("coreCmd").focus(); log("", "terminal ready. Type help."); }
+    else if (id === "voice") sensor("talk", m);
+    else if (id === "files") { UI.fDrop.click(); }
+    else if (id === "research") {
+      if (state.research == null) { log("warn", "research setting not available"); return; }
+      try { await api("/v1/settings", { method: "PUT", json: { key: "net.web", value: !state.research } }); set({ research: !state.research }); log("ok", "web research " + (state.research ? "on" : "off")); }
+      catch (e) { log("err", "research: " + e.message); Sound.play("error"); }
+    }
+  }
+
+  // E. Command strip (bottom): history ◂ | command line | ▸ keyboard, with the hold-to-execute emblem ----------------
+  const history = (() => { try { return JSON.parse(localStorage.getItem("clu-core-history") || "[]"); } catch (e) { return []; } })(); let hIdx = -1;
+  function buildCommand(s) {
+    const g = svg("g", { id: "reg-keys" }, s);
+    // left segment: history back
+    const hl = svg("g", {}, g);
+    svg("path", { class: "fill-deep", d: "M314 1080 H546 L560 1096 L546 1122 H330 L314 1104 Z" }, hl);
+    svg("polygon", { class: "glyph", points: "378,1090 390,1108 366,1108" }, hl); svg("polygon", { class: "glyph dim", points: "508,1104 520,1086 496,1086" }, hl);
+    svg("path", { class: "ln thin", d: "M334 1114 H360 M402 1100 H486" }, hl);
+    control(hl, "Previous command", () => recall(1));
+    // centre bar with the command line
+    svg("path", { class: "fill-deep", d: "M566 1080 H1090 L1072 1124 H584 Z" }, g);
+    const box = fo(g, 584, 1082, 488, 40, "");
+    const bar = el("div", "cmdbar"); box.append(bar);
+    const input = el("input", "cmd"); input.id = "coreCmd"; input.placeholder = "command or question (help)"; input.autocomplete = "off"; input.spellcheck = false; input.setAttribute("aria-label", "Command");
+    const ind = el("span", "exec-ind"); ind.id = "coreExec"; bar.append(el("span", "prompt", "CLU›"), input, ind);
+    input.addEventListener("keydown", (e) => {
+      light(e.key);
+      if (e.key === "Enter") { e.preventDefault(); run(input.value); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); recall(1); } else if (e.key === "ArrowDown") { e.preventDefault(); recall(-1); }
+    });
+    input.addEventListener("focus", () => setMod("terminal", true)); input.addEventListener("blur", () => setMod("terminal", false));
+    // emblem: triangle of triangles in a pentagon: hold to execute (a deliberate confirmation, not a security check)
+    const em = svg("g", {}, g);
+    svg("polygon", { class: "fill-deep", points: "742,1076 836,986 930,1076" }, em);
+    svg("polygon", { class: "ln", points: "760,1070 836,1000 912,1070" }, em);
+    const tri = (x, y, s2, up) => svg("polygon", { class: "glyph", points: up ? `${x},${y - s2} ${x + s2},${y + s2 * 0.7} ${x - s2},${y + s2 * 0.7}` : `${x},${y + s2} ${x + s2},${y - s2 * 0.7} ${x - s2},${y - s2 * 0.7}` }, em);
+    UI.emTris = [tri(836, 1022, 14, true), tri(816, 1052, 14, true), tri(856, 1052, 14, true), tri(836, 1050, 9, false), tri(796, 1062, 7, false), tri(876, 1062, 7, false)];
+    UI.emTris.forEach((t, i) => t.setAttribute("opacity", 0.35 + (i % 3) * 0.2));
+    control(em, "Hold to execute the command (a visual confirmation, not a security check)", () => {});
+    let holdT = 0, holdI = 0;
+    em.addEventListener("pointerdown", () => { em.classList.add("on"); Sound.play("tick", 0.42); let k = 0; holdI = setInterval(() => { UI.emTris.forEach((t, i) => t.setAttribute("opacity", i <= k % 6 ? 1 : 0.3)); k++; }, 90);
+      holdT = setTimeout(() => { clearInterval(holdI); em.classList.remove("on"); run(input.value); }, 650); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => em.addEventListener(ev, () => { clearTimeout(holdT); clearInterval(holdI); em.classList.remove("on"); UI.emTris.forEach((t, i) => t.setAttribute("opacity", 0.35 + (i % 3) * 0.2)); }));
+    // right segment: on-screen keyboard
+    const hr = svg("g", {}, g);
+    svg("path", { class: "fill-deep", d: "M1100 1096 L1116 1080 H1340 V1122 H1116 Z" }, hr);
+    svg("polygon", { class: "glyph", points: "1146,1104 1158,1086 1134,1086" }, hr); svg("polygon", { class: "glyph", points: "1270,1090 1282,1108 1258,1108" }, hr);
+    svg("path", { class: "ln thin", d: "M1170 1100 H1246 M1294 1114 H1326" }, hr);
+    control(hr, "On-screen keyboard", () => { const k = $("coreKeyboard"); materialize(k, k.classList.contains("hidden")); });
+    frame(g, "M246 1062 L312 1062", "keys", "thin");
+    return g;
+  }
+  function recall(dir) { const input = $("coreCmd"); if (!history.length) return; hIdx = clamp(hIdx + dir, -1, history.length - 1); input.value = hIdx < 0 ? "" : history[history.length - 1 - hIdx]; input.focus(); }
+  function buildKeyboard() {
+    const k = el("div", "surface hidden"); k.id = "coreKeyboard"; Object.assign(k.style, pct(452, 806, 760, 262)); k.setAttribute("aria-label", "On-screen keyboard");
+    const head = el("div", "head"); head.append(el("span", null, "KEYBOARD"), (() => { const b = el("button", "kbtn", "Close"); b.addEventListener("click", (e) => { press(b, e); materialize(k, false); }); return b; })()); k.append(head);
+    const kbd = el("div", "kb"); k.append(kbd); UI.kbd = kbd;
+    const input = () => $("coreCmd");
+    const key = (label, value, cls) => {
+      const b = el("button", "key" + (cls ? " " + cls : ""), label); b.type = "button"; b.dataset.k = value.toLowerCase();
+      b.addEventListener("click", () => {
+        Sound.play("click", xOf(b)); b.classList.add("lit"); setTimeout(() => b.classList.remove("lit"), 120);
+        const i = input(); if (value === "Enter") return run(i.value); if (value === "Backspace") i.value = i.value.slice(0, -1); else if (value === "Clear") i.value = ""; else i.value += value;
+      });
+      return b;
+    };
+    ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].forEach((r, i) => { const rr = el("div", "kb-row"); [...r].forEach((ch) => rr.append(key(ch, ch.toLowerCase()))); if (i === 3) rr.append(key("⌫", "Backspace", "wide")); kbd.append(rr); });
+    const last = el("div", "kb-row"); last.append(key("CLR", "Clear", "wide"), key("SPACE", " ", "space"), key("ENTER", "Enter", "wide")); kbd.append(last);
+    return k;
+  }
+  function light(k) { if (!UI.kbd) return; const b = UI.kbd.querySelector(`.key[data-k="${CSS.escape(k.length === 1 ? k.toLowerCase() : k.toLowerCase())}"]`); if (b) { b.classList.add("lit"); setTimeout(() => b.classList.remove("lit"), 120); } }
+  function execInd(cls) { const i = $("coreExec"); if (i) i.className = "exec-ind" + (cls ? " " + cls : ""); }
+
+  // D. Core control octagon (right): crosshair sensors, inner screen (console), honeycomb readouts, waveform ---------
+  let waveCanvas = null, waveCtx = null, waveLabel = null, micStream = null, micAnalyser = null, playAnalyser = null, playStream = null;
+  function buildHex(s) {
+    const g = svg("g", { id: "reg-hex" }, s);
+    svg("polygon", { class: "fillp", points: "1206,770 1298,588 1872,588 1960,770 1872,958 1746,1124 1420,1124 1296,958" }, g);
+    svg("polygon", { class: "ln thin dim", points: "1226,770 1310,604 1860,604 1940,770 1860,944 1738,1108 1428,1108 1308,944" }, g);
+    // honeycomb texture behind the readouts
+    // inner screen (console)
+    svg("polygon", { class: "fill-deep", points: "1316,786 1386,660 1600,660 1658,786 1600,918 1386,918" }, g);
+    svg("path", { class: "ln thin", d: "M1330 800 L1340 820 M1336 830 L1356 870" }, g);
+    T(g, 1404, 686, "SYSTEM LOG", "lbl", { "font-size": 11 });
+    const cbox = fo(g, 1384, 694, 236, 214, ""); consoleEl = el("div", "console"); consoleEl.setAttribute("role", "log"); consoleEl.setAttribute("aria-live", "polite"); cbox.append(consoleEl);
+    UI.consoleBox = cbox;
+    // honeycomb readouts (the reference's hex cluster at the screen's right)
+    const RO = [["model", "MODEL", 1700, 704], ["link", "HOST", 1766, 742], ["stt", "STT", 1700, 780], ["resp", "RESPONSE", 1766, 818], ["queue", "QUEUE", 1700, 856], ["voice", "VOICE", 1832, 780]];
+    [[1832, 704], [1832, 856], [1766, 894]].forEach(([x, y]) => svg("polygon", { class: "ln thin dim", points: hexPts(x, y, 36) }, g));
+    RO.forEach(([k, label, x, y]) => {
+      svg("polygon", { class: "fill-deep", points: hexPts(x, y, 36) }, g);
+      T(g, x, y - 6, label, "lbl", { "text-anchor": "middle", "font-size": 9 });
+      const v = T(g, x, y + 12, "…", "val", { "text-anchor": "middle", "font-size": 11, textLength: 0 }); v.removeAttribute("textLength"); v.id = "ro-" + k; v.classList.add("ro");
+    });
+    svg("path", { class: "ln", d: "M1840 852 L1856 836 L1866 852 Z" }, g); // small right triangle (as in the reference)
+    // crosshair head with two chevrons: the three touch sensors (STOP ‹ TALK › NEW)
+    UI.sensors = {};
+    const talk = svg("g", {}, g);
+    svg("polygon", { class: "fillp", points: hexPts(1584, 598, 58) }, talk); svg("polygon", { class: "ln thin", points: hexPts(1584, 598, 44) }, talk);
+    svg("circle", { class: "ln", cx: 1584, cy: 598, r: 16 }, talk); svg("path", { class: "ln", d: "M1584 538 V690 M1532 598 H1636" }, talk);
+    control(talk, "Start or end a voice conversation", () => sensor("talk", talk)); UI.sensors.talk = talk;
+    const stop = svg("g", {}, g);
+    svg("polygon", { class: "fillp", points: "1512,566 1486,598 1512,630 1534,630 1514,598 1534,566" }, stop); svg("polygon", { class: "ln thin", points: "1500,598 1514,580 1514,616" }, stop);
+    control(stop, "Stop CLU thinking or speaking", () => sensor("stop", stop)); UI.sensors.stop = stop;
+    const nw = svg("g", {}, g);
+    svg("polygon", { class: "fillp", points: "1656,566 1682,598 1656,630 1634,630 1654,598 1634,566" }, nw); svg("polygon", { class: "ln thin", points: "1668,598 1654,580 1654,616" }, nw);
+    control(nw, "Start a new conversation", () => sensor("new", nw)); UI.sensors.new = nw;
+    // left black triangle: clear the console
+    const clr = svg("g", {}, g); svg("polygon", { class: "fill-deep", points: "1286,938 1316,872 1346,938" }, clr);
+    control(clr, "Clear the system log", () => { consoleEl.replaceChildren(); log("", "log cleared"); });
+    // waveform band and the bottom trapezoid with the mic button
+    svg("path", { class: "ln thin", d: "M1556 998 L1566 1010 L1576 998 M1580 998 L1590 1010 L1600 998" }, g);
+    UI.waveLabel = waveLabel = T(g, 1412, 962, "NO SIGNAL", "lbl", { "font-size": 11 }); waveLabel.id = "coreWaveLabel";
+    const wbox = fo(g, 1404, 968, 352, 28, ""); waveCanvas = el("canvas", "wave"); wbox.append(waveCanvas); waveCtx = waveCanvas.getContext("2d");
+    svg("polygon", { class: "fill-deep", points: "1468,1018 1702,1018 1688,1100 1482,1100" }, g);
+    const mic = svg("g", {}, g); svg("circle", { class: "fillp", cx: 1600, cy: 1060, r: 30 }, mic);
+    [[1586, 1046], [1600, 1046], [1586, 1060], [1600, 1060], [1614, 1060], [1600, 1074]].forEach(([x, y]) => svg("rect", { class: "glyph", x: x - 5, y: y - 5, width: 11, height: 11 }, mic));
+    control(mic, ANDROID ? "Microphone level comes from the app's voice session" : "Mic monitor: show your microphone level (nothing is recorded or sent)", () => { if (ANDROID) log("", "the app's voice session owns the microphone; its level is shown when voice is on"); else toggleMic(mic); });
+    UI.mic = mic;
+    return g;
+  }
+
+  // Bottom-right corner: sound panel (star) and navigation (hex crosshair) --------------------------------------------
+  function buildCorner(s) {
+    const g = svg("g", { id: "reg-corner" }, s);
+    const star = svg("g", {}, g); svg("path", { class: "fillp", d: "M1816 1028 Q1822 1060 1852 1066 Q1822 1072 1816 1104 Q1810 1072 1780 1066 Q1810 1060 1816 1028 Z" }, star);
+    control(star, "Sound settings", () => { const p = $("coreAudio"); materialize(p, p.classList.contains("hidden")); syncModes(); });
+    const nav = svg("g", {}, g); svg("polygon", { class: "fillp", points: hexPts(1912, 1080, 34) }, nav); svg("circle", { class: "ln", cx: 1912, cy: 1080, r: 12 }, nav);
+    svg("path", { class: "ln", d: "M1912 1050 V1110 M1882 1080 H1942" }, nav);
+    control(nav, "Navigation: all of CLU's views", () => { document.body.classList.toggle("core-nav"); Sound.play("activate"); });
+    return g;
+  }
+  function buildAudioPanel() {
+    const p = el("div", "surface audio-panel hidden"); p.id = "coreAudio"; Object.assign(p.style, pct(1500, 830, 440, 180));
+    const head = el("div", "head"); const close = el("button", "kbtn", "Close"); close.addEventListener("click", (e) => { press(close, e); materialize(p, false); }); head.append(el("span", null, "SOUND"), close); p.append(head);
+    const vol = el("input"); vol.type = "range"; vol.min = 0; vol.max = 100; vol.value = Math.round(Sound.prefs.volume * 100); vol.setAttribute("aria-label", "Master volume");
+    vol.addEventListener("input", () => Sound.set("volume", vol.value / 100));
+    const vl = el("label"); vl.append(document.createTextNode("VOLUME"), vol); p.append(vl);
+    [["ui", "INTERFACE"], ["ambient", "AMBIENT HUM"], ["voice", "VOICE CUES"], ["mute", "MUTE"]].forEach(([k, t]) => {
+      const c = el("input"); c.type = "checkbox"; c.checked = !!Sound.prefs[k]; c.dataset.k = k; c.addEventListener("change", () => { Sound.set(k, c.checked); syncModes(); Sound.play("click"); });
+      const l = el("label"); l.append(c, document.createTextNode(t)); p.append(l);
+    });
     return p;
   }
   function buildSourceWindow() {
-    const w = el("section", "cpanel core-window hidden"); w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "Sources and ideas");
-    const head = el("div", "clabel"); head.append(el("span", null, "Intelligence container")); const close = el("button", "cbtn", "Close"); head.append(close); w.append(head);
-    const body = el("div", "cw-body"); w.append(body); w._body = body;
+    const w = el("section", "surface hidden"); w.id = "coreSources"; Object.assign(w.style, pct(1150, 96, 820, 470)); w.setAttribute("role", "dialog"); w.setAttribute("aria-label", "Sources and ideas");
+    const head = el("div", "head"); const close = el("button", "kbtn", "Close"); head.append(el("span", null, "INTELLIGENCE CONTAINER"), close); w.append(head);
+    const body = el("div"); w.append(body); UI.srcBody = body;
     close.addEventListener("click", (e) => { press(close, e); openSource(false); });
     addEventListener("keydown", (e) => { if (e.key === "Escape" && state.sourceOpen) openSource(false); });
     return w;
   }
   async function openSource(open) {
-    const w = root.querySelector(".core-window"); set({ sourceOpen: open });
+    const w = $("coreSources"); set({ sourceOpen: open });
     if (!open) return materialize(w, false);
-    const b = w._body; b.replaceChildren(el("div", "cdim", "Loading…")); materialize(w, true);
+    const b = UI.srcBody; b.replaceChildren(el("div", "cdim", "Loading…")); materialize(w, true); hot(["rings-source"], true);
     const [sugg, ov] = await Promise.all([api("/v1/suggestions").catch(() => null), api("/v1/memory/overview").catch(() => null)]);
     b.replaceChildren();
-    const sec = (t) => { const s = el("div"); s.append(el("h4", null, t)); b.append(s); return s; };
-    const a = sec("Last answer"); a.append(el("div", state.answer ? "cval" : "cdim", state.answer || "Nothing answered in this session yet."));
+    const sec = (t) => { const s = el("div", "sec"); s.append(el("h4", null, t)); b.append(s); return s; };
+    sec("Last answer").append(el("div", state.answer ? "cval" : "cdim", state.answer || "Nothing answered in this session yet."));
     const s = sec(`Sources (${state.sources.length})`);
     if (state.sources.length) { const ul = el("ul"); state.sources.forEach((x) => { const li = el("li"); const l = el("a", null, x.title || x.url); l.href = x.url; l.target = "_blank"; l.rel = "noopener noreferrer"; li.append(l); ul.append(li); }); s.append(ul); }
     else s.append(el("div", "cdim", "The last answer used no outside sources."));
@@ -311,61 +721,38 @@
     if (!sugg) g.append(el("div", "cdim", "Not available right now."));
     else if (!sugg.length) g.append(el("div", "cdim", "None waiting."));
     else sugg.slice(0, 12).forEach((x) => {
-      const row = el("div", "sugg"); row.append(el("span", "cval", x.text)); const btns = el("span"); const ok = el("button", "cbtn", "Keep"), no = el("button", "cbtn", "Drop"); btns.append(ok, no); row.append(btns); g.append(row);
+      const row = el("div", "sugg"); row.append(el("span", "cval", x.text)); const btns = el("span"); const ok = el("button", "kbtn", "Keep"), no = el("button", "kbtn", "Drop"); btns.append(ok, no); row.append(btns); g.append(row);
       const act = async (verb, btn, e) => { press(btn, e); try { await api(`/v1/suggestions/${x.id}/${verb}`, { method: "POST", json: {} }); row.remove(); Sound.play(verb === "approve" ? "success" : "confirm", xOf(btn)); log("ok", `suggestion ${verb === "approve" ? "kept" : "dropped"}: ${x.text.slice(0, 60)}`); refresh(); } catch (err) { Sound.play("error"); log("err", "suggestion: " + err.message); } };
       ok.addEventListener("click", (e) => act("approve", ok, e)); no.addEventListener("click", (e) => act("reject", no, e));
     });
     const d = sec("Background discoveries");
-    if (ov) { d.append(el("div", "cval", `Merge suggestions waiting: ${ov.consolidation ?? 0} · questions about your preferences: ${ov.learning ?? 0} · working notes: ${ov.working ?? 0}`)); const go = el("button", "cbtn", "Open Memory"); go.addEventListener("click", () => { openSource(false); show("memory"); }); d.append(go); }
+    if (ov) { d.append(el("div", "cval", `Merge suggestions waiting: ${ov.consolidation ?? 0} · questions about your preferences: ${ov.learning ?? 0} · working notes: ${ov.working ?? 0}`)); const go = el("button", "kbtn", "Open Memory"); go.addEventListener("click", () => { openSource(false); show("memory"); }); d.append(go); }
     else d.append(el("div", "cdim", "Not available right now."));
   }
-
-  // D. hexagonal core control -------------------------------------------------------------------------
-  let waveCanvas = null, waveCtx = null, waveLabel = null, micStream = null, micAnalyser = null, playAnalyser = null, playStream = null;
-  function hexPoints(cx, cy, rx, ry) { return Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 3 * i; return `${(cx + rx * Math.cos(a)).toFixed(1)},${(cy + ry * Math.sin(a)).toFixed(1)}`; }).join(" "); }
-  function buildHex() {
-    const p = panel("core-hex", "Core control", "");
-    const f = el("div", "hex-frame"); p.append(f);
-    const s = svg("svg", { class: "hex-bg", viewBox: "0 0 300 320", preserveAspectRatio: "none", "aria-hidden": "true" }, f);
-    const defs = svg("defs", {}, s); const pat = svg("pattern", { id: "honey", width: 14, height: 24.2, patternUnits: "userSpaceOnUse" }, defs);
-    svg("polygon", { points: hexPoints(7, 6, 6.2, 5.6), fill: "none", stroke: "rgba(66,97,107,0.25)", "stroke-width": 0.6 }, pat);
-    svg("polygon", { points: hexPoints(14, 18.1, 6.2, 5.6), fill: "none", stroke: "rgba(66,97,107,0.25)", "stroke-width": 0.6 }, pat);
-    svg("polygon", { points: hexPoints(150, 160, 146, 156), fill: "url(#honey)", class: "hx outer" }, s);
-    svg("polygon", { points: hexPoints(150, 160, 132, 142), class: "hx" }, s);
-    svg("polygon", { points: hexPoints(150, 160, 120, 130), class: "hx inner breathe" }, s);
-    const sensors = el("div", "sensors"); f.append(sensors);
-    const SENS = [["talk", "TALK", "Start or end a voice conversation"], ["stop", "STOP", "Stop CLU thinking or speaking"], ["new", "NEW", "Start a new conversation"]];
-    p._sensors = {};
-    SENS.forEach(([id, label, title]) => {
-      const b = el("button", "sensor"); b.type = "button"; b.title = title; b.setAttribute("aria-label", title);
-      const t = svg("svg", { viewBox: "0 0 44 34" }, b); svg("polygon", { points: "22,31 3,3 41,3" }, t); b.append(el("span", null, label));
-      b.addEventListener("pointerdown", () => b.classList.add("pressed")); ["pointerup", "pointerleave"].forEach((ev) => b.addEventListener(ev, () => b.classList.remove("pressed")));
-      b.addEventListener("click", (e) => { press(b, e); sensor(id, b); });
-      sensors.append(b); p._sensors[id] = b;
+  /** Honeycomb readouts hold about nine characters; the full value stays available as a tooltip. */
+  function shortRo() {
+    document.querySelectorAll("#reg-hex text.ro").forEach((t) => {
+      const cur = [...t.childNodes].filter((n) => n.nodeType === 3).map((n) => n.data).join("");
+      const full = t.dataset.full && cur === t.dataset.short ? t.dataset.full : cur; // unchanged since we shortened it, or a new value
+      const short = full.length > 9 ? full.slice(0, 8) + "…" : full;
+      if (cur === short && t.dataset.full === full) return;
+      t.dataset.full = full; t.dataset.short = short; t.replaceChildren(document.createTextNode(short));
+      if (full !== short) { const ti = svg("title", {}, t); ti.textContent = full; }
     });
-    const inner = el("div", "hex-inner"); f.append(inner);
-    const ro = el("div", "readouts"); const R = (k, label) => { const sp = el("span"); sp.append(el("i", "cdim", label)); const v = el("b", "cval", "…"); v.id = "ro-" + k; sp.append(v); ro.append(sp); };
-    R("model", "MODEL"); R("link", "HOST"); R("stt", "STT"); R("resp", "RESPONSE"); R("queue", "QUEUE"); R("voice", "VOICE");
-    inner.append(ro);
-    const wl = el("div", "wave-label"); waveLabel = el("span", null, "NO SIGNAL"); const mic = el("button", "cbtn", "Mic monitor"); mic.type = "button";
-    mic.title = "Show your microphone's level here (nothing is recorded or sent)"; if (ANDROID) mic.classList.add("hidden"); // Android: the native session's level is shown
-    wl.append(waveLabel, mic); inner.append(wl);
-    waveCanvas = el("canvas", "wave"); inner.append(waveCanvas); waveCtx = waveCanvas.getContext("2d");
-    mic.addEventListener("click", (e) => { press(mic, e); toggleMic(mic); });
-    consoleEl = el("div", "console"); consoleEl.setAttribute("role", "log"); consoleEl.setAttribute("aria-live", "polite"); inner.append(consoleEl);
-    return p;
   }
+  function setMod(id, onNow) { const m = UI.mods && UI.mods[id]; if (m) m.classList.toggle("on", !!onNow); }
+
   async function sensor(id, b) {
     if (id === "talk") { const vb = $("voiceBtn"); if (vb && !vb.disabled) { vb.click(); Sound.play("listen", xOf(b)); log("ok", "voice: " + (state.voice ? "ending" : "starting")); } else log("warn", "voice is not available here"); }
     else if (id === "stop") { try { await api("/v1/stop", { method: "POST", json: {} }); if (state.voice) { const vs = $("voiceStop"); if (vs && !vs.disabled) vs.click(); } log("ok", "stop requested"); Sound.play("confirm", xOf(b)); } catch (e) { log("err", "stop: " + e.message); Sound.play("error"); } }
     else if (id === "new") { const nb = $("newConversation") || document.querySelector('[data-action="new-conversation"]'); if (nb) { nb.click(); log("ok", "new conversation"); Sound.play("confirm", xOf(b)); } else log("warn", "new conversation: not available in this window"); }
   }
   async function toggleMic(btn) {
-    if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; micAnalyser = null; btn.textContent = "Mic monitor"; log("", "mic monitor off"); return; }
+    if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; micAnalyser = null; btn.classList.remove("on"); log("", "mic monitor off"); return; }
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       const c = new (window.AudioContext || window.webkitAudioContext)(); micAnalyser = c.createAnalyser(); micAnalyser.fftSize = 1024; c.createMediaStreamSource(micStream).connect(micAnalyser);
-      btn.textContent = "Mic off"; Sound.play("record", xOf(btn)); log("ok", "mic monitor on (level only; nothing is recorded)");
+      btn.classList.add("on"); Sound.play("record", xOf(btn)); log("ok", "mic monitor on (level only; nothing is recorded)");
     } catch (e) { micStream = null; log("err", "microphone: " + (e.message || e.name)); Sound.play("error"); }
   }
   function playbackAnalyser() { // the PC voice session's audio element (LiveKit) → analyser, without changing playback
@@ -388,177 +775,16 @@
       g.fillStyle = "rgba(0,131,143,0.6)"; for (let i = 0; i < bars; i++) { const v = freqBuf[Math.floor(i * freqBuf.length / bars / 2)] / 255; g.fillRect(i * bw + 1, h - v * h, bw - 2, v * h); }
       an.getByteTimeDomainData(waveBuf); g.strokeStyle = "#00e5ff"; g.lineWidth = 1.2; g.beginPath();
       for (let i = 0; i < waveBuf.length; i += 8) { const x = i / waveBuf.length * w, y = waveBuf[i] / 255 * h; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
-      waveLabel.textContent = source + " · LIVE"; waveLabel.className = "cok";
+      waveLabel.textContent = source + " · LIVE"; waveLabel.setAttribute("fill", "#7fe9ff");
     } else if (ANDROID && typeof window.CluNativeLevel === "number" && state.voice) { // the app's native voice session reports its level
       const lv = clamp(window.CluNativeLevel, 0, 1), mic = window.CluNativeMic === true;
       g.strokeStyle = "#00e5ff"; g.beginPath(); for (let x = 0; x <= w; x += 3) { const y = h / 2 + Math.sin(x / 7 + now() / 90) * lv * h * 0.45; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
-      waveLabel.textContent = (lv > 0.02 ? "CLU VOICE" : mic ? "LISTENING" : "VOICE") + " · LEVEL " + Math.round(lv * 100); waveLabel.className = "cok";
+      waveLabel.textContent = (lv > 0.02 ? "CLU VOICE" : mic ? "LISTENING" : "VOICE") + " · LEVEL " + Math.round(lv * 100); waveLabel.setAttribute("fill", "#7fe9ff");
     } else {
       g.strokeStyle = "rgba(66,97,107,0.8)"; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
-      waveLabel.textContent = "NO SIGNAL"; waveLabel.className = "";
+      waveLabel.textContent = "NO SIGNAL"; waveLabel.removeAttribute("fill");
     }
   }
-
-  // G. file explorer -----------------------------------------------------------------------------------
-  let docs = [], picked = null, selectedDoc = null;
-  function buildFiles() {
-    const p = panel("core-files", "File explorer", "");
-    const tools = el("div", "clabel"); const hide = el("button", "cbtn", "Collapse"); tools.append(el("span", null, ""), hide); p.append(tools);
-    const body = el("div", "files-body"); p.append(body); p._body = body;
-    const left = el("div"); const drop = el("div", "drop press", "Drop a file here, or tap to choose"); const input = el("input"); input.type = "file"; input.className = "hidden";
-    const list = el("ul", "file-list"); left.append(drop, input, list); body.append(left);
-    const right = el("div"); const meta = el("div", "meta-grid"); const prev = el("div", "preview"); const acts = el("div"); acts.className = "clabel";
-    const up = el("button", "cbtn", "Upload"), inj = el("button", "cbtn", "Inject"); up.disabled = inj.disabled = true; inj.title = "Ask CLU about this document (it goes into the conversation)";
-    acts.append(up, inj); right.append(meta, prev, acts); body.append(right);
-    p._list = list; p._meta = meta; p._prev = prev; p._up = up; p._inj = inj;
-    drop.addEventListener("click", (e) => { press(drop, e); input.click(); });
-    input.addEventListener("change", () => input.files[0] && pick(input.files[0]));
-    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
-    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("over")));
-    drop.addEventListener("drop", (e) => { e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) pick(f); });
-    up.addEventListener("click", (e) => { press(up, e); upload(); });
-    inj.addEventListener("click", (e) => { press(inj, e); inject(); });
-    hide.addEventListener("click", (e) => { press(hide, e); toggleFiles(); });
-    return p;
-  }
-  function toggleFiles(open) {
-    const p = root._panels.files; const o = open == null ? !state.filesOpen : open; set({ filesOpen: o });
-    p.querySelector(".clabel .cbtn").textContent = o ? "Collapse" : "Expand";
-    materialize(p._body, o);
-  }
-  const kb = (n) => n == null ? "?" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
-  function meta(pairs) { const m = root._panels.files._meta; m.replaceChildren(); pairs.forEach(([k, v]) => m.append(el("span", "cdim", k), el("span", "cval", v))); }
-  function pick(f) {
-    picked = f; selectedDoc = null; const P = root._panels.files;
-    meta([["NAME", f.name], ["TYPE", f.type || "unknown"], ["SIZE", kb(f.size)], ["MODIFIED", new Date(f.lastModified).toLocaleString()], ["STATE", "not uploaded"]]);
-    P._prev.replaceChildren(el("div", "cdim", "Preview…"));
-    if (/^image\//.test(f.type)) { const img = el("img"); img.alt = f.name; img.src = URL.createObjectURL(f); img.onload = () => URL.revokeObjectURL(img.src); P._prev.replaceChildren(img); }
-    else if (/^text\/|json|xml|csv|markdown/.test(f.type) || /\.(txt|md|csv|json|log|kt|js|py)$/i.test(f.name)) { f.slice(0, 6000).text().then((t) => P._prev.replaceChildren(el("pre", null, t))).catch(() => P._prev.replaceChildren(el("div", "cdim", "No preview."))); }
-    else P._prev.replaceChildren(el("div", "cdim", "No preview for this type. CLU reads PDF, Word and text documents when uploaded."));
-    P._up.disabled = false; P._inj.disabled = true; Sound.play("chirp", xOf(P));
-    P._list.querySelectorAll("li").forEach((x) => x.classList.remove("sel"));
-  }
-  async function upload() {
-    const P = root._panels.files; if (!picked) return;
-    P._up.disabled = true; hot(["files-hex"], true); log("", `upload ${picked.name} (${kb(picked.size)})…`); Sound.play("processing", xOf(P));
-    try {
-      const r = await fetch("/v1/documents", { method: "POST", body: picked, headers: { Authorization: "Bearer " + sessionStorage.getItem("clu-token"), "X-File-Name": encodeURIComponent(picked.name) } });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.error || "HTTP " + r.status);
-      log("ok", `synchronised: ${d.name} · ${d.textStatus === "indexed" ? (d.chars || 0).toLocaleString() + " characters indexed" : "stored, no searchable text"}`);
-      Sound.play("success", xOf(P)); Particles.at(P._list, 70, { speed: 170 }); glitch(P);
-      picked = null; await loadDocs(); const li = [...P._list.children].find((x) => x._doc && x._doc.id === d.id); if (li) li.click();
-    } catch (e) { log("err", "upload refused: " + e.message); Sound.play("error", xOf(P)); glitch(P); P._up.disabled = false; }
-    hot(["files-hex"], false);
-  }
-  function inject() {
-    if (!selectedDoc || !window.CluShell) return;
-    const q = `Summarise the document "${selectedDoc.name}" and tell me what matters in it.`;
-    log("you", "› " + q); CluShell.send(q); hot(["files-hex"], true); setTimeout(() => hot(["files-hex"], false), 1500);
-  }
-  async function loadDocs() {
-    const P = root._panels.files;
-    try { docs = await api("/v1/documents"); } catch (e) { P._list.replaceChildren(el("li", "cdim", "Documents: " + e.message)); return; }
-    P._list.replaceChildren(); P._label.textContent = docs.length + " in archive";
-    if (!docs.length) P._list.append(el("li", "cdim", "No documents yet."));
-    docs.forEach((d) => {
-      const li = el("li"); li._doc = d; li.append(el("span", null, d.name), el("small", null, kb(d.sizeBytes)));
-      li.addEventListener("click", () => {
-        P._list.querySelectorAll("li").forEach((x) => x.classList.remove("sel")); li.classList.add("sel"); selectedDoc = d; picked = null;
-        meta([["NAME", d.name], ["TYPE", d.type], ["SIZE", kb(d.sizeBytes)], ["TEXT", d.textStatus === "indexed" ? (d.chars || 0).toLocaleString() + " chars indexed" : d.textStatus], ["DATE", d.date || "—"]]);
-        P._prev.replaceChildren(el("div", "cdim", "Stored in CLU's archive. Inject to bring it into the conversation."));
-        P._up.disabled = true; P._inj.disabled = false; Sound.play("tick", xOf(li));
-      });
-      P._list.append(li);
-    });
-  }
-
-  // F. module grid ------------------------------------------------------------------------------------
-  const ICONS = {
-    clu: "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 8v8", research: "M10 4a6 6 0 1 0 0 12a6 6 0 0 0 0-12z M15 15l5 5", terminal: "M4 6l5 5-5 5 M11 17h9",
-    system: "M4 5h16v10H4z M9 19h6 M12 15v4", memory: "M7 4h10v16H7z M7 9h10 M7 14h10", voice: "M12 4v10 M8 10a4 4 0 0 0 8 0 M12 18v2 M5 10a7 7 0 0 0 14 0",
-    browser: "M4 5h16v14H4z M4 9h16 M7 7h1", utilities: "M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8z M12 2v3 M12 19v3 M2 12h3 M19 12h3",
-  };
-  const MODS = [
-    ["clu", "CLU", "Conversation with CLU"], ["research", "RESEARCH", "Web research on or off (Settings → Network)"], ["terminal", "TERMINAL", "Command line"],
-    ["system", "SYSTEM", "Status: model, memory, governor"], ["memory", "MEMORY", "Memory and archive"], ["voice", "VOICE", "Voice conversation"],
-    ["browser", "FILES", "File explorer"], ["utilities", "UTILITY", "Settings"],
-  ];
-  function buildMods() {
-    const p = panel("core-mods", "Modules", "");
-    const g = el("div", "mods-grid"); p.append(g); p._mods = {};
-    MODS.forEach(([id, label, title]) => {
-      const b = el("button", "mod press"); b.type = "button"; b.title = title; b.setAttribute("aria-label", title);
-      const s = svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, b); svg("path", { d: ICONS[id] }, s); b.append(el("b", null, label));
-      b.addEventListener("click", (e) => { press(b, e); module(id, b); }); g.append(b); p._mods[id] = b;
-    });
-    return p;
-  }
-  async function module(id, b) {
-    glitch(root._panels.mods); hot(["mods-files"], true); setTimeout(() => hot(["mods-files"], false), 900);
-    if (!reduced()) Particles.at(b, 14, { speed: 90, life: 0.4 });
-    Sound.play("activate", xOf(b));
-    const go = (view) => { log("", "open " + view); show(view); };
-    if (id === "clu") go("chat");
-    else if (id === "system") go("status");
-    else if (id === "memory") go("memory");
-    else if (id === "utilities") go("settings");
-    else if (id === "terminal") { $("coreCmd").focus(); log("", "terminal ready. Type help."); }
-    else if (id === "voice") sensor("talk", b);
-    else if (id === "browser") toggleFiles();
-    else if (id === "research") {
-      if (state.research == null) { log("warn", "research setting not available"); return; }
-      try { await api("/v1/settings", { method: "PUT", json: { key: "net.web", value: !state.research } }); set({ research: !state.research }); log("ok", "web research " + (state.research ? "on" : "off")); }
-      catch (e) { log("err", "research: " + e.message); Sound.play("error"); }
-    }
-  }
-
-  // E. keyboard and command strip ------------------------------------------------------------------------
-  const history = (() => { try { return JSON.parse(localStorage.getItem("clu-core-history") || "[]"); } catch (e) { return []; } })(); let hIdx = -1;
-  function buildKeys() {
-    const p = panel("core-keys", "Command", "");
-    const left = el("div", "keys-left"); p.append(left);
-    const row = el("div", "cmd-row"); const ind = el("span", "exec-ind"); ind.id = "coreExec";
-    const input = el("input", "cmd"); input.id = "coreCmd"; input.placeholder = "Type a command or a question for CLU (help)"; input.autocomplete = "off"; input.spellcheck = false; input.setAttribute("aria-label", "Command");
-    row.append(el("span", "prompt", "CLU›"), input, ind); left.append(row);
-    const kbd = el("div", "kb"); left.append(kbd);
-    const ROWS = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-    ROWS.forEach((r, i) => { const rr = el("div", "kb-row"); [...r].forEach((ch) => rr.append(key(ch, ch.toLowerCase()))); if (i === 3) { rr.append(key("⌫", "Backspace", "wide")); } kbd.append(rr); });
-    const last = el("div", "kb-row"); last.append(key("CLR", "Clear", "wide"), key("SPACE", " ", "space"), key("ENTER", "Enter", "wide")); kbd.append(last);
-    const print = el("button", "print"); print.type = "button"; print.title = "Hold to execute the command (a visual confirmation, not a security check)";
-    const ps = svg("svg", { viewBox: "0 0 62 72", "aria-hidden": "true" }, print);
-    [[31, 38, 26, 30], [31, 38, 20, 24], [31, 38, 14, 18], [31, 38, 8, 12]].forEach(([cx, cy, rx, ry]) => svg("ellipse", { cx, cy, rx, ry, "stroke-dasharray": "14 5" }, ps));
-    print.append(el("i", "scan"), el("span", null, "HOLD · EXECUTE")); p.append(print);
-    let holdT = 0;
-    print.addEventListener("pointerdown", () => { print.classList.add("holding"); Sound.play("tick", xOf(print)); holdT = setTimeout(() => { print.classList.remove("holding"); run(input.value); }, 650); });
-    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => print.addEventListener(ev, () => { clearTimeout(holdT); print.classList.remove("holding"); }));
-    input.addEventListener("keydown", (e) => {
-      light(e.key);
-      if (e.key === "Enter") { e.preventDefault(); run(input.value); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); if (history.length) { hIdx = Math.min(history.length - 1, hIdx + 1); input.value = history[history.length - 1 - hIdx]; } }
-      else if (e.key === "ArrowDown") { e.preventDefault(); hIdx = Math.max(-1, hIdx - 1); input.value = hIdx < 0 ? "" : history[history.length - 1 - hIdx]; }
-    });
-    input.addEventListener("focus", () => setMod("terminal", true)); input.addEventListener("blur", () => setMod("terminal", false));
-    p._keys = kbd;
-    function key(label, value, cls) {
-      const k = el("button", "key" + (cls ? " " + cls : ""), label); k.type = "button"; k.dataset.k = value.toLowerCase();
-      k.addEventListener("click", () => {
-        Sound.play("click", xOf(k)); k.classList.add("lit"); setTimeout(() => k.classList.remove("lit"), 120);
-        if (value === "Enter") return run(input.value);
-        if (value === "Backspace") input.value = input.value.slice(0, -1);
-        else if (value === "Clear") input.value = "";
-        else input.value += value;
-      });
-      return k;
-    }
-    return p;
-  }
-  function light(k) {
-    const kb = root && root._panels && root._panels.keys._keys; if (!kb) return;
-    const name = k === " " ? " " : k.length === 1 ? k.toLowerCase() : k.toLowerCase();
-    const b = kb.querySelector(`.key[data-k="${CSS.escape(name)}"]`); if (b) { b.classList.add("lit"); setTimeout(() => b.classList.remove("lit"), 120); }
-  }
-  function execInd(cls) { const i = $("coreExec"); if (i) i.className = "exec-ind" + (cls ? " " + cls : ""); }
 
   const HELP = [
     "help                     this list", "<question>               ask CLU (same conversation as Chat)", "ask <question>           ask CLU",
@@ -600,27 +826,6 @@
     } catch (e) { execInd("fail"); log("err", e.message); Sound.play("error", 0.5); setTimeout(() => execInd(""), 1500); }
   }
 
-  // ------------------------------------------------------------------------------------------ conduits
-  const LINKS = [["arc", "rings"], ["rings", "source"], ["rings", "hex"], ["files", "hex"], ["mods", "files"], ["keys", "hex"], ["arc", "mods"]];
-  const flows = {};
-  function layoutConduits() {
-    const c = root && root._conduits; if (!c || !root._panels) return;
-    const base = root.getBoundingClientRect(); c.setAttribute("viewBox", `0 0 ${root.scrollWidth} ${root.scrollHeight}`); c.replaceChildren();
-    const box = (k) => { const r = root._panels[k].getBoundingClientRect(); return { l: r.left - base.left + root.scrollLeft, t: r.top - base.top + root.scrollTop, r: r.right - base.left + root.scrollLeft, b: r.bottom - base.top + root.scrollTop }; };
-    LINKS.forEach(([a, b]) => {
-      const A = box(a), B = box(b); let x1, y1, x2, y2, d;
-      if (A.r <= B.l) { x1 = A.r; y1 = (A.t + A.b) / 2; x2 = B.l; y2 = clamp(y1, B.t + 14, B.b - 14); const mx = (x1 + x2) / 2; d = `M${x1} ${y1} H${mx} V${y2} H${x2}`; }
-      else if (B.r <= A.l) { x1 = A.l; y1 = (A.t + A.b) / 2; x2 = B.r; y2 = clamp(y1, B.t + 14, B.b - 14); const mx = (x1 + x2) / 2; d = `M${x1} ${y1} H${mx} V${y2} H${x2}`; }
-      else { x1 = clamp((A.l + A.r) / 2, B.l + 14, B.r - 14); y1 = A.b <= B.t ? A.b : A.t; y2 = A.b <= B.t ? B.t : B.b; x2 = x1; d = `M${x1} ${y1} V${y2}`; }
-      const id = a + "-" + b;
-      svg("path", { class: "base", d }, c); const f = svg("path", { class: "flow", d }, c); f.style.animationDelay = (-Math.random() * 6).toFixed(2) + "s";
-      const n1 = svg("circle", { class: "node", cx: x1, cy: y1, r: 3 }, c), n2 = svg("circle", { class: "node", cx: x2, cy: y2, r: 3 }, c);
-      flows[id] = { f, n: [n1, n2], hot: flows[id] ? flows[id].hot : false };
-      if (flows[id].hot) hot([id], true);
-    });
-  }
-  function hot(ids, onNow) { ids.forEach((id) => { const x = flows[id]; if (!x) return; x.hot = onNow; x.f.classList.toggle("hot", onNow); x.n.forEach((n) => n.classList.toggle("hot", onNow)); }); }
-
   // ------------------------------------------------------------------------------------------ live data
   async function refresh() {
     if (!api) return;
@@ -631,7 +836,7 @@
       if (g.budgetMB != null) setArc("proc", g.processMB / Math.max(1, g.budgetMB), `${g.processMB} / ${g.budgetMB} MB`); else setArc("proc", null, "n/a");
       if (g.systemTotalMB != null) setArc("sys", (g.systemTotalMB - g.systemAvailableMB) / Math.max(1, g.systemTotalMB), `${Math.round((g.systemTotalMB - g.systemAvailableMB) / 1024 * 10) / 10} / ${Math.round(g.systemTotalMB / 1024 * 10) / 10} GB`); else setArc("sys", null, "n/a");
       const tasks = (st.activeTasks || 0) + (st.pendingApprovals || 0); setArc("tasks", Math.min(1, tasks / 6), String(tasks));
-      set({ model: m });
+      set({ model: m, host: st.host || "pc", hostLink: st.link }); setCells("conv", st.conversations);
       $("ro-model").textContent = m.name ? `${m.name} · ${String(m.status).toLowerCase()}` : m.status === "NO_MODEL" ? "none registered" : String(m.status || "?").toLowerCase();
       $("ro-link").textContent = st.host === "device" ? (st.link === "offline" ? "device (PC offline)" : "this device") : ANDROID ? "your PC" : "this PC";
     } else { setArc("proc", null, "n/a"); setArc("sys", null, "n/a"); setArc("tasks", null, "n/a"); }
@@ -640,9 +845,10 @@
       setArc("infer", (run + q) / (max + 1), `${run} running · ${q} queued`); $("ro-queue").textContent = `${run} / ${q}`;
     } else if (st && st.model && st.model.running !== undefined) { const q = st.model.queued || 0; setArc("infer", ((st.model.running ? 1 : 0) + q) / 5, `${st.model.running ? 1 : 0} running · ${q} queued`); $("ro-queue").textContent = `${st.model.running ? 1 : 0} / ${q}`; }
     else { setArc("infer", null, "n/a"); $("ro-queue").textContent = "n/a"; }
-    if (ov && ov.kinds) { const n = Object.values(ov.kinds).reduce((a, k) => a + (k.count || 0), 0); setArc("records", Math.log10(n + 1) / 4, n.toLocaleString()); } else setArc("records", null, "n/a");
+    if (ov && ov.kinds) { const n = Object.values(ov.kinds).reduce((a, k) => a + (k.count || 0), 0); setArc("records", Math.log10(n + 1) / 4, n.toLocaleString()); setCells("mem", n); } else { setArc("records", null, "n/a"); setCells("mem", null); }
     if (Array.isArray(sugg)) { setArc("sugg", Math.min(1, sugg.length / 10), String(sugg.length)); set({ suggestions: sugg.length }); } else setArc("sugg", null, "n/a");
     if (settings && settings.settings) { const s = settings.settings.find((x) => x.key === "net.web"); if (s) set({ research: s.value === true || s.value === "true" }); }
+    shortRo();
   }
   let seenReq = new Set(), reqPrimed = false;
   async function pollRequests() { // real request traces from the host (stage timings, no content)
@@ -656,47 +862,40 @@
   }
 
   // ------------------------------------------------------------------------------------------ rendering from state
+  const PCT = { input: 25, analysis: 50, synthesis: 75, output: 100 };
   function render(s, patch) {
     if (!built) return;
-    const P = root._panels;
     if ("stage" in patch || "stageNote" in patch || "stagesDone" in patch) {
       root.dataset.stage = s.stage;
-      P.rings._label.textContent = s.stage === "idle" ? "idle" : s.stage === "error" ? "fault" : "processing";
-      P.rings._list.querySelectorAll("li").forEach((li) => { const st = li.dataset.stage; li.classList.toggle("active", st === s.stage); li.classList.toggle("done", s.stagesDone.includes(st) && st !== s.stage); });
-      P.rings._note.textContent = s.stageNote; P.rings._note.className = "stage-note" + (s.stage === "error" ? " cerr" : "");
-      const pct = { idle: s.answer ? 100 : 0, input: 25, analysis: 50, synthesis: 75, output: 100, error: 0 }[s.stage] ?? 0;
-      P.source._bar.setAttribute("stroke-dasharray", `${(pct / 100 * 188.5).toFixed(1)} 999`); P.source._pct.textContent = s.stage === "idle" && !s.answer ? "—" : pct + "%";
+      STAGES.forEach((st) => { const r = UI.stageRows[st]; r.classList.toggle("active", st === s.stage); r.classList.toggle("done", s.stagesDone.includes(st) && st !== s.stage); });
+      UI.stageNote.textContent = (s.stage === "idle" ? "IDLE · " : s.stage.toUpperCase() + " · ") + (s.stageNote || "").slice(0, 70);
+      UI.stageNote.setAttribute("fill", s.stage === "error" ? "#ff6b7a" : s.stage === "idle" ? "#5d7c89" : "#8fd3f0");
+      const p = s.stage === "idle" ? (s.answer ? 100 : 0) : (PCT[s.stage] ?? 0);
+      UI.sprog.setAttribute("stroke-dasharray", `${(p / 100 * 703.7).toFixed(1)} 999`); UI.spct.textContent = s.stage === "idle" && !s.answer ? "—" : p + "%";
+      const lit = Math.round(p / 100 * stripes.length); stripes.forEach((x, i) => x.classList.toggle("on", s.stage !== "idle" && i < lit));
+      UI.warn.setAttribute("stroke", s.stage === "error" ? "#ff6b7a" : "#8fd3f0");
       $("ro-resp").textContent = s.stage === "idle" ? "ready" : s.stage;
       const busy = !["idle", "error"].includes(s.stage);
-      hot(["rings-hex", "keys-hex", "arc-rings"], busy); P.rings.classList.toggle("hot", busy); P.hex.classList.toggle("hot", busy);
+      hot(["arc-rings", "rings-source", "pipe-hex", "keys"], busy);
       if (busy !== s.processing) { set({ processing: busy }); Sound.ambient(busy); }
     }
     if ("answer" in patch || "sources" in patch || "suggestions" in patch) {
-      P.source._preview.textContent = s.answer ? s.answer.slice(0, 160) : "No answer yet."; P.source._srcN.textContent = s.sources.length; P.source._sugN.textContent = s.suggestions;
-      hot(["rings-source"], s.sources.length > 0 || s.suggestions > 0);
+      UI.preview.textContent = s.answer ? s.answer.slice(0, 140) : "No answer yet.";
+      UI.scount.textContent = `SRC ${s.sources.length} · SUG ${s.suggestions}`;
+      const n = Math.min(UI.ticks.length, Math.round((s.answer || "").length / 12)); UI.ticks.forEach((t, i) => t.classList.toggle("on", i < n));
     }
     if ("voice" in patch || "presence" in patch) {
-      P.hex._sensors.talk.classList.toggle("on", s.voice); setMod("voice", s.voice);
-      $("ro-voice").textContent = s.voice ? "session on" : "off";
-      const vs = $("voiceState"); $("ro-stt").textContent = s.voice ? (vs && vs.textContent ? vs.textContent.toLowerCase() : "listening") : "idle";
+      UI.sensors.talk.classList.toggle("on", s.voice); setMod("voice", s.voice); UI.lamps.voice.classList.toggle("on", s.voice);
+      $("ro-voice").textContent = s.voice ? "on" : "off";
+      const vs = $("voiceState"); $("ro-stt").textContent = s.voice ? (vs && vs.textContent ? vs.textContent.toLowerCase().slice(0, 10) : "listening") : "idle";
     }
-    if ("research" in patch) setMod("research", s.research === true);
-    if ("filesOpen" in patch) { setMod("browser", s.filesOpen); hot(["files-hex", "mods-files"], false); }
+    if ("research" in patch) { setMod("research", s.research === true); UI.lamps.research.classList.toggle("on", s.research === true); }
+    if ("model" in patch && s.model) UI.lamps.model.classList.toggle("on", s.model.status === "READY" || s.model.status === "GENERATING");
+    if ("host" in patch) { UI.lamps.host.classList.toggle("on", s.host != null); UI.lamps.host.classList.toggle("warn", s.hostLink === "offline"); }
+    UI.lamps.net.classList.toggle("on", navigator.onLine !== false);
+    shortRo();
   }
-  function setMod(id, onNow) { const b = root && root._panels && root._panels.mods._mods[id]; if (b) b.classList.toggle("on", !!onNow); }
   on(render);
-
-  // ------------------------------------------------------------------------------------------ audio settings UI
-  function buildAudioUi() {
-    const box = el("div", "core-audio"); box.setAttribute("aria-label", "Sound settings");
-    const vol = el("input"); vol.type = "range"; vol.min = 0; vol.max = 100; vol.value = Math.round(Sound.prefs.volume * 100); vol.setAttribute("aria-label", "Master volume");
-    const lab = (t, inp) => { const l = el("label"); l.append(inp, document.createTextNode(t)); return l; };
-    const cb = (k, t) => { const c = el("input"); c.type = "checkbox"; c.checked = !!Sound.prefs[k]; c.dataset.k = k; c.addEventListener("change", () => { Sound.set(k, c.checked); Sound.play("click"); }); return lab(t, c); };
-    const vl = el("label"); vl.append(document.createTextNode("VOLUME "), vol); vol.addEventListener("input", () => Sound.set("volume", vol.value / 100));
-    box.append(vl, cb("ui", "INTERFACE"), cb("ambient", "AMBIENT"), cb("voice", "VOICE CUES"), cb("mute", "MUTE"));
-    box._vol = vol; return box;
-  }
-  function syncAudioUi() { const box = root.querySelector(".core-audio"); if (!box) return; box._vol.value = Math.round(Sound.prefs.volume * 100); box.querySelectorAll("input[type=checkbox]").forEach((c) => { c.checked = !!Sound.prefs[c.dataset.k]; }); }
 
   // ------------------------------------------------------------------------------------------ public API
   let timers = [], stageIdle = 0;
@@ -704,43 +903,47 @@
     /** Called once by shell.js after the session is established. */
     init(apiFn, showFn) {
       api = apiFn; show = showFn; root = $("view-core"); if (!root) return;
-      build(); root._panels.keys.append(buildAudioUi());
-      render(state, { stage: 1, answer: 1, voice: 1, research: 1, filesOpen: 1 }); // every readout starts from the real state
-      root.classList.toggle("reduced", !!reduced());
+      let red = false; try { red = localStorage.getItem("clu-core-reduced") === "1"; } catch (e) { /* private */ }
+      build(); root.classList.toggle("reduced", !!reduced() || red); syncModes();
+      render(state, { stage: 1, answer: 1, voice: 1, research: 1, model: 1, host: 1 }); // every readout starts from the real state
       log("ok", `CLU core online · ${ANDROID ? "Android" : "PC"} interface`);
-      if (ANDROID) api("/v1/shell/platform").then((p) => { set({ platform: p, link: p.link }); (p.pcOnly || []).forEach(() => {}); }).catch(() => {});
+      if (ANDROID) api("/v1/shell/platform").then((p) => set({ platform: p, link: p.link })).catch(() => {});
       document.addEventListener("visibilitychange", () => { if (!document.hidden) startLoops(); });
+      addEventListener("online", () => render(state, {})); addEventListener("offline", () => render(state, {}));
     },
-    /** The Core view became visible (shell.js navigation). */
+    /** The Core became the visible view (shell.js navigation): the window's rail and title bar step aside. */
     open() {
-      if (!built) return; visible = true;
-      if (!root.dataset.opened) { root.dataset.opened = "1"; Object.values(root._panels).forEach((p, i) => setTimeout(() => materialize(p, true), i * 70)); setTimeout(() => Particles.at(root._panels.rings, 40, { speed: 120 }), 520); }
-      layoutConduits(); refresh(); loadDocs(); pollRequests(); startLoops();
+      if (!built) return; visible = true; document.body.classList.add("core-mode"); document.body.classList.remove("core-nav");
+      if (!root.dataset.opened) {
+        root.dataset.opened = "1"; const order = ["frame", "arc", "rings", "source", "pipe", "mods", "files", "keys", "hex", "corner"];
+        order.forEach((k, i) => regionIn(UI.regions[k], i * 70)); setTimeout(() => { Particles.at(UI.regions.rings, 40, { speed: 120 }); Sound.play("success", 0.5); }, 760);
+      }
+      refresh(); loadDocs(); pollRequests(); startLoops();
       timers.forEach(clearInterval);
       timers = [setInterval(() => { if (visible && !document.hidden) refresh(); }, 5000), setInterval(() => { if (visible && !document.hidden) pollRequests(); }, 4000),
-        setInterval(() => { if (visible && !document.hidden) { scanArc(); drawWave(); } }, 2400), setInterval(() => { if (visible && !document.hidden) drawWave(); }, 60)];
+        setInterval(() => { if (visible && !document.hidden) scanArc(); }, 2400), setInterval(() => { if (visible && !document.hidden) drawWave(); }, 60)];
     },
-    close() { visible = false; timers.forEach(clearInterval); timers = []; Sound.ambient(false); },
+    close() { visible = false; document.body.classList.remove("core-mode", "core-nav"); timers.forEach(clearInterval); timers = []; Sound.ambient(false); },
     /** A turn's real progress, from shell.js's stream: input → analysis → synthesis → output (or error), then idle. */
     turn(stage, data) {
       clearTimeout(stageIdle);
-      if (stage === "input") { set({ stage: "input", stagesDone: [], stageAt: now(), stageNote: "› " + (data.text || "").slice(0, 120), answer: "", sources: [] }); log("you", "› " + (data.text || "")); Sound.play("processing", 0.5); glitch(root && root._panels && root._panels.rings); }
+      if (stage === "input") { set({ stage: "input", stagesDone: [], stageAt: now(), stageNote: "› " + (data.text || "").slice(0, 120), answer: "", sources: [] }); log("you", "› " + (data.text || "")); Sound.play("processing", 0.45); glitch(UI.regions && UI.regions.rings); }
       else if (stage === "analysis") { if (state.stage === "input") set({ stagesDone: ["input"] }); set({ stage: "analysis", stageNote: data.text || "Analysing…" }); if (data.text) log("", data.text); }
-      else if (stage === "synthesis") { if (state.stage !== "synthesis") { set({ stagesDone: ["input", "analysis"], stage: "synthesis" }); Sound.play("tick", 0.5); } set({ answer: state.answer + (data.delta || ""), stageNote: (state.answer + (data.delta || "")).slice(-140) }); }
+      else if (stage === "synthesis") { if (state.stage !== "synthesis") { set({ stagesDone: ["input", "analysis"], stage: "synthesis" }); Sound.play("tick", 0.45); } set({ answer: state.answer + (data.delta || ""), stageNote: (state.answer + (data.delta || "")).slice(-70) }); }
       else if (stage === "output") {
         const ms = Math.round(now() - state.stageAt);
         set({ stagesDone: ["input", "analysis", "synthesis"], stage: "output", answer: data.text || state.answer, sources: data.sources || [], stageNote: data.error ? "Finished with a problem: " + data.error : data.interrupted ? "Stopped." : `Complete · ${ms} ms · ${(data.sources || []).length} sources` });
         log(data.error ? "err" : "ok", data.error ? "error: " + data.error : data.interrupted ? "stopped" : `answer complete (${ms} ms)`);
-        Sound.play(data.error ? "error" : "ready", 0.5);
-        if (!data.error && root && built) Particles.at(root._panels.rings, 24, { speed: 110, life: 0.5 });
+        Sound.play(data.error ? "error" : "ready", 0.45);
+        if (!data.error && built) Particles.at(UI.regions.rings, 24, { speed: 110, life: 0.5 });
       }
-      else if (stage === "error") { set({ stage: "error", stageNote: data.text || "Error" }); log("err", data.text || "error"); Sound.play("error", 0.5); glitch(root && root._panels && root._panels.rings); }
+      else if (stage === "error") { set({ stage: "error", stageNote: data.text || "Error" }); log("err", data.text || "error"); Sound.play("error", 0.45); glitch(UI.regions && UI.regions.rings); }
       else if (stage === "suggestion") { log("ok", "new suggestion: " + (data.text || "").slice(0, 80)); set({ suggestions: state.suggestions + 1 }); }
       else if (stage === "action") log("", "capability action: " + (data.type || data.kind || "update"));
       if (stage === "idle" || stage === "output") stageIdle = setTimeout(() => set({ stage: "idle", stagesDone: state.stage === "error" ? [] : STAGES.slice() }), stage === "idle" ? 1400 : 2600);
     },
     /** CLU's presence (voice states included), from shell.js. */
-    presence(st, label) {
+    presence(st) {
       const voice = !!(window.CluVoice && CluVoice.active && CluVoice.active());
       if (voice !== state.voice) { Sound.play(voice ? "listen" : "dissolve", 0.8); log("", voice ? "voice session on" : "voice session off"); }
       set({ voice, presence: st });

@@ -17,6 +17,21 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-12 (1.14.1, PC 0.12.1): Core rebuilt as a reconstruction of the reference machine
+
+- **Dashboard rejected:** the 1.14.0 Core was a dashboard grid with a sci-fi theme, and that approach was rejected.
+- **Reconstruction:** the Core is now one vector composition in the reference image's coordinate space (2000 × 1244).
+  - Every region of the reference sits where the reference has it: arc quadrant, lamps, shield, centre frame with
+    dotted rings, pipeline hexagon, diagonal diagnostics, segmented ring, honeycomb, open lower region, bottom strip
+    with emblem, octagon with crosshair sensors, inner screen and honeycomb.
+  - CLU's functions live inside those regions.
+- **Window chrome:** no sidebar or title bar while the Core is shown; a navigation control brings the rail over it.
+- **Phones:** the machine pans instead of restacking.
+- **Fidelity:** checked side by side and as an overlay against the reference (`desktop/build/core-ui/reference-vs-core.png`).
+- **Bug found and fixed:** hiding the Primus layer with display:none froze the page when leaving the Core. It is now
+  only paused.
+- **Tests:** core 723, app 99, desktop 144. 0 failures.
+
 ## 2026-11-12 (1.14.0, PC 0.12.0): CLU Core console
 
 - **New start view on both platforms:** the Core console. It keeps all seven original modules, joined by energy

@@ -31,8 +31,11 @@
     });
     if (window.CluPrimus && $("primusCore")) CluPrimus.attach($("primusCore")); // the Primus core behind the interface
     startUp();
+    window.CluShell = { api, show, send: (t) => { $("input").value = t; return send(); }, busy: () => streaming, conversation: () => conversation };
     initNav(); initChat(); initModels(); CluAgents.init(api, (n) => { const b = $("approvalCount"); b.textContent = n; b.classList.toggle("hidden", !n); }); loaders.agents = CluAgents.open; initVoice(); initMemory(); initPeople(); initDocuments(); initStatus(); initSettings();
     CluCapabilities.init(api, (t) => { show("chat"); $("input").value = t; send(); }, show); loaders.capabilities = CluCapabilities.refresh;
+    if (window.CluCore) { CluCore.init(api, show); loaders.core = CluCore.open; }
+    show(window.CluCore ? "core" : "chat"); // the Core console is the start view
     refreshStatus(); setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
     setInterval(() => { if (!document.hidden && busyTasks > 0) refreshStatus(); }, 3000); // a task is running or waiting for you: keep the badge current
     // While this window is open it tells CLU so (CLU treats a window that stops answering as closed: it goes to the tray or quits, as chosen in Settings).
@@ -75,6 +78,7 @@
     document.querySelectorAll(".nav").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
   }
   function show(view) {
+    if (window.CluCore && view !== "core") CluCore.close();
     document.body.classList.toggle("primus-paused", view !== "chat"); // the core renders only where it is seen
     document.querySelectorAll(".nav").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("hidden", v.id !== "view-" + view));
@@ -83,7 +87,7 @@
     const on = /hands\.html/.test(hands ? hands.src : ""); // (an iframe keeps its page when src is removed, so it is replaced by a blank one)
     if (hands) { if (view === "hands") { if (!on) hands.src = "/shell/hands.html"; } else if (on) hands.src = "about:blank"; }
     if (loaders[view]) loaders[view]();
-    const v = $("view-" + view); if (v && view !== "chat") { CluFx.rise(v); CluFx.stagger(v, 60, 35, 10); }
+    const v = $("view-" + view); if (v && view !== "chat" && view !== "core") { CluFx.rise(v); CluFx.stagger(v, 60, 35, 10); }
   }
 
   // ------------------------------------------------------------------------------------------ chat
@@ -137,7 +141,7 @@
     li.append(toggle, list);
   }
   function scrollChat() { const m = $("messages"); m.scrollTop = m.scrollHeight; }
-  function setPresence(state, label) { CluFace.set(state); $("presenceState").textContent = label; document.body.dataset.clu = state; }
+  function setPresence(state, label) { CluFace.set(state); $("presenceState").textContent = label; document.body.dataset.clu = state; if (window.CluCore) CluCore.presence(state, label); }
 
   function initVoice() {
     CluVoice.init(api, {
@@ -167,6 +171,8 @@
     $("messages").append(reply); scrollChat();
     streaming = true; $("stop").classList.remove("hidden"); $("send").disabled = true; setPresence("thinking", "Thinking…");
     CluFx.sound("process");
+    const core = (stage, data) => { try { if (window.CluCore) CluCore.turn(stage, data || {}); } catch (e) { /* the Core view is optional */ } };
+    core("input", { text });
     let action = null, raw = "";
     try {
       const r = await fetch(`/v1/conversations/${conversation}/turns`, { method: "POST",
@@ -180,19 +186,22 @@
         while ((i = buf.indexOf("\n\n")) >= 0) {
           const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
           const name = (/^event: (.*)$/m.exec(chunk) || [])[1]; const data = JSON.parse((/^data: (.*)$/m.exec(chunk) || [])[1] || "{}");
+          if (name !== "done") core(name === "status" ? "analysis" : name === "text" ? "synthesis" : name, data);
           if (name === "status") $("presenceState").textContent = data.text;
           else if (name === "text") { if (CluFace.state !== "speaking") setPresence("speaking", "Answering"); raw += data.delta; CluFx.md(body, raw, true); CluFace.pulse(); scrollChat(); }
           else if (name === "suggestion") refreshStatus();
           else if (name === "action") action = data;
           else if (name === "error") { reply.classList.add("error"); reply.append(el("span", "meta", data.text)); }
           else if (name === "done") {
+            core("output", data);
             raw = data.text || raw; if (raw) CluFx.md(body, raw); else body.textContent = "";
             if (data.interrupted) reply.append(el("span", "meta", "Stopped."));
             if (data.sources && data.sources.length) addSources(reply, data.sources);
           }
         }
       }
-    } catch (e) { reply.classList.add("error"); reply.append(el("span", "meta", "Couldn't reach CLU: " + e.message)); }
+    } catch (e) { reply.classList.add("error"); reply.append(el("span", "meta", "Couldn't reach CLU: " + e.message)); core("error", { text: "Couldn't reach CLU: " + e.message }); }
+    core("idle");
     if (action) CluCapabilities.handle(action, reply); // a capability instruction: progress, "which one?", open, list
     else if (!reply.querySelector("select.feedback") && body.textContent && !reply.classList.contains("error")) addFeedback(reply);
     streaming = false; $("stop").classList.add("hidden"); $("send").disabled = false; setPresence("idle", "Ready"); scrollChat();

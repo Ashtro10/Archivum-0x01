@@ -55,6 +55,7 @@
   }
   function render(s) {
     const prev = last; last = s;
+    window.CluNativeLevel = typeof s.level === "number" ? s.level : 0; window.CluNativeMic = !!s.micOn; // the Core waveform reads these
     if (s.error && (!prev || prev.error !== s.error)) note(s.error);
     const state = s.link === "reconnecting" ? "reconnecting" : s.link !== "connected" ? "connecting" : s.phase;
     show(state);

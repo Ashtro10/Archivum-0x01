@@ -47,7 +47,7 @@ const problems = [];
 
   try {
     await page.goto(`${base}/#code=${code}`);
-    await page.waitForSelector("#app:not(.hidden)");
+    await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     if (await page.isVisible("#wizard:not(.hidden)")) await page.click("#wizSkip").catch(() => {});
     await page.waitForTimeout(300);
     if (await page.isVisible("#wizard:not(.hidden)")) { while (await page.isVisible("#wizSkip")) await page.click("#wizSkip"); }

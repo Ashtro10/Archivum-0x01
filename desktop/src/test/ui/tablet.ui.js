@@ -28,7 +28,7 @@ const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); cons
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/status of (4\d\d|503)/.test(m.text())) errors.push("console: " + m.text()); });
   try {
-    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)");
+    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     assert(true, "the launch code opens the window (" + mode + ")");
     await page.waitForSelector("#boot", { state: "detached", timeout: 8000 }).catch(() => {});
     for (let i = 0; i < 20 && await page.isVisible("#wizard:not(.hidden)"); i++) { await page.click("#wizSkip").catch(() => {}); await page.waitForTimeout(250); }

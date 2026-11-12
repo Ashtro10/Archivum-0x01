@@ -25,7 +25,7 @@ const problems = []; let lastPage = null;
 
     const page = await ctx.newPage(); watch(page); lastPage = page;
     await page.goto(`${base}/#code=${code}`);
-    await page.waitForSelector("#app:not(.hidden)");
+    await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     assert(!page.url().includes("code="), "launch code removed from the address after use");
 
     // ---- M6: the first-run guide appears on a fresh install and the app is usable without finishing it.
@@ -427,7 +427,7 @@ const problems = []; let lastPage = null;
     assert(!(await page.isChecked('#appForm [name="startWithWindows"]')), "settings: starting with Windows is off by default");
     await page.uncheck('#appForm [name="runInBackground"]'); await page.click('#appForm button[type="submit"]');
     await page.waitForFunction(() => /Saved/.test(document.querySelector("#appSaved").textContent));
-    await page.reload(); await page.waitForSelector("#app:not(.hidden)"); await page.click('.nav[data-view="settings"]');
+    await page.reload(); await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */; await page.click('.nav[data-view="settings"]');
     await page.waitForFunction(() => /Your data:/.test(document.querySelector("#appInfo").textContent));
     assert(!(await page.isChecked('#appForm [name="runInBackground"]')), "settings: the background choice persists");
     await page.check('#appForm [name="runInBackground"]'); await page.click('#appForm button[type="submit"]'); await page.waitForFunction(() => /Saved/.test(document.querySelector("#appSaved").textContent));

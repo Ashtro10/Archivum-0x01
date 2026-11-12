@@ -10,7 +10,7 @@ const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); cons
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 900 }, colorScheme: "dark" })).newPage();
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   try {
-    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)");
+    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     await page.waitForSelector("#wizard:not(.hidden)", { timeout: 8000 }).catch(() => {});
     for (let i = 0; i < 20 && await page.isVisible("#wizard:not(.hidden)"); i++) { await page.click("#wizSkip").catch(() => {}); await page.waitForTimeout(250); }
     await page.waitForFunction(() => document.body.classList.contains("primus-on"), null, { timeout: 20000 });

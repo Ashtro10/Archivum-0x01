@@ -184,7 +184,7 @@ object ShellServer {
             put("server", u.server); put("phase", u.phase.name.lowercase().let { if (it == "absent" || it == "initializing") "idle" else it })
             put("link", when (u.link) { Link.CONNECTED -> "connected"; Link.RECONNECTING -> "reconnecting"; Link.CONNECTING -> "connecting"; else -> u.link.name.lowercase() })
             put("micOn", u.micOn); put("userLive", u.userLive); put("agentLive", u.agentLive); put("busy", u.busy)
-            u.error?.let { put("error", it) }; put("level", u.agentLevel.toDouble())
+            u.error?.let { put("error", it) }; put("level", maxOf(u.micLevel, u.agentLevel).toDouble())
         }.toString()
     }
 

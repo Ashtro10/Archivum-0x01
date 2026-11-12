@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CLU</title>
 <link rel="stylesheet" href="/shell/shell.css">
+<link rel="stylesheet" href="/shell/core.css">
 </head>
 <body>
 <div id="locked" class="locked hidden" role="alert">
@@ -33,7 +34,8 @@
 <div id="app" class="app hidden">
   <nav class="rail" aria-label="Sections">
     <div class="brand"><span class="hex" aria-hidden="true"></span>CLU</div>
-    <button class="nav active" data-view="chat">Chat</button>
+    <button class="nav active" data-view="core">Core</button>
+    <button class="nav" data-view="chat">Chat</button>
     <button class="nav" data-view="memory">Memory</button>
     <button class="nav" data-view="people">People</button>
     <button class="nav" data-view="timeline">Timeline</button>
@@ -55,7 +57,8 @@
       <div class="pill" id="modelPill" title="The local model">model: …</div>
     </header>
 
-    <section id="view-chat" class="view chat-view">
+    <section id="view-core" class="view core-view hidden" aria-label="CLU core console"></section>
+    <section id="view-chat" class="view chat-view hidden">
       <aside class="conversations">
         <button id="newConversation" class="primary small">New conversation</button>
         <ul id="conversationList" class="list"></ul>
@@ -440,6 +443,7 @@
 <script src="/shell/capabilities.js"></script>
 <script src="/shell/primus.js"></script>
 <script src="/shell/platform.js"></script>
+<script src="/shell/core.js"></script>
 <script src="/shell/shell.js"></script>
 </body>
 </html>

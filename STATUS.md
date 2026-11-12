@@ -17,6 +17,17 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
 
+## 2026-11-12 (1.14.0, PC 0.12.0): CLU Core console
+
+- **New start view on both platforms:** the Core console. It keeps all seven original modules, joined by energy
+  conduits: data matrix arc, concentric process rings, sources & ideas container, hexagonal core control with three
+  touch sensors, file explorer, module grid, and command strip with keyboard.
+- **Look and behaviour:** dark machined-metal styling, materialization and restrained micro-glitch, mechanical press
+  feedback, procedural spatial sound (with its own settings), particles, and an audio-reactive waveform.
+- **Real data only:** every instrument reads CLU's real state, and shows "n/a" or "NO SIGNAL" when there is nothing
+  to show. See [docs/CORE_UI.md](docs/CORE_UI.md).
+- **Tests:** core 723, app 99, desktop 144 (all browser tests included). 0 failures.
+
 ## 2026-11-11 (1.13.2, PC 0.11.1 unchanged): tablet window fixed ("Web page not available")
 
 - **Symptom:** on the owner's tablet, 1.13.0 and 1.13.1 showed "net::ERR_CONNECTION_REFUSED" for `http://127.0.0.1:<port>`

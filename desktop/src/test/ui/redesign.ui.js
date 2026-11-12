@@ -11,7 +11,7 @@ const assert = (ok, what) => { if (!ok) throw new Error("FAILED: " + what); cons
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/status of 4\d\d/.test(m.text())) errors.push("console: " + m.text()); });
   try {
-    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)");
+    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     // Start-up: the boot log shows CLU's real state, then the name; it never takes clicks and ends by itself.
     await page.waitForSelector("#boot", { timeout: 5000 });
     assert(await page.$eval("#boot", (b) => getComputedStyle(b).pointerEvents === "none"), "start-up sequence never takes clicks");

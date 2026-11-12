@@ -70,4 +70,21 @@ class PrimusShellTest {
             assertTrue(done, "timed out"); assertEquals(0, p.exitValue(), log)
         } finally { host.stop() }
     }
+
+    /** CLU Core: the main console with real data, real turns, real uploads, at PC, tablet and phone sizes. */
+    @Test fun theCoreConsoleWorks() {
+        val node = System.getProperty("clu.shellUi"); assumeTrue(!node.isNullOrBlank(), "opt-in: -Dclu.shellUi=<node>")
+        val script = listOf(File("src/test/ui/core.ui.js"), File("desktop/src/test/ui/core.ui.js")).first { it.exists() }
+        val out = File(System.getProperty("clu.shellUiShots") ?: "build/core-ui").apply { mkdirs() }
+        val dir = Files.createTempDirectory("clu-core-ui").toFile()
+        val host = Host.start(DesktopPaths(File(dir, "home")), HostConfig(), port = 0, log = {})
+        try {
+            val engine = Hello(); host.core.remoteEngineProvider = { engine }
+            host.core.settings.set(ai.clu.core.config.Settings.REMOTE_INFERENCE, "prefer_home")
+            val p = ProcessBuilder(node, script.absolutePath, host.url, host.api.issueLaunchCode(), out.absolutePath).redirectErrorStream(true).start()
+            val log = p.inputStream.bufferedReader().readText(); val done = p.waitFor(240, TimeUnit.SECONDS)
+            println(log); File(out, "core-transcript.txt").writeText(log)
+            assertTrue(done, "timed out"); assertEquals(0, p.exitValue(), log)
+        } finally { host.stop(); dir.deleteRecursively() }
+    }
 }

@@ -17,7 +17,7 @@ const problems = []; let page = null;
     const dialogs = [];
     page.on("dialog", (d) => { dialogs.push(d.message()); d.dismiss(); });
     await page.goto(`${base}/#code=${code}`);
-    await page.waitForSelector("#app:not(.hidden)");
+    await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     if (await page.isVisible("#wizard:not(.hidden)").catch(() => false)) await page.click("#wizSkip");
     await page.waitForSelector("#wizard.hidden", { state: "attached" });
 

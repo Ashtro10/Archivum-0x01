@@ -37,7 +37,7 @@ const save = () => fs.writeFileSync(path.join(out, `outcome-${phase}.json`), JSO
     return { state, message, steps };
   }
   try {
-    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)");
+    await page.goto(`${base}/#code=${code}`); await page.waitForSelector("#app:not(.hidden)"); await page.evaluate(() => { const b = document.querySelector('.nav[data-view="chat"]'); if (b) b.click(); }) /* Core is the start view */;
     // The first-run guide opens asynchronously: wait for it, then skip it until it is closed.
     await page.waitForSelector("#wizard:not(.hidden)", { timeout: 8000 }).catch(() => {});
     for (let i = 0; i < 20 && await page.isVisible("#wizard:not(.hidden)"); i++) { await page.click("#wizSkip").catch(() => {}); await page.waitForTimeout(250); }

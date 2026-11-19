@@ -1072,7 +1072,9 @@ class CluAgent(
             viaSpeech = req.viaVoice, standingInstructions = if (canReadMemory) standingInstructions(persona) else emptyList(),
             timeLine = archive?.time?.promptLine(), toldOf = { m -> archive?.dates?.told(m) ?: m.told }, documents = docs,
             today = archive?.time?.today(), workingNotes = working, taskPreferences = taskPrefs,
-            selfFacts = if (persona.isClu) runCatching { selfFacts(req.text) }.getOrDefault(emptyList()) else emptyList())
+            selfFacts = if (persona.isClu) runCatching { selfFacts(req.text) }.getOrDefault(emptyList()) else emptyList(),
+            // The owner's "brief" length setting wins over a message that looks like it wants an explanation.
+            depth = ai.clu.core.persona.AnswerDepth.of(req.text).takeUnless { it == ai.clu.core.persona.AnswerDepth.Depth.EXPLAIN && settings.string(Settings.RESPONSE_LENGTH) == "brief" })
         val params = GenerationParams.from(settings, prefs, false).copy(stop = listOf("</tool>"),
             reserveThreads = if (req.spokenOnDevice) SPEECH_RESERVED_THREADS else 0)
         val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)

@@ -28,8 +28,10 @@ class ConversationQualityEvaluation {
                     val minConcepts: Int = concepts.size, val minWords: Int = 0, val maxWords: Int = Int.MAX_VALUE,
                     val uncertain: Boolean = false, val sources: List<Pair<String, String>> = emptyList(), val offline: Boolean = true)
 
-    private val unsure = Regex("(?i)\\b(?:i don'?t know|i do not know|not sure|can'?t (?:know|predict|tell|say)|cannot (?:know|predict|tell|say)|no way to (?:know|predict)|" +
-        "don'?t have (?:access|information|any information|that information|a record)|haven'?t (?:told|mentioned|shared)|didn'?t (?:tell|mention|share)|" +
+    // Phase 5: widened after reading the replies. "I don't have a breakfast schedule to refer to" and "I cannot provide the
+    // exact closing" are honest admissions the first version failed.
+    private val unsure = Regex("(?i)\\b(?:i don'?t know|i do not know|not sure|can'?t (?:know|predict|tell|say|provide)|cannot (?:know|predict|tell|say|provide)|no way to (?:know|predict)|" +
+        "don['’]?t have|do not have|haven['’]?t (?:told|mentioned|shared)|didn['’]?t (?:tell|mention|share)|no record|not available|" +
         "unpredictable|impossible to (?:know|predict)|uncertain|no one can|nobody can)")
 
     private val cases = listOf(
@@ -51,7 +53,11 @@ class ConversationQualityEvaluation {
         Case("everest-sources", "multi-source", "How tall is Mount Everest? Do the sources agree?", offline = false,
             sources = listOf("Mount Everest" to "Mount Everest is Earth's highest mountain above sea level, with an elevation of 8,848.86 m, measured by China and Nepal in 2020.",
                 "Everest height survey" to "The 1955 Indian survey gave the height of Mount Everest as 8,848 m; a 1999 American survey measured 8,850 m."),
-            concepts = listOf("8,?848|8,?850", "differ|disagree|vary|varies|slightly|while|whereas|but|however|survey|measure"), minConcepts = 2),
+            // Phase 5: the first version also accepted "measure" and "but", so a reply quoting one source and ignoring the
+            // disagreement passed. The reply must now give both figures or say they differ.
+            concepts = listOf("8,?848", "8,?850|differ|disagree|vary|varies|whereas|another (?:source|survey)|other (?:source|survey)s?|slightly different"), minConcepts = 2),
+        Case("memory-1", "context", "My sister Meera moved to Pune last month for her new job.", chain = "memory", minWords = 1),
+        Case("memory-2", "context", "Where does my sister live now?", chain = "memory", concepts = listOf("Pune")),
     )
 
     private fun wiki(hits: List<Pair<String, String>>) = HttpResponse(200, """{"query":{"searchinfo":{"totalhits":${hits.size}},"search":[""" +

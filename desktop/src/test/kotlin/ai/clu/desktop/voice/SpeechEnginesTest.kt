@@ -80,8 +80,13 @@ class SpeechEnginesTest {
         need()
         val words = ai.clu.core.voice.WakeWord.defaults()
         voice("joe").use { tts -> StreamingRecognizer(models.kroko!!).use { stt ->
-            // Fed the way VoiceAgent feeds it: primed with 1 s of silence, the utterance starting after a short pause (the pre-roll).
-            fun hear(phrase: String): String { stt.begin(FloatArray(16000)); (FloatArray(4800) + Pcm.resample(tts.synth(phrase, 0, 1.0f), 22050, 16000)).toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }; return stt.finish() }
+            // Fed the way VoiceAgent feeds it from a real microphone: primed with 1 s of digital silence, then the pre-roll
+            // (room-level noise, never exact zeros), the utterance, and the endpoint's 700 ms of quiet before finish().
+            // The earlier version fed exact zeros around the speech and no endpoint silence; that made the recogniser drop
+            // the first or last word intermittently (Phase 5: 12 of 45 utterances), which a microphone never produces.
+            val rnd = java.util.Random(7)
+            fun room(n: Int) = FloatArray(n) { (rnd.nextGaussian() * 0.003).toFloat() }
+            fun hear(phrase: String): String { stt.begin(FloatArray(16000)); (room(4800) + Pcm.resample(tts.synth(phrase, 0, 1.0f), 22050, 16000) + room(11200)).toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }; return stt.finish() }
             val heard = listOf("Clue, what time is it?", "Hey buddy, turn the volume down.", "Friend, are you there?").map { hear(it) }
             val matches = heard.map { ai.clu.core.voice.WakePhraseMatcher.match(it, words, 0.7) }
             println("[speech] heard $heard -> ${matches.map { it?.word?.phrase + " / " + it?.remainder }}")
@@ -91,6 +96,41 @@ class SpeechEnginesTest {
             val farewell = hear("Okay, goodbye for now."); assertTrue(VoiceSettings().isFarewell(farewell), "the farewell phrase is recognised: $farewell")
             assertFalse(VoiceSettings().isFarewell(hear("Say goodbye to the old router before you set up the new one.")), "a sentence that merely contains the word is not a farewell")
         } }
+    }
+
+    /**
+     * Diagnosis for the intermittent wake-phrase failure: the same pipeline repeated, recording what the voice produced,
+     * what the recogniser heard and what the matcher kept. Opt-in: -Dclu.wakeRepeat=<n> [-Dclu.wakeRepeatOut=<json>].
+     */
+    @Test fun wakePhraseRepeatability() {
+        val n = System.getProperty("clu.wakeRepeat")?.toIntOrNull(); assumeTrue(n != null, "opt-in"); need()
+        val words = ai.clu.core.voice.WakeWord.defaults()
+        val phrases = listOf("Clue, what time is it?", "Hey buddy, turn the volume down.", "Friend, are you there?")
+        val rows = mutableListOf<String>()
+        System.getProperty("clu.asrTail")?.toDoubleOrNull()?.let { asrTailSeconds = it }
+        voice("joe").use { tts -> StreamingRecognizer(models.kroko!!).use { stt ->
+            for (i in 1..n!!) for (p in phrases) {
+                val audio = tts.synth(p, 0, 1.0f)
+                // How the utterance starts (-Dclu.wakeHead): zeros = digital silence (as the test above); noise = room-level noise, as a real microphone gives.
+                val hr = java.util.Random(1000L + i)
+                fun quiet(n: Int) = if (System.getProperty("clu.wakeHead", "zeros") == "noise") FloatArray(n) { (hr.nextGaussian() * 0.003).toFloat() } else FloatArray(n)
+                stt.begin(quiet(16000)); (quiet(4800) + Pcm.resample(audio, 22050, 16000)).toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }
+                // Variants of how the utterance ends (-Dclu.wakeTail): none = as VoiceAgent does today; zeros = 1.5 s more silence; noise = 1.5 s of room-level noise.
+                val rnd = java.util.Random(i.toLong())
+                when (System.getProperty("clu.wakeTail", "none")) {
+                    "zeros" -> stt.accept(FloatArray(24000))
+                    "noise" -> stt.accept(FloatArray(24000) { (rnd.nextGaussian() * 0.003).toFloat() })
+                    "endpoint" -> stt.accept(FloatArray(11200) { (rnd.nextGaussian() * 0.003).toFloat() }) // the 700 ms of room noise VoiceAgent hears before it ends the utterance
+                }
+                val tf = System.nanoTime(); val heard = stt.finish(); val finishMs = (System.nanoTime() - tf) / 1_000_000
+                val m = ai.clu.core.voice.WakePhraseMatcher.match(heard, words, 0.7)
+                // A fingerprint of the synthesised audio shows whether the voice itself varies between runs.
+                val fp = "%d/%.5f".format(audio.size, Pcm.rms(audio))
+                rows += """{"run":$i,"said":"$p","audio":"$fp","heard":"${heard.replace("\"", "'")}","wake":"${m?.word?.phrase ?: ""}","window":"${m?.heard ?: ""}","remainder":"${m?.remainder ?: ""}","score":${m?.score ?: 0.0},"finish_ms":$finishMs,"tail":"${System.getProperty("clu.wakeTail", "none")}","head":"${System.getProperty("clu.wakeHead", "zeros")}","asr_tail_s":$asrTailSeconds}"""
+                println("[wake-repeat] " + rows.last())
+            }
+        } }
+        System.getProperty("clu.wakeRepeatOut")?.let { File(it).apply { parentFile?.mkdirs() }.writeText("[\n" + rows.joinToString(",\n") + "\n]\n") }
     }
 
     @Test fun resamplingKeepsTheSoundAndTheLength() {

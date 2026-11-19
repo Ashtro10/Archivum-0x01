@@ -169,7 +169,7 @@ class StreamingRecognizerModel(dir: File, threads: Int = 2) : AutoCloseable {
         override fun partial(): String = synchronized(lock) { if (stream == 0L) "" else NativeVoice.asrDecode(rec, stream).trim() }
         override fun finish(): String = synchronized(lock) {
             if (stream == 0L) return ""
-            NativeVoice.asrAccept(stream, 16000, FloatArray(16000 * 3 / 2)) // the model emits its last word only after enough look-ahead (measured: 1.5 s)
+            NativeVoice.asrAccept(stream, 16000, FloatArray((16000 * asrTailSeconds).toInt())) // look-ahead the model needs for its last word (see asrTailSeconds)
             NativeVoice.asrInputFinished(stream)
             val t = NativeVoice.asrDecode(rec, stream).trim()
             NativeVoice.asrStreamDestroy(stream); stream = 0L
@@ -178,6 +178,14 @@ class StreamingRecognizerModel(dir: File, threads: Int = 2) : AutoCloseable {
         override fun close() = synchronized(lock) { if (stream != 0L) NativeVoice.asrStreamDestroy(stream); stream = 0L }
     }
 }
+
+/**
+ * Silence appended when an utterance is finished, after the endpoint's own silence (VoiceAgent ends an utterance after
+ * endSilenceMs of quiet). Measured, Phase 5: production-like input kept the last word in 60/60 with 1.5 s; 3 s cost
+ * ~55 ms per utterance for no gain. Without the endpoint silence (a test feeding speech then nothing) 1.5 s dropped
+ * the last word in 11 of 45 (docs/measurements/wake_repeatability*.json).
+ */
+@Volatile var asrTailSeconds = 1.5 // a var only so the repeatability measurement can compare values
 
 /** A recogniser that owns its model (tests, one-off use). */
 class StreamingRecognizer(dir: File, threads: Int = 2) : SpeechRecognizer {

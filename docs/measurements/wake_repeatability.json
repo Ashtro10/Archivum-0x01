@@ -1,0 +1,87 @@
+{
+ "what": "Piper Joe TTS -> Kroko streaming STT -> WakePhraseMatcher, same phrases repeated (SpeechEnginesTest.wakePhraseRepeatability)",
+ "conditions": [
+  {
+   "condition": "old test input: zeros around speech, no endpoint silence, 1.5 s tail",
+   "utterances": 45,
+   "last_word_kept": 34,
+   "wake_found": 44,
+   "finish_ms_median": null,
+   "misses": [
+    "Clue, what time is",
+    "Friend, are you",
+    "Clue, what time is",
+    "Clue, what time is",
+    "Friend, are you",
+    "Clue, what time is",
+    "Friend, are you",
+    "What time is",
+    "Clue. What time is",
+    "Clue, what time is",
+    "Club, what time is"
+   ],
+   "tts_audio_variants": 45
+  },
+  {
+   "condition": "zeros around speech, +1.5 s extra silence (3 s total)",
+   "utterances": 30,
+   "last_word_kept": 30,
+   "wake_found": 30,
+   "finish_ms_median": null,
+   "misses": [],
+   "tts_audio_variants": 30
+  },
+  {
+   "condition": "zeros before, +1.5 s room noise after",
+   "utterances": 30,
+   "last_word_kept": 30,
+   "wake_found": 29,
+   "finish_ms_median": null,
+   "misses": [
+    "What time is it?"
+   ],
+   "tts_audio_variants": 30
+  },
+  {
+   "condition": "zeros around speech, 3 s tail",
+   "utterances": 60,
+   "last_word_kept": 60,
+   "wake_found": 58,
+   "finish_ms_median": 164,
+   "misses": [
+    "What time is it?",
+    "What time is it?"
+   ],
+   "tts_audio_variants": 60
+  },
+  {
+   "condition": "room noise before speech, 3 s tail",
+   "utterances": 60,
+   "last_word_kept": 60,
+   "wake_found": 60,
+   "finish_ms_median": 171,
+   "misses": [],
+   "tts_audio_variants": 60
+  },
+  {
+   "condition": "production-like: room-noise pre-roll + 700 ms endpoint noise, 1.5 s tail (shipped value)",
+   "utterances": 60,
+   "last_word_kept": 60,
+   "wake_found": 59,
+   "finish_ms_median": 129,
+   "misses": [
+    "Clai, what time is it?"
+   ],
+   "tts_audio_variants": 60
+  },
+  {
+   "condition": "production-like, 3 s tail",
+   "utterances": 60,
+   "last_word_kept": 60,
+   "wake_found": 60,
+   "finish_ms_median": 184,
+   "misses": [],
+   "tts_audio_variants": 60
+  }
+ ]
+}

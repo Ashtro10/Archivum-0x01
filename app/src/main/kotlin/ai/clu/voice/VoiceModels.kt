@@ -14,7 +14,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-/** Silence appended when finalising a live-recogniser utterance (Kroko needs ~1.5 s to emit the last word). */
+/**
+ * Silence appended when finalising a live-recogniser utterance (Kroko emits its last word only after enough look-ahead).
+ * Together with the endpoint's own silence, 1.5 s kept the last word in 60 of 60 production-like utterances; 3 s added
+ * ~55 ms per utterance for no gain (docs/measurements/wake_repeatability*.json, Phase 5).
+ */
 const val ASR_TAIL_SEC = 1.5f
 
 /** A downloadable/importable model archive from the sherpa-onnx releases. */

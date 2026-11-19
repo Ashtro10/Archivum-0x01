@@ -178,4 +178,15 @@ class WakeSettingsTest {
         s.set(Settings.OWNER_ADDRESS, "sir")
         assertTrue(core.templates.pick(Settings.TERMINATION_RESPONSES, core.clock.now()).endsWith(", sir."))
     }
+
+    /** Phase 5, measured: the recogniser heard "Hey buddies" for "Hey buddy" in 3 of 30 noisy utterances. */
+    @org.junit.jupiter.api.Test fun aPluralOrPossessiveOfTheWakeWordStillWakes() {
+        val words = ai.clu.core.voice.WakeWord.defaults()
+        val m = ai.clu.core.voice.WakePhraseMatcher.match("Hey buddies, turn the volume down", words, 0.7)
+        kotlin.test.assertEquals("Buddy", m?.word?.phrase); kotlin.test.assertEquals("turn the volume down", m?.remainder)
+        kotlin.test.assertEquals("Clue", ai.clu.core.voice.WakePhraseMatcher.match("Clue's going to tell me the time", words, 0.7)?.word?.phrase)
+        // Different words stay different: a name that merely sounds close does not wake CLU.
+        kotlin.test.assertNull(ai.clu.core.voice.WakePhraseMatcher.match("Hey Betty, turn the volume down", words, 0.7))
+        kotlin.test.assertNull(ai.clu.core.voice.WakePhraseMatcher.match("The buddhist temple opens at nine", words, 0.7))
+    }
 }

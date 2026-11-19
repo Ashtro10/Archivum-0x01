@@ -32,6 +32,11 @@ data class WakeMatch(val word: WakeWord, val score: Double, val heard: String, v
 object WakePhraseMatcher {
     fun normalize(s: String): String = s.lowercase().replace(Regex("[^\\p{L}\\p{N}' ]"), " ").replace(Regex("\\s+"), " ").trim()
 
+    /** Each word without a plural or possessive ending ("buddies" → "buddy", "clue's" → "clue", "friends" → "friend"). */
+    fun singular(s: String): String = s.split(' ').joinToString(" ") { w ->
+        when { w.endsWith("'s") -> w.dropLast(2); w.length > 4 && w.endsWith("ies") -> w.dropLast(3) + "y"; w.length > 3 && w.endsWith("s") && !w.endsWith("ss") -> w.dropLast(1); else -> w }
+    }
+
     fun similarity(a: String, b: String): Double {
         if (a == b) return 1.0
         if (a.isEmpty() || b.isEmpty()) return 0.0
@@ -65,7 +70,9 @@ object WakePhraseMatcher {
                 for (start in 0 until min(searchWords, tokens.size)) {
                     for (len in max(1, n - 1)..min(n + 1, tokens.size - start)) {
                         val window = tokens.subList(start, start + len).joinToString(" ")
-                        val s = similarity(window, v)
+                        // A plural or possessive of the wake word is the wake word ("Hey buddies", "Clue's"): measured,
+                        // the recogniser heard "buddies" for "buddy" in 3 of 30 noisy utterances and the word scored 0.57.
+                        val s = maxOf(similarity(window, v), similarity(singular(window), v))
                         if (s >= threshold && (best == null || s > best.score)) {
                             best = WakeMatch(w, s, window, tokens.drop(start + len).joinToString(" "))
                         }

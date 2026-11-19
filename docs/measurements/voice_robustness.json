@@ -218,5 +218,39 @@
    "wake": "Buddy",
    "remainder": "remind me to call no way text my sister at six"
   }
+ ],
+ "after_plural_fix": [
+  {
+   "noise_rms": 0.03,
+   "wake_found": 27,
+   "utterances": 30,
+   "per_phrase": {
+    "Clue, what time is it?": 8,
+    "Friend, are you there?": 10,
+    "Hey buddy, turn the volume down.": 9
+   },
+   "misses": [
+    "Luke, what time is it?",
+    "Hey, Betty, turn the volume down",
+    "Liz, what time is it?"
+   ]
+  },
+  {
+   "noise_rms": 0.06,
+   "wake_found": 25,
+   "utterances": 30,
+   "per_phrase": {
+    "Clue, what time is it?": 5,
+    "Friend, are you there?": 10,
+    "Hey buddy, turn the volume down.": 10
+   },
+   "misses": [
+    "Cliz, what time is it?",
+    "What is what time is it?",
+    "What time is it?",
+    "Liz, what time is it?",
+    "Bliz, what time is it?"
+   ]
+  }
  ]
 }

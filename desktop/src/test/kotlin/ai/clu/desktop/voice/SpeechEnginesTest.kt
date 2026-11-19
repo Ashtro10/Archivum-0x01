@@ -105,7 +105,9 @@ class SpeechEnginesTest {
     @Test fun wakePhraseRepeatability() {
         val n = System.getProperty("clu.wakeRepeat")?.toIntOrNull(); assumeTrue(n != null, "opt-in"); need()
         val words = ai.clu.core.voice.WakeWord.defaults()
-        val phrases = listOf("Clue, what time is it?", "Hey buddy, turn the volume down.", "Friend, are you there?")
+        val phrases = (System.getProperty("clu.wakePhrases")?.split('|') ?: listOf("Clue, what time is it?", "Hey buddy, turn the volume down.", "Friend, are you there?"))
+        // Background noise over the whole signal (-Dclu.wakeNoise=<rms>, e.g. 0.01 quiet room fan, 0.03 busy room, 0.06 loud).
+        val noiseRms = System.getProperty("clu.wakeNoise")?.toDoubleOrNull() ?: 0.0
         val rows = mutableListOf<String>()
         System.getProperty("clu.asrTail")?.toDoubleOrNull()?.let { asrTailSeconds = it }
         voice("joe").use { tts -> StreamingRecognizer(models.kroko!!).use { stt ->
@@ -114,7 +116,9 @@ class SpeechEnginesTest {
                 // How the utterance starts (-Dclu.wakeHead): zeros = digital silence (as the test above); noise = room-level noise, as a real microphone gives.
                 val hr = java.util.Random(1000L + i)
                 fun quiet(n: Int) = if (System.getProperty("clu.wakeHead", "zeros") == "noise") FloatArray(n) { (hr.nextGaussian() * 0.003).toFloat() } else FloatArray(n)
-                stt.begin(quiet(16000)); (quiet(4800) + Pcm.resample(audio, 22050, 16000)).toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }
+                val nr = java.util.Random(2000L + i)
+                val speech = (quiet(4800) + Pcm.resample(audio, 22050, 16000)).let { a -> if (noiseRms > 0) FloatArray(a.size) { k -> a[k] + (nr.nextGaussian() * noiseRms).toFloat() } else a }
+                stt.begin(quiet(16000)); speech.toList().chunked(1600).forEach { stt.accept(it.toFloatArray()) }
                 // Variants of how the utterance ends (-Dclu.wakeTail): none = as VoiceAgent does today; zeros = 1.5 s more silence; noise = 1.5 s of room-level noise.
                 val rnd = java.util.Random(i.toLong())
                 when (System.getProperty("clu.wakeTail", "none")) {
@@ -126,7 +130,7 @@ class SpeechEnginesTest {
                 val m = ai.clu.core.voice.WakePhraseMatcher.match(heard, words, 0.7)
                 // A fingerprint of the synthesised audio shows whether the voice itself varies between runs.
                 val fp = "%d/%.5f".format(audio.size, Pcm.rms(audio))
-                rows += """{"run":$i,"said":"$p","audio":"$fp","heard":"${heard.replace("\"", "'")}","wake":"${m?.word?.phrase ?: ""}","window":"${m?.heard ?: ""}","remainder":"${m?.remainder ?: ""}","score":${m?.score ?: 0.0},"finish_ms":$finishMs,"tail":"${System.getProperty("clu.wakeTail", "none")}","head":"${System.getProperty("clu.wakeHead", "zeros")}","asr_tail_s":$asrTailSeconds}"""
+                rows += """{"run":$i,"said":"$p","audio":"$fp","heard":"${heard.replace("\"", "'")}","wake":"${m?.word?.phrase ?: ""}","window":"${m?.heard ?: ""}","remainder":"${m?.remainder ?: ""}","score":${m?.score ?: 0.0},"finish_ms":$finishMs,"tail":"${System.getProperty("clu.wakeTail", "none")}","head":"${System.getProperty("clu.wakeHead", "zeros")}","asr_tail_s":$asrTailSeconds,"noise_rms":$noiseRms,"speech_rms":${"%.4f".format(Pcm.rms(audio))}}"""
                 println("[wake-repeat] " + rows.last())
             }
         } }

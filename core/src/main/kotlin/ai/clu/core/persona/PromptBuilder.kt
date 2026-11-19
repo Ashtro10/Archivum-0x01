@@ -118,7 +118,7 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
             appendLine("This message was spoken and transcribed automatically, so words (especially names and places) may be misheard. " +
                 "If a word does not fit, use the conversation and similar-sounding alternatives to find the meaning; if the meaning is clear, " +
                 "just act on it; if two readings remain plausible, ask one short question. Do not search random guesses.")
-            appendLine("Your reply will be spoken aloud: answer in natural spoken sentences, without markdown, lists, links or code, and keep it brief unless the question needs an explanation.")
+            appendLine("Your reply will be spoken aloud: answer in natural spoken sentences, without markdown, lists, links or code, and keep it brief unless asked for detail.")
         }
         when (ctx.depth) {
             AnswerDepth.Depth.EXPLAIN -> appendLine("This question asks for an explanation. Answer it yourself from what you know (no tool is needed unless it depends on live information): " +

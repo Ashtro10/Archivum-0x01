@@ -1,0 +1,222 @@
+{
+ "what": "Piper Joe TTS -> Kroko streaming STT -> WakePhraseMatcher, production-like framing (room-noise pre-roll, 700 ms endpoint), Gaussian background noise over the whole signal; 10 runs x 3 phrases per level (SpeechEnginesTest.wakePhraseRepeatability)",
+ "noise": [
+  {
+   "noise_rms": 0.01,
+   "speech_to_noise_rms": 7.2,
+   "last_word_kept": 30,
+   "wake_found": 26,
+   "utterances": 30,
+   "per_phrase": {
+    "Clue, what time is it?": {
+     "wake_found": 9,
+     "of": 10,
+     "misheard_as": [
+      "What time is it?"
+     ]
+    },
+    "Hey buddy, turn the volume down.": {
+     "wake_found": 7,
+     "of": 10,
+     "misheard_as": [
+      "Hey Betty turn the volume down",
+      "Hey, Betty turned the volume down",
+      "Hey, Betty, turned the volume down"
+     ]
+    },
+    "Friend, are you there?": {
+     "wake_found": 10,
+     "of": 10,
+     "misheard_as": []
+    }
+   }
+  },
+  {
+   "noise_rms": 0.03,
+   "speech_to_noise_rms": 2.4,
+   "last_word_kept": 30,
+   "wake_found": 24,
+   "utterances": 30,
+   "per_phrase": {
+    "Clue, what time is it?": {
+     "wake_found": 8,
+     "of": 10,
+     "misheard_as": [
+      "Cliff, what time is it?",
+      "Cliz, what time is it?"
+     ]
+    },
+    "Hey buddy, turn the volume down.": {
+     "wake_found": 7,
+     "of": 10,
+     "misheard_as": [
+      "Hey buddies, turn the volume down",
+      "Hey buddies, turn the volume down.",
+      "Hey, Betty turned the volume down"
+     ]
+    },
+    "Friend, are you there?": {
+     "wake_found": 9,
+     "of": 10,
+     "misheard_as": [
+      "Brand, are you there?"
+     ]
+    }
+   }
+  },
+  {
+   "noise_rms": 0.06,
+   "speech_to_noise_rms": 1.2,
+   "last_word_kept": 30,
+   "wake_found": 23,
+   "utterances": 30,
+   "per_phrase": {
+    "Clue, what time is it?": {
+     "wake_found": 5,
+     "of": 10,
+     "misheard_as": [
+      "Liz, what time is it?",
+      "Lood, what time is it?",
+      "Pleas, what time is it?",
+      "What time is it?"
+     ]
+    },
+    "Hey buddy, turn the volume down.": {
+     "wake_found": 8,
+     "of": 10,
+     "misheard_as": [
+      "Hey Buddies from the volume down",
+      "Hey buddies, turn the volume down."
+     ]
+    },
+    "Friend, are you there?": {
+     "wake_found": 10,
+     "of": 10,
+     "misheard_as": []
+    }
+   }
+  }
+ ],
+ "natural": [
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clo, set a timer for five minutes",
+   "wake": "",
+   "remainder": ""
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey, buddy, remind me to call. No way, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no way text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Plu, set A, set a timer for five minutes",
+   "wake": "",
+   "remainder": ""
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey buddy, remind me to call. No way, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no way text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey, buddy, remind me to call. No wait, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no wait text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey, buddy, remind me to call. No, wait, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no wait text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey buddy, remind me to call away, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call away text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey buddy, remind me to call no way, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no way text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey buddy, remind me to call. No wait, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no wait text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey, buddy, remind me to call. Oh wait, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call oh wait text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey buddy, remind me to call. No way, text my sister at six",
+   "wake": "Buddy",
+   "remainder": "remind me to call no way text my sister at six"
+  },
+  {
+   "said": "Clue, um, set a, set a timer for five minutes.",
+   "heard": "Clue set A, set a timer for five minutes",
+   "wake": "Clue",
+   "remainder": "set a set a timer for five minutes"
+  },
+  {
+   "said": "Hey buddy, remind me to call, no wait, text my sister at six.",
+   "heard": "Hey, buddy, remind me to call. No way, text my sister at six.",
+   "wake": "Buddy",
+   "remainder": "remind me to call no way text my sister at six"
+  }
+ ]
+}

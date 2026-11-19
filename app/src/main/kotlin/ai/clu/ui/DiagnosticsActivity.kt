@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 
 /** Developer diagnostics: resources, performance, model, voice, memory, sync, logs, feature tests, config recovery. */
 class DiagnosticsActivity : BaseActivity() {
-    private companion object { const val QUALIFY_ROUNDS = 20 }
+    private companion object { const val QUALIFY_ROUNDS = 20; const val SUSTAINED_ROUNDS = 80 }
     private var level = Level.INFO
     override fun onResume() { super.onResume(); build() }
 
@@ -31,9 +31,12 @@ class DiagnosticsActivity : BaseActivity() {
         val s = core.llm.state.value
         p("${s.status} ${s.modelName ?: ""} ${s.message}\n${runCatching { LlamaBridge.nativeSystemInfo() }.getOrDefault("native library not loaded")}", C.MUTED, 12f)
         p("Model qualification: load, memory, first-token time, speed over ${QUALIFY_ROUNDS} sustained rounds, thermal state, battery, context retention and planning, " +
-            "measured on this device with the selected model. Takes several minutes; keep the screen on. Writes a JSON report to " +
+            "measured on this device with the selected model. Standard: 20 rounds, a few minutes. Sustained: 80 longer rounds (about 15 minutes with a small model, an hour or more with a 4B one) for heat and battery. Keep the screen on. Writes a JSON report to " +
             "Android/data/ai.clu/files/qualification/ and opens the share sheet. Nothing is added to your conversations or memories.", C.MUTED, 12f)
-        row { smallButton("Run model qualification") { runQualification() } }
+        row {
+            smallButton("Run model qualification") { runQualification(QUALIFY_ROUNDS, 128, "standard") }
+            smallButton("Sustained run (long)") { runQualification(SUSTAINED_ROUNDS, 256, "sustained") }
+        }
         h1("Requests (latest first)")
         p("Lifecycle of each message: received → created → model ready → generation started → first token → completed / cancelled / " +
             "timeout / error. Times are from the moment the message was received. No message content is recorded. Also in logcat (tag CluTurn).", C.MUTED, 12f)
@@ -109,19 +112,19 @@ class DiagnosticsActivity : BaseActivity() {
         toast("Report copied to the clipboard.")
     }
 
-    private fun runQualification() = scope.launch {
+    private fun runQualification(rounds: Int, genTokens: Int, label: String) = scope.launch {
         val dlg = android.app.ProgressDialog(this@DiagnosticsActivity).apply { setTitle("Model qualification"); setMessage("Starting"); setCancelable(false); show() }
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val report = runCatching { withContext(Dispatchers.Default) {
             ai.clu.core.DeviceQualification(core, ai.clu.platform.AndroidDeviceProbe(applicationContext))
-                .run(ai.clu.core.DeviceQualification.Config(rounds = QUALIFY_ROUNDS)) { m -> runOnUiThread { dlg.setMessage(m) } }
+                .run(ai.clu.core.DeviceQualification.Config(rounds = rounds, genTokens = genTokens)) { m -> runOnUiThread { dlg.setMessage(m) } }
         } }
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         dlg.dismiss()
         val json = report.getOrNull() ?: return@launch toast("Qualification failed: ${report.exceptionOrNull()?.message}")
         val text = kotlinx.serialization.json.Json { prettyPrint = true }.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), json)
         val dir = java.io.File(getExternalFilesDir(null) ?: filesDir, "qualification").apply { mkdirs() }
-        val file = java.io.File(dir, "qualification-${System.currentTimeMillis()}.json").apply { writeText(text) }
+        val file = java.io.File(dir, "qualification-$label-${System.currentTimeMillis()}.json").apply { writeText(text) }
         core.diag.i("qualify", "report ${file.absolutePath}: ${json["summary"]}")
         android.app.AlertDialog.Builder(this@DiagnosticsActivity).setTitle("Qualification finished").setMessage("Saved to ${file.absolutePath}\n\n${json["summary"]}")
             .setPositiveButton("Share") { _, _ -> runCatching { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/json")

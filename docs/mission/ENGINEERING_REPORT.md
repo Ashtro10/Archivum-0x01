@@ -850,3 +850,25 @@ model-stage errors as Phase 3 (copied example goals such as "marathon registrati
 messages, now correctly refused by the relevance check; wrong tools such as `task.list` for "add to the list").
 
 ## R7. Test results (final code)
+
+| Suite | Result |
+|---|---|
+| core | 780 tests, 0 failures, 20 opt-in skipped (the new real-model, device and live evaluations skip without their properties) |
+| app | 99 tests, 0 failures |
+| desktop | 145 tests, 1 failure in the full run, 8 opt-in skipped. The failure, `SpeechEnginesTest.wakePhrasesAreFoundInRecognisedSpeechWithTheCommandThatFollows`, synthesises speech with a real TTS voice and recognises it with a real STT model; it passed when re-run alone (heard "Clue what time is" → wake word + command). No voice code changed in this phase. It is intermittent and needs its own investigation; it was not skipped or changed |
+| Real-model runs this phase | conversation evaluation (twice), goal evaluation (once), host qualification (once), all with Qwen3-0.6B Q4_K_M |
+
+## R8. Remaining work and risks
+
+* **Model decision is still open.** Every evaluation here (goals 13–14/30, conversation 5/15) points to the 0.6B
+  model as the limit; whether a 4B model fixes it is unmeasured. Commands: Phase 3 Q6 plus R3/R4/R5 of this phase
+  (`-Dclu.convModel=<gguf>` for conversation).
+* **Pad 6 behaviour is unknown**: memory headroom for a 4B model next to the voice models, sustained heat, battery
+  per hour. The kit measures all of these; nobody has run it on the tablet.
+* **Live research is unverified**: page reading, multiple sites and contradiction handling have only been tested
+  with fixtures.
+* **Conversation answers from the 0.6B model are often too short or refuse ordinary questions** (R5). Not fixed by
+  prompt tuning, by design of this phase.
+* **The qualification run unloads the model** and cancels anything running; it is meant to be started deliberately
+  from Diagnostics.
+* **One intermittent desktop speech test** (R7).

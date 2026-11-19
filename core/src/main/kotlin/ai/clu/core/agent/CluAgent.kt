@@ -124,6 +124,7 @@ interface InferenceRouter {
  * project's recorded decisions and status come along ([ProjectContext]), at most 2 beyond the normal limit.
  */
 private const val TASK_TOOL = "task.plan"
+private const val GOAL_TOOL = "goal"
 private const val TASK_RESUME_MS = 2 * 3_600_000L
 /** When the history overflows the context window, it is cut to this share of the room it has (see fitToContext). */
 private const val HISTORY_TRIM_TARGET = 0.6
@@ -257,6 +258,8 @@ class CluAgent(
     conversationMemory: ai.clu.core.memory.ConversationMemory? = null,
     /** Facts about CLU's own software for a question about itself (from the self-repair source index); empty when none is connected. */
     private val selfFacts: (String) -> List<String> = { emptyList() },
+    /** Model-planned goals with durable state (GoalEngine.kt); null = phrase routing only (single-turn tests). */
+    private val goals: GoalEngine? = null,
 ) {
     private val retriever = MemoryRetriever(settings, memories, now, visible = { list -> archive?.dates?.visible(list) ?: list }, service = memoryService)
     private val memoryAccess: ai.clu.core.memory.ConversationMemory = conversationMemory ?: ai.clu.core.memory.ConversationMemory.Default(retriever, memoryService, formation)
@@ -277,6 +280,39 @@ class CluAgent(
     private val noRe = Regex("(?i)^(?:no|nope|nah|don'?t|do not|cancel|stop|never ?mind|leave it|not now|no thanks?)(?:[,.! ]+\\w+)*[.!]*$")
 
     /** Asks for confirmation of [tool] with [args]; the owner's next "yes" runs it. */
+    /** Carries out a goal from its checkpoint and gives its outcome: the answer, an answer composed from lookups, or a question. */
+    private suspend fun runGoal(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit,
+                                goal: Goal, engine: LlmEngine?, frame: ((String) -> List<ChatMessage>)?) {
+        val g = goals ?: return
+        val out = g.run(goal, engine, ctx, turn.signal, progress = { st -> emit(AgentEvent.TaskProgress(st.steps.map { s ->
+            PlanStep(s.extract?.let { "Find ${it.substringBefore(" as ")}" } ?: tools.describe(s.tool ?: ""), when (s.status) {
+                GoalStepStatus.DONE -> StepStatus.DONE; GoalStepStatus.FAILED -> StepStatus.FAILED; GoalStepStatus.STARTED -> StepStatus.RUNNING
+                GoalStepStatus.SKIPPED -> StepStatus.SKIPPED; GoalStepStatus.PENDING -> StepStatus.PENDING }, (s.spoken ?: s.value).take(120)) })) }, emit = emit, frame = frame)
+        when (out) {
+            is GoalOutcome.Answer -> finish(req, turn, out.text, baseMeta.copy(source = "tool", tools = out.tools), emit)
+            is GoalOutcome.Compose -> generateReply(req, turn, persona, ctx, baseMeta.copy(tools = out.tools), emit, preToolResult = GOAL_TOOL to out.result)
+            is GoalOutcome.Confirm -> askToConfirm(req, turn, out.tool, out.args, out.result, baseMeta, emit)
+        }
+    }
+
+    /** Whether CLU plans with this engine: grammar support and the setting on. */
+    private fun plannerFor(persona: ActivePersona, engine: LlmEngine): Boolean =
+        goals != null && persona.isClu && engine.supportsGrammar && settings.string(Settings.UNDERSTANDING) == "model"
+
+    /**
+     * Messages for a planning or extraction turn: the same system prompt and history the reply will use, then [turn]. So
+     * llama.cpp reuses its cached prefix for the planning turn, and the reply after it reuses the same prefix again. The
+     * planning instructions live only in that last turn, so the conversation itself never sees them (a small model shown
+     * plan examples in its system prompt began answering chat in JSON, measured).
+     */
+    private fun planFrame(req: TurnRequest, persona: ActivePersona, engine: LlmEngine): (String) -> List<ChatMessage> {
+        val pctx = PromptContext(persona, emptyList(), toolsFor(persona, req.text), now(), network.isOnline(), deviceRole(),
+            standingInstructions = if (auth.decide(req.actor, Sensitivity.PERSONAL) == AuthDecision.Allow) standingInstructions(persona) else emptyList())
+        val system = prompt.staticSystem(pctx)
+        val history = conversations.messages(req.conversationId).filter { it.role == Role.USER || it.role == Role.ASSISTANT }.dropLast(1)
+        return { turn -> fitToContext(engine, system, history, listOf(ChatMessage("user", turn)), 320, req.conversationId) }
+    }
+
     private fun askToConfirm(req: TurnRequest, turn: Turn, tool: String, args: JsonObject, r: ToolResult, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit) {
         confirmations[req.conversationId] = PendingConfirm(tool, args, now())
         val q = r.spoken?.takeIf { it.endsWith("?") } ?: "Please confirm: ${tools.describe(tool)}${argsPreview(args)}. Shall I go ahead?"
@@ -530,8 +566,33 @@ class CluAgent(
     private suspend fun handleStandalone(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta,
                                          emit: (AgentEvent) -> Unit, state: ConversationState) {
         val text = req.text.trim()
+        // 3c'. UNDERSTANDING: the model reads the message (instruction, question, thinking aloud, chat) and plans what to do
+        // with the tools there are; a goal with several steps or an action is carried out with durable state (GoalEngine).
+        // Only an instruction may change anything: when the owner is thinking aloud, phrases below never trigger actions.
+        var understood: Understanding? = null
+        if (persona.isClu && req.actor.role == PersonRole.OWNER && goals != null) {
+            if (TaskPlanner.isResume(text)) goals.resumable(req.conversationId)?.let { g ->
+                val engine = runCatching { inference.select() }.getOrNull()
+                runGoal(req, turn, persona, ctx, baseMeta, emit, g, engine, engine?.let { planFrame(req, persona, it) }); return }
+            if (settings.string(Settings.UNDERSTANDING) == "model") {
+                val engine = runCatching { inference.select() }.getOrNull()
+                if (engine != null && plannerFor(persona, engine)) {
+                    val frame = planFrame(req, persona, engine)
+                    val zone = java.time.ZoneId.systemDefault()
+                    val today = java.time.Instant.ofEpochMilli(now()).atZone(zone)
+                        .format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy, HH:mm", java.util.Locale.ENGLISH))
+                    understood = goals.understand(engine, text, toolsFor(persona, text), today, turn.signal, frame)
+                    understood?.let { u ->
+                        trace.record(turn.trace, TurnEvent.LLM_CALL, "step=understand kind=${u.kind.name.lowercase()} steps=${u.steps.size} calls=${u.modelCalls} ms=${u.ms}")
+                        diag?.i("goal", "understood as ${u.kind} with ${u.steps.size} step(s) in ${u.ms} ms")
+                        if (u.takesOver) { runGoal(req, turn, persona, ctx, baseMeta, emit, goals.start(req.conversationId, text, u), engine, frame); return }
+                    }
+                }
+            }
+        }
+        val mayAct = understood == null || understood.kind == MessageKind.INSTRUCTION
         // 3c. Multi-step requests: a short plan run step by step with real results; "continue the task" resumes a recent one.
-        if (persona.isClu && req.actor.role == PersonRole.OWNER) {
+        if (persona.isClu && req.actor.role == PersonRole.OWNER && mayAct) {
             if (TaskPlanner.isResume(text)) {
                 val state = tasks[req.conversationId]?.takeIf { now() - it.createdAt < TASK_RESUME_MS && it.unfinished.isNotEmpty() }
                 if (state == null) { finish(req, turn, "I don't have a recent unfinished task in this conversation to continue, so I won't guess. Tell me what to do.",
@@ -542,8 +603,8 @@ class CluAgent(
             TaskPlanner.plan(text)?.let { steps -> runTask(req, turn, persona, ctx, baseMeta, emit, steps.map { PlanStep(it) }, TaskPlanner.overflow(text)); return }
         }
 
-        // 4. Deterministic routing of explicit commands.
-        val routed = IntentRouter.route(text)
+        // 4. Deterministic routing of explicit commands (lookups only, when the message was understood not to ask for an action).
+        val routed = IntentRouter.route(text)?.takeIf { mayAct || it.tool in GoalEngine.READ_ONLY }
         // "Search for cyclones near Chennai": a current hazard goes to the official source, not to web search.
         if (routed?.tool == "web.search" && persona.isClu) HazardPolicy.detect(routed.args.str("query") ?: text)?.let { need ->
             answerHazard(req, turn, baseMeta, emit, need, text, state); return }
@@ -1227,6 +1288,12 @@ class CluAgent(
             if (!ungrounded) note?.let { finalText = "$it $finalText" }
             if (prefix != null) finalText = (prefix + "\n\n" + finalText).trim()
             break
+        }
+        // A reply never claims an action that did not run this turn ("I'll remind you…" with no reminder set): said plainly.
+        if (!turn.signal.isCancelled && finalText.isNotBlank()) ActionClaims.unbacked(finalText, usedTools)?.let { what ->
+            val fix = "To be clear: I haven't actually $what. Tell me again what to do and when, and I'll do it."
+            diag?.w("agent", "reply claimed an action that did not run ($what)")
+            emit(AgentEvent.Text("\n\n$fix")); finalText = "$finalText\n\n$fix"
         }
         val timedOut = turn.signal.reason == CancelSignal.TIMEOUT
         val emptyOutput = finalText.isEmpty() && !turn.signal.isCancelled

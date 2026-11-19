@@ -128,7 +128,7 @@ class TouchDispatchTest {
 
     @Test fun voiceScreenControlsWorkAndTheHudNeverTakesTouches() {
         val v = launch(VoiceChatActivity::class.java)
-        val hud = allViews(v.window.decorView).filterIsInstance<EntityView>().single()
+        val hud = allViews(v.window.decorView).filterIsInstance<HexHudView>().single()
         assertFalse("the HUD is decoration: not clickable", hud.isClickable || hud.isLongClickable || hud.isFocusable)
         assertNoBlockingOverlay(v)
         // A tap on the HUD does nothing and doesn't stop the controls around it from working.
@@ -170,7 +170,7 @@ class TouchDispatchTest {
 
     @Test fun theHudDrawsNoTextInAnyState() {
         val v = launch(VoiceChatActivity::class.java)
-        val hud = allViews(v.window.decorView).filterIsInstance<EntityView>().single()
+        val hud = allViews(v.window.decorView).filterIsInstance<HexHudView>().single()
         val texts = mutableListOf<String>()
         val canvas = object : android.graphics.Canvas(android.graphics.Bitmap.createBitmap(hud.width.coerceAtLeast(1), hud.height.coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888)) {
             override fun drawText(text: String, x: Float, y: Float, paint: android.graphics.Paint) { texts += text }
@@ -180,8 +180,8 @@ class TouchDispatchTest {
             override fun drawTextOnPath(text: String, path: android.graphics.Path, h: Float, vv: Float, paint: android.graphics.Paint) { texts += text }
         }
         // The static frame is rendered into a cached bitmap (that is where the old labels were drawn): check it too.
-        EntityView::class.java.getDeclaredMethod("drawFrame", android.graphics.Canvas::class.java).apply { isAccessible = true }.invoke(hud, canvas)
-        for (m in EntityView.Mode.values()) repeat(3) { hud.mode = m; hud.level = 0.6f; hud.draw(canvas) }
+        HexHudView::class.java.getDeclaredMethod("drawFrame", android.graphics.Canvas::class.java).apply { isAccessible = true }.invoke(hud, canvas)
+        for (m in HexHudView.Mode.values()) repeat(3) { hud.mode = m; hud.level = 0.6f; hud.draw(canvas) }
         assertTrue("no text inside the entity: $texts", texts.isEmpty())
         // The state is still announced (outside the hexagon and to accessibility services).
         assertTrue(hud.contentDescription.toString().startsWith("Clu"))

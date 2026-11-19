@@ -329,6 +329,7 @@ class SyncNode(
     inner class RemoteEngine(private val host: String, private val port: Int) : LlmEngine {
         override val id = "home:$host"
         override val source = "home_device"
+        override val supportsGrammar get() = true // the grammar is sent with the request and applied by the home device's llama.cpp
         private var sess: Session? = null
         private var ctx = 0
         @Volatile private var cancelFlag = false

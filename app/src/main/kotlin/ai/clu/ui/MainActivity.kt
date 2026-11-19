@@ -51,7 +51,7 @@ class MainActivity : BaseActivity() {
     private lateinit var connText: TextView
     private lateinit var emptyState: View
     private lateinit var greeting: TextView
-    private lateinit var entity: EntityView
+    private lateinit var entity: HexHudView
     private lateinit var entityBox: FrameLayout
     private lateinit var topBar: View
     private lateinit var composer: View
@@ -180,7 +180,7 @@ class MainActivity : BaseActivity() {
 
         // CLU's presence: large while the conversation is empty, a compact band above the conversation otherwise.
         entityBox = FrameLayout(this)
-        entity = EntityView(this)
+        entity = HexHudView(this)
         entityBox.addView(entity, FrameLayout.LayoutParams(-1, -1))
         root.addView(entityBox, LinearLayout.LayoutParams(-1, dp(300)))
 
@@ -362,13 +362,13 @@ class MainActivity : BaseActivity() {
         input.hint = if (s.micOn) (s.userLive.ifBlank { "Listening…" }) else "Message Clu"
         val connected = !s.server || s.link == Link.CONNECTED
         entity.mode = when {
-            !connected -> EntityView.Mode.OFFLINE
-            s.phase == AgentPhase.SPEAKING -> EntityView.Mode.SPEAKING
-            s.thinking || s.phase == AgentPhase.THINKING || s.agentLive.isNotBlank() -> EntityView.Mode.THINKING
-            s.micOn -> EntityView.Mode.LISTENING
-            else -> EntityView.Mode.IDLE
+            !connected -> HexHudView.Mode.OFFLINE
+            s.phase == AgentPhase.SPEAKING -> HexHudView.Mode.SPEAKING
+            s.thinking || s.phase == AgentPhase.THINKING || s.agentLive.isNotBlank() -> HexHudView.Mode.THINKING
+            s.micOn -> HexHudView.Mode.LISTENING
+            else -> HexHudView.Mode.IDLE
         }
-        entity.level = if (entity.mode == EntityView.Mode.SPEAKING) s.agentLevel else s.micLevel
+        entity.level = if (entity.mode == HexHudView.Mode.SPEAKING) s.agentLevel else s.micLevel
         entity.contentDescription = "Clu: " + entity.mode.name.lowercase()
         // A reply finished while nothing is speaking it: a soft notification tone (sounds stay silent while speaking/listening).
         if (wasBusy && !s.busy && s.error == null && !s.spokenReplies) Sfx.play(SfxSynth.Sound.NOTIFY)
@@ -480,7 +480,6 @@ class MainActivity : BaseActivity() {
         compact = c
         val target = dp(if (c) 104 else 300)
         val lp = entityBox.layoutParams
-        entity.compact = c
         if (first || !Motion.enabled()) { lp.height = target; entityBox.layoutParams = lp; return }
         android.animation.ValueAnimator.ofInt(lp.height, target).apply {
             duration = 420; interpolator = Motion.inOut

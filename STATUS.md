@@ -1,6 +1,6 @@
 # Project status — Clu prototype v1.0
 
-_Last updated: 2026-11-11_
+_Last updated: 2026-11-19_
 
 ## Current state
 
@@ -16,6 +16,24 @@ possible without a physical device. All milestones (A–F) are implemented.
 | Static checks (API 33, APK structure, signature) | pass ([RELEASE_VERIFICATION.md](docs/RELEASE_VERIFICATION.md)) |
 | Security self-review | done, 5 issues fixed ([SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md)) |
 | On-device acceptance (Pad 6 / Neo 9 Pro) | A2 failed on the Neo 9 Pro (crash on launch: ICU regex incompatibility). **Fixed, awaiting re-test.** Nothing else run yet. |
+
+## 2026-11-19 (1.15.0, PC 0.13.0): intent-driven goals, recovery, CLU's original face
+
+Full write-up: [docs/mission/ENGINEERING_REPORT.md](docs/mission/ENGINEERING_REPORT.md).
+
+- **Understanding before phrase routing.** With a grammar-capable model, one planning turn on the chat's cached prompt
+  classifies each message (instruction, question, thinking aloud, chat) and plans steps with the real tools. Thinking
+  aloud and questions never change anything.
+- **Durable goals** (`goals` table): checkpointed steps, resume after a restart ("continue the task"), no blind repeat
+  of an action caught by a restart, budgets, stagnation detection, and verified final answers or exact failures.
+- **Safety:**
+  - Web or tool text only fills data fields.
+  - Action details and dates must come from the owner or from lookups.
+  - A reply can no longer claim an action that didn't run.
+- **Dates:** absolute dates and weekdays in reminders; a `date.calc` tool.
+- **Face:** the hexagonal HUD with CLU's eyes is restored on Android (the 1.12.0 "egg" entity is removed).
+- **Real-model evaluation** (Qwen3-0.6B, 14 unseen paraphrases): 9/14 tasks right, 0 unwanted actions; planning
+  median 4.7 s, p95 9.3 s on the build host. Multi-step lookup-then-act needs a stronger model than 0.6B (see report).
 
 ## 2026-11-12 (1.14.1, PC 0.12.1): Core rebuilt as a reconstruction of the reference machine
 

@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  * the level of CLU's actual audio while speaking. Leaving the screen stops listening (the conversation history stays).
  */
 class VoiceChatActivity : BaseActivity() {
-    private lateinit var hud: EntityView
+    private lateinit var hud: HexHudView
     private lateinit var phaseLabel: TextView
     private lateinit var timerLabel: TextView
     private lateinit var connDot: View
@@ -87,7 +87,7 @@ class VoiceChatActivity : BaseActivity() {
 
         // Centre: CLU (no text inside). The state is written on one line just below it.
         val stage = FrameLayout(this)
-        hud = EntityView(this)
+        hud = HexHudView(this)
         stage.addView(hud, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         root.addView(stage, LinearLayout.LayoutParams(-1, 0, 1.3f))
         val status = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(2), 0, dp(2)) }
@@ -150,24 +150,24 @@ class VoiceChatActivity : BaseActivity() {
         (connDot.background as GradientDrawable).setColor(dot); connText.text = conn
         val connected = !s.server || s.link == Link.CONNECTED
         hud.mode = when {
-            !connected -> EntityView.Mode.OFFLINE
-            s.phase == AgentPhase.SPEAKING -> EntityView.Mode.SPEAKING
-            s.phase == AgentPhase.THINKING || s.thinking -> EntityView.Mode.THINKING
-            s.phase == AgentPhase.LISTENING && s.micOn -> EntityView.Mode.LISTENING
-            else -> EntityView.Mode.IDLE
+            !connected -> HexHudView.Mode.OFFLINE
+            s.phase == AgentPhase.SPEAKING -> HexHudView.Mode.SPEAKING
+            s.phase == AgentPhase.THINKING || s.thinking -> HexHudView.Mode.THINKING
+            s.phase == AgentPhase.LISTENING && s.micOn -> HexHudView.Mode.LISTENING
+            else -> HexHudView.Mode.IDLE
         }
-        hud.level = if (hud.mode == EntityView.Mode.SPEAKING) s.agentLevel else s.micLevel
+        hud.level = if (hud.mode == HexHudView.Mode.SPEAKING) s.agentLevel else s.micLevel
         phaseLabel.text = when (hud.mode) {
-            EntityView.Mode.LISTENING -> "LISTENING"; EntityView.Mode.THINKING -> "THINKING"; EntityView.Mode.SPEAKING -> "SPEAKING"
-            EntityView.Mode.OFFLINE -> if (s.link == Link.NOT_CONFIGURED) "NOT SET UP" else if (s.link == Link.CONNECTING || s.link == Link.RECONNECTING) "CONNECTING" else "OFFLINE"
-            EntityView.Mode.IDLE -> when {
+            HexHudView.Mode.LISTENING -> "LISTENING"; HexHudView.Mode.THINKING -> "THINKING"; HexHudView.Mode.SPEAKING -> "SPEAKING"
+            HexHudView.Mode.OFFLINE -> if (s.link == Link.NOT_CONFIGURED) "NOT SET UP" else if (s.link == Link.CONNECTING || s.link == Link.RECONNECTING) "CONNECTING" else "OFFLINE"
+            HexHudView.Mode.IDLE -> when {
                 s.server && s.phase == AgentPhase.ABSENT -> "WAITING"
                 s.phase == AgentPhase.INITIALIZING -> "STARTING"
                 !s.micOn -> "MIC OFF"
                 else -> "READY"
             }
         }
-        phaseLabel.setTextColor(if (hud.mode == EntityView.Mode.OFFLINE) C.ERROR else C.ACCENT)
+        phaseLabel.setTextColor(if (hud.mode == HexHudView.Mode.OFFLINE) C.ERROR else C.ACCENT)
         hud.contentDescription = "Clu: " + phaseLabel.text.toString().lowercase()
         youText.text = s.userLive.ifBlank { lastMessage(true) }
         cluText.text = s.agentLive.ifBlank { lastMessage(false) }

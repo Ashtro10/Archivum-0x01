@@ -221,6 +221,7 @@ class InferenceService(
             override fun isReady() = llm.state.value.status.let { it == LlmStatus.READY || it == LlmStatus.GENERATING || it == LlmStatus.CANCELLING }
             override fun countTokens(messages: List<ChatMessage>) = llm.countTokens(messages)
             override fun contextSize() = llm.state.value.contextSize
+            override val supportsGrammar get() = llm.supportsGrammar()
             override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit) = generate(messages, params, CancelSignal(), onText)
             override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult = runBlocking {
                 val req = InferenceRequest(messages, params, owner = "chat", fitContext = false)

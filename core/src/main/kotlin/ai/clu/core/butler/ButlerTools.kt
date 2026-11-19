@@ -68,7 +68,12 @@ class ReminderSetTool(private val butler: Butler, private val zone: () -> ZoneId
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val what = args.str("what") ?: return ToolResult.fail("What should I remind you about?")
         val whenText = args.str("when") ?: return ToolResult.fail("When should I remind you?")
-        val w = Butler.parseWhen(whenText, ctx.now, zone()) ?: return ToolResult.fail("I couldn't understand when: \"$whenText\". Try \"at 6 pm\", \"in 20 minutes\" or \"tomorrow at 9\".")
+        val w = Butler.parseWhen(whenText, ctx.now, zone()) ?: run {
+            val today = java.time.Instant.ofEpochMilli(ctx.now).atZone(zone()).toLocalDate()
+            val past = Butler.parseDate(whenText, today)?.first?.takeIf { !it.isAfter(today) }
+            return ToolResult.fail(if (past != null) "That time has already passed (${past.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }} ${past.dayOfMonth} ${past.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${past.year}), so I didn't set it."
+                else "I couldn't understand when: \"$whenText\". Try \"at 6 pm\", \"in 20 minutes\" or \"tomorrow at 9\".")
+        }
         val item = butler.add(what, Butler.TASKS, w.at, w.recur)
         val s = scheduler()
         s?.reschedule()

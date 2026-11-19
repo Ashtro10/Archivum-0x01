@@ -148,9 +148,11 @@ class TestPlatform(val fakeHttp: FakeHttp = FakeHttp(), override val llm: TestLl
 }
 
 /** Deterministic engine: returns scripted replies and records every prompt it receives. */
-class ScriptedEngine(private val replies: ArrayDeque<String> = ArrayDeque(), val ctx: Int = 4096) : LlmEngine {
+class ScriptedEngine(private val replies: ArrayDeque<String> = ArrayDeque(), val ctx: Int = 4096, val grammar: Boolean = false) : LlmEngine {
     override val id = "scripted"
     override val source = "local"
+    /** A grammar-capable engine (llama.cpp) makes CLU plan goals with the model; the default keeps phrase routing. */
+    override val supportsGrammar get() = grammar
     val prompts = mutableListOf<List<ChatMessage>>()
     val params = mutableListOf<GenParams>()
     var cancelled = false

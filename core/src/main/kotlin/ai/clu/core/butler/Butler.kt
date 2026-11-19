@@ -192,7 +192,8 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
 
         private val WHEN_WORDS = Regex("^(?:in|at|on|by|for|tomorrow|today|tonight|every|each|day|days|daily|morning|evening|night|afternoon|noon|midnight|the|next|this|half|an|a|" +
             "hour|hours|hr|hrs|minute|minutes|min|mins|second|seconds|sec|secs|am|pm|a\\.m\\.|p\\.m\\.|o'clock|" +
-            "monday|tuesday|wednesday|thursday|friday|saturday|sunday|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|\\d{1,2}(?:[:.]\\d{2})?(?:am|pm)?|\\d+(?:h|m|s)?)$")
+            "monday|tuesday|wednesday|thursday|friday|saturday|sunday|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|\\d{1,2}(?:[:.]\\d{2})?(?:am|pm)?|\\d+(?:h|m|s)?|" +
+            "of|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?|\\d{1,2}(?:st|nd|rd|th)|\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}/\\d{1,2}/\\d{4})$")
         private val WHEN_START = Regex("\\s(?=(?:in|at|on|tomorrow|today|tonight|every|each|daily|this|next)\\b)")
 
         /**
@@ -212,20 +213,50 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
             return null
         }
 
+        private val MONTHS = listOf("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+        private const val MON = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?"
+
+        /**
+         * An explicit calendar date in [phrase] ("2026-11-08", "8 November", "November 8th 2026", "8/11/2026" day-first) and the phrase
+         * without it, or null. A date without a year that has already passed this year means next year.
+         */
+        fun parseDate(phrase: String, today: LocalDate): Pair<LocalDate, String>? {
+            val s = phrase.lowercase()
+            fun ok(y: Int, m: Int, d: Int) = runCatching { LocalDate.of(y, m, d) }.getOrNull()
+            fun yearless(m: Int, d: Int) = ok(today.year, m, d)?.let { if (it.isBefore(today)) ok(today.year + 1, m, d) else it }
+            Regex("\\b(\\d{4})-(\\d{1,2})-(\\d{1,2})\\b").find(s)?.let { r -> ok(r.groupValues[1].toInt(), r.groupValues[2].toInt(), r.groupValues[3].toInt())?.let { return it to s.replace(r.value, " ") } }
+            Regex("\\b(\\d{1,2})(?:st|nd|rd|th)?(?: of)? $MON(?:,? (\\d{4}))?").find(s)?.let { r ->
+                val m = MONTHS.indexOf(r.groupValues[2]) + 1; val d = r.groupValues[1].toInt()
+                (r.groupValues[3].toIntOrNull()?.let { ok(it, m, d) } ?: yearless(m, d))?.let { return it to s.replace(r.value, " ") } }
+            Regex("\\b$MON (\\d{1,2})(?:st|nd|rd|th)?(?:,? (\\d{4}))?\\b").find(s)?.let { r ->
+                val m = MONTHS.indexOf(r.groupValues[1]) + 1; val d = r.groupValues[2].toInt()
+                (r.groupValues[3].toIntOrNull()?.let { ok(it, m, d) } ?: yearless(m, d))?.let { return it to s.replace(r.value, " ") } }
+            Regex("\\b(\\d{1,2})/(\\d{1,2})/(\\d{4})\\b").find(s)?.let { r -> ok(r.groupValues[3].toInt(), r.groupValues[2].toInt(), r.groupValues[1].toInt())?.let { return it to s.replace(r.value, " ") } }
+            return null
+        }
+
         /**
          * Parses when a reminder is due: "in 20 minutes", "at 6 pm", "tomorrow at 9", "at 7 tomorrow", "every day at 8 am",
-         * "daily at 8", "every Monday at 10". A time already past today means tomorrow (or next week for weekdays).
+         * "daily at 8", "every Monday at 10", "on 8 November at 6 pm", "2026-11-05" (9 am). A time already past today means tomorrow (or next week for weekdays).
          */
         fun parseWhen(phrase: String, now: Long, zone: ZoneId): When? {
-            val s = phrase.lowercase().trim().replace(Regex("\\s+"), " ")
-            Regex("^in (.+)$").find(s)?.let { m -> ClockTimeParser.parseDurationSec(m.groupValues[1])?.let { return When(now + it * 1000L) } }
+            val s0 = phrase.lowercase().trim().replace(Regex("\\s+"), " ")
+            Regex("^in (.+)$").find(s0)?.let { m -> ClockTimeParser.parseDurationSec(m.groupValues[1])?.let { return When(now + it * 1000L) } }
             val base = Instant.ofEpochMilli(now).atZone(zone).toLocalDateTime()
+            // An explicit date ("on 5 November", "2026-11-05") is taken out first, so its day number is never read as a clock time.
+            val explicit = parseDate(s0, base.toLocalDate())
+            val s = explicit?.second?.replace(Regex("\\s+"), " ")?.trim() ?: s0
             val clock = Regex("\\b(?:at )?(\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm|a\\.m\\.|p\\.m\\.)?|noon|midnight)\\b").findAll(s)
                 .map { it.groupValues[1] }.firstNotNullOfOrNull { c -> ClockTimeParser.parse(if (c.trim().all(Char::isDigit) || c.contains(':') || c.contains('.') || c.contains('m') || c == "noon" || c == "midnight") c else "") }
-            val time = clock?.let { LocalTime.of(it.first, it.second) } ?: if (Regex("\\bmorning\\b").containsMatchIn(s)) LocalTime.of(9, 0) else if (Regex("\\b(?:evening|tonight)\\b").containsMatchIn(s)) LocalTime.of(19, 0) else null
+            val given = clock?.let { LocalTime.of(it.first, it.second) } ?: if (Regex("\\bmorning\\b").containsMatchIn(s)) LocalTime.of(9, 0) else if (Regex("\\b(?:evening|tonight)\\b").containsMatchIn(s)) LocalTime.of(19, 0) else null
             val weekday = DayOfWeek.values().firstOrNull { d -> Regex("\\b${d.name.lowercase()}s?\\b").containsMatchIn(s) }
             val recur = when { Regex("\\b(?:every ?day|daily|each day|every morning|every evening|every night)\\b").containsMatchIn(s) -> "daily"; weekday != null && Regex("\\b(?:every|each)\\b").containsMatchIn(s) -> "weekly"; else -> "" }
-            time ?: return null
+            if (explicit != null) { // a dated reminder: 9 am unless a time is given; a moment already past is refused, never moved
+                val at = LocalDateTime.of(explicit.first, given ?: LocalTime.of(9, 0))
+                return if (at.isAfter(base)) When(at.atZone(zone).toInstant().toEpochMilli(), recur) else null
+            }
+            // A day without a time ("on Thursday", "tomorrow") means 9 am that day.
+            val time = given ?: if (weekday != null || Regex("\\btomorrow\\b").containsMatchIn(s)) LocalTime.of(9, 0) else return null
             var date: LocalDate = base.toLocalDate()
             if (Regex("\\btomorrow\\b").containsMatchIn(s)) date = date.plusDays(1)
             else if (weekday != null) date = date.with(TemporalAdjusters.nextOrSame(weekday))

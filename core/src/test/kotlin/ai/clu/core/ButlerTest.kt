@@ -36,6 +36,32 @@ class ButlerTest {
         assertNull(Butler.parseWhen("whenever you like", now, zone))
     }
 
+    @Test fun parsesCalendarDates() {
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("on 5 November", now, zone)!!.at), "a date alone means 9 am")
+        assertEquals(LocalDateTime.of(2026, 11, 5, 18, 0), at(Butler.parseWhen("on 5th November at 6 pm", now, zone)!!.at), "the day number is not read as a time")
+        assertEquals(LocalDateTime.of(2026, 11, 5, 18, 30), at(Butler.parseWhen("November 5 at 6:30 pm", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("2026-11-05", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 12, 25, 9, 0), at(Butler.parseWhen("25/12/2026", now, zone)!!.at), "slashed dates are day-first")
+        assertEquals(LocalDateTime.of(2027, 3, 1, 9, 0), at(Butler.parseWhen("on 1 March", now, zone)!!.at), "a passed yearless date means next year")
+        assertNull(Butler.parseWhen("on 2026-11-01", now, zone), "a moment already past is refused, never moved")
+        assertNull(Butler.parseWhen("on 31 February 2027", now, zone), "an impossible date is no date")
+        assertEquals("buy diyas" to "on 5 November at 6 pm", Butler.splitReminder("buy diyas on 5 November at 6 pm", now, zone))
+        // A day without a time: 9 am that day (Wednesday 4 Nov 10:00 now, so "Thursday" is tomorrow and "Wednesday" next week).
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("next Thursday", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 11, 9, 0), at(Butler.parseWhen("on Wednesday", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("tomorrow", now, zone)!!.at))
+    }
+
+    @Test fun dateArithmeticIsExact() = runBlocking {
+        val t = ai.clu.core.tools.DateCalcTool { java.time.LocalDate.of(2026, 11, 4) }
+        val ctx = ai.clu.core.tools.ToolContext(ai.clu.core.security.Actor.ownerInApp(), newCore().personas.active(), null, 0)
+        fun args(d: String, n: Int) = kotlinx.serialization.json.buildJsonObject { put("date", kotlinx.serialization.json.JsonPrimitive(d)); put("days", kotlinx.serialization.json.JsonPrimitive(n)) }
+        t.run(args("8 November 2026", -3), ctx).let { assertTrue(it.success); assertTrue(it.summary.startsWith("2026-11-05 (Thursday 5 November 2026)"), it.summary) }
+        assertTrue(t.run(args("2026-12-30", 3), ctx).summary.startsWith("2027-01-02"))
+        assertTrue(t.run(args("today", 0), ctx).summary.startsWith("2026-11-04 (Wednesday"))
+        assertFalse(t.run(args("someday", 1), ctx).success)
+    }
+
     @Test fun splitsWhatFromWhen() {
         assertEquals("call mom" to "tomorrow at 9", Butler.splitReminder("call mom tomorrow at 9", now, zone))
         assertEquals("stretch" to "in 10 minutes", Butler.splitReminder("in 10 minutes to stretch", now, zone))

@@ -60,6 +60,7 @@ class LlamaEngine private constructor(
     val reasoning: ReasoningMode = ReasoningMode.NONE,
 ) : LlmEngine {
     override val source = "local"
+    override val supportsGrammar get() = true
 
     override fun isReady() = model != 0L && session != 0L
 

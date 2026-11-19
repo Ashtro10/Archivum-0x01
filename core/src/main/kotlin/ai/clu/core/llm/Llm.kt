@@ -57,6 +57,8 @@ interface LlmEngine {
     /** Number of tokens [messages] would occupy once formatted (used for context budgeting). */
     fun countTokens(messages: List<ChatMessage>): Int
     fun contextSize(): Int
+    /** Whether [GenParams.grammar] is honoured (llama.cpp engines). Structured planning is used only when it is. */
+    val supportsGrammar: Boolean get() = false
     /** Blocking generation; [onText] receives decoded text increments. Throws [LlmException] on failure. */
     fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult
     /** Cancels whatever this engine is generating. Prefer the per-request [CancelSignal] overload of [generate]. */

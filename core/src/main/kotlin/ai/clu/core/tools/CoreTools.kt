@@ -142,6 +142,23 @@ class CalcTool : Tool {
     }
 }
 
+/** Exact date arithmetic ("three days before 8 November"): models are poor at it, so they ask this tool. */
+class DateCalcTool(private val today: () -> java.time.LocalDate) : Tool {
+    override val name = "date.calc"
+    override val description = "Date plus days (-3 = 3 days before)."
+    override val argsExample = """{"date":"8 Nov","days":-3}"""
+    override val sensitivity = Sensitivity.ROUTINE
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+        val raw = args.str("date")?.trim().orEmpty()
+        val base = when (raw.lowercase()) { "", "today" -> today(); "tomorrow" -> today().plusDays(1)
+            else -> ai.clu.core.butler.Butler.parseDate(raw, today())?.first } ?: return ToolResult.fail("I couldn't read the date \"$raw\".")
+        val days = args["days"]?.let { (it as? JsonPrimitive)?.content?.trim()?.toLongOrNull() } ?: 0L
+        val d = base.plusDays(days)
+        val txt = "${d} (${d.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }} ${d.dayOfMonth} ${d.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${d.year})"
+        return ToolResult.ok(txt, data = buildJsonObject { put("date", d.toString()); put("weekday", d.dayOfWeek.name.lowercase()) })
+    }
+}
+
 class MemorySearchTool(private val memories: MemoryRepository) : Tool {
     override val name = "memory.search"
     override val description = "Search Clu's long-term memory for a topic, person or event."

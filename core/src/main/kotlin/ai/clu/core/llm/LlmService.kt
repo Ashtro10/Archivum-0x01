@@ -86,6 +86,8 @@ class LlmService(
     val state: StateFlow<LlmState> get() = _state
 
     @Volatile private var engine: LlamaEngine? = null
+    /** Whether the loaded model honours generation grammars (llama.cpp does). */
+    fun supportsGrammar() = engine?.supportsGrammar == true
     @Volatile private var lastUsed = now()
     @Volatile private var nativeReady = false
     private var loadSeq = 0L
@@ -290,6 +292,7 @@ class LlmService(
             override fun isReady() = engine?.isReady() == true
             override fun countTokens(messages: List<ChatMessage>) = runOnLlm { (engine ?: throw LlmException("model unloaded")).countTokens(messages) }
             override fun contextSize() = engine?.contextSize() ?: 0
+            override val supportsGrammar get() = engine?.supportsGrammar == true
             override fun generate(messages: List<ChatMessage>, params: GenParams, onText: (String) -> Unit): GenResult =
                 generate(messages, params, CancelSignal(), onText)
             override fun generate(messages: List<ChatMessage>, params: GenParams, signal: CancelSignal, onText: (String) -> Unit): GenResult =

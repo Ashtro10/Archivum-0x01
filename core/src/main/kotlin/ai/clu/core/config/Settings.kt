@@ -456,6 +456,11 @@ object Settings {
         "ToolExecutor", "Older tool runs are purged", "ToolSettingsTest#historyRetention")
     val AGENT_MAX_STEPS = int("tools.maxSteps", "Max steps per task", TOOLS, 4, 1, 8, "Upper bound on tool calls in one request.",
         "CluAgent", "Agent loop stops after this many tool steps", "ToolSettingsTest#maxSteps")
+    val UNDERSTANDING = choice("agent.understanding", "How CLU understands requests", TOOLS, "model",
+        listOf("model" to "The model reads each message (instruction, question, thinking aloud) and plans the steps", "rules" to "Fixed phrases only (faster, less flexible)"),
+        "With \"model\", a grammar-constrained planning step decides whether a message asks for anything to be done and carries out multi-step goals; " +
+            "thinking aloud never triggers an action. Used only when the model supports grammars; otherwise CLU uses fixed phrases.",
+        "CluAgent/GoalEngine", "Model-planned goals vs. phrase routing", "GoalSettingsTest#understanding", advanced = true)
 
     // ---------------------------------------------------------------- Assistant tasks (M7: supervised agents)
     val AGENTS_ENABLED = bool("agents.enabled", "Assistant tasks", TOOLS, true,

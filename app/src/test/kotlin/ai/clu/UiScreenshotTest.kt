@@ -128,8 +128,8 @@ class UiScreenshotTest {
     @Test fun redesignVoiceStates() { if (label == null) return
         val v = Robolectric.buildActivity(ai.clu.ui.VoiceChatActivity::class.java).setup().get(); settle()
         fun all(x: View): List<View> = listOf(x) + if (x is android.view.ViewGroup) (0 until x.childCount).flatMap { all(x.getChildAt(it)) } else emptyList()
-        val e = all(v.window.decorView).filterIsInstance<ai.clu.ui.EntityView>().single()
-        for (m in ai.clu.ui.EntityView.Mode.values()) {
+        val e = all(v.window.decorView).filterIsInstance<ai.clu.ui.HexHudView>().single()
+        for (m in ai.clu.ui.HexHudView.Mode.values()) {
             e.mode = m; e.level = 0.7f
             repeat(30) { e.draw(Canvas(Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888))); Thread.sleep(16) }   // let the state blend in
             render(v, "voice-" + m.name.lowercase(), false)

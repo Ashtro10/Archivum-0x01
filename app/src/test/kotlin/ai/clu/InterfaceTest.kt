@@ -115,30 +115,30 @@ class InterfaceTest {
         assertTrue(all(v).any { it.contentDescription == "Copy code" })
     }
 
-    @Test fun entityDrawsEveryStateWithoutTextAndStaysCheap() {
+    @Test fun hudDrawsEveryStateWithoutTextAndStaysCheap() {
         val v = Robolectric.buildActivity(VoiceChatActivity::class.java).setup().get(); idle()
-        val e = all(v.window.decorView).filterIsInstance<EntityView>().single()
+        val e = all(v.window.decorView).filterIsInstance<HexHudView>().single()
         assertFalse(e.isClickable || e.isFocusable)
         val bmp = Bitmap.createBitmap(1080, 1400, Bitmap.Config.ARGB_8888)
-        val probe = EntityView(v); probe.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.EXACTLY))
+        val probe = HexHudView(v); probe.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1400, View.MeasureSpec.EXACTLY))
         probe.layout(0, 0, 1080, 1400)
         val canvas = android.graphics.Canvas(bmp)
-        val cost = mutableMapOf<EntityView.Mode, Double>()
-        for (m in EntityView.Mode.values()) {
+        val cost = mutableMapOf<HexHudView.Mode, Double>()
+        for (m in HexHudView.Mode.values()) {
             probe.mode = m; probe.level = 0.6f
             repeat(5) { probe.draw(canvas) }                      // warm up and let the state blend in
             val t0 = System.nanoTime(); repeat(20) { probe.draw(canvas) }
             cost[m] = (System.nanoTime() - t0) / 20 / 1e6
         }
-        println("EntityView frame cost on the build host (software canvas, 1080x1400): " + cost.entries.joinToString { "${it.key}=%.2f ms".format(it.value) })
-        assertTrue("frames counted", probe.frames >= 125)
-        // A loose bound (software rendering on a shared build machine): the particle pass must stay well within a frame.
+        println("HexHudView frame cost on the build host (software canvas, 1080x1400): " + cost.entries.joinToString { "${it.key}=%.2f ms".format(it.value) })
+        // A loose bound (software rendering on a shared build machine): drawing a frame must stay well within a frame.
         assertTrue("cost per frame: $cost", cost.values.all { it < 40.0 })
-        // Something is actually drawn: the eyes' area is lit, the corners are not.
-        probe.mode = EntityView.Mode.IDLE; probe.draw(canvas)
-        val centre = bmp.getPixel(540 + 120, 700 - 10); val corner = bmp.getPixel(5, 5)
-        assertTrue("eyes lit: ${Integer.toHexString(centre)}", android.graphics.Color.blue(centre) > 60)
-        assertEquals(0, android.graphics.Color.alpha(corner))
+        // Something is actually drawn: the hexagon and eyes light the middle; the corners stay empty.
+        bmp.eraseColor(0); probe.mode = HexHudView.Mode.IDLE; probe.draw(canvas)
+        var lit = 0
+        for (x in 240 until 840 step 4) for (y in 400 until 1000 step 4) if (android.graphics.Color.alpha(bmp.getPixel(x, y)) > 0 && android.graphics.Color.blue(bmp.getPixel(x, y)) > 60) lit++
+        assertTrue("lit pixels in the middle: $lit", lit > 200)
+        assertEquals(0, android.graphics.Color.alpha(bmp.getPixel(5, 5)))
     }
 
     @Test fun imagesAttachToMessagesAndClusAnswerIsHonest() {

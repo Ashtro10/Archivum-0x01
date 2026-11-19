@@ -1,8 +1,8 @@
 # Settings Implementation Register
 
-Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.14.0-prototype.
+Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.15.0-prototype.
 
-* Settings: **302** · verifying test passed: **302** · other: **0**
+* Settings: **305** · verifying test passed: **305** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -161,6 +161,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tools.appAllowlist` | Allowed apps | `[]` | list of ≤ 100 entries (≤ 120 chars each) | SHARED | OpenAppTool | Allowlist entries | Applies immediately | `ToolSettingsTest#appPolicy` | passed | – |
 | `tools.historyDays` | Keep tool history (days) | `30` | integer 1–365 | SHARED | ToolExecutor | Older tool runs are purged | Applies immediately | `ToolSettingsTest#historyRetention` | passed | – |
 | `tools.maxSteps` | Max steps per task | `4` | integer 1–8 | SHARED | CluAgent | Agent loop stops after this many tool steps | Applies immediately | `ToolSettingsTest#maxSteps` | passed | – |
+| `agent.understanding` | How CLU understands requests | `"model"` | `model`, `rules` | SHARED | CluAgent/GoalEngine | Model-planned goals vs. phrase routing | Applies immediately | `GoalSettingsTest#understanding` | passed | – |
 | `agents.enabled` | Assistant tasks | `true` | true / false | DEVICE | AgentService | When off, no task can be created or started | Applies immediately | `AgentSettingsTest#enabled` | passed | – |
 | `agents.reviewPlan` | Review the plan before a task starts | `true` | true / false | DEVICE | AgentService | A planned task waits in 'Ready to start' instead of running at once | Applies immediately | `AgentSettingsTest#reviewPlan` | passed | – |
 | `agents.maxSteps` | Most steps in a task | `8` | integer 2–20 | DEVICE | AgentService | Longer plans are rejected and re-planned once | Applies immediately | `AgentSettingsTest#maxSteps` | passed | – |
@@ -172,6 +173,8 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.time.now.confirm` | Confirm before time.now | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.calc.enabled` | Allow calc | `true` | true / false | SHARED | ToolExecutor | When off, calc is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.calc.confirm` | Confirm before calc | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.date.calc.enabled` | Allow date.calc | `true` | true / false | SHARED | ToolExecutor | When off, date.calc is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.date.calc.confirm` | Confirm before date.calc | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.memory.search.enabled` | Allow memory.search | `true` | true / false | SHARED | ToolExecutor | When off, memory.search is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.memory.search.confirm` | Confirm before memory.search | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.memory.remember.enabled` | Allow memory.remember | `true` | true / false | SHARED | ToolExecutor | When off, memory.remember is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |

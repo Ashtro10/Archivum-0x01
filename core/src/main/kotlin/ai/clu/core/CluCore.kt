@@ -138,11 +138,14 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
     /** CLU's knowledge of its own source (set by the desktop host when a repository is connected for self-repair). */
     @Volatile var selfKnowledge: ai.clu.core.evolution.SelfKnowledge? = null
 
+    /** Model-planned goals with durable state (agent/GoalEngine.kt). */
+    val goalEngine = ai.clu.core.agent.GoalEngine(ai.clu.core.agent.GoalStore(db, clock::now), tools, clock::now, diag)
+
     val agent = CluAgent(settings, conversations, memories, proposals, prefs, personas, promptBuilder, templates, tools, commands, auth, network,
         inference, diag, clock::now, deviceRole = { settings.string(Settings.DEVICE_ROLE) }, diary = diary,
         context = ai.clu.core.agent.ConversationStateStore(store), hazards = ai.clu.core.search.Gdacs(platform.http), weather = ai.clu.core.search.OpenMeteo(platform.http),
         archive = archive, memoryService = memory, formation = formation, learner = learner, conversationMemory = conversationMemory,
-        selfFacts = { q -> selfKnowledge?.factsFor(q).orEmpty() })
+        selfFacts = { q -> selfKnowledge?.factsFor(q).orEmpty() }, goals = goalEngine)
 
     // ---------------------------------------------------------------- supervised agents (M7)
     private val agentScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
@@ -163,6 +166,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         registerCoreTools()
         ai.clu.core.agents.BuiltinTools.registerAll(agentTools, ai.clu.core.agents.AgentDeps(memory, proposals, search, agentRoots, clock, status = ::agentStatus, shellAllowlist = { settings.list(Settings.AGENTS_SHELL_ALLOWLIST) }))
         agents.recoverAfterRestart()
+        goalEngine.recoverAfterRestart().takeIf { it > 0 }?.let { diag.i("goal", "$it goal(s) interrupted by the restart can be resumed (\"continue the task\")") }
         proposals.diarySink = { text, at, conv ->
             diary.add(text, source = ai.clu.core.diary.DiarySource.CONVERSATION, conversationId = conv, date = ai.clu.core.diary.DiaryRepository.dayOf(at)) }
         proposals.onApproved = { p, m ->
@@ -181,7 +185,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         val zone = { java.time.ZoneId.systemDefault() }
         val web = WebSearchTool(search)
         val geo = Geocoder(platform.http)
-        listOf(TimeTool(time::conversationNow), CalcTool(), MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
+        listOf(TimeTool(time::conversationNow), CalcTool(), DateCalcTool { java.time.Instant.ofEpochMilli(time.conversationNow()).atZone(java.time.ZoneId.systemDefault()).toLocalDate() }, MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
             DiaryAddTool(diary, conversations), PersonaSwitchTool(personas),
             web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") },
             ai.clu.core.butler.TaskAddTool(butler), ai.clu.core.butler.TaskListTool(butler), ai.clu.core.butler.TaskDoneTool(butler) { reminderScheduler },

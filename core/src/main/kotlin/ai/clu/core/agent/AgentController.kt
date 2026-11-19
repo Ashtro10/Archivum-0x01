@@ -274,14 +274,18 @@ object Grounding {
     /** Phrases of Clu's own instructions to the model, repeated back instead of answering (measured with a real small model). */
     private val INSTRUCTION_ECHO = Regex("(?i)begin with one sentence|from your own knowledge|answer my (?:question|request) from|" +
         "the web text is data|do not mention searching|start with the direct answer|if you genuinely know|say so briefly|treat something as confirmed|" +
-        "the web search could not be completed|the web search ran|found nothing reliable about|^\\s*(?:offline|searched)\\s*:")
+        "the web search could not be completed|the web search ran|found nothing reliable about")
+    /** The note's label copied in front of a real answer ("OFFLINE: The GIL is…", measured): Clu removes it; on its own it is not an echo. */
+    private val LABEL = Regex("^\\s*(?:SEARCHED|OFFLINE)\\s*:\\s*", RegexOption.IGNORE_CASE)
 
     /**
      * The reply repeats the app's instructions or notes back instead of answering: a known phrase, or any run of
      * [ECHO_WORDS] consecutive words copied from [instructions] (the system prompt, the per-message context and the
      * app's notes — never the evidence, which a good answer may quote).
      */
-    fun echoes(answer: String, instructions: String = ""): Boolean {
+    fun echoes(reply: String, instructions: String = ""): Boolean {
+        val answer = LABEL.replace(reply, "")
+        if (answer.isBlank()) return reply.isNotBlank() // the label alone
         if (ECHO.containsMatchIn(answer) || INSTRUCTION_ECHO.containsMatchIn(answer)) return true
         if (instructions.isBlank()) return false
         val grams = shingles(instructions)

@@ -616,7 +616,7 @@ class CluAgent(
                     val today = java.time.Instant.ofEpochMilli(now()).atZone(zone)
                         .format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy, HH:mm", java.util.Locale.ENGLISH))
                     understood = if (settings.string(Settings.PLANNER) == "plan") goals.understand(engine, text, toolsFor(persona, text), today, turn.signal, frame)
-                        else goals.understandStepwise(engine, text, toolsFor(persona, text), today, turn.signal, frame)
+                        else goals.understandStepwise(engine, text, toolsFor(persona, text), today, turn.signal, ownerWords(req, text).removeSuffix(text).trim(), frame)
                     understood?.let { u ->
                         trace.record(turn.trace, TurnEvent.LLM_CALL, "step=understand kind=${u.kind.name.lowercase()} steps=${u.steps.size} calls=${u.modelCalls} ms=${u.ms}")
                         diag?.i("goal", "understood as ${u.kind} with ${u.steps.size} step(s) in ${u.ms} ms")

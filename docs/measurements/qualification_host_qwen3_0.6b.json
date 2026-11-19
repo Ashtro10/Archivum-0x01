@@ -1,0 +1,217 @@
+{
+    "schema": 1,
+    "started_at": 1795110580253,
+    "duration_s": 80.706,
+    "device": {
+        "os": "Linux 6.18.44-fc-v653",
+        "arch": "amd64",
+        "cpus": 4,
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "ram_mb": 16087.65234375
+    },
+    "model": {
+        "name": "Qwen3-0.6B",
+        "id": "d3fa27fb-d00b-4ed4-9d7c-a069a60a2818",
+        "context_size": 4096,
+        "backend": "cpu",
+        "threads": 4,
+        "estimated_mb": 946.159296,
+        "note": "",
+        "summary_context": "4096 tokens",
+        "summary_threads": "4 (prompt) / 2 (generation while speaking)",
+        "summary_batch": "256",
+        "summary_max reply": "400 tokens",
+        "summary_model": "qwen3 0.6B Q4_K - Medium, 372 MB"
+    },
+    "config": {
+        "rounds": 12,
+        "prompt_words": 350,
+        "gen_tokens": 128,
+        "pause_ms": 0
+    },
+    "load_ms": 13678.388699,
+    "memory_before": {
+        "memory_mb": 123.40625
+    },
+    "memory_after_load": {
+        "memory_mb": 1198.22265625
+    },
+    "peak_memory_mb": 1249.0390625,
+    "summary": {
+        "rounds_ok": "12/12",
+        "first_token_ms_median": 129.099939,
+        "first_token_ms_p95": 190.531255,
+        "gen_tok_per_s_median": 28.623335520894113,
+        "sustained_gen_tok_per_s_first_third": 26.30356596994247,
+        "sustained_gen_tok_per_s_last_third": 30.887672422643384,
+        "sustained_drop_percent": -17.427699567196523,
+        "thermal_states_seen": [],
+        "context_recalled": true,
+        "errors": 0
+    },
+    "rounds": [
+        {
+            "round": 1,
+            "total_ms": 4785.058877,
+            "first_token_ms": 1433.57436,
+            "prompt_tokens": 385,
+            "reused_tokens": 0,
+            "prompt_tok_per_s": 268.8841852252807,
+            "generated_tokens": 86,
+            "gen_tok_per_s": 26.30356596994247,
+            "stop": "eog",
+            "memory_mb": 1224.51171875
+        },
+        {
+            "round": 2,
+            "total_ms": 3895.552965,
+            "first_token_ms": 139.628128,
+            "prompt_tokens": 388,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 158.48100509344982,
+            "generated_tokens": 102,
+            "gen_tok_per_s": 27.264363178458805,
+            "stop": "eog",
+            "memory_mb": 1226.4140625
+        },
+        {
+            "round": 3,
+            "total_ms": 3079.203821,
+            "first_token_ms": 122.022652,
+            "prompt_tokens": 387,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 173.19277953034208,
+            "generated_tokens": 84,
+            "gen_tok_per_s": 28.61859170880402,
+            "stop": "eog",
+            "memory_mb": 1227.96875
+        },
+        {
+            "round": 4,
+            "total_ms": 3462.849137,
+            "first_token_ms": 172.885265,
+            "prompt_tokens": 387,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 122.14571492881562,
+            "generated_tokens": 81,
+            "gen_tok_per_s": 24.92450828773887,
+            "stop": "eog",
+            "memory_mb": 1229.19921875
+        },
+        {
+            "round": 5,
+            "total_ms": 3614.764082,
+            "first_token_ms": 190.531255,
+            "prompt_tokens": 389,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 121.26530987059077,
+            "generated_tokens": 86,
+            "gen_tok_per_s": 25.257645391680377,
+            "stop": "eog",
+            "memory_mb": 1230.95703125
+        },
+        {
+            "round": 6,
+            "total_ms": 4387.218928,
+            "first_token_ms": 139.398936,
+            "prompt_tokens": 388,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 158.78548275431234,
+            "generated_tokens": 128,
+            "gen_tok_per_s": 30.216118202912476,
+            "stop": "max_tokens",
+            "memory_mb": 1235.12890625
+        },
+        {
+            "round": 7,
+            "total_ms": 3479.622433,
+            "first_token_ms": 129.099939,
+            "prompt_tokens": 387,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 163.91790391900545,
+            "generated_tokens": 106,
+            "gen_tok_per_s": 31.76482186061801,
+            "stop": "eog",
+            "memory_mb": 1237.2265625
+        },
+        {
+            "round": 8,
+            "total_ms": 3504.016202,
+            "first_token_ms": 121.125286,
+            "prompt_tokens": 387,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 174.4756149931017,
+            "generated_tokens": 103,
+            "gen_tok_per_s": 30.56715074667327,
+            "stop": "eog",
+            "memory_mb": 1239.09375
+        },
+        {
+            "round": 9,
+            "total_ms": 2970.846288,
+            "first_token_ms": 121.796244,
+            "prompt_tokens": 385,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 156.94892350055045,
+            "generated_tokens": 92,
+            "gen_tok_per_s": 32.45151753597591,
+            "stop": "eog",
+            "memory_mb": 1240.49609375
+        },
+        {
+            "round": 10,
+            "total_ms": 3943.74057,
+            "first_token_ms": 141.016429,
+            "prompt_tokens": 389,
+            "reused_tokens": 366,
+            "prompt_tok_per_s": 163.99976546607454,
+            "generated_tokens": 117,
+            "gen_tok_per_s": 30.887672422643384,
+            "stop": "eog",
+            "memory_mb": 1244.33984375
+        },
+        {
+            "round": 11,
+            "total_ms": 2450.455487,
+            "first_token_ms": 128.82323,
+            "prompt_tokens": 388,
+            "reused_tokens": 367,
+            "prompt_tok_per_s": 163.9284065634311,
+            "generated_tokens": 73,
+            "gen_tok_per_s": 31.598222024144366,
+            "stop": "eog",
+            "memory_mb": 1245.05078125
+        },
+        {
+            "round": 12,
+            "total_ms": 4612.220398,
+            "first_token_ms": 128.656751,
+            "prompt_tokens": 388,
+            "reused_tokens": 367,
+            "prompt_tok_per_s": 164.22452545642022,
+            "generated_tokens": 128,
+            "gen_tok_per_s": 28.623335520894113,
+            "stop": "max_tokens",
+            "memory_mb": 1249.0390625
+        }
+    ],
+    "context_retention": {
+        "context_size": 4096,
+        "prompt_tokens": 2791,
+        "fill": 0.681396484375,
+        "answer": "4917",
+        "recalled": true,
+        "total_ms": 14598.252728,
+        "first_token_ms": 14231.526722
+    },
+    "planning": {
+        "total_ms": 8065.335494,
+        "supports_grammar": true,
+        "understood": true,
+        "kind": "INSTRUCTION",
+        "tools": [
+            "reminder.set"
+        ]
+    },
+    "errors": []
+}

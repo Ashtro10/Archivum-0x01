@@ -1,0 +1,429 @@
+{
+    "model": "Qwen3-0.6B-Q4_K_M.gguf",
+    "model_info": {
+        "context": "4096 tokens",
+        "threads": "4 (prompt) / 2 (generation while speaking)",
+        "batch": "256",
+        "max reply": "400 tokens",
+        "model": "qwen3 0.6B Q4_K - Medium, 372 MB"
+    },
+    "passed": "5/15",
+    "by_group": {
+        "explanation": "0/2",
+        "technical": "1/3",
+        "follow-up": "2/4",
+        "uncertainty": "0/2",
+        "length": "1/2",
+        "long-form": "0/1",
+        "multi-source": "1/1"
+    },
+    "goal_hijacks": 0,
+    "note": "Coarse automated checks; read the replies. Search results for the multi-source case are a fixture, not live web.",
+    "rows": [
+        {
+            "case": "fridge",
+            "group": "explanation",
+            "text": "Explain how a refrigerator keeps food cold.",
+            "ok": false,
+            "failed": [
+                "concepts 1/4",
+                "too short (27 words)"
+            ],
+            "words": 27,
+            "concepts_found": [
+                "heat"
+            ],
+            "kind": "none",
+            "first_text_ms": 2757.167857,
+            "total_ms": 4776.049737,
+            "generated_tokens": 30.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "A refrigerator keeps food cold by using a system of refrigeration, which involves the movement of heat and the use of liquid inside to cool the food.",
+            "model_outputs": [
+                "A refrigerator keeps food cold by using a system of refrigeration, which involves the movement of heat and the use of liquid inside to cool the food."
+            ],
+            "log": []
+        },
+        {
+            "case": "tides",
+            "group": "explanation",
+            "text": "Why are there two high tides a day and not one?",
+            "ok": false,
+            "failed": [
+                "too short (38 words)"
+            ],
+            "words": 38,
+            "concepts_found": [
+                "moon",
+                "gravit",
+                "bulge|side|opposite"
+            ],
+            "kind": "none",
+            "first_text_ms": 410.356151,
+            "total_ms": 2460.091906,
+            "generated_tokens": 45.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "There are two high tides a day because the moon's gravitational pull creates tidal bulges, which then rise and fall in a cycle. The exact timing depends on the moon's phase and its orbital position relative to Earth.",
+            "model_outputs": [
+                "There are two high tides a day because the moon's gravitational pull creates tidal bulges, which then rise and fall in a cycle. The exact timing depends on the moon's phase and its orbital position relative to Earth."
+            ],
+            "log": []
+        },
+        {
+            "case": "binary-search",
+            "group": "technical",
+            "text": "Why is binary search O(log n)? Walk me through the reasoning.",
+            "ok": true,
+            "failed": [],
+            "words": 57,
+            "concepts_found": [
+                "half|halv",
+                "log",
+                "sorted|compar|step"
+            ],
+            "kind": "none",
+            "first_text_ms": 400.079503,
+            "total_ms": 3660.373146,
+            "generated_tokens": 67.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Binary search is O(log n) because it repeatedly divides the problem into smaller subproblems, effectively reducing the number of comparisons needed. For example, in a sorted array, each step eliminates half the elements, leading to logarithmic growth in the number of steps. This makes binary search significantly faster than linear search for certain types of searches.",
+            "model_outputs": [
+                "Binary search is O(log n) because it repeatedly divides the problem into smaller subproblems, effectively reducing the number of comparisons needed. For example, in a sorted array, each step eliminates half the elements, leading to logarithmic growth in the number of steps. This makes binary search significantly faster than linear search for certain types of searches."
+            ],
+            "log": []
+        },
+        {
+            "case": "thread-process",
+            "group": "technical",
+            "text": "What's the difference between a process and a thread?",
+            "ok": false,
+            "failed": [
+                "concepts 1/3"
+            ],
+            "words": 34,
+            "concepts_found": [
+                "shar"
+            ],
+            "kind": "none",
+            "first_text_ms": 1558.222856,
+            "total_ms": 2346.342902,
+            "generated_tokens": 38.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "A process is a coordinated set of threads that share resources, whereas a thread is an independent operation within a process. Processes handle more complex tasks and are often more resource-intensive than individual threads.",
+            "model_outputs": [
+                "A process is a coordinated set of threads that share resources, whereas a thread is an independent operation within a process. Processes handle more complex tasks and are often more resource-intensive than individual threads."
+            ],
+            "log": []
+        },
+        {
+            "case": "sql-index",
+            "group": "technical",
+            "text": "My SQL query got slow once the table reached a few million rows. What should I check first?",
+            "ok": false,
+            "failed": [
+                "concepts 0/2"
+            ],
+            "words": 30,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 526.513056,
+            "total_ms": 2367.37879,
+            "generated_tokens": 35.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I'm sorry, but I cannot access live information or make guesses about your SQL query's performance. Let me know if you have any specific questions or need help with that!",
+            "model_outputs": [
+                "I'm sorry, but I cannot access live information or make guesses about your SQL query's performance. Let me know if you have any specific questions or need help with that!"
+            ],
+            "log": []
+        },
+        {
+            "case": "seasons-1",
+            "group": "follow-up",
+            "text": "What causes the seasons on Earth?",
+            "ok": true,
+            "failed": [],
+            "words": 29,
+            "concepts_found": [
+                "tilt|axis|23"
+            ],
+            "kind": "none",
+            "first_text_ms": 368.998141,
+            "total_ms": 1904.628891,
+            "generated_tokens": 31.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The seasons on Earth are caused by the axial tilt of our planet, which allows different parts of the world to receive varying amounts of sunlight throughout the year.",
+            "model_outputs": [
+                "The seasons on Earth are caused by the axial tilt of our planet, which allows different parts of the world to receive varying amounts of sunlight throughout the year."
+            ],
+            "log": []
+        },
+        {
+            "case": "seasons-2",
+            "group": "follow-up",
+            "text": "And why are they reversed in the southern hemisphere?",
+            "ok": true,
+            "failed": [],
+            "words": 58,
+            "concepts_found": [
+                "hemisphere",
+                "tilt|toward|away|axis"
+            ],
+            "kind": "none",
+            "first_text_ms": 650.095656,
+            "total_ms": 3636.529038,
+            "generated_tokens": 62.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The seasons on Earth are caused by the axial tilt of our planet, which allows different parts of the world to receive varying amounts of sunlight throughout the year. The southern hemisphere experiences more direct sunlight during summer because it is tilted toward the Sun relative to the northern hemisphere, while the opposite happens for the northern hemisphere.",
+            "model_outputs": [
+                "The seasons on Earth are caused by the axial tilt of our planet, which allows different parts of the world to receive varying amounts of sunlight throughout the year. The southern hemisphere experiences more direct sunlight during summer because it is tilted toward the Sun relative to the northern hemisphere, while the opposite happens for the northern hemisphere."
+            ],
+            "log": []
+        },
+        {
+            "case": "gil-1",
+            "group": "follow-up",
+            "text": "Tell me about the Python GIL.",
+            "ok": false,
+            "failed": [
+                "concepts 0/2",
+                "too short (10 words)"
+            ],
+            "words": 10,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 1650.92106,
+            "total_ms": 1667.209385,
+            "generated_tokens": 18.0,
+            "stop": "search_failed",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I'm offline right now, so I can't look that up.",
+            "model_outputs": [
+                "OFFLINE: I cannot answer the question about Python's Global Interpreter Lock (GIL)."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "gil-2",
+            "group": "follow-up",
+            "text": "Does that affect multiprocessing?",
+            "ok": false,
+            "failed": [
+                "concepts 0/2"
+            ],
+            "words": 10,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 1410.115964,
+            "total_ms": 1423.342882,
+            "generated_tokens": 8.0,
+            "stop": "search_failed",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I'm offline right now, so I can't look that up.",
+            "model_outputs": [
+                "I can't answer that right now. The"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "breakfast",
+            "group": "uncertainty",
+            "text": "What did I have for breakfast yesterday?",
+            "ok": false,
+            "failed": [
+                "no admission of uncertainty"
+            ],
+            "words": 21,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 573.100972,
+            "total_ms": 1681.242125,
+            "generated_tokens": 25.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I don't have a breakfast schedule to refer to. Let me know if there's anything else I can assist you with!",
+            "model_outputs": [
+                "I don't have a breakfast schedule to refer to. Let me know if there's anything else I can assist you with!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "sensex",
+            "group": "uncertainty",
+            "text": "What exactly will the Sensex close at next Friday?",
+            "ok": false,
+            "failed": [
+                "no admission of uncertainty"
+            ],
+            "words": 25,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 329.91655,
+            "total_ms": 1995.203857,
+            "generated_tokens": 31.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The Sensex is not available for real-time updates, so I cannot provide the exact closing time. Let me know if there's anything else you need!",
+            "model_outputs": [
+                "The Sensex is not available for real-time updates, so I cannot provide the exact closing time. Let me know if there's anything else you need!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "arithmetic",
+            "group": "length",
+            "text": "What's 2 + 2?",
+            "ok": true,
+            "failed": [],
+            "words": 3,
+            "concepts_found": [
+                "\\b4\\b|four"
+            ],
+            "kind": "none",
+            "first_text_ms": 11.89503,
+            "total_ms": 15.343041,
+            "generated_tokens": -1.0,
+            "stop": "",
+            "searched": false,
+            "tools": [
+                "calc"
+            ],
+            "sources": 0,
+            "reply": "2 + 2 = 4",
+            "model_outputs": [],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "thanks-hindi",
+            "group": "length",
+            "text": "How do I say thank you in Hindi?",
+            "ok": false,
+            "failed": [
+                "concepts 0/1"
+            ],
+            "words": 22,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 325.403609,
+            "total_ms": 1812.458268,
+            "generated_tokens": 29.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I don't have a tool for translating, but I can say \"Thank you\" in Hindi. Let me know if there's anything else!",
+            "model_outputs": [
+                "I don't have a tool for translating, but I can say \"Thank you\" in Hindi. Let me know if there's anything else!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "vaccines-long",
+            "group": "long-form",
+            "text": "Write a detailed explanation, in several paragraphs, of how vaccines train the immune system.",
+            "ok": false,
+            "failed": [
+                "concepts 1/3",
+                "too short (102 words)"
+            ],
+            "words": 102,
+            "concepts_found": [
+                "antibod"
+            ],
+            "kind": "none",
+            "first_text_ms": 431.679636,
+            "total_ms": 6398.368523,
+            "generated_tokens": 124.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Vaccines work by introducing a harmless component of a pathogen (the \"pseudotext\" part) into the body. This triggers an immune response, which is the body's natural defense mechanism against disease. The immune system then produces antibodies to fight off the specific pathogens that were introduced. Over time, this process helps build up immunity, allowing the body to recognize and react more effectively to future infections. It's important for the immune system to train itself over a period of months or even years to be ready for any new threats. This is how vaccines work as a long-term strategy to protect against diseases.",
+            "model_outputs": [
+                "Vaccines work by introducing a harmless component of a pathogen (the \"pseudotext\" part) into the body. This triggers an immune response, which is the body's natural defense mechanism against disease. The immune system then produces antibodies to fight off the specific pathogens that were introduced. Over time, this process helps build up immunity, allowing the body to recognize and react more effectively to future infections. It's important for the immune system to train itself over a period of months or even years to be ready for any new threats. This is how vaccines work as a long-term strategy to protect against diseases."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "everest-sources",
+            "group": "multi-source",
+            "text": "How tall is Mount Everest? Do the sources agree?",
+            "ok": true,
+            "failed": [],
+            "words": 26,
+            "concepts_found": [
+                "8,?848|8,?850",
+                "differ|disagree|vary|varies|slightly|while|whereas|but|however|survey|measure"
+            ],
+            "kind": "none",
+            "first_text_ms": 8869.48682,
+            "total_ms": 8882.394174,
+            "generated_tokens": 35.0,
+            "stop": "",
+            "searched": true,
+            "tools": [
+                "web.search"
+            ],
+            "sources": 2,
+            "reply": "From what I found: Mount Everest is Earth's highest mountain above sea level, with an elevation of 8,848.86 m, measured by China and Nepal in 2020.",
+            "model_outputs": [
+                "Mount Everest is approximately 8,848.86 meters tall, with sources agreeing on this height. My",
+                "Mount Everest is approximately 8,848.86 meters tall, as confirmed by multiple sources including the 2020 survey conducted by China and Nepal. The"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        }
+    ]
+}

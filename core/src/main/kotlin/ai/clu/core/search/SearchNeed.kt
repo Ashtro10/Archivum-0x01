@@ -16,7 +16,8 @@ object SearchTrigger {
     private fun r(p: String) = Regex(p, RegexOption.IGNORE_CASE)
 
     private val explicitVerify = r("\\b(look (?:it|this|that) up|check (?:online|the web|the internet|sources)|search (?:online|the web)|with sources|cite (?:your )?sources|" +
-        "according to (?:the )?(?:news|sources)|(?:give me|any|some|show me|find me) (?:good |reliable )?sources|fact[- ]check|is it (?:true|confirmed) that|verify (?:that|whether|if)|find sources|check (?:whether|if)|look (?:into|up)|research|compare (?:the )?(?:available |current |different )?options)\\b")
+        "according to (?:the )?(?:news|sources)|(?:give me|any|some|show me|find me) (?:good |reliable )?sources|fact[- ]check|is it (?:true|confirmed) that|verify (?:that|whether|if)|find sources|check (?:whether|if)|look (?:into|up)|research|compare (?:the )?(?:available |current |different )?options|" +
+        "(?:do|did|does) (?:the |your )?sources? (?:agree|disagree|differ|say)|what do (?:the |different )?sources say|(?:compare|check) (?:the |what )?(?:different )?sources)\\b")
     private val timeWords = r("\\b(latest|newest|current(?:ly)?|today'?s?|tonight|right now|at the moment|as of now|this (?:week|month|year|season|morning|evening)|" +
         "recent(?:ly)?|just (?:released|announced|launched)|upcoming|yesterday'?s?|breaking|so far)\\b")
     private val liveTopics = r("\\b(news|headlines?|price|prices|cost of|exchange rate|stock|share price|market cap|bitcoin|crypto|gold rate|petrol|diesel|fuel price|" +
@@ -30,12 +31,16 @@ object SearchTrigger {
     private val buyable = r("\\b(options|plans?|prices?|specs|models?|phones?|laptops?|tablets?|cars?|bikes?|reviews?|deals?|providers?|tariffs?|subscriptions?|cameras?|headphones?)\\b")
     private val personal = r("\\b(?:my|mine|me|i)\\b.*\\b(?:name|birthday|exam|wife|husband|friend|mother|father|mom|dad|diary|memory|memories)\\b")
 
+    /** The owner's own life as the subject ("what did I have for breakfast yesterday", "where did we park"): memory knows, the web doesn't. */
+    private val ownLife = r("^(?:(?:what|when|where|who|whom|which|how|why)\\s+(?:\\w+\\s+)?)?(?:did|do|have|had|was|were|am)\\s+(?:i|we)\\b")
+
     fun detect(text: String, nowMs: Long = System.currentTimeMillis()): SearchNeed? {
         val t = text.trim()
         if (t.length < 6) return null
         val query = clean(t)
         if (explicitVerify.containsMatchIn(t)) return SearchNeed(query, "asked for sources or verification")
         if (ordinary.containsMatchIn(t) || personal.containsMatchIn(t)) return null
+        if (ownLife.containsMatchIn(clean(t)) && !liveTopics.containsMatchIn(t)) return null
         val year = Calendar.getInstance().apply { timeInMillis = nowMs }.get(Calendar.YEAR)
         val recentYear = Regex("\\b(20\\d\\d)\\b").findAll(t).any { it.groupValues[1].toInt() >= year - 1 }
         val time = timeWords.containsMatchIn(t)

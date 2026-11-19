@@ -277,6 +277,88 @@ class StepwiseGoalTest {
         assertTrue(m.prompts.drop(before).all { m.countTokens(it) <= 1600 }, "every planning prompt fits the window")
     }
 
+    // ------------------------------------------------------------------------------------------------ Phase 4
+
+    private val threeTools = """{"kind":"instruction","goal":"diyas","lookup":["date of Diwali 2025"],"tools":["task.add","reminder.set","document.write"]}"""
+    private val threeToolText = "Look up when Diwali is, put diyas on my shopping list, remind me to buy them three days before, and save a short note about it"
+    private fun threeToolReplies() = arrayOf(threeTools, "yes", "yes", "yes", "20 October 2025", """{"title":"diyas","list":"shopping"}""",
+        """{"what":"buy diyas","when":"3 days before 20 October 2025"}""", """{"title":"Diwali","content":""}""", "# Diwali\n\nDiwali 2025 falls on 20 October 2025 (web).")
+
+    @Test fun threeDependentToolsRunInOrderAfterTheLookup() {
+        model(*threeToolReplies())
+        val ev = say(threeToolText)
+        assertEquals(listOf("memory.search", "web.search", "task.add", "reminder.set", "document.write"), tools(ev))
+        assertTrue(core.butler.open().any { it.dueAt == null && it.title.contains("diya", true) })
+        assertEquals(LocalDateTime.of(2025, 10, 17, 9, 0), local(reminders().single().dueAt!!))
+        assertEquals("Diwali.md", core.archive.documents.list().single().name)
+        val g = core.goalEngine.recent(conv).first()
+        assertEquals(GoalState.COMPLETED, g.state); assertTrue(g.steps.all { it.status == GoalStepStatus.DONE })
+        assertTrue(g.steps.filter { it.tool != null }.all { it.provenance != null }, "every action carries its provenance")
+    }
+
+    @Test fun aThreeToolTaskInterruptedByARestartResumesWithoutRepeatingFinishedActions() {
+        model(*threeToolReplies())
+        say(threeToolText)
+        // Rewind to the state CLU would have been in had it stopped after the list entry: the reminder and note not yet run.
+        val done = core.goalEngine.recent(conv).first()
+        val steps = done.steps.mapIndexed { i, st -> if (i >= 2) st.copy(status = GoalStepStatus.PENDING, args = JsonObject(emptyMap()), fill = true, provenance = null) else st }
+        reminders().forEach { core.butler.remove(it.id) }; core.archive.documents.list().forEach { core.archive.documents.delete(it.id) }
+        GoalStore(core.db, core.clock::now).save(done.copy(state = GoalState.RUNNING, steps = steps))
+        assertEquals(1, GoalStore(core.db, core.clock::now).recoverAfterRestart())
+        model("""{"what":"buy diyas","when":"3 days before 20 October 2025"}""", """{"title":"Diwali","content":""}""", "# Diwali\n\nDiwali 2025 falls on 20 October 2025 (web).")
+        val ev = say("continue the task")
+        assertEquals(listOf("reminder.set", "document.write"), tools(ev), "the lookup and the list entry are not repeated")
+        assertEquals(1, core.butler.open().count { it.dueAt == null && it.title.contains("diya", true) }, "still exactly one list entry")
+        assertEquals(1, reminders().size); assertEquals(1, core.archive.documents.list().size)
+        assertEquals(GoalState.COMPLETED, core.goalEngine.recent(conv).first().state)
+    }
+
+    @Test fun aConfirmationInTheMiddleOfAStepwiseTaskContinuesTheRest() {
+        model("""{"kind":"instruction","goal":"Asha dinner","lookup":[],"tools":["note.send","reminder.set"]}""", "yes", "yes",
+            """{"to":"Asha","text":"dinner at 8"}""")
+        say("send Asha a note saying dinner at 8 and remind me about dinner with Asha today at 7 pm")
+        assertTrue(sent.isEmpty() && reminders().isEmpty())
+        assertEquals(GoalState.WAITING_FOR_EXTERNAL_RESULT, core.goalEngine.recent(conv).first().state)
+        model("""{"what":"dinner with Asha","when":"today at 7 pm"}""")
+        val ev = say("yes")
+        assertEquals(listOf("dinner at 8"), sent); assertEquals("dinner with Asha", reminders().single().title)
+        assertTrue("Sent the note" in reply(ev) && "remind you" in reply(ev), reply(ev))
+    }
+
+    @Test fun aMultiToolTaskStillRunsWhenTheConversationHasOutgrownTheWindow() {
+        val m = ScriptedEngine(ctx = 1800, grammar = true)
+        core.useEngine(m)
+        // A long conversation already in the store (far more than the window holds).
+        repeat(40) { i ->
+            core.conversations.addMessage(conv, ai.clu.core.conversation.Role.USER, "question $i about my project notes and the budget figures")
+            core.conversations.addMessage(conv, ai.clu.core.conversation.Role.ASSISTANT, "Reply $i: " + "a long answer about the project notes and the budget figures ".repeat(5))
+        }
+        m.reply("""{"kind":"instruction","goal":"eggs","lookup":[],"tools":["task.add","reminder.set"]}""", "yes", "yes",
+            """{"title":"eggs","list":"shopping"}""", """{"what":"buy eggs","when":"tomorrow at 6 pm"}""")
+        val before = m.prompts.size
+        say("Add eggs to the list and remind me to buy them tomorrow at 6")
+        assertTrue(core.butler.open().any { it.title == "eggs" }); assertEquals("buy eggs", reminders().single().title)
+        assertTrue(m.prompts.drop(before).all { m.countTokens(it) <= 1800 }, "every prompt fits the window")
+    }
+
+    @Test fun anAmbiguousInstructionChangesNothingAndSaysWhatIsMissing() {
+        // "Remind me about it" with nothing to refer to: the details have no source, so nothing is set and CLU says so.
+        model("""{"kind":"instruction","goal":"","lookup":[],"tools":["reminder.set"]}""", "yes", """{"what":"the thing","when":"later"}""",
+            """{"what":"the thing","when":"later"}""")
+        val text = reply(say("remind me about it"))
+        assertTrue(reminders().isEmpty())
+        assertTrue(text.startsWith("I couldn't finish that") && "Nothing was changed" in text, text)
+    }
+
+    @Test fun aFollowUpInstructionUsesTheEarlierOne() {
+        model("""{"kind":"instruction","goal":"milk","lookup":[],"tools":["task.add"]}""", "yes", """{"title":"milk","list":"shopping"}""")
+        say("add milk to the shopping list")
+        model("""{"kind":"instruction","goal":"bread on the shopping list","lookup":[],"tools":["task.add"]}""", "yes", """{"title":"bread","list":"shopping"}""")
+        say("oh, and bread too")
+        assertEquals(setOf("milk", "bread"), core.butler.open().filter { it.dueAt == null }.map { it.title }.toSet())
+        assertEquals("shopping", core.goalEngine.recent(conv).first().steps.last().args["list"]?.toString()?.trim('"'))
+    }
+
     @Test fun aGoalContinuesAfterTheOwnerConfirmsAStep() {
         core.settings.set(ai.clu.core.config.Settings.PLANNER, "plan")
         val plan = """{"kind":"instruction","goal":"note and reminder","steps":[{"id":"s1","tool":"note.send","args":{"to":"Asha","text":"dinner at 8"}},

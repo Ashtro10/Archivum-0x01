@@ -91,7 +91,7 @@ class StepwiseGoalTest {
 
     @Test fun inventedDetailsAreSentBackAndFilledAgain() {
         // The first fill invents a date nobody gave: refused, and filled again with the owner's words.
-        model("""{"kind":"instruction","goal":"g","lookup":[],"tool":"reminder.set"}""", "yes",
+        model("""{"kind":"instruction","goal":"","lookup":[],"tool":"reminder.set"}""", "yes",
             """{"what":"call the plumber","when":"17 October 2025 at 9 am"}""",
             """{"what":"call the plumber","when":"tomorrow at 9 am"}""")
         val ev = say("remind me to call the plumber tomorrow at 9 am")
@@ -102,8 +102,8 @@ class StepwiseGoalTest {
     }
 
     @Test fun detailsTheToolCantUseAreFilledAgain() {
-        model("""{"kind":"instruction","goal":"g","lookup":[],"tool":"reminder.set"}""", "yes",
-            """{"what":"call the plumber","when":"sometime soonish"}""",
+        model("""{"kind":"instruction","goal":"","lookup":[],"tool":"reminder.set"}""", "yes",
+            """{"what":"call the plumber","when":"call the plumber"}""",
             """{"what":"call the plumber","when":"tomorrow at 9 am"}""")
         say("remind me to call the plumber tomorrow at 9 am")
         assertEquals(LocalDateTime.of(2025, 10, 10, 9, 0), local(reminders().single().dueAt!!))
@@ -118,16 +118,16 @@ class StepwiseGoalTest {
     }
 
     @Test fun thinkingAloudAndChatNeverAct() {
-        model("""{"kind":"thinking_aloud","goal":"g","lookup":[],"tool":"reminder.set"}""", "Sounds like a good idea.")
+        model("""{"kind":"thinking_aloud","goal":"","lookup":[],"tool":"reminder.set"}""", "Sounds like a good idea.")
         say("Maybe I should start using reminders more often")
-        model("""{"kind":"question","goal":"g","lookup":[],"tool":"reminder.set"}""", "Paris.")
+        model("""{"kind":"question","goal":"","lookup":[],"tool":"reminder.set"}""", "Paris.")
         say("what's the capital of France")
         assertTrue(reminders().isEmpty())
     }
 
     @Test fun aMisreadMessageIsCheckedBeforeAnythingChanges() {
         // The model calls a greeting an instruction to set a reminder; the separate yes/no check says no: nothing is set.
-        val m = model("""{"kind":"instruction","goal":"g","lookup":[],"tool":"reminder.set"}""", "no", "Good morning to you too.")
+        val m = model("""{"kind":"instruction","goal":"","lookup":[],"tool":"reminder.set"}""", "no", "Good morning to you too.")
         val text = reply(say("Good morning! How's it going?"))
         assertTrue(reminders().isEmpty()); assertEquals("Good morning to you too.", text)
         assertEquals("root ::= \"yes\" | \"no\"", m.params[1].grammar)
@@ -135,7 +135,7 @@ class StepwiseGoalTest {
     }
 
     @Test fun anInstructionWithoutAToolGetsAFocusedChoice() {
-        val m = model("""{"kind":"instruction","goal":"g","lookup":[],"tool":"none"}""", "reminder.set", "yes",
+        val m = model("""{"kind":"instruction","goal":"","lookup":[],"tool":"none"}""", "reminder.set", "yes",
             """{"what":"call her","when":"2 November"}""")
         say("My sister's birthday is on 2 November and I always forget to call her")
         assertEquals(LocalDateTime.of(2025, 11, 2, 9, 0), local(reminders().single().dueAt!!))
@@ -162,6 +162,121 @@ class StepwiseGoalTest {
         assertEquals("a day before", w("""{"when":"a day before"}""", "between 3 October and 5 October"), "two candidate moments: not guessed")
     }
 
+    // ------------------------------------------------------------------------------------------------ Phase 3
+
+    @Test fun everyArgumentRecordsWhereItCameFrom() {
+        model("""{"kind":"instruction","goal":"diyas","lookup":["date of Diwali 2025"],"tools":["reminder.set"]}""", "yes", "20 October 2025",
+            """{"what":"buy diyas","when":"3 days before"}""")
+        say("Diwali's coming up, look up the date and remind me to buy diyas three days before it")
+        val act = core.goalEngine.recent(conv).first().steps.last()
+        val p = act.provenance!!
+        assertEquals(listOf("owner"), (p["what"] as kotlinx.serialization.json.JsonArray).map { it.toString().trim('"') })
+        val whenSrc = (p["when"] as kotlinx.serialization.json.JsonArray).map { it.toString().trim('"') }
+        assertTrue("lookup:s1" in whenSrc && "calc" in whenSrc, "the date came from the lookup, the offset from a calculation: $whenSrc")
+        assertEquals(LocalDateTime.of(2025, 10, 17, 9, 0), local(reminders().single().dueAt!!))
+    }
+
+    @Test fun paraphraseIsAllowedButInventionIsNot() {
+        val e = core.goalEngine
+        fun src(args: String, objective: String, steps: List<GoalStep> = emptyList()) =
+            e.provenance(kotlinx.serialization.json.Json.parseToJsonElement(args) as JsonObject, objective, steps)
+        // "prepare" → "start preparing for your exam": a word form and connecting words, not new facts... except "start", which is not the owner's.
+        assertTrue((src("""{"what":"preparing for your exam"}""", "remind me to prepare for my exam")["what"] as kotlinx.serialization.json.JsonArray).isNotEmpty())
+        assertTrue((src("""{"what":"call Ravi"}""", "remind me to call mom")["what"] as kotlinx.serialization.json.JsonArray).isEmpty(), "an invented name has no source")
+        // Earlier messages are a source of their own.
+        val ctx = src("""{"what":"dentist appointment"}""", "My dentist appointment is on 30 October.\nRemind me the day before.")
+        assertEquals("context", (ctx["what"] as kotlinx.serialization.json.JsonArray).single().toString().trim('"'))
+        // A note to the owner may name the obvious task ("renew" what "runs out"): derived. A message to someone else may not.
+        val note = e.provenance(kotlinx.serialization.json.Json.parseToJsonElement("""{"what":"renew my car insurance"}""") as JsonObject,
+            "My car insurance runs out on 5 November", emptyList(), tool = "reminder.set")
+        assertEquals(setOf("derived", "owner"), (note["what"] as kotlinx.serialization.json.JsonArray).map { it.toString().trim('"') }.toSet())
+        val sent = e.provenance(kotlinx.serialization.json.Json.parseToJsonElement("""{"text":"renew my car insurance"}""") as JsonObject,
+            "My car insurance runs out on 5 November", emptyList(), tool = "sms.compose")
+        assertTrue((sent["text"] as kotlinx.serialization.json.JsonArray).isEmpty())
+        // A model that ignores the grammar and invents a name is refused and asked again.
+        model("""{"kind":"instruction","goal":"","lookup":[],"tools":["reminder.set"]}""", "yes",
+            """{"what":"call Ravi","when":"tomorrow at 9 am"}""", """{"what":"call mom","when":"tomorrow at 9 am"}""")
+        say("remind me to call mom tomorrow at 9 am")
+        assertEquals("call mom", reminders().single().title)
+        assertTrue(core.goalEngine.lastRefusals.any { "Ravi" in it || "no source" in it }, core.goalEngine.lastRefusals.toString())
+    }
+
+    @Test fun anUnrelatedRecordIsNotEvidenceForAFact() {
+        // The exam memory mentions "2025" but not Diwali: the lookup skips it and reads the web instead.
+        core.memories.save(Memory(category = MemoryCategory.CORE_FACT, title = "Next exam", content = "My next examination is Data Structures on 28 October 2025.",
+            source = MemorySource.OWNER_INSTRUCTION))
+        model("""{"kind":"instruction","goal":"diyas","lookup":["Diwali 2025"],"tools":["reminder.set"]}""", "yes", "20 October 2025",
+            """{"what":"buy diyas","when":"3 days before 20 October 2025"}""")
+        say("look up Diwali and remind me to buy diyas three days before it")
+        val lookup = core.goalEngine.recent(conv).first().steps.first()
+        assertTrue("from the web" in lookup.result && "Diwali" in lookup.evidence, lookup.result)
+        assertEquals(LocalDateTime.of(2025, 10, 17, 9, 0), local(reminders().single().dueAt!!))
+        // A copied example lookup that shares only a generic word with the message is dropped.
+        assertFalse(GoalEngine.about("Diwali's coming up, look up the date", "date of the next Chennai marathon"))
+        assertTrue(GoalEngine.about("Find out when my next examination is", "date of my next examination"))
+    }
+
+    @Test fun anUnderstandingUnrelatedToTheMessageDrivesNoAction() {
+        // The model restates a copied example as the goal: whatever it planned, nothing is changed.
+        model("""{"kind":"instruction","goal":"marathon registration reminder","lookup":[],"tools":["reminder.set"]}""", "Sure.")
+        say("Diwali's coming up and I need diyas")
+        assertTrue(reminders().isEmpty())
+        assertTrue(core.goalEngine.lastRefusals.any { "not about the message" in it })
+    }
+
+    @Test fun oneMessageCanDriveSeveralDependentTools() {
+        model("""{"kind":"instruction","goal":"diyas","lookup":["date of Diwali 2025"],"tools":["task.add","reminder.set"]}""", "yes", "yes",
+            "20 October 2025", """{"title":"diyas","list":"shopping"}""", """{"what":"buy diyas","when":"3 days before 20 October 2025"}""")
+        val ev = say("Look up when Diwali is, put diyas on my shopping list and remind me to buy them three days before")
+        assertEquals(listOf("memory.search", "web.search", "task.add", "reminder.set"), tools(ev))
+        assertTrue(core.butler.open().any { it.dueAt == null && it.title.contains("diya", true) })
+        assertEquals(LocalDateTime.of(2025, 10, 17, 9, 0), local(reminders().single().dueAt!!))
+        val text = reply(ev); assertTrue("diyas" in text && "remind you" in text, text)
+    }
+
+    @Test fun anActionTheMessageDoesNotAskForIsLeftOutOfAMultiToolPlan() {
+        model("""{"kind":"instruction","goal":"","lookup":[],"tools":["task.add","reminder.set"]}""", "yes", "no", """{"title":"coffee","list":"shopping"}""")
+        say("we're out of coffee, stick it on the shopping list")
+        assertTrue(reminders().isEmpty()); assertTrue(core.butler.open().any { it.title == "coffee" })
+    }
+
+    @Test fun statementsCommitmentsAndHypotheticalsNeverAct() {
+        model("""{"kind":"statement","goal":"bill on Monday","lookup":[],"tools":["reminder.set"]}""", "Noted.")
+        say("I'll pay the electricity bill on Monday.")
+        model("""{"kind":"statement","goal":"weekend","lookup":[],"tools":["reminder.set"]}""", "Coorg is lovely.")
+        say("If I had a free weekend I'd probably drive to Coorg.")
+        assertTrue(reminders().isEmpty())
+        assertEquals(MessageKind.STATEMENT, core.goalEngine.last?.kind)
+    }
+
+    @Test fun aDocumentIsWrittenFromResearchAndSavedWithoutOverwriting() {
+        fun plan() = model("""{"kind":"instruction","goal":"Diwali document","lookup":["Diwali 2025"],"tools":["document.write"]}""", "yes",
+            "20 October 2025", """{"title":"Diwali","content":""}""", "# Diwali\n\nDiwali 2025 falls on Monday, 20 October 2025 (web).")
+        plan()
+        val ev = say("Write me a short document about Diwali from what you can find online.")
+        assertEquals(listOf("memory.search", "web.search", "document.write"), tools(ev))
+        val doc = core.archive.documents.list().single()
+        assertEquals("Diwali.md", doc.name)
+        assertTrue("20 October 2025 (web)" in core.archive.documents.text(doc.id))
+        val p = core.goalEngine.recent(conv).first().steps.last().provenance!!
+        assertTrue((p["content"] as kotlinx.serialization.json.JsonArray).map { it.toString().trim('"') }.containsAll(listOf("composed", "lookup:s1")))
+        assertTrue("Saved the document" in reply(ev))
+        // Writing it again keeps the first one.
+        plan(); say("Write me a short document about Diwali from what you can find online.")
+        assertEquals(setOf("Diwali.md", "Diwali (2).md"), core.archive.documents.list().map { it.name }.toSet())
+    }
+
+    @Test fun aGoalStillRunsWhenTheConversationHasOutgrownTheContextWindow() {
+        val m = ScriptedEngine(ctx = 1600, grammar = true)
+        core.useEngine(m)
+        repeat(30) { i -> m.reply("Reply $i: " + "a long answer about the weather and the weekend plans ".repeat(5)); say("question $i about the weekend and the weather forecast") }
+        m.reply("""{"kind":"instruction","goal":"","lookup":[],"tools":["reminder.set"]}""", "yes", """{"what":"call mom","when":"tomorrow at 9 am"}""")
+        val before = m.prompts.size
+        say("remind me to call mom tomorrow at 9 am")
+        assertEquals("call mom", reminders().single().title)
+        assertTrue(m.prompts.drop(before).all { m.countTokens(it) <= 1600 }, "every planning prompt fits the window")
+    }
+
     @Test fun aGoalContinuesAfterTheOwnerConfirmsAStep() {
         core.settings.set(ai.clu.core.config.Settings.PLANNER, "plan")
         val plan = """{"kind":"instruction","goal":"note and reminder","steps":[{"id":"s1","tool":"note.send","args":{"to":"Asha","text":"dinner at 8"}},
@@ -180,7 +295,7 @@ class StepwiseGoalTest {
 
     @Test fun declinedStepEndsTheGoalAndSaysSo() {
         core.settings.set(ai.clu.core.config.Settings.PLANNER, "plan")
-        model("""{"kind":"instruction","goal":"g","steps":[{"id":"s1","tool":"note.send","args":{"to":"Asha","text":"dinner at 8"}},
+        model("""{"kind":"instruction","goal":"","steps":[{"id":"s1","tool":"note.send","args":{"to":"Asha","text":"dinner at 8"}},
             {"id":"s2","tool":"reminder.set","args":{"what":"dinner with Asha","when":"today at 7 pm"}}]}""")
         say("send Asha a note saying dinner at 8 and remind me about dinner with Asha today at 7 pm")
         val text = reply(say("no"))

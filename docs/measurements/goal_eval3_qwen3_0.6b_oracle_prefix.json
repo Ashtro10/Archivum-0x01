@@ -1,0 +1,3832 @@
+{
+    "model": "Qwen3-0.6B-Q4_K_M.gguf",
+    "planner": "stepwise",
+    "loaded": "{context=4096 tokens, threads=4 (prompt) / 2 (generation while speaking), batch=256, max reply=400 tokens, model=qwen3 0.6B Q4_K - Medium, 372 MB}",
+    "load_ms": 767.0,
+    "runs": 1,
+    "cases_per_run": 30,
+    "by_mode": {
+        "none": {
+            "task_success": "12/30",
+            "unwanted_changes": 0,
+            "kind_correct": "23/30",
+            "by_group": {
+                "lookup+act": "0/2",
+                "act": "2/4",
+                "no-action": "5/5",
+                "question": "2/2",
+                "research": "1/2",
+                "acceptance": "0/2",
+                "paraphrase": "0/4",
+                "indirect": "0/2",
+                "context": "0/2",
+                "multi-tool": "0/2",
+                "statement": "2/2",
+                "document": "0/1"
+            },
+            "plan_ms_median": 5485.0,
+            "plan_ms_p95": 6518.0,
+            "total_ms_median": 8017.0,
+            "total_ms_p95": 11297.0
+        },
+        "understand": {
+            "task_success": "14/30",
+            "unwanted_changes": 0,
+            "kind_correct": "30/30",
+            "by_group": {
+                "lookup+act": "0/2",
+                "act": "1/4",
+                "no-action": "5/5",
+                "question": "2/2",
+                "research": "1/2",
+                "acceptance": "0/2",
+                "paraphrase": "0/4",
+                "indirect": "2/2",
+                "context": "0/2",
+                "multi-tool": "0/2",
+                "statement": "2/2",
+                "document": "1/1"
+            },
+            "plan_ms_median": 13.0,
+            "plan_ms_p95": 19.0,
+            "total_ms_median": 2456.0,
+            "total_ms_p95": 7713.0
+        },
+        "full": {
+            "task_success": "26/30",
+            "unwanted_changes": 0,
+            "kind_correct": "30/30",
+            "by_group": {
+                "lookup+act": "2/2",
+                "act": "4/4",
+                "no-action": "5/5",
+                "question": "0/2",
+                "research": "1/2",
+                "acceptance": "2/2",
+                "paraphrase": "4/4",
+                "indirect": "2/2",
+                "context": "2/2",
+                "multi-tool": "2/2",
+                "statement": "2/2",
+                "document": "0/1"
+            },
+            "plan_ms_median": 12.0,
+            "plan_ms_p95": 17.0,
+            "total_ms_median": 61.0,
+            "total_ms_p95": 2665.0
+        }
+    },
+    "failure_attribution": [
+        {
+            "case": "diwali",
+            "stage": "fact retrieval",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"marathon registration reminder\", \"lookup\": [\"date of the next Chennai marathon\"], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": "I couldn't find date of the next Chennai marathon"
+        },
+        {
+            "case": "diwali-clean",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"check Diwali date and set a reminder\", \"lookup\": [\"date of Diwali\"], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+        },
+        {
+            "case": "rahul",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"set a reminder for the meeting\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+        },
+        {
+            "case": "shopping",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"add milk and eggs to my shopping list\", \"lookup\": [], \"tools\": [\"task.list\", \"task.done\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "items"
+            ],
+            "detail": "I couldn't find \"milk\" on your lists"
+        },
+        {
+            "case": "question-diwali",
+            "stage": "response generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"date of Diwali\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": false,
+            "failed_checks": [
+                "reply"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "t1-busy-thursday",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"schedule reminder\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "title"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "t5-exam",
+            "stage": "fact retrieval",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"marathon registration reminder\", \"lookup\": [\"date of the next Chennai marathon\"], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": "I couldn't find date of the next Chennai marathon"
+        },
+        {
+            "case": "para-vitamins",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"register for vitamins\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "para-bill",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"set reminder for electricity bill on Monday\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "para-groceries",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"set reminder for shopping list\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "items"
+            ],
+            "detail": "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+        },
+        {
+            "case": "indirect-birthday",
+            "stage": "tool selection",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"check birthday date\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "passes_with_oracle_understanding": true,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "context-dentist",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"remind me the day before\", \"lookup\": [], \"tools\": [\"date.calc\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "multi-tool",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"add eggs to the shopping list\", \"lookup\": [], \"tools\": [\"task.add\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder",
+                "items"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "multi-dependent",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"marathon registration reminder\", \"lookup\": [\"date of the next Chennai marathon\"], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder",
+                "items"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "doc-research",
+            "stage": "missing-information detection",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"create a write-up on Diwali\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "passes_with_oracle_understanding": true,
+            "passes_with_full_oracle": false,
+            "failed_checks": [
+                "document"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "indirect-insurance",
+            "stage": "tool selection",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"check car insurance coverage\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "passes_with_oracle_understanding": true,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "context-list",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"set up the shopping list\", \"lookup\": [], \"tools\": [\"task.list\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "items"
+            ],
+            "detail": ""
+        },
+        {
+            "case": "para-water",
+            "stage": "argument generation",
+            "model_said": "{\"kind\": \"instruction\", \"goal\": \"set a reminder to water plants at 6:30 this evening\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "passes_with_oracle_understanding": false,
+            "passes_with_full_oracle": true,
+            "failed_checks": [
+                "reminder"
+            ],
+            "detail": ""
+        }
+    ],
+    "rows": [
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "diwali",
+            "group": "lookup+act",
+            "text": "Diwali's coming up, look up the date and remind me to buy diyas three days before it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"marathon registration reminder\", \"lookup\": [\"date of the next Chennai marathon\"], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "I couldn't find date of the next Chennai marathon",
+            "steps": "lookup(date of the next Chennai marathon):failed > reminder.set:pending",
+            "args": [
+                {}
+            ],
+            "provenance": [],
+            "lookups": [
+                "date of the next Chennai marathon =  [failed]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "web.search"
+            ],
+            "searches": [
+                "date of the next Chennai marathon"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 9816.0,
+            "total_ms": 10660.0,
+            "reply_words": 16,
+            "reply": "I couldn't finish that: I couldn't find date of the next Chennai marathon. Nothing was changed."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "diwali-clean",
+            "group": "lookup+act",
+            "text": "Can you check when Diwali falls this year and set a reminder two days before to clean the house?",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"check Diwali date and set a reminder\", \"lookup\": [\"date of Diwali\"], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\")",
+            "steps": "lookup(date of Diwali):done > reminder.set:started",
+            "args": [
+                {}
+            ],
+            "provenance": [],
+            "lookups": [
+                "date of Diwali = 20 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "web.search"
+            ],
+            "searches": [
+                "date of Diwali"
+            ],
+            "added": [],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words.",
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 6518.0,
+            "total_ms": 13509.0,
+            "reply_words": 30,
+            "reply": "I couldn't finish that: the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\"). Nothing was changed."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "rahul",
+            "group": "act",
+            "text": "I have a meeting with Rahul tomorrow at 3 pm, remind me an hour before it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set a reminder for the meeting\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "meeting with Rahul",
+                    "when": "3 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "meeting with Rahul @ 2025-10-09T15:00"
+            ],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 5131.0,
+            "total_ms": 10187.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to meeting with Rahul today at 3:00 PM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "assignment",
+            "group": "act",
+            "text": "My assignment is due on 25 October. Remind me two days before so I can finish it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set up a reminder for the assignment\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "My assignment is due on 25 October",
+                    "when": "two days before 25 October"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner",
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "My assignment is due on 25 October @ 2025-10-23T09:00"
+            ],
+            "refused": [
+                "what \"go to my study\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 5335.0,
+            "total_ms": 11297.0,
+            "reply_words": 17,
+            "reply": "I'll remind you to My assignment is due on 25 October Thursday 23 October at 9:00 AM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "call-mom",
+            "group": "act",
+            "text": "Remind me to call mom at 7 pm today",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set a reminder\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to mom",
+                    "when": "7 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to mom @ 2025-10-09T19:00"
+            ],
+            "refused": [],
+            "plan_ms": 5083.0,
+            "total_ms": 9303.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to go to mom today at 7:00 PM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "shopping",
+            "group": "act",
+            "text": "Add milk and eggs to my shopping list",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"add milk and eggs to my shopping list\", \"lookup\": [], \"tools\": [\"task.list\", \"task.done\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "I couldn't find \"milk\" on your lists",
+            "steps": "task.list:done > task.done:failed",
+            "args": [
+                {
+                    "list": "Add milk and eggs to my shopping list"
+                },
+                {
+                    "title": "milk"
+                }
+            ],
+            "provenance": [
+                {
+                    "list": [
+                        "owner"
+                    ]
+                },
+                {
+                    "title": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.list",
+                "task.done",
+                "task.done"
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 6059.0,
+            "total_ms": 10592.0,
+            "reply_words": 14,
+            "reply": "I couldn't finish that: I couldn't find \"milk\" on your lists. Nothing was changed."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "musing-dp",
+            "group": "no-action",
+            "text": "I've been thinking about whether dynamic programming is overkill for this scheduling problem",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"weighing learning Rust\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 4416.0,
+            "total_ms": 8017.0,
+            "reply_words": 37,
+            "reply": "I don't think dynamic programming is overkill for this scheduling problem. It's a good approach when there are many constraints and the solution needs to be optimal or efficient. Let me know if you'd like more details!"
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "musing-reminders",
+            "group": "no-action",
+            "text": "Maybe I should start using reminders more often, I keep forgetting things",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set reminders for upcoming events\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 4556.0,
+            "total_ms": 6390.0,
+            "reply_words": 12,
+            "reply": "Maybe I should start using reminders more often, I keep forgetting things."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "musing-diwali",
+            "group": "no-action",
+            "text": "I was wondering if I'll have time to visit my parents for Diwali this year",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"check if I have time to visit my parents for Diwali\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5497.0,
+            "total_ms": 8369.0,
+            "reply_words": 21,
+            "reply": "I'm glad you're planning to visit your parents for Diwali! Let me know if there's anything specific I can help with."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "question-capital",
+            "group": "question",
+            "text": "What is the capital of Australia?",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"find the capital of Australia\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5677.0,
+            "total_ms": 6894.0,
+            "reply_words": 6,
+            "reply": "The capital of Australia is Canberra."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "question-diwali",
+            "group": "research",
+            "text": "When is Diwali this year?",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": false,
+            "failed_checks": [
+                "reply"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"date of Diwali\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "web.search",
+                "web.search"
+            ],
+            "searches": [
+                "Diwali this year",
+                "Diwali"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 6130.0,
+            "total_ms": 9100.0,
+            "reply_words": 24,
+            "reply": "I couldn't confirm it, but Diwali is celebrated on the 14th day of the Tamil month. Let me know if you'd like more details!"
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "chat",
+            "group": "no-action",
+            "text": "Good morning! How's it going?",
+            "kind": "CHAT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"chat\", \"goal\": \"Describe the date and time of the event\", \"lookup\": [], \"tools\": [\"date.calc\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5273.0,
+            "total_ms": 7907.0,
+            "reply_words": 24,
+            "reply": "Good morning! It's a lovely time, and I'm here to see how things go. Let me know if there's anything you need help with!"
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "t1-busy-thursday",
+            "group": "acceptance",
+            "text": "I'm going to be busy next Thursday. Make sure I don't forget my assignment submission.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "title"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"schedule reminder\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "sure",
+                    "when": "10:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "sure @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "plan_ms": 4839.0,
+            "total_ms": 7220.0,
+            "reply_words": 9,
+            "reply": "I'll remind you to sure tomorrow at 10:00 AM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "t5-exam",
+            "group": "acceptance",
+            "text": "Find out when my next examination is and make sure I have enough time to prepare.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"marathon registration reminder\", \"lookup\": [\"date of the next Chennai marathon\"], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "I couldn't find date of the next Chennai marathon",
+            "steps": "lookup(date of the next Chennai marathon):failed > reminder.set:pending",
+            "args": [
+                {}
+            ],
+            "provenance": [],
+            "lookups": [
+                "date of the next Chennai marathon =  [failed]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "web.search"
+            ],
+            "searches": [
+                "date of the next Chennai marathon"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5485.0,
+            "total_ms": 6181.0,
+            "reply_words": 16,
+            "reply": "I couldn't finish that: I couldn't find date of the next Chennai marathon. Nothing was changed."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "para-vitamins",
+            "group": "paraphrase",
+            "text": "Can you nudge me to take my vitamins at 9 tonight?",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"register for vitamins\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to the vitaminss",
+                    "when": "9:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner",
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to the vitaminss @ 2025-10-10T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 5011.0,
+            "total_ms": 7587.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to go to the vitaminss tomorrow at 9:00 AM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "para-bill",
+            "group": "paraphrase",
+            "text": "Don't let me forget the electricity bill on Monday",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set reminder for electricity bill on Monday\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to electricity bill",
+                    "when": "10:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to electricity bill @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "plan_ms": 5881.0,
+            "total_ms": 8670.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to go to electricity bill tomorrow at 10:00 AM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "para-groceries",
+            "group": "paraphrase",
+            "text": "we're out of coffee, stick it on the shopping list",
+            "kind": "QUESTION",
+            "kind_ok": false,
+            "effect_ok": false,
+            "failed_checks": [
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set reminder for shopping list\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [
+                "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+            ],
+            "plan_ms": 5583.0,
+            "total_ms": 7455.0,
+            "reply_words": 34,
+            "reply": "I'll add coffee to my list. Let me know if you need it later.\n\nTo be clear: I haven't actually added that. Tell me again what to do and when, and I'll do it."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "indirect-birthday",
+            "group": "indirect",
+            "text": "My sister's birthday is on 2 November and I always forget to call her",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"check birthday date\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5560.0,
+            "total_ms": 7698.0,
+            "reply_words": 18,
+            "reply": "I'm not sure what she's planning for her birthday. Let me know if I can help with that."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "context-dentist",
+            "group": "context",
+            "text": "Remind me the day before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"remind me the day before\", \"lookup\": [], \"tools\": [\"date.calc\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "My dentist appointment is on 30 October at 11 am",
+                    "when": "11 am"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 4550.0,
+            "total_ms": 4564.0,
+            "reply_words": 5,
+            "reply": "When should I remind you?"
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "research-worldcup",
+            "group": "research",
+            "text": "Who won the last men's cricket world cup, and who did they beat?",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"determine the winner of the last men's cricket world cup\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "web.search"
+            ],
+            "searches": [
+                "won the last men's cricket world cup, and who did they beat"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 6618.0,
+            "total_ms": 9677.0,
+            "reply_words": 23,
+            "reply": "Australia won the 2023 ICC Men's Cricket World Cup, beating India by six wickets in the final at Ahmedabad on 19 November 2023."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "multi-tool",
+            "group": "multi-tool",
+            "text": "Add eggs to the shopping list and remind me to buy them tomorrow at 6 pm",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder",
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"add eggs to the shopping list\", \"lookup\": [], \"tools\": [\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "Add eggs to the shopping list"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [],
+            "plan_ms": 5333.0,
+            "total_ms": 7521.0,
+            "reply_words": 10,
+            "reply": "Added shopping to your add eggs to the shopping list."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "musing-gym",
+            "group": "no-action",
+            "text": "I wonder if joining a gym near the office would actually make me go more often",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"determine if joining a gym near the office would help\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 4808.0,
+            "total_ms": 7311.0,
+            "reply_words": 23,
+            "reply": "I don't know. But if the gym is near your office, maybe it could help with exercise. Let me know what you think!"
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "stmt-commitment",
+            "group": "statement",
+            "text": "I'll pay the electricity bill on Monday.",
+            "kind": "QUESTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"register for electricity bill\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [
+                "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+            ],
+            "plan_ms": 4699.0,
+            "total_ms": 6560.0,
+            "reply_words": 18,
+            "reply": "I'll pay the electricity bill on Monday. Let me know if there's anything else I can assist with!"
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "stmt-hypothetical",
+            "group": "statement",
+            "text": "If I had a free weekend I'd probably drive down to Coorg.",
+            "kind": "QUESTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"register for a weekend trip\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [
+                "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+            ],
+            "plan_ms": 5306.0,
+            "total_ms": 7728.0,
+            "reply_words": 16,
+            "reply": "I don't think so, but I'd drive down to Coorg if I had a free weekend."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "multi-dependent",
+            "group": "multi-tool",
+            "text": "Look up when Diwali is, put diyas on my shopping list and remind me to buy them three days before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder",
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"marathon registration reminder\", \"lookup\": [\"date of the next Chennai marathon\"], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to Diwali",
+                    "when": "3 days before"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to Diwali @ 2025-10-10T03:00"
+            ],
+            "refused": [],
+            "plan_ms": 6162.0,
+            "total_ms": 8909.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to go to Diwali tomorrow at 3:00 AM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "doc-research",
+            "group": "document",
+            "text": "Put together a short write-up on Diwali from what you can find online and save it.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "document"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"create a write-up on Diwali\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 6497.0,
+            "total_ms": 11546.0,
+            "reply_words": 0,
+            "reply": ""
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "indirect-insurance",
+            "group": "indirect",
+            "text": "My car insurance runs out on 5 November and I've let it lapse before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"check car insurance coverage\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5698.0,
+            "total_ms": 8316.0,
+            "reply_words": 27,
+            "reply": "I see. I'll check if there are any upcoming events or reminders related to your car insurance issue. Let me know if you'd like help with that."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "context-list",
+            "group": "context",
+            "text": "Put those on the shopping list.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set up the shopping list\", \"lookup\": [], \"tools\": [\"task.list\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "those @ null"
+            ],
+            "refused": [],
+            "plan_ms": 4769.0,
+            "total_ms": 4784.0,
+            "reply_words": 6,
+            "reply": "Added those to your shopping list."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "para-water",
+            "group": "paraphrase",
+            "text": "ping me at 6:30 this evening to water the plants",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"set a reminder to water plants at 6:30 this evening\", \"lookup\": [], \"tools\": [\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to water plants",
+                    "when": "6:30 this evening"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to water plants @ 2025-10-10T06:30"
+            ],
+            "refused": [],
+            "plan_ms": 6222.0,
+            "total_ms": 9290.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to go to water plants tomorrow at 6:30 AM."
+        },
+        {
+            "mode": "none",
+            "run": 1,
+            "case": "question-moon",
+            "group": "question",
+            "text": "What would happen if the Moon suddenly disappeared?",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\": \"instruction\", \"goal\": \"determine the impact of the Moon disappearing\", \"lookup\": [], \"tools\": [\"none\"]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 6064.0,
+            "total_ms": 9815.0,
+            "reply_words": 56,
+            "reply": "If the Moon suddenly disappeared, it would be a massive celestial event with no immediate effects on Earth. The Moon's disappearance would likely result in no significant impact, as humans and other celestial bodies have been affected by lunar tides for millennia. I don't see any immediate consequences or changes in our lives from this event."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "diwali",
+            "group": "lookup+act",
+            "text": "Diwali's coming up, look up the date and remind me to buy diyas three days before it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\")",
+            "steps": "lookup(date of Diwali 2025):done > reminder.set:started",
+            "args": [
+                {}
+            ],
+            "provenance": [],
+            "lookups": [
+                "date of Diwali 2025 = 28 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search"
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words.",
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 14.0,
+            "total_ms": 7713.0,
+            "reply_words": 30,
+            "reply": "I couldn't finish that: the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\"). Nothing was changed."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "diwali-clean",
+            "group": "lookup+act",
+            "text": "Can you check when Diwali falls this year and set a reminder two days before to clean the house?",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\")",
+            "steps": "lookup(date of Diwali 2025):done > reminder.set:started",
+            "args": [
+                {}
+            ],
+            "provenance": [],
+            "lookups": [
+                "date of Diwali 2025 = 28 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search"
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words.",
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 14.0,
+            "total_ms": 6470.0,
+            "reply_words": 30,
+            "reply": "I couldn't finish that: the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\"). Nothing was changed."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "rahul",
+            "group": "act",
+            "text": "I have a meeting with Rahul tomorrow at 3 pm, remind me an hour before it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to Rahul meeting",
+                    "when": "3 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to Rahul meeting @ 2025-10-09T15:00"
+            ],
+            "refused": [],
+            "plan_ms": 12.0,
+            "total_ms": 2168.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to go to Rahul meeting today at 3:00 PM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "assignment",
+            "group": "act",
+            "text": "My assignment is due on 25 October. Remind me two days before so I can finish it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to finish assignment",
+                    "when": "two days before 25 October"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner",
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to finish assignment @ 2025-10-23T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 16.0,
+            "total_ms": 2456.0,
+            "reply_words": 14,
+            "reply": "I'll remind you to go to finish assignment Thursday 23 October at 9:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "call-mom",
+            "group": "act",
+            "text": "Remind me to call mom at 7 pm today",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to mom",
+                    "when": "10:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to mom @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "plan_ms": 13.0,
+            "total_ms": 2005.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to go to mom tomorrow at 10:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "shopping",
+            "group": "act",
+            "text": "Add milk and eggs to my shopping list",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "milk and eggs"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [],
+            "plan_ms": 12.0,
+            "total_ms": 2037.0,
+            "reply_words": 8,
+            "reply": "Added shopping to your milk and eggs list."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "musing-dp",
+            "group": "no-action",
+            "text": "I've been thinking about whether dynamic programming is overkill for this scheduling problem",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 2592.0,
+            "reply_words": 24,
+            "reply": "It's a good question—dynamic programming can be quite effective for this type of problem. Let me know if you'd like to explore specific strategies!"
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "musing-reminders",
+            "group": "no-action",
+            "text": "Maybe I should start using reminders more often, I keep forgetting things",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 11.0,
+            "total_ms": 2158.0,
+            "reply_words": 26,
+            "reply": "I see. Maybe you'd like to set up some reminders for your tasks, and I can help you with that. Let me know when you're ready."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "musing-diwali",
+            "group": "no-action",
+            "text": "I was wondering if I'll have time to visit my parents for Diwali this year",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 2304.0,
+            "reply_words": 27,
+            "reply": "I can see it's a good opportunity to visit my parents for Diwali. Let me know if you'd like to arrange something specific or discuss the details."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "question-capital",
+            "group": "question",
+            "text": "What is the capital of Australia?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 11.0,
+            "total_ms": 724.0,
+            "reply_words": 6,
+            "reply": "The capital of Australia is Canberra."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "question-diwali",
+            "group": "research",
+            "text": "When is Diwali this year?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reply"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "web.search",
+                "web.search"
+            ],
+            "searches": [
+                "date of Diwali 2025",
+                "Diwali"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 2341.0,
+            "reply_words": 21,
+            "reply": "I don't know. Diwali is a festival celebrated in India, but I couldn't confirm it with the information available right now."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "chat",
+            "group": "no-action",
+            "text": "Good morning! How's it going?",
+            "kind": "CHAT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"chat\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 8.0,
+            "total_ms": 2226.0,
+            "reply_words": 27,
+            "reply": "Good morning! I'm here with my thoughts and a bit of coffee. How's the day going? Let me know if there's anything else I can help with."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "t1-busy-thursday",
+            "group": "acceptance",
+            "text": "I'm going to be busy next Thursday. Make sure I don't forget my assignment submission.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "title"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "sure",
+                    "when": "10:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "sure @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 2568.0,
+            "reply_words": 9,
+            "reply": "I'll remind you to sure tomorrow at 10:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "t5-exam",
+            "group": "acceptance",
+            "text": "Find out when my next examination is and make sure I have enough time to prepare.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of my next examination\"],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(date of my next examination):done > reminder.set:done",
+            "args": [
+                {
+                    "what": "time to prepare",
+                    "when": "28 October 2025"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "date of my next examination = 28 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "time to prepare @ 2025-10-28T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 16.0,
+            "total_ms": 5079.0,
+            "reply_words": 21,
+            "reply": "Date of my next examination: 28 October 2025. I'll remind you to time to prepare Tuesday 28 October at 9:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "para-vitamins",
+            "group": "paraphrase",
+            "text": "Can you nudge me to take my vitamins at 9 tonight?",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to the vitaminsed",
+                    "when": "9:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner",
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to the vitaminsed @ 2025-10-10T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 2360.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to go to the vitaminsed tomorrow at 9:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "para-bill",
+            "group": "paraphrase",
+            "text": "Don't let me forget the electricity bill on Monday",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to the electricity bill",
+                    "when": "10:00"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to the electricity bill @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "plan_ms": 15.0,
+            "total_ms": 2290.0,
+            "reply_words": 13,
+            "reply": "I'll remind you to go to the electricity bill tomorrow at 10:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "para-groceries",
+            "group": "paraphrase",
+            "text": "we're out of coffee, stick it on the shopping list",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "coffee"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [],
+            "plan_ms": 15.0,
+            "total_ms": 1834.0,
+            "reply_words": 6,
+            "reply": "Added shopping to your coffee list."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "indirect-birthday",
+            "group": "indirect",
+            "text": "My sister's birthday is on 2 November and I always forget to call her",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "sister's birthday",
+                    "when": "November 2"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "sister's birthday @ 2025-11-02T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 2631.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to sister's birthday Sunday 2 November at 9:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "context-dentist",
+            "group": "context",
+            "text": "Remind me the day before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "day before",
+                    "when": "30 October 2025"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "context",
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "day before @ 2025-10-30T09:00"
+            ],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 14.0,
+            "total_ms": 7157.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to day before Thursday 30 October at 9:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "research-worldcup",
+            "group": "research",
+            "text": "Who won the last men's cricket world cup, and who did they beat?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[\"winner of the last men's cricket world cup\"],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "web.search"
+            ],
+            "searches": [
+                "winner of the last men's cricket world cup"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 2800.0,
+            "reply_words": 20,
+            "reply": "Australia won the 2023 ICC Men's Cricket World Cup, beating India by six wickets at Ahmedabad on 19 November 2023."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "multi-tool",
+            "group": "multi-tool",
+            "text": "Add eggs to the shopping list and remind me to buy them tomorrow at 6 pm",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder",
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\",\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done > reminder.set:done",
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "Add eggs to the shopping list"
+                },
+                {
+                    "what": "go to the shoppings list",
+                    "when": "6 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                },
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to the shoppings list @ 2025-10-09T18:00",
+                "shopping @ null"
+            ],
+            "refused": [],
+            "plan_ms": 27.0,
+            "total_ms": 4469.0,
+            "reply_words": 23,
+            "reply": "Added shopping to your add eggs to the shopping list. I'll remind you to go to the shoppings list today at 6:00 PM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "musing-gym",
+            "group": "no-action",
+            "text": "I wonder if joining a gym near the office would actually make me go more often",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 10.0,
+            "total_ms": 2397.0,
+            "reply_words": 29,
+            "reply": "I don't think joining a gym near the office would make you go more often. It depends on your habits and goals. Would you like to explore that option?"
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "stmt-commitment",
+            "group": "statement",
+            "text": "I'll pay the electricity bill on Monday.",
+            "kind": "STATEMENT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"statement\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 1413.0,
+            "reply_words": 18,
+            "reply": "I'll pay the electricity bill on Monday. Let me know if there's anything else I can assist with!"
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "stmt-hypothetical",
+            "group": "statement",
+            "text": "If I had a free weekend I'd probably drive down to Coorg.",
+            "kind": "STATEMENT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"statement\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 3310.0,
+            "reply_words": 13,
+            "reply": "I'm not sure, but I'd probably drive down to Coorg on a weekend."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "multi-dependent",
+            "group": "multi-tool",
+            "text": "Look up when Diwali is, put diyas on my shopping list and remind me to buy them three days before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder",
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[\"task.add\",\"reminder.set\"]}",
+            "goal_state": "FAILED",
+            "goal_error": "the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\")",
+            "steps": "lookup(date of Diwali 2025):done > task.add:done > reminder.set:started",
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "diyas and shopping list"
+                },
+                {}
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [
+                "date of Diwali 2025 = 28 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words.",
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 21.0,
+            "total_ms": 8962.0,
+            "reply_words": 38,
+            "reply": "I couldn't finish that: the details for alert the owner at a time (remind me, don't let me forget) didn't come from what you said (what \"submit\"). Done before that: Added shopping to your diyas and shopping list."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "doc-research",
+            "group": "document",
+            "text": "Put together a short write-up on Diwali from what you can find online and save it.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"Diwali 2025\"],\"tools\":[\"document.write\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(Diwali 2025):done > document.write:done",
+            "args": [
+                {
+                    "title": "Diwali 2025",
+                    "content": "# Diwali 2025\n\n- **Core fact**: Next exam — My next examination is Data Structures on 28 October 2025. (owner asked you to remember)  \nDiwali is a festival celebrated in India, marked by lights, family gatherings, and cultural traditions. It symbolizes prosperity, good fortune, and the importance of community. The event is held for the month of November, celebrating the arrival of the god of wealth and prosperity."
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner",
+                        "lookup:s1"
+                    ],
+                    "content": [
+                        "composed",
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "Diwali 2025 = Wanted: Diwali 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "document.write"
+            ],
+            "searches": [],
+            "added": [
+                "document Diwali 2025.md"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 9727.0,
+            "reply_words": 15,
+            "reply": "Diwali 2025: Wanted: Diwali 2025. Saved the document \"Diwali 2025.md\" (68 words) in your documents."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "indirect-insurance",
+            "group": "indirect",
+            "text": "My car insurance runs out on 5 November and I've let it lapse before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "my car insurance",
+                    "when": "November 5"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "my car insurance @ 2025-11-05T09:00"
+            ],
+            "refused": [
+                "what \"submit\" is not something the owner said or a fact found. Use the owner's words."
+            ],
+            "plan_ms": 13.0,
+            "total_ms": 5305.0,
+            "reply_words": 13,
+            "reply": "I'll remind you to my car insurance Wednesday 5 November at 9:00 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "context-list",
+            "group": "context",
+            "text": "Put those on the shopping list.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "items"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "milk bread coffee"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "context"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 2197.0,
+            "reply_words": 8,
+            "reply": "Added shopping to your milk bread coffee list."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "para-water",
+            "group": "paraphrase",
+            "text": "ping me at 6:30 this evening to water the plants",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reminder"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "go to water plants",
+                    "when": "6:30 this evening"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "go to water plants @ 2025-10-10T06:30"
+            ],
+            "refused": [],
+            "plan_ms": 19.0,
+            "total_ms": 2904.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to go to water plants tomorrow at 6:30 AM."
+        },
+        {
+            "mode": "understand",
+            "run": 1,
+            "case": "question-moon",
+            "group": "question",
+            "text": "What would happen if the Moon suddenly disappeared?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 8.0,
+            "total_ms": 3017.0,
+            "reply_words": 36,
+            "reply": "If the Moon suddenly disappeared, there would be no lunar tides to affect Earth's weather patterns. The moon's gravity, which now lacks its gravitational pull, would not cause significant changes in the Earth's orbit or climate."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "diwali",
+            "group": "lookup+act",
+            "text": "Diwali's coming up, look up the date and remind me to buy diyas three days before it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(date of Diwali 2025):done > reminder.set:done",
+            "args": [
+                {
+                    "what": "buy diyas",
+                    "when": "3 days before 20 October 2025"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "owner",
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "date of Diwali 2025 = 20 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "buy diyas @ 2025-10-17T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 76.0,
+            "reply_words": 19,
+            "reply": "Date of Diwali 2025: 20 October 2025. I'll remind you to buy diyas Friday 17 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "diwali-clean",
+            "group": "lookup+act",
+            "text": "Can you check when Diwali falls this year and set a reminder two days before to clean the house?",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(date of Diwali 2025):done > reminder.set:done",
+            "args": [
+                {
+                    "what": "clean the house",
+                    "when": "2 days before 20 October 2025"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "owner",
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "date of Diwali 2025 = 20 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "clean the house @ 2025-10-18T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 12.0,
+            "total_ms": 61.0,
+            "reply_words": 20,
+            "reply": "Date of Diwali 2025: 20 October 2025. I'll remind you to clean the house Saturday 18 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "rahul",
+            "group": "act",
+            "text": "I have a meeting with Rahul tomorrow at 3 pm, remind me an hour before it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "meeting with Rahul",
+                    "when": "an hour before tomorrow at 3 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "meeting with Rahul @ 2025-10-10T14:00"
+            ],
+            "refused": [],
+            "plan_ms": 13.0,
+            "total_ms": 47.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to meeting with Rahul tomorrow at 2:00 PM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "assignment",
+            "group": "act",
+            "text": "My assignment is due on 25 October. Remind me two days before so I can finish it",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "finish my assignment",
+                    "when": "two days before 25 October"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "finish my assignment @ 2025-10-23T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 17.0,
+            "total_ms": 56.0,
+            "reply_words": 13,
+            "reply": "I'll remind you to finish my assignment Thursday 23 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "call-mom",
+            "group": "act",
+            "text": "Remind me to call mom at 7 pm today",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "call mom",
+                    "when": "today at 7 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "call mom @ 2025-10-09T19:00"
+            ],
+            "refused": [],
+            "plan_ms": 12.0,
+            "total_ms": 48.0,
+            "reply_words": 10,
+            "reply": "I'll remind you to call mom today at 7:00 PM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "shopping",
+            "group": "act",
+            "text": "Add milk and eggs to my shopping list",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "milk and eggs",
+                    "list": "shopping"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "milk @ null",
+                "eggs @ null"
+            ],
+            "refused": [],
+            "plan_ms": 12.0,
+            "total_ms": 52.0,
+            "reply_words": 7,
+            "reply": "Added milk, eggs to your shopping list."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "musing-dp",
+            "group": "no-action",
+            "text": "I've been thinking about whether dynamic programming is overkill for this scheduling problem",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 2665.0,
+            "reply_words": 32,
+            "reply": "I think dynamic programming is a great approach for scheduling problems like this. It can help in optimizing resources and finding efficient solutions. Let me know if you'd like to explore further!"
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "musing-reminders",
+            "group": "no-action",
+            "text": "Maybe I should start using reminders more often, I keep forgetting things",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 9.0,
+            "total_ms": 1588.0,
+            "reply_words": 20,
+            "reply": "I see, maybe starting reminders can help. Let me check for any upcoming tasks or events to keep things organized."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "musing-diwali",
+            "group": "no-action",
+            "text": "I was wondering if I'll have time to visit my parents for Diwali this year",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 11.0,
+            "total_ms": 2988.0,
+            "reply_words": 38,
+            "reply": "I'm sorry to hear about your Diwali plans, but I can't confirm if you'll have time right now. Let me know if there's anything specific I should prepare for or if you'd like a reminder of upcoming events."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "question-capital",
+            "group": "question",
+            "text": "What is the capital of Australia?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reply"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 9.0,
+            "total_ms": 696.0,
+            "reply_words": 6,
+            "reply": "The capital of Australia is Sydney."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "question-diwali",
+            "group": "research",
+            "text": "When is Diwali this year?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reply"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "web.search",
+                "web.search"
+            ],
+            "searches": [
+                "date of Diwali 2025",
+                "Diwali"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 8.0,
+            "total_ms": 1304.0,
+            "reply_words": 17,
+            "reply": "I looked that up but couldn't find anything reliable. Could you say or spell the name again?"
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "chat",
+            "group": "no-action",
+            "text": "Good morning! How's it going?",
+            "kind": "CHAT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"chat\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 8.0,
+            "total_ms": 1812.0,
+            "reply_words": 20,
+            "reply": "Good morning! I'm here to help. How's it going? Let me know if there's anything I can assist you with!"
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "t1-busy-thursday",
+            "group": "acceptance",
+            "text": "I'm going to be busy next Thursday. Make sure I don't forget my assignment submission.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "submit my assignment",
+                    "when": "Wednesday at 6 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "submit my assignment @ 2025-10-15T18:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 44.0,
+            "reply_words": 13,
+            "reply": "I'll remind you to submit my assignment Wednesday 15 October at 6:00 PM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "t5-exam",
+            "group": "acceptance",
+            "text": "Find out when my next examination is and make sure I have enough time to prepare.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of my next examination\"],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(date of my next examination):done > reminder.set:done",
+            "args": [
+                {
+                    "what": "start preparing for the examination",
+                    "when": "a week before 28 October 2025"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "date of my next examination = 28 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "start preparing for the examination @ 2025-10-21T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 11.0,
+            "total_ms": 72.0,
+            "reply_words": 23,
+            "reply": "Date of my next examination: 28 October 2025. I'll remind you to start preparing for the examination Tuesday 21 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "para-vitamins",
+            "group": "paraphrase",
+            "text": "Can you nudge me to take my vitamins at 9 tonight?",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "take my vitamins",
+                    "when": "today at 9 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "take my vitamins @ 2025-10-09T21:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 45.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to take my vitamins today at 9:00 PM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "para-bill",
+            "group": "paraphrase",
+            "text": "Don't let me forget the electricity bill on Monday",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "pay the electricity bill",
+                    "when": "Monday"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "derived",
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "pay the electricity bill @ 2025-10-13T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 14.0,
+            "total_ms": 41.0,
+            "reply_words": 14,
+            "reply": "I'll remind you to pay the electricity bill Monday 13 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "para-groceries",
+            "group": "paraphrase",
+            "text": "we're out of coffee, stick it on the shopping list",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "coffee",
+                    "list": "shopping"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "coffee @ null"
+            ],
+            "refused": [],
+            "plan_ms": 11.0,
+            "total_ms": 35.0,
+            "reply_words": 6,
+            "reply": "Added coffee to your shopping list."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "indirect-birthday",
+            "group": "indirect",
+            "text": "My sister's birthday is on 2 November and I always forget to call her",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "call my sister for her birthday",
+                    "when": "2 November"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "call my sister for her birthday @ 2025-11-02T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 12.0,
+            "total_ms": 42.0,
+            "reply_words": 16,
+            "reply": "I'll remind you to call my sister for her birthday Sunday 2 November at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "context-dentist",
+            "group": "context",
+            "text": "Remind me the day before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "dentist appointment",
+                    "when": "the day before 30 October"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "context"
+                    ],
+                    "when": [
+                        "owner",
+                        "context"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "dentist appointment @ 2025-10-29T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 17.0,
+            "total_ms": 52.0,
+            "reply_words": 12,
+            "reply": "I'll remind you to dentist appointment Wednesday 29 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "research-worldcup",
+            "group": "research",
+            "text": "Who won the last men's cricket world cup, and who did they beat?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[\"winner of the last men's cricket world cup\"],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [
+                "web.search"
+            ],
+            "searches": [
+                "winner of the last men's cricket world cup"
+            ],
+            "added": [],
+            "refused": [],
+            "plan_ms": 5.0,
+            "total_ms": 2548.0,
+            "reply_words": 23,
+            "reply": "Australia won the 2023 ICC Men's Cricket World Cup, defeating India by six wickets in the final at Ahmedabad on November 19, 2023."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "multi-tool",
+            "group": "multi-tool",
+            "text": "Add eggs to the shopping list and remind me to buy them tomorrow at 6 pm",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\",\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done > reminder.set:done",
+            "args": [
+                {
+                    "title": "eggs",
+                    "list": "shopping"
+                },
+                {
+                    "what": "buy eggs",
+                    "when": "tomorrow at 6 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                },
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "buy eggs @ 2025-10-10T18:00",
+                "eggs @ null"
+            ],
+            "refused": [],
+            "plan_ms": 19.0,
+            "total_ms": 61.0,
+            "reply_words": 16,
+            "reply": "Added eggs to your shopping list. I'll remind you to buy eggs tomorrow at 6:00 PM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "musing-gym",
+            "group": "no-action",
+            "text": "I wonder if joining a gym near the office would actually make me go more often",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"thinking_aloud\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 1845.0,
+            "reply_words": 26,
+            "reply": "I wonder if joining a gym near the office would make me go more often. It depends on how I structure my routine and time management."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "stmt-commitment",
+            "group": "statement",
+            "text": "I'll pay the electricity bill on Monday.",
+            "kind": "STATEMENT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"statement\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 9.0,
+            "total_ms": 1414.0,
+            "reply_words": 16,
+            "reply": "I'll be there on Monday. Let me know if you have any other plans or reminders."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "stmt-hypothetical",
+            "group": "statement",
+            "text": "If I had a free weekend I'd probably drive down to Coorg.",
+            "kind": "STATEMENT",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"statement\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 7.0,
+            "total_ms": 2331.0,
+            "reply_words": 32,
+            "reply": "I think that's a great idea! Driving to Coorg on your free weekend would be a nice way to spend time. Let me know if you'd like more details about the trip!"
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "multi-dependent",
+            "group": "multi-tool",
+            "text": "Look up when Diwali is, put diyas on my shopping list and remind me to buy them three days before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"date of Diwali 2025\"],\"tools\":[\"task.add\",\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(date of Diwali 2025):done > task.add:done > reminder.set:done",
+            "args": [
+                {
+                    "title": "diyas",
+                    "list": "shopping"
+                },
+                {
+                    "what": "buy diyas",
+                    "when": "3 days before 20 October 2025"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                },
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "owner",
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "date of Diwali 2025 = 20 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "task.add",
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "buy diyas @ 2025-10-17T09:00",
+                "diyas @ null"
+            ],
+            "refused": [],
+            "plan_ms": 18.0,
+            "total_ms": 101.0,
+            "reply_words": 25,
+            "reply": "Date of Diwali 2025: 20 October 2025. Added diyas to your shopping list. I'll remind you to buy diyas Friday 17 October at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "doc-research",
+            "group": "document",
+            "text": "Put together a short write-up on Diwali from what you can find online and save it.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "document"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[\"Diwali 2025\"],\"tools\":[\"document.write\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "lookup(Diwali 2025):done > document.write:done",
+            "args": [
+                {
+                    "title": "Diwali",
+                    "content": "# Diwali 2025\n\n- **Diwali** is celebrated on the 14th of November. (your memory)  \n- The owner said: \"Put together a short write-up on Diwali from what you can find online and save it.\""
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "owner"
+                    ],
+                    "content": [
+                        "composed",
+                        "lookup:s1"
+                    ]
+                }
+            ],
+            "lookups": [
+                "Diwali 2025 = 20 October 2025 [done]"
+            ],
+            "tools_run": [
+                "memory.search",
+                "document.write"
+            ],
+            "searches": [],
+            "added": [
+                "document Diwali.md"
+            ],
+            "refused": [],
+            "plan_ms": 13.0,
+            "total_ms": 3915.0,
+            "reply_words": 14,
+            "reply": "Diwali 2025: 20 October 2025. Saved the document \"Diwali.md\" (34 words) in your documents."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "indirect-insurance",
+            "group": "indirect",
+            "text": "My car insurance runs out on 5 November and I've let it lapse before.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "renew my car insurance",
+                    "when": "5 November"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "derived",
+                        "owner"
+                    ],
+                    "when": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "renew my car insurance @ 2025-11-05T09:00"
+            ],
+            "refused": [],
+            "plan_ms": 11.0,
+            "total_ms": 43.0,
+            "reply_words": 14,
+            "reply": "I'll remind you to renew my car insurance Wednesday 5 November at 9:00 AM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "context-list",
+            "group": "context",
+            "text": "Put those on the shopping list.",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"task.add\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "task.add:done",
+            "args": [
+                {
+                    "title": "milk, bread and coffee",
+                    "list": "shopping"
+                }
+            ],
+            "provenance": [
+                {
+                    "title": [
+                        "context"
+                    ],
+                    "list": [
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "task.add"
+            ],
+            "searches": [],
+            "added": [
+                "milk @ null",
+                "bread @ null",
+                "coffee @ null"
+            ],
+            "refused": [],
+            "plan_ms": 15.0,
+            "total_ms": 44.0,
+            "reply_words": 8,
+            "reply": "Added milk, bread, coffee to your shopping list."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "para-water",
+            "group": "paraphrase",
+            "text": "ping me at 6:30 this evening to water the plants",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "failed_checks": [],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"instruction\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[\"reminder.set\"]}",
+            "goal_state": "COMPLETED",
+            "goal_error": "",
+            "steps": "reminder.set:done",
+            "args": [
+                {
+                    "what": "water the plants",
+                    "when": "today at 6:30 pm"
+                }
+            ],
+            "provenance": [
+                {
+                    "what": [
+                        "owner"
+                    ],
+                    "when": [
+                        "calc",
+                        "owner"
+                    ]
+                }
+            ],
+            "lookups": [],
+            "tools_run": [
+                "reminder.set"
+            ],
+            "searches": [],
+            "added": [
+                "water the plants @ 2025-10-09T18:30"
+            ],
+            "refused": [],
+            "plan_ms": 13.0,
+            "total_ms": 43.0,
+            "reply_words": 11,
+            "reply": "I'll remind you to water the plants today at 6:30 PM."
+        },
+        {
+            "mode": "full",
+            "run": 1,
+            "case": "question-moon",
+            "group": "question",
+            "text": "What would happen if the Moon suddenly disappeared?",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "failed_checks": [
+                "reply"
+            ],
+            "unwanted_change": false,
+            "understanding_raw": "{\"kind\":\"question\",\"goal\":\"gold\",\"lookup\":[],\"tools\":[]}",
+            "goal_state": "-",
+            "goal_error": "",
+            "steps": "-",
+            "args": [],
+            "provenance": [],
+            "lookups": [],
+            "tools_run": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "plan_ms": 8.0,
+            "total_ms": 1419.0,
+            "reply_words": 16,
+            "reply": "The Moon's disappearance would have catastrophic effects on Earth, potentially causing widespread geological and environmental changes."
+        }
+    ]
+}

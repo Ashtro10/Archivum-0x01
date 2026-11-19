@@ -121,6 +121,17 @@ class ShellApiTest {
         assertTrue(hits.single().jsonObject.s("text").contains("Hexapod"))
     }
 
+    @Test fun aDocumentCluWritesAppearsInThePcDocumentsView() {
+        val ctx = ai.clu.core.tools.ToolContext(ai.clu.core.security.Actor.ownerInApp(), host.core.personas.active(), null, 0)
+        val r = kotlinx.coroutines.runBlocking { host.core.tools.execute("document.write", buildJsonObject { put("title", "Diwali"); put("content", "# Diwali\n\nDiwali 2025 falls on 20 October (web).") }, ctx) }
+        assertTrue(r.success && r.verified, r.summary)
+        assertEquals("Diwali.md", arr(req("/v1/documents")).single().jsonObject.s("name"))
+        assertTrue(arr(req("/v1/documents/search?q=October")).isNotEmpty(), "searchable on the PC")
+        val again = kotlinx.coroutines.runBlocking { host.core.tools.execute("document.write", buildJsonObject { put("title", "Diwali"); put("content", "# Diwali\n\nA second version of the notes.") }, ctx) }
+        assertTrue(again.success)
+        assertEquals(setOf("Diwali.md", "Diwali (2).md"), arr(req("/v1/documents")).map { it.jsonObject.s("name") }.toSet(), "never overwritten")
+    }
+
     @Test fun suggestionsAreSavedOnlyWhenApproved() {
         val keep = host.core.proposals.propose(ProposalKind.OBSERVATION, "Prefers tea in the evening.", "said so twice")!!
         val drop = host.core.proposals.propose(ProposalKind.OBSERVATION, "Dislikes Mondays.", "a guess")!!

@@ -185,7 +185,7 @@ class CluCore(val db: SqlDriver, val platform: CluPlatform, val clock: Clock = S
         val zone = { java.time.ZoneId.systemDefault() }
         val web = WebSearchTool(search)
         val geo = Geocoder(platform.http)
-        listOf(TimeTool(time::conversationNow), CalcTool(), DateCalcTool { java.time.Instant.ofEpochMilli(time.conversationNow()).atZone(java.time.ZoneId.systemDefault()).toLocalDate() }, MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
+        listOf(TimeTool(time::conversationNow), CalcTool(), DocumentWriteTool { archive.documents }, DateCalcTool { java.time.Instant.ofEpochMilli(time.conversationNow()).atZone(java.time.ZoneId.systemDefault()).toLocalDate() }, MemorySearchTool(memories), RememberTool(memories, settings), DiaryRecentTool(diary), DiarySearchTool(diary),
             DiaryAddTool(diary, conversations), PersonaSwitchTool(personas),
             web, GeocodeTool(geo), DistanceTool(platform.http, geo), TrainTool(web), ExternalAiTool(platform.http, settings) { platform.secret("external_ai_key") },
             ai.clu.core.butler.TaskAddTool(butler), ai.clu.core.butler.TaskListTool(butler), ai.clu.core.butler.TaskDoneTool(butler) { reminderScheduler },

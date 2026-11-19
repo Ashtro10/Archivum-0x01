@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.15.0-prototype.
 
-* Settings: **306** · verifying test passed: **306** · other: **0**
+* Settings: **308** · verifying test passed: **308** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -174,6 +174,8 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tool.time.now.confirm` | Confirm before time.now | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.calc.enabled` | Allow calc | `true` | true / false | SHARED | ToolExecutor | When off, calc is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.calc.confirm` | Confirm before calc | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
+| `tool.document.write.enabled` | Allow document.write | `true` | true / false | SHARED | ToolExecutor | When off, document.write is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
+| `tool.document.write.confirm` | Confirm before document.write | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.date.calc.enabled` | Allow date.calc | `true` | true / false | SHARED | ToolExecutor | When off, date.calc is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |
 | `tool.date.calc.confirm` | Confirm before date.calc | `"default"` | `default`, `always`, `never` | SHARED | ToolExecutor | Confirmation prompt before execution | Applies immediately | `ToolSettingsTest#perToolConfirm` | passed | – |
 | `tool.memory.search.enabled` | Allow memory.search | `true` | true / false | SHARED | ToolExecutor | When off, memory.search is refused | Applies immediately | `ToolSettingsTest#perToolEnable` | passed | – |

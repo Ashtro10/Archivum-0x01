@@ -124,6 +124,15 @@ class ShellHostTest {
         assertEquals("offline", link["link"]!!.jsonPrimitive.content)
     }
 
+    @Test fun aDocumentCluWritesOnThisDeviceAppearsInItsDocumentsView() {
+        val t = session()
+        val ctx = ai.clu.core.tools.ToolContext(ai.clu.core.security.Actor.ownerInApp(), core.personas.active(), null, 0)
+        val r = kotlinx.coroutines.runBlocking { core.tools.execute("document.write", buildJsonObject { put("title", "Trip plan"); put("content", "# Trip plan\n\nLeave on Friday at 6 am (owner).") }, ctx) }
+        assertTrue(r.success && r.verified, r.summary)
+        assertTrue(call("/v1/documents", token = t).second.contains("Trip plan.md"), "listed through this device's own API")
+        assertTrue(call("/v1/documents/search?q=Friday", token = t).second.contains("Friday"), "and searchable")
+    }
+
     @Test fun withoutAPCTheArchiveAndMemoryViewsWorkOnThisDevice() {
         val t = session()
         val (made, body) = call("/v1/memories", "POST", """{"title":"Lonavala trip","content":"Went with Ashutosh","when":"March 2018","people":["Ashutosh"]}""", t)

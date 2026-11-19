@@ -495,3 +495,230 @@ Pipeline tests with a scripted planner, so the engine is tested independently of
    tok/s and per-turn timings (Settings → Diagnostics). Add a 30-minute conversation for thermal throttling and
    battery drain.
 3. **Release** only if the chosen model clearly beats Qwen3-0.6B on this evaluation, with zero unwanted changes.
+
+
+---
+
+# Phase 3 — Model capability, failure attribution and grounding (21 November 2026)
+
+## Q0. What could and could not be done
+
+| Asked for | Status | Reason / evidence |
+|---|---|---|
+| Evaluate Qwen3-4B-Instruct-2507, Phi-4-mini-instruct and others | **Not done** | Hugging Face and its mirrors are unreachable from this container (proxy refusal, re-checked this phase). The environment change that would allow them could not be approved from the Claude app version in use. Disk: 2.1 GB free, below a 4B Q4 file (≈2.5 GB) |
+| Laptop comparison, Xiaomi Pad 6 measurements | **Not done** | No computer or device is attached to this session |
+| Live research against real websites | **Not done** | Search providers and Wikipedia are blocked the same way; research is exercised with a topic fixture shaped like the real search tool's output |
+| Model licences and suitability | **Unverified here** | Phase 2 section P1 lists what the model cards say; nothing in this report claims a model is suitable |
+| Everything below | Done and measured | With the one real instruction model available (Qwen3-0.6B Q4_K_M) and with oracle substitution |
+
+No APK or installer was released.
+
+## Q1. Where failures come from: stage-by-stage oracle substitution
+
+**Method.** Every case has gold answers for each model stage:
+* the understanding (kind, missing facts, tools);
+* the focused tool choice;
+* the intent check;
+* each tool's arguments;
+* the fact extracted from a lookup.
+
+The production path runs three times, with real tools and stores, and the real model wherever the oracle doesn't
+answer:
+* **model alone** (`none`);
+* **oracle understanding** (`understand`: gold understanding, tool choice and intent check);
+* **full oracle** (`full`: gold arguments and extractions too).
+
+How a failure is attributed:
+* A case that passes only with oracle understanding failed at understanding. The model's raw answer is compared with
+  gold to name the sub-stage: intent, missing-information detection, tool selection or intent check.
+* A case that needs the full oracle failed at argument generation or fact retrieval.
+* A case that fails even with the full oracle failed in **CLU's own** orchestration (execution, verification, routing,
+  response).
+
+Code: `GoalEvaluation` (`-Dclu.goalOracle=none,understand,full`). Data:
+* `docs/measurements/goal_eval3_qwen3_0.6b_oracle.json` (final code);
+* `…_oracle_prefix.json` (before the Q2 fixes).
+
+**30 cases.** These are the 22 from Phase 2 plus 8 new ones:
+* a commitment;
+* a hypothetical;
+* a dependent multi-tool task (look up, add to list, remind);
+* a document written from research;
+* an indirect intention (insurance that "runs out" and was "let lapse before");
+* context resolution ("Put those on the shopping list");
+* a paraphrase ("ping me at 6:30 this evening…");
+* an open question.
+
+| | Model alone | Oracle understanding | Full oracle |
+|---|---|---|---|
+| Before the Phase 3 fixes | 12/30 | 14/30 | 26/30 |
+| **Final code** | **14/30** | **15/30** | **29/30** |
+| Unwanted changes (every run) | 0 | 0 | 0 |
+| Correct kind (final) | 22/30 | 30/30 | 30/30 |
+| Whole turn, median / p95 (final) | 7.8 s / 9.9 s | — | — |
+
+Phase 2's comparable figure was 13/22 per run on its 22 cases; the 30 cases here include harder ones (multi-tool,
+document, indirect, context resolution).
+
+| Group | Model alone | Oracle understanding | Full oracle |
+|---|---|---|---|
+| acceptance | 0/2 | 0/2 | 2/2 |
+| act | 2/4 | 2/4 | 4/4 |
+| context | 1/2 | 1/2 | 2/2 |
+| document | 0/1 | 1/1 | 1/1 |
+| indirect | 0/2 | 2/2 | 2/2 |
+| lookup+act | 0/2 | 0/2 | 2/2 |
+| multi-tool | 0/2 | 0/2 | 2/2 |
+| no-action | 5/5 | 5/5 | 5/5 |
+| paraphrase | 1/4 | 0/4 | 4/4 |
+| question | 1/2 | 0/2 | 1/2 |
+| research | 2/2 | 2/2 | 2/2 |
+| statement | 2/2 | 2/2 | 2/2 |
+
+**Reading.** With every model stage answered correctly, CLU completes 29 of 30 tasks:
+* look-up-then-act;
+* two dependent tools in one message;
+* conversation context;
+* indirect intentions;
+* a document written from research;
+* questions, statements and musings, which never act.
+
+The one full-oracle failure is a free-text answer: the Moon answer didn't mention tides. In the previous run the
+failure was a different free-text answer instead ("Sydney" for Australia's capital).
+
+**Run-to-run variation.** The model-alone result was 15, 15 and 14 of 30 over the last three runs on near-final code,
+so the differences between those runs are noise in free-text answers, not in task execution. **After the fixes, no failure is attributed to CLU's orchestration.**
+
+The 16 model-alone failures:
+* **argument generation: 12**
+* **tool selection: 2**
+* **missing-information detection: 1**
+* **response generation: 1**
+
+The bottleneck is a 0.6B model choosing the words and times of correctly chosen tools. Whether a stronger model removes
+it is what the stronger-model evaluation must show; **it has not been measured**.
+
+### Failure attribution, model alone (final code)
+
+The stage named is the one whose oracle makes the case pass; an earlier stage may also have been wrong. For example,
+in *diwali-clean* the model also failed to ask for the Diwali date, and with that supplied it still wrote an unusable
+time, so it needs the full oracle.
+
+| Case | Failed check | Stage (attributed) | Passes with oracle understanding | Passes with full oracle | What the model produced |
+|---|---|---|---|---|---|
+| diwali | reminder | argument generation | no | yes | {"what": "Diwali's coming up", "when": "3 days before it"} |
+| diwali-clean | reminder | argument generation | no | yes | {"what": "set a reminder", "when": "two days before"} |
+| rahul | reminder | argument generation | no | yes | {"what": "I have a meeting with Rahul tomorrow at 3 pm", "when": "3 hours before tomorrow at 3 pm"} |
+| shopping | items | argument generation | no | yes | {"list": "Add milk and eggs to my shopping list"}; {"title": "milk"} |
+| t1-busy-thursday | reminder | argument generation | no | yes | {"kind": "instruction", "goal": "register for marathon", "lookup": [], "tools": ["reminder.set"]} |
+| t5-exam | reminder | argument generation | no | yes | {"kind":"instruction","goal":"find next examination date","lookup":["next examination date"],"tools" |
+| para-vitamins | reminder | argument generation | no | yes | {"what": "vitamins", "when": "9:00"} |
+| para-groceries | items | argument generation | no | yes | {"kind": "instruction", "goal": "set reminder for shopping list", "lookup": [], "tools": ["reminder. |
+| indirect-birthday | reminder | tool selection | yes | yes | {"kind": "instruction", "goal": "check birthday date", "lookup": [], "tools": ["none"]} |
+| multi-tool | reminder, items | argument generation | no | yes | {"title": "shopping", "list": "Add eggs to the shopping list"} |
+| multi-dependent | items | argument generation | no | yes | {"what": "shopping list", "when": "3 days before 20 October 2025"} |
+| doc-research | document | missing-information detection | yes | yes | {"kind": "instruction", "goal": "create a write-up on Diwali", "lookup": [], "tools": ["none"]} |
+| indirect-insurance | reminder | tool selection | yes | yes | {"kind": "instruction", "goal": "update car insurance status", "lookup": [], "tools": ["none"]} |
+| context-list | items | argument generation | no | yes | {"list": "shopping"}; {"title": "shopping", "list": "milk bread coffee"} |
+| para-water | reminder | argument generation | no | yes | {"what": "water the plants", "when": "6:30 this evening"} |
+| question-moon | reply | response generation | no | no | {"kind": "instruction", "goal": "determine the impact of the Moon disappearing", "lookup": [], "tool |
+
+## Q2. CLU defects found by the oracle runs (fixed and tested)
+
+1. **Irrelevant evidence.** "Diwali 2025" matched an exam memory on "2025", and that text was used as the Diwali evidence
+   (the document said "14th of November (your memory)"). A source must now mention a distinctive word of the fact (not
+   "date", "next" or a number) before anything is extracted from it
+   (`StepwiseGoalTest.anUnrelatedRecordIsNotEvidenceForAFact`).
+2. **Weak lookup grounding.** A copied example lookup ("date of the next Chennai marathon") passed because it shared
+   "date" with the message. Generic words no longer count.
+3. **Understanding unrelated to the message.**
+   * A plan whose own restatement of the goal shares no distinctive word with the message no longer drives actions. This
+     covers copied examples such as "marathon registration reminder" for a Diwali message, and noise.
+   * Found because the real-inference plumbing tests use a random-weight model: its grammar-valid but meaningless plans
+     occasionally started a goal (an action, or two read-only tools), making two tests intermittently fail. The check
+     covers every goal step, and those tests are now stable (5/5 runs)
+     (`anUnderstandingUnrelatedToTheMessageDrivesNoAction`).
+4. **Extraction echo.** An extraction that repeats the question ("Wanted: Diwali 2025") is no longer accepted as a value.
+5. **A regression introduced this phase, then reverted.** Offering word forms, generic verbs and task verbs in the
+   argument *generation* vocabulary made the 0.6B model write "go to mom", "vitaminss" and "submit". Generation is back
+   to Phase 2's vocabulary (the owner's words and facts). Paraphrase acceptance now lives in provenance validation (Q3).
+6. **Schema regression, caught before measuring.** An optional `"tools": []` list was always left empty by the 0.6B
+   model. The list now needs an explicit entry, with `"none"` allowed.
+7. **An evaluation defect, not a CLU one.** Research questions failed even under the full oracle because the search
+   fixture lacked the source records the real search tool returns; the research path rightly judges relevance on them.
+   The fixture now has the real shape.
+
+## Q3. Semantic grounding with provenance
+
+* Every argument of every tool step now records where it came from, persisted with the goal (`GoalStep.provenance`):
+  * `owner`: this message;
+  * `context`: the owner's earlier messages, last 30 minutes;
+  * `lookup:sN`: a verified lookup, its value or the source text it was read from;
+  * `calc`: a deterministic calculation, such as anchoring "two days before" to a date, or time words;
+  * `derived`: an obvious task verb in a note to the owner ("renew" the insurance that "runs out");
+  * `composed`: text CLU wrote from the evidence, such as a document's content.
+* **Accepted as paraphrase:** word forms ("submission" → "submit", "prepare" → "preparing"), connecting words ("to",
+  "your") and generic verbs ("start", "remember").
+* **Refused:** a value with any content word that traces to nothing (an invented name, place or date). Derived task
+  verbs are allowed only in notes to the owner (reminders, lists), never in text sent to anyone.
+* Tests: `everyArgumentRecordsWhereItCameFrom` (the reminder date is `lookup:s1` + `calc`) and
+  `paraphraseIsAllowedButInventionIsNot`.
+
+## Q4. Multi-tool tasks, statements, documents
+
+* **Dependent tools.** One message can drive up to two tools in order, after its lookups:
+  * Each action gets its own intent check, and an action the message doesn't ask for is dropped while the others run
+    (`anActionTheMessageDoesNotAskForIsLeftOutOfAMultiToolPlan`).
+  * Measured: "Look up when Diwali is, put diyas on my shopping list and remind me to buy them three days before"
+    completes with the full oracle (lookup, list entry, reminder on 17 October). With the 0.6B model alone it does not
+    (argument generation).
+* **Statements.** A new message kind `statement` covers facts, plans, commitments and hypotheticals. Like thinking aloud,
+  it never acts (2/2 in every mode).
+* **`document.write` (new tool).**
+  * Saves a new Markdown document in the owner's archive and never overwrites ("Diwali (2).md").
+  * Its content is composed from the evidence found, with each fact's source in brackets.
+  * Verified on both platforms' APIs: the Android path (`ShellHostTest.aDocumentCluWritesOnThisDeviceAppearsInItsDocumentsView`)
+    and the PC (`ShellApiTest.aDocumentCluWritesAppearsInThePcDocumentsView`); listed and searchable on both.
+  * Not run on a physical Android device.
+
+## Q5. Recovery, confirmation and context exhaustion (automated, scripted model)
+
+* Restart and resume from the checkpoint, and no blind repeat of an action caught by a restart: GoalEngineTest.
+* Confirmation, then automatic continuation of the remaining steps; a declined step cancels: StepwiseGoalTest.
+* **New:** a goal runs correctly when the conversation has outgrown a 1,600-token window, with every planning prompt
+  inside it (`aGoalStillRunsWhenTheConversationHasOutgrownTheContextWindow`).
+* Model timeouts and request limits: InferenceServiceTest, LlmReliabilityTest.
+
+## Q5b. Test results (final code)
+
+| Suite | Result |
+|---|---|
+| core | 768 tests, 0 failures, 17 opt-in skipped (StepwiseGoalTest is now 24 tests) |
+| app | 99 tests, 0 failures |
+| desktop | 145 tests, 0 failures, 8 opt-in skipped |
+| ICU regex check (Android) | 694 patterns, 0 rejected |
+| Real-inference plumbing tests (random-weight model) | 5/5 clean runs after the Q2 #3 fix; before it they failed intermittently |
+
+## Q6. Reproducible commands for what this environment could not do
+
+On the owner's laptop (or here once Hugging Face is reachable):
+```
+# 1. Models (licences: check each model card before use; repository names were not verifiable from here and may change)
+huggingface-cli download unsloth/Qwen3-4B-Instruct-2507-GGUF --include "*Q4_K_M*" --local-dir models
+huggingface-cli download unsloth/Phi-4-mini-instruct-GGUF --include "*Q4_K_M*" --local-dir models
+# 2. The same 30-case evaluation with oracle attribution, per model (2 runs for variance)
+./gradlew :core:test --tests ai.clu.core.GoalEvaluation -Dclu.goalModel=models/<file>.gguf \
+    -Dclu.goalOracle=none,understand,full -Dclu.goalRuns=2 -Dclu.goalOut=docs/measurements/goal_eval3_<model>.json
+# 3. Speed and memory on the laptop
+./gradlew :core:test --tests ai.clu.core.LlmLatencyBenchmark -Dclu.llmBenchModel=models/<file>.gguf
+```
+
+**Release gate for a model:**
+* model-alone success clearly above Qwen3-0.6B's 14–15/30;
+* zero unwanted changes;
+* multi-tool and lookup-then-act cases passing without the oracle.
+
+Then measure on the **Pad 6** with the app's diagnostics (model load, first token, tokens/s, RAM, a 30-minute session
+for heat and battery) before any recommendation is published. Live research then needs a session with web access:
+the questions in the evaluation's research group, plus a multi-source one, checking that pages were opened (sources
+marked "opened") and that claims cite them.

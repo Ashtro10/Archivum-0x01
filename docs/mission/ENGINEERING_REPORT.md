@@ -1015,3 +1015,45 @@ document → archive passes in S6; disagreeing sources are quoted together (`aQu
 Lengthening the spoken-reply instruction by five words moved the kept-history start every three turns in a 2 000-token
 window (`VoiceLatencyTest`), which would cost prompt-cache reuse on the tablet. Reverted. The trimming is that
 sensitive near a full window: a risk for any future prompt growth.
+
+## S4b. Final conversation runs (all Phase 5 changes)
+
+`docs/measurements/conversation_eval5_qwen3_0.6b_run{1,2}.json`, 17 cases (15 comparable with Phase 4 + a context pair):
+
+| | Run 1 | Run 2 |
+|---|---|---|
+| Comparable 15 | 9/15 | 11/15 |
+| All 17 | 11/17 | 13/17 |
+| Multi-source (disagreement named) | pass | pass |
+| Context retrieval (personal fact) | 2/2 | 2/2 |
+| Conversations turned into actions | 0 | 0 |
+
+Remaining failures are model-stage: fridge missing the refrigerant cycle, a short tides answer, the GIL question
+declined or researched while offline, an invented Sensex close, a garbled Hindi translation. Single sampled runs at the
+production temperature; the spread between runs (9 vs 11) is the noise level.
+
+## S9. Test results (final code) and the qualification build
+
+| Suite | Result |
+|---|---|
+| core | 786 tests, 0 failures, 20 opt-in skipped (DailyUseSessionTest 10/10, AnswerDepthTest, new Butler/Wake/Grounding cases) |
+| app | 99 tests, 0 failures; `apiCheck`, `verifyApk`, ICU regex check passing |
+| desktop | 146 tests, 0 failures, 9 opt-in skipped on the re-run. **The first full run aborted** after 7.5 minutes with native heap corruption (`malloc(): unsorted double linked list corrupted`, exit 134) while LiveKit room tests were reconnecting; no test result was written. Not reproduced on the re-run; **not root-caused** |
+| Speech test class | 5/5 consecutive passes after the test-input fix |
+
+**Qualification build**: `clu-1.16.0-qualification.apk`, versionCode 33, release-signed (v3), 86.4 MB,
+SHA-256 `789c7f371bae580fbe820f1fbd874afed1fecdedbdfc566c94c2fb605a6d66de`. Built with
+`./gradlew :core:test :app:test :app:apiCheck :app:verifyApk :app:assembleRelease -Pclu.verify=release -Pclu.versionCode=33 -Pclu.versionName=1.16.0-qualification`
+from the commit that adds this section. Delivered to the owner directly; not committed, not a release.
+
+## S10. Remaining work and risks
+
+* **Tablet measurements**: none yet. Everything in S2 is ready; the Pad 6 has to run it.
+* **Model decision**: still open; needs network for downloads (S3) and then the tablet.
+* **Native heap corruption in the desktop test JVM** (S9): intermittent, seen once in two full runs, during LiveKit
+  reconnection tests. Native memory errors can also exist in the shipped desktop host; needs a run under a memory
+  checker (ASan/valgrind build of the native libraries) to locate.
+* **"Clue" as a wake word in noise**: 5/10 at speech/noise 1.2 (S5). "Friend" was 10/10; consider recommending a
+  two-syllable primary wake word if tablet tests confirm it.
+* **History trimming is sensitive to a few prompt tokens** near a full window (S8).
+* **Live research and full-duplex voice**: not verified / not implemented.

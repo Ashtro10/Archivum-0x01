@@ -33,6 +33,13 @@ class ButlerTest {
         Butler.parseWhen("every day at 8 am", now, zone)!!.let { assertEquals("daily", it.recur); assertEquals(LocalDateTime.of(2026, 11, 5, 8, 0), at(it.at)) }
         Butler.parseWhen("every Monday at 10", now, zone)!!.let { assertEquals("weekly", it.recur); assertEquals(LocalDateTime.of(2026, 11, 9, 10, 0), at(it.at)) }
         assertEquals(LocalDateTime.of(2026, 11, 4, 19, 0), at(Butler.parseWhen("tonight", now, zone)!!.at))
+        // Phase 5: an hour without am/pm takes its half of the day from the words around it.
+        assertEquals(LocalDateTime.of(2026, 11, 4, 21, 0), at(Butler.parseWhen("tonight at 9", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 4, 21, 0), at(Butler.parseWhen("at 9 tonight", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 18, 30), at(Butler.parseWhen("tomorrow evening at 6:30", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 4, 15, 0), at(Butler.parseWhen("this afternoon at 3", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("tomorrow morning at 9", now, zone)!!.at), "morning stays am")
+        assertEquals(LocalDateTime.of(2026, 11, 4, 21, 0), at(Butler.parseWhen("at 9 pm tonight", now, zone)!!.at), "an explicit pm is kept")
         assertNull(Butler.parseWhen("whenever you like", now, zone))
     }
 

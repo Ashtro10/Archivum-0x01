@@ -112,6 +112,17 @@ class GroundingCalibrationTest {
         assertNull(ai.clu.core.search.SearchTrigger.detect("Explain how a refrigerator keeps food cold.", now))
     }
 
+    @Test fun aQuotedAnswerNeverHidesADisagreementBetweenSources() {
+        val src = listOf(
+            ai.clu.core.conversation.SourceRef("Mount Everest", "https://en.wikipedia.org/wiki/Mount_Everest", "Mount Everest is Earth's highest mountain above sea level, with an elevation of 8,848.86 m, measured by China and Nepal in 2020."),
+            ai.clu.core.conversation.SourceRef("Everest height survey", "https://en.wikipedia.org/wiki/Survey", "The 1955 Indian survey gave the height of Mount Everest as 8,848 m; a 1999 American survey measured 8,850 m."))
+        val q = ai.clu.core.agent.Grounding.extract(src, "How tall is Mount Everest? Do the sources agree?")!!
+        assertContains(q, "8,848.86"); assertContains(q, "Another source differs"); assertContains(q, "8,850")
+        // Agreeing sources are not padded with a second quote.
+        val same = listOf(src[0], src[0].copy(title = "Everest facts", url = "https://example.org/e", snippet = "Everest stands 8,848.86 m tall."))
+        assertFalse("Another source" in ai.clu.core.agent.Grounding.extract(same, "How tall is Mount Everest?")!!)
+    }
+
     @Test fun groundingIsCalibrated() {
         val falseRejections = mutableListOf<String>(); val falseAcceptances = mutableListOf<String>()
         for (it in items) {

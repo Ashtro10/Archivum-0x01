@@ -268,7 +268,12 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
             val s = explicit?.second?.replace(Regex("\\s+"), " ")?.trim() ?: s0
             val clock = Regex("\\b(?:at )?(\\d{1,2}(?:[:.]\\d{2})?\\s*(?:am|pm|a\\.m\\.|p\\.m\\.)?|noon|midnight)\\b").findAll(s)
                 .map { it.groupValues[1] }.firstNotNullOfOrNull { c -> ClockTimeParser.parse(if (c.trim().all(Char::isDigit) || c.contains(':') || c.contains('.') || c.contains('m') || c == "noon" || c == "midnight") c else "") }
-            val given = clock?.let { LocalTime.of(it.first, it.second) } ?: if (Regex("\\bmorning\\b").containsMatchIn(s)) LocalTime.of(9, 0) else if (Regex("\\b(?:evening|tonight)\\b").containsMatchIn(s)) LocalTime.of(19, 0) else null
+            // An hour without am/pm takes its half of the day from the words around it: "at 9 tonight" is 21:00, not 9 am
+            // tomorrow (Phase 5: the daily-use session set "take my vitamins at 9 tonight" for the next morning).
+            val ampm = Regex("\\d\\s*(?:am|pm|a\\.m\\.|p\\.m\\.)").containsMatchIn(s)
+            val pmWords = Regex("\\b(?:tonight|evening|night|afternoon)\\b").containsMatchIn(s)
+            val clockDay = clock?.let { (h, m) -> if (!ampm && pmWords && h in 1..11) (h + 12) to m else h to m }
+            val given = clockDay?.let { LocalTime.of(it.first, it.second) } ?: if (Regex("\\bmorning\\b").containsMatchIn(s)) LocalTime.of(9, 0) else if (Regex("\\b(?:evening|tonight)\\b").containsMatchIn(s)) LocalTime.of(19, 0) else null
             val weekday = DayOfWeek.values().firstOrNull { d -> Regex("\\b${d.name.lowercase()}s?\\b").containsMatchIn(s) }
             val recur = when { Regex("\\b(?:every ?day|daily|each day|every morning|every evening|every night)\\b").containsMatchIn(s) -> "daily"; weekday != null && Regex("\\b(?:every|each)\\b").containsMatchIn(s) -> "weekly"; else -> "" }
             if (explicit != null) { // a dated reminder: 9 am unless a time is given; a moment already past is refused, never moved

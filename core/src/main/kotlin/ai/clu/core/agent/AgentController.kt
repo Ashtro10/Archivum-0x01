@@ -317,8 +317,21 @@ object Grounding {
         val out = StringBuilder()
         for (sn in sentences) { if (out.isNotEmpty() && out.length >= 40) break; if (out.isNotEmpty()) out.append(' '); out.append(sn.trim()) }
         val t = out.toString().take(320).trim()
-        return if (t.isEmpty()) null else if (t.last() in ".!?") t else "$t."
+        if (t.isEmpty()) return null
+        val first = if (t.last() in ".!?") t else "$t."
+        // Sources that disagree are never reduced to one: when another relevant result gives different figures, its
+        // sentence is quoted too (Phase 5: "How tall is Everest? Do the sources agree?" quoted 8,848.86 m and hid 8,848 m / 8,850 m).
+        val mine = FIGURE.findAll(first).map { it.value.replace(",", "") }.toSet()
+        if (mine.isEmpty()) return first
+        val other = sources.asSequence().filter { it !== best && words("${it.title} ${it.snippet}").count { w -> w in q } > 0 }
+            .flatMap { usable(it.snippet).asSequence() }
+            .firstOrNull { sn -> FIGURE.findAll(sn).map { it.value.replace(",", "") }.toSet().let { f -> f.isNotEmpty() && f.none { it in mine } } && words(sn).count { it in q } > 0 }
+            ?: return first
+        return "$first Another source differs: ${other.trim().take(240).let { if (it.last() in ".!?") it else "$it." }}"
     }
+
+    /** A figure worth comparing between sources: a number with at least three digits or a decimal (not "2" or "a 1"). */
+    private val FIGURE = Regex("\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+\\.\\d+|\\d{3,}")
 }
 
 /** The result of the bounded research loop. */

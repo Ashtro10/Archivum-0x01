@@ -133,9 +133,16 @@ class GoalStore(private val db: SqlDriver, private val now: () -> Long) {
 
     fun get(id: String): Goal? = db.query("$SELECT WHERE id = ?", listOf(id), ::row).firstOrNull()
 
-    /** The newest goal of a conversation that was interrupted and can be resumed. */
-    fun resumable(conversationId: String): Goal? =
-        db.query("$SELECT WHERE conversation_id = ? AND state = ? ORDER BY updated_at DESC LIMIT 1", listOf(conversationId, GoalState.RECOVERING.name), ::row).firstOrNull()
+    /**
+     * The goal "continue the task" resumes: the conversation's newest goal when the owner stopped it part-way (Phase 5:
+     * an interrupted task could not be resumed at all), otherwise the newest one interrupted by a restart. A goal the
+     * owner declined at a confirmation is not resumed, and an older stopped goal is not picked up behind a newer task.
+     */
+    fun resumable(conversationId: String): Goal? {
+        recent(conversationId, 1).firstOrNull()?.takeIf { it.state == GoalState.CANCELLED && it.error == STOPPED && it.steps.any { s -> s.status != GoalStepStatus.DONE && s.status != GoalStepStatus.SKIPPED } }
+            ?.let { return it }
+        return db.query("$SELECT WHERE conversation_id = ? AND state = ? ORDER BY updated_at DESC LIMIT 1", listOf(conversationId, GoalState.RECOVERING.name), ::row).firstOrNull()
+    }
 
     fun recent(conversationId: String? = null, limit: Int = 20): List<Goal> =
         if (conversationId == null) db.query("$SELECT ORDER BY updated_at DESC LIMIT ${limit.coerceIn(1, 200)}", emptyList(), ::row)
@@ -154,6 +161,8 @@ class GoalStore(private val db: SqlDriver, private val now: () -> Long) {
         r.lng(12), r.lng(13), r.lng(14))
 
     companion object {
+        /** The error recorded when the owner stops a goal (as opposed to declining a step). */
+        const val STOPPED = "cancelled"
         private const val SELECT = "SELECT id, conversation_id, objective, kind, interpretation, state, steps, model_calls, retries, error, verification, final_text, created_at, updated_at, deadline FROM goals"
 
         fun encode(steps: List<GoalStep>): String = JsonArray(steps.map { s -> buildJsonObject {
@@ -493,16 +502,17 @@ ws ::= [ \n]{0,3}
     suspend fun run(goal0: Goal, engine: LlmEngine?, ctx: ToolContext, signal: CancelSignal, progress: (Goal) -> Unit = {}, emit: (AgentEvent) -> Unit = {},
                     frame: ((String) -> List<ChatMessage>)? = null): GoalOutcome {
         // A resumed goal gets a fresh time budget; a new one keeps the deadline it was created with.
-        val deadline = if (goal0.state == GoalState.RECOVERING) now() + budget.goalTimeoutMs else goal0.deadline
+        val resumed = goal0.state == GoalState.RECOVERING || goal0.state == GoalState.CANCELLED
+        val deadline = if (resumed) now() + budget.goalTimeoutMs else goal0.deadline
         // Model calls are counted per run: a resumed goal gets a fresh allowance, as it gets a fresh time budget (measured:
         // a three-tool goal resumed after a restart ran out of calls it had spent before the restart).
-        val callBase = if (goal0.state == GoalState.RECOVERING) goal0.modelCalls else 0
+        val callBase = if (resumed) goal0.modelCalls else 0
         var g = store.save(goal0.copy(state = GoalState.RUNNING, deadline = deadline))
         var lastCall: String? = null
         for (i in g.steps.indices) {
             var step = g.steps[i]
             if (step.status == GoalStepStatus.DONE || step.status == GoalStepStatus.SKIPPED) continue
-            if (signal.isCancelled) return end(store.save(g.copy(state = GoalState.CANCELLED, error = "cancelled")), "Stopped. ${doneSoFar(g)}".trim(), emptyList())
+            if (signal.isCancelled) return end(store.save(g.copy(state = GoalState.CANCELLED, error = GoalStore.STOPPED)), "Stopped. ${doneSoFar(g)}".trim(), emptyList())
             if (now() > g.deadline) return fail(g, "it ran out of time (${budget.goalTimeoutMs / 1000} s) at step ${i + 1}")
             if (step.status == GoalStepStatus.STARTED && !step.readOnly)
                 return fail(g, "CLU stopped while ${tools.describe(step.tool!!).lowercase()} was running, so I can't tell whether it happened; check before asking again")

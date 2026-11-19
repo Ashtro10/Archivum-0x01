@@ -383,6 +383,10 @@ class StepwiseGoalTest {
         val text = reply(say("no"))
         assertTrue(sent.isEmpty() && reminders().isEmpty()); assertTrue(text.startsWith("Okay, I won't"), text)
         assertEquals(GoalState.CANCELLED, core.goalEngine.recent(conv).first().state)
+        // Declined is not "stopped part-way": "continue the task" must not bring it back (Phase 5 made stopped goals resumable).
+        assertNull(core.goalEngine.resumable(conv), "a declined goal is not resumable")
+        say("continue the task")
+        assertTrue(sent.isEmpty() && reminders().isEmpty(), "nothing the owner declined was done")
     }
 
     /** An engine whose first reply stops at the token limit mid-sentence. */

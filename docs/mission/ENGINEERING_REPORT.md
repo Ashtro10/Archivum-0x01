@@ -722,3 +722,131 @@ Then measure on the **Pad 6** with the app's diagnostics (model load, first toke
 for heat and battery) before any recommendation is published. Live research then needs a session with web access:
 the questions in the evaluation's research group, plus a multi-source one, checking that pages were opened (sources
 marked "opened") and that claims cite them.
+
+# Phase 4 — Real-world validation and model qualification (19 November 2026)
+
+## R0. Status against the release criteria
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| Stronger model evaluated, or unavailability documented | **Unavailability documented** | Re-checked this phase: `huggingface.co`, `hf-mirror.com`, `modelscope.cn` all refused by this container's proxy (`CONNECT tunnel failed, 403`). An environment allowing Hugging Face, Wikipedia and DuckDuckGo was proposed; the Claude app version in use cannot show the approval, so nothing changed. Disk: 2.4 GB free after removing already-extracted archives; a 4B Q4_K_M file is ≈2.5 GB, so no model was squeezed in |
+| Device stability tested | **Not done** | No tablet attached. A qualification kit is ready (R3); it was validated on this host only |
+| Live research verified | **Not done** | Search providers unreachable from here. An opt-in live harness exists (R4) and has **not** been run |
+| Multi-step execution passed | **Done (scripted model)** | R2: three dependent tools, restart, confirmation, context exhaustion, ambiguity, follow-ups |
+| No critical regressions | Full suites in R7; goal evaluation 13/30 vs 14/30 in Phase 3 (one sampled run each, within run-to-run noise), 0 unwanted changes |
+
+**Release decision: no APK or installer.** Three of five criteria cannot be met from this environment.
+
+## R1. Grounding calibration (false rejection / false acceptance)
+
+`GroundingCalibrationTest` runs the production checks (`GoalEngine.admissible`: words and provenance; `GoalEngine.about`:
+lookup and goal relevance) on 31 legitimate translations of natural instructions (paraphrase, obvious inferred task,
+context from an earlier message, lookups, calculations, Hinglish, composed email bodies) and 9 invented ones.
+
+| | First run | Final |
+|---|---|---|
+| False rejections (legitimate refused) | 3/40 | **0/40** |
+| False acceptances (invented admitted) | 0/13 | **0/13** |
+
+Fixes:
+* **Default list names** ("shopping", "tasks") were refused as unsaid words when the owner said "the list" or
+  "to-do list". They are now a known category with provenance `derived`.
+* **Word forms**: "exam"/"examination", "remind"/"reminder" are the same word for matching (`GoalEngine.sameWord`).
+* **Context**: goal relevance and lookup relevance now see the earlier message the instruction refers to
+  ("My dentist appointment is on 30 October" → "Remind me the day before" would have dropped a correct "dentist
+  reminder" goal).
+
+Three more false rejections were found by the real-model conversation evaluation (R5) and are covered by
+`answerChecksDoNotRejectGoodAnswersForTheirLabel` and `researchDecisionsForOrdinaryConversation`.
+
+## R2. Execution coverage (StepwiseGoalTest, scripted grammar-capable model)
+
+| Scenario | Test |
+|---|---|
+| Three dependent tools after a lookup, in order | `threeDependentToolsRunInOrderAfterTheLookup` |
+| Restart in the middle of a three-tool task; finished actions not repeated | `aThreeToolTaskInterruptedByARestartResumesWithoutRepeatingFinishedActions` |
+| Confirmation in the middle, then the rest continues | `aConfirmationInTheMiddleOfAStepwiseTaskContinuesTheRest` |
+| History far larger than the context window | `aMultiToolTaskStillRunsWhenTheConversationHasOutgrownTheWindow` |
+| Ambiguous instruction: nothing changed, says what is missing | `anAmbiguousInstructionChangesNothingAndSaysWhatIsMissing` |
+| Follow-up instruction using the earlier one | `aFollowUpInstructionUsesTheEarlierOne` |
+
+Defect found: a resumed task counted the model calls of its interrupted run against its budget and stopped
+("needed more model calls than allowed"). The budget is now per run, and the limit is 16 (three tools need it).
+
+## R3. Device qualification kit
+
+* `core/.../DeviceQualification.kt`: through CLU's own inference service, with the selected model, it measures:
+  load time and memory; per round first-token time, prompt and generation speed, memory, thermal state and battery
+  temperature; sustained speed (last third vs first third); context retention (a fact at the start of a prompt
+  filling 70% of the context); a planning call. It writes nothing to the owner's data and records every error
+  without stopping. It unloads and reloads the model first, so it cancels anything running.
+* Android: Settings → Diagnostics → **Run model qualification** (20 rounds; `AndroidDeviceProbe`: PSS, PowerManager
+  thermal status, battery level/temperature/charging, SoC, RAM). Report saved under
+  `Android/data/ai.clu/files/qualification/` and offered to share.
+* `scripts/qualify_device.sh [apk] [model]`: installs, pushes a model, waits for the report, pulls it to
+  `docs/measurements/device/`, and records logcat (crashes, ANRs, low-memory kills), `dumpsys thermalservice`,
+  `meminfo` and `battery`.
+
+**Host validation only** (`docs/measurements/qualification_host_qwen3_0.6b.json`, this build server, 4 threads, CPU;
+says nothing about the Pad 6):
+
+| Load | Peak RSS | First token median / p95 | Generation median | Sustained change | Context recall at 68% fill | Planning call | Errors |
+|---|---|---|---|---|---|---|---|
+| 13.7 s | 1249 MB | 129 / 191 ms | 28.6 tok/s | +17% (no throttling on this host) | recalled | 8.1 s, correct tool | 0 (12/12 rounds) |
+
+To run on the Pad 6:
+```
+scripts/qualify_device.sh build/clu.apk models/Qwen3-0.6B-Q4_K_M.gguf
+# then the same with Qwen3-4B-Instruct-2507 and Phi-4-mini-instruct Q4_K_M; for sustained heat, run it 2–3 times back to back
+```
+On a laptop: `./gradlew :core:test --tests ai.clu.core.DeviceQualificationTest -Dclu.qualifyModel=<gguf> -Dclu.qualifyOut=<json>`.
+
+## R4. Live research harness (not run)
+
+`LiveResearchEvaluation` uses real HTTP (`JvmHttp`), CLU's search providers and page reader, the real model and the
+production agent: Everest height with "do the sources agree?", the 2023 World Cup final, the latest Linux kernel,
+Tenzing Norgay, and the full chain "look up the history of the Eiffel Tower and save a short document about it"
+(research → document.write → archive check). It records queries, sources, pages opened, distinct sites, whether the
+answer names a disagreement, and the document. It skips when Wikipedia is unreachable, as it is here.
+```
+./gradlew :core:test --tests ai.clu.core.LiveResearchEvaluation -Dclu.liveResearch=models/<file>.gguf \
+    -Dclu.liveResearchOut=docs/measurements/live_research_<model>.json [-Dclu.searchProvider=brave]   # Brave: CLU_BRAVE_KEY
+```
+
+## R5. Ordinary conversation (real Qwen3-0.6B, production agent)
+
+`ConversationQualityEvaluation`: 15 cases (explanations, technical reasoning, two follow-up chains, honest
+uncertainty, length, long-form, and a multi-source question with two disagreeing search results as a fixture).
+Checks are coarse (concepts a correct answer cannot avoid, word counts, an admission of not knowing); every reply and
+raw model output is saved in `docs/measurements/conversation_eval_qwen3_0.6b.json`. Single sampled run each.
+
+| | Before fixes | After fixes |
+|---|---|---|
+| Passed | 3/15 | 5/15 |
+| Conversations turned into actions | 0 (the evaluation first counted the calculator as one; corrected) | 0 |
+| First text (median) | – | 0.53 s |
+
+CLU defects found and fixed (all decisions in CLU's code, not the model's):
+1. **Correct offline answer discarded.** The model copied the note's "OFFLINE:" label in front of a real answer
+   about the Python GIL; the echo check rejected the whole reply and the owner got "I'm offline right now, so I
+   can't look that up." The label is now removed before the check; the label alone, or a copied note, is still
+   rejected.
+2. **The owner's own past sent to the web.** "What did I have for breakfast yesterday?" was researched because of
+   "yesterday". Questions whose subject is the owner ("what did I…", "where did we…", "have I…") are no longer web
+   research unless they are about news, prices, scores and similar.
+3. **"Do the sources agree?" did not research.** It now counts as an explicit request for sources.
+
+Remaining failures are model-stage (read in the raw outputs): answers too short to explain (fridge, tides,
+vaccines), refusals that cite tools or live data for ordinary questions ("I don't have a tool for translating",
+"I cannot access live information" for an SQL question), and declining the GIL question outright on one run.
+These are what a stronger model has to fix; no prompt tuning was done for them.
+
+## R6. Goal evaluation after the Phase 4 changes
+
+`docs/measurements/goal_eval4_qwen3_0.6b.json` (30 cases, model alone, one run): **13/30** task success,
+**0 unwanted changes**, kind correct 19/30, planning median 5.5 s. Phase 3: 14/30, 0 unwanted, 22/30. One sampled
+run each, so the difference is within run-to-run noise, but it is not an improvement: the failures are the same
+model-stage errors as Phase 3 (copied example goals such as "marathon registration reminder" for unrelated
+messages, now correctly refused by the relevance check; wrong tools such as `task.list` for "add to the list").
+
+## R7. Test results (final code)

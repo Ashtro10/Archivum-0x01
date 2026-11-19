@@ -1,0 +1,467 @@
+{
+    "model": "Qwen3-0.6B-Q4_K_M.gguf",
+    "model_info": {
+        "context": "4096 tokens",
+        "threads": "4 (prompt) / 2 (generation while speaking)",
+        "batch": "256",
+        "max reply": "400 tokens",
+        "model": "qwen3 0.6B Q4_K - Medium, 372 MB"
+    },
+    "passed": "13/17",
+    "by_group": {
+        "explanation": "1/2",
+        "technical": "3/3",
+        "follow-up": "3/4",
+        "uncertainty": "1/2",
+        "length": "1/2",
+        "long-form": "1/1",
+        "multi-source": "1/1",
+        "context": "2/2"
+    },
+    "goal_hijacks": 0,
+    "note": "Coarse automated checks; read the replies. Search results for the multi-source case are a fixture, not live web.",
+    "rows": [
+        {
+            "case": "fridge",
+            "group": "explanation",
+            "text": "Explain how a refrigerator keeps food cold.",
+            "ok": false,
+            "failed": [
+                "concepts 2/4"
+            ],
+            "words": 84,
+            "concepts_found": [
+                "refrigerant|coolant",
+                "heat"
+            ],
+            "kind": "none",
+            "first_text_ms": 2783.663559,
+            "total_ms": 7653.099751,
+            "generated_tokens": 97.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "A refrigerator keeps food cold by creating an environment that minimizes heat and maintains a consistent temperature. This is achieved through the use of refrigerants, which transfer heat to the surrounding air, effectively lowering the internal temperature of the fridge. Additionally, the design of the refrigerator ensures that the cold air circulates efficiently throughout the interior space, preventing the food from overheating and reaching higher temperatures. By maintaining this controlled environment, a refrigerator helps preserve the freshness and quality of stored foods over time.",
+            "model_outputs": [
+                "A refrigerator keeps food cold by creating an environment that minimizes heat and maintains a consistent temperature. This is achieved through the use of refrigerants, which transfer heat to the surrounding air, effectively lowering the internal temperature of the fridge. Additionally, the design of the refrigerator ensures that the cold air circulates efficiently throughout the interior space, preventing the food from overheating and reaching higher temperatures. By maintaining this controlled environment, a refrigerator helps preserve the freshness and quality of stored foods over time."
+            ],
+            "log": []
+        },
+        {
+            "case": "tides",
+            "group": "explanation",
+            "text": "Why are there two high tides a day and not one?",
+            "ok": true,
+            "failed": [],
+            "words": 60,
+            "concepts_found": [
+                "moon",
+                "gravit"
+            ],
+            "kind": "none",
+            "first_text_ms": 433.327562,
+            "total_ms": 4124.649351,
+            "generated_tokens": 72.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "There are two high tides a day because the Moon, Earth, and the Sun all act in conjunction to create this phenomenon. The gravitational pull of the Moon causes the ocean tides, but due to Earth's rotation, there are two high tides each day. This is why both tides are higher than the low tide when the moon is full.",
+            "model_outputs": [
+                "There are two high tides a day because the Moon, Earth, and the Sun all act in conjunction to create this phenomenon. The gravitational pull of the Moon causes the ocean tides, but due to Earth's rotation, there are two high tides each day. This is why both tides are higher than the low tide when the moon is full."
+            ],
+            "log": []
+        },
+        {
+            "case": "binary-search",
+            "group": "technical",
+            "text": "Why is binary search O(log n)? Walk me through the reasoning.",
+            "ok": true,
+            "failed": [],
+            "words": 60,
+            "concepts_found": [
+                "half|halv",
+                "log",
+                "sorted|compar|step"
+            ],
+            "kind": "none",
+            "first_text_ms": 427.371642,
+            "total_ms": 3800.699814,
+            "generated_tokens": 70.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Binary search has a time complexity of $ O(\\log n) $ because it reduces the problem size by half in each step. This works efficiently for problems where you need to find an element quickly, such as sorting or searching. The reasoning involves dividing the list into halves at each iteration until only one element remains, ensuring logarithmic growth in time.",
+            "model_outputs": [
+                "Binary search has a time complexity of $ O(\\log n) $ because it reduces the problem size by half in each step. This works efficiently for problems where you need to find an element quickly, such as sorting or searching. The reasoning involves dividing the list into halves at each iteration until only one element remains, ensuring logarithmic growth in time."
+            ],
+            "log": []
+        },
+        {
+            "case": "thread-process",
+            "group": "technical",
+            "text": "What's the difference between a process and a thread?",
+            "ok": true,
+            "failed": [],
+            "words": 80,
+            "concepts_found": [
+                "shar",
+                "lightweight|overhead|cheaper|faster|own"
+            ],
+            "kind": "none",
+            "first_text_ms": 1521.55427,
+            "total_ms": 4492.345906,
+            "generated_tokens": 90.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "A process is a general concept that refers to the ongoing activity of a system, such as executing a program or performing an operation. A thread, on the other hand, is a lightweight process that runs within a single process, allowing for parallel execution and resource sharing between multiple threads. The key difference lies in their scope and interactivity: processes typically handle complex tasks across the entire system, while threads operate independently within a single process to facilitate concurrent execution.",
+            "model_outputs": [
+                "A process is a general concept that refers to the ongoing activity of a system, such as executing a program or performing an operation. A thread, on the other hand, is a lightweight process that runs within a single process, allowing for parallel execution and resource sharing between multiple threads. The key difference lies in their scope and interactivity: processes typically handle complex tasks across the entire system, while threads operate independently within a single process to facilitate concurrent execution."
+            ],
+            "log": []
+        },
+        {
+            "case": "sql-index",
+            "group": "technical",
+            "text": "My SQL query got slow once the table reached a few million rows. What should I check first?",
+            "ok": true,
+            "failed": [],
+            "words": 56,
+            "concepts_found": [
+                "index"
+            ],
+            "kind": "none",
+            "first_text_ms": 476.721361,
+            "total_ms": 3719.23719,
+            "generated_tokens": 67.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The issue likely stems from the data size or indexing in your SQL query. First, ensure that your table is not too large (around 1-2 million rows), and check if there's an index on the columns you're frequently querying. If the problem persists, consider optimizing the query or migrating to a more efficient database format.",
+            "model_outputs": [
+                "The issue likely stems from the data size or indexing in your SQL query. First, ensure that your table is not too large (around 1-2 million rows), and check if there's an index on the columns you're frequently querying. If the problem persists, consider optimizing the query or migrating to a more efficient database format."
+            ],
+            "log": []
+        },
+        {
+            "case": "seasons-1",
+            "group": "follow-up",
+            "text": "What causes the seasons on Earth?",
+            "ok": true,
+            "failed": [],
+            "words": 39,
+            "concepts_found": [
+                "tilt|axis|23"
+            ],
+            "kind": "none",
+            "first_text_ms": 341.932773,
+            "total_ms": 2199.547914,
+            "generated_tokens": 42.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The seasons on Earth are caused by the tilt of the Earth's axis relative to its orbit around the Sun. This axial shift results in different parts of the planet receiving varying amounts of solar radiation throughout the year.",
+            "model_outputs": [
+                "The seasons on Earth are caused by the tilt of the Earth's axis relative to its orbit around the Sun. This axial shift results in different parts of the planet receiving varying amounts of solar radiation throughout the year."
+            ],
+            "log": []
+        },
+        {
+            "case": "seasons-2",
+            "group": "follow-up",
+            "text": "And why are they reversed in the southern hemisphere?",
+            "ok": true,
+            "failed": [],
+            "words": 105,
+            "concepts_found": [
+                "hemisphere",
+                "tilt|toward|away|axis"
+            ],
+            "kind": "none",
+            "first_text_ms": 1124.887671,
+            "total_ms": 6914.406663,
+            "generated_tokens": 116.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The seasons on Earth are caused by the axial tilt of the planet's axis relative to its orbit around the Sun. This tilt results in different parts receiving varying amounts of solar radiation throughout the year, leading to seasonal changes. The southern hemisphere experiences longer days and shorter nights due to this difference in solar exposure compared to the northern hemisphere.\n\nIn the southern hemisphere, the seasons are reversed because of the Earth's axial tilt—this means that when the Northern Hemisphere receives more direct sunlight, the Southern Hemisphere has less and experiences colder temperatures during summer. This is why the seasons appear reversed there.",
+            "model_outputs": [
+                "The seasons on Earth are caused by the axial tilt of the planet's axis relative to its orbit around the Sun. This tilt results in different parts receiving varying amounts of solar radiation throughout the year, leading to seasonal changes. The southern hemisphere experiences longer days and shorter nights due to this difference in solar exposure compared to the northern hemisphere.\n\nIn the southern hemisphere, the seasons are reversed because of the Earth's axial tilt—this means that when the Northern Hemisphere receives more direct sunlight, the Southern Hemisphere has less and experiences colder temperatures during summer. This is why the seasons appear reversed there."
+            ],
+            "log": []
+        },
+        {
+            "case": "gil-1",
+            "group": "follow-up",
+            "text": "Tell me about the Python GIL.",
+            "ok": true,
+            "failed": [],
+            "words": 66,
+            "concepts_found": [
+                "lock|interpreter",
+                "thread"
+            ],
+            "kind": "none",
+            "first_text_ms": 2075.248092,
+            "total_ms": 4839.720419,
+            "generated_tokens": 81.0,
+            "stop": "search_failed",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The Python Global Interpreter Lock (GIL) is a mechanism used to control the execution of multiple threads in Python. It prevents the same code from being executed simultaneously, which can impact performance when running concurrent tasks. This feature ensures that each thread has its own isolated environment, making it suitable for applications where thread safety is critical, such as multithreaded web servers or data processing systems.",
+            "model_outputs": [
+                "OFFLINE: The Python Global Interpreter Lock (GIL) is a mechanism used to control the execution of multiple threads in Python. It prevents the same code from being executed simultaneously, which can impact performance when running concurrent tasks. This feature ensures that each thread has its own isolated environment, making it suitable for applications where thread safety is critical, such as multithreaded web servers or data processing systems."
+            ],
+            "log": []
+        },
+        {
+            "case": "gil-2",
+            "group": "follow-up",
+            "text": "Does that affect multiprocessing?",
+            "ok": false,
+            "failed": [
+                "concepts 0/2"
+            ],
+            "words": 10,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 2510.548447,
+            "total_ms": 2527.34352,
+            "generated_tokens": 19.0,
+            "stop": "search_failed",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I'm offline right now, so I can't look that up.",
+            "model_outputs": [
+                "OFFLINE: The web search could not be completed (No internet connection is available right now). I"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "breakfast",
+            "group": "uncertainty",
+            "text": "What did I have for breakfast yesterday?",
+            "ok": true,
+            "failed": [],
+            "words": 25,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 567.42631,
+            "total_ms": 1926.842015,
+            "generated_tokens": 29.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I don't have a kitchen or records of my own, but I can check the calendar for your recent activities. What time was your breakfast?",
+            "model_outputs": [
+                "I don't have a kitchen or records of my own, but I can check the calendar for your recent activities. What time was your breakfast?"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "sensex",
+            "group": "uncertainty",
+            "text": "What exactly will the Sensex close at next Friday?",
+            "ok": false,
+            "failed": [
+                "no admission of uncertainty"
+            ],
+            "words": 22,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 333.829094,
+            "total_ms": 1806.12998,
+            "generated_tokens": 32.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The Sensex is expected to close at around 13,000 on Friday. Let me know if there's anything else I can help with!",
+            "model_outputs": [
+                "The Sensex is expected to close at around 13,000 on Friday. Let me know if there's anything else I can help with!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "arithmetic",
+            "group": "length",
+            "text": "What's 2 + 2?",
+            "ok": true,
+            "failed": [],
+            "words": 3,
+            "concepts_found": [
+                "\\b4\\b|four"
+            ],
+            "kind": "none",
+            "first_text_ms": 10.936459,
+            "total_ms": 13.802956,
+            "generated_tokens": -1.0,
+            "stop": "",
+            "searched": false,
+            "tools": [
+                "calc"
+            ],
+            "sources": 0,
+            "reply": "2 + 2 = 4",
+            "model_outputs": [],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "thanks-hindi",
+            "group": "length",
+            "text": "How do I say thank you in Hindi?",
+            "ok": false,
+            "failed": [
+                "concepts 0/1"
+            ],
+            "words": 31,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 511.780078,
+            "total_ms": 3403.572958,
+            "generated_tokens": 60.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Thank you for your time! To express gratitude in Hindi, you can say \"मैं आप करने पर जादा से नजीद होऊ चाहता था\" (I'm truly grateful).",
+            "model_outputs": [
+                "Thank you for your time! To express gratitude in Hindi, you can say \"मैं आप करने पर जादा से नजीद होऊ चाहता था\" (I'm truly grateful)."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "vaccines-long",
+            "group": "long-form",
+            "text": "Write a detailed explanation, in several paragraphs, of how vaccines train the immune system.",
+            "ok": true,
+            "failed": [],
+            "words": 163,
+            "concepts_found": [
+                "antigen|protein|weakened|inactivated|mrna",
+                "memory"
+            ],
+            "kind": "none",
+            "first_text_ms": 555.007556,
+            "total_ms": 9147.68956,
+            "generated_tokens": 189.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Vaccines train the immune system by introducing a harmless substance that mimics an antigen. This exposure initiates an immune response, prompting the body to recognize and neutralize harmful pathogens. Over time, this priming process strengthens the immune system's ability to defend against future infections, as the body starts building up memory cells.\n\nThe immune system evolves in response to these vaccinations. As the body continues to encounter similar antigens, it develops a stronger defense mechanism, which enhances its capacity to combat diseases. This process is crucial for long-term health and prevents the onset of chronic illnesses by reducing exposure to harmful substances.\n\nWhile vaccines can offer protection against specific infections, they also play a role in preventing complications when a disease is present. The immune system's response to vaccination is not just about immediate protection but also about building lifelong immunity through repeated exposure to safe antigens. This makes vaccines an essential part of modern medicine for maintaining health and preventing diseases effectively.",
+            "model_outputs": [
+                "Vaccines train the immune system by introducing a harmless substance that mimics an antigen. This exposure initiates an immune response, prompting the body to recognize and neutralize harmful pathogens. Over time, this priming process strengthens the immune system's ability to defend against future infections, as the body starts building up memory cells.\n\nThe immune system evolves in response to these vaccinations. As the body continues to encounter similar antigens, it develops a stronger defense mechanism, which enhances its capacity to combat diseases. This process is crucial for long-term health and prevents the onset of chronic illnesses by reducing exposure to harmful substances.\n\nWhile vaccines can offer protection against specific infections, they also play a role in preventing complications when a disease is present. The immune system's response to vaccination is not just about immediate protection but also about building lifelong immunity through repeated exposure to safe antigens. This makes vaccines an essential part of modern medicine for maintaining health and preventing diseases effectively."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "everest-sources",
+            "group": "multi-source",
+            "text": "How tall is Mount Everest? Do the sources agree?",
+            "ok": true,
+            "failed": [],
+            "words": 49,
+            "concepts_found": [
+                "8,?848",
+                "8,?850|differ|disagree|vary|varies|whereas|another (?:source|survey)|other (?:source|survey)s?|slightly different"
+            ],
+            "kind": "none",
+            "first_text_ms": 8280.3945,
+            "total_ms": 8290.823706,
+            "generated_tokens": 25.0,
+            "stop": "",
+            "searched": true,
+            "tools": [
+                "web.search"
+            ],
+            "sources": 2,
+            "reply": "From what I found: Mount Everest is Earth's highest mountain above sea level, with an elevation of 8,848.86 m, measured by China and Nepal in 2020. Another source differs: The 1955 Indian survey gave the height of Mount Everest as 8,848 m; a 1999 American survey measured 8,850 m.",
+            "model_outputs": [
+                "Mount Everest is approximately 8,848.86 meters tall, with measurements from the 2020 China and Nepal survey confirming its height. The",
+                "Mount Everest stands at approximately 8,848.86 meters above sea level, as confirmed by multiple sources. The"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        },
+        {
+            "case": "memory-1",
+            "group": "context",
+            "text": "My sister Meera moved to Pune last month for her new job.",
+            "ok": true,
+            "failed": [],
+            "words": 25,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 2924.071169,
+            "total_ms": 4593.000403,
+            "generated_tokens": 33.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Meera is a great person. I'm here for her, and she's doing well in Pune. Let me know if there's anything I can assist with.",
+            "model_outputs": [
+                "Meera is a great person. I'm here for her, and she's doing well in Pune. Let me know if there's anything I can assist with."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        },
+        {
+            "case": "memory-2",
+            "group": "context",
+            "text": "Where does my sister live now?",
+            "ok": true,
+            "failed": [],
+            "words": 25,
+            "concepts_found": [
+                "Pune"
+            ],
+            "kind": "none",
+            "first_text_ms": 773.496812,
+            "total_ms": 2150.686143,
+            "generated_tokens": 30.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Meera lives in Pune, as she moved there last month for her new job. Let me know if there's anything else I can assist with.",
+            "model_outputs": [
+                "Meera lives in Pune, as she moved there last month for her new job. Let me know if there's anything else I can assist with."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        }
+    ]
+}

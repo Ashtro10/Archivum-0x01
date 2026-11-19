@@ -1,0 +1,474 @@
+{
+    "model": "Qwen3-0.6B-Q4_K_M.gguf",
+    "model_info": {
+        "context": "4096 tokens",
+        "threads": "4 (prompt) / 2 (generation while speaking)",
+        "batch": "256",
+        "max reply": "400 tokens",
+        "model": "qwen3 0.6B Q4_K - Medium, 372 MB"
+    },
+    "passed": "11/17",
+    "by_group": {
+        "explanation": "0/2",
+        "technical": "3/3",
+        "follow-up": "2/4",
+        "uncertainty": "2/2",
+        "length": "1/2",
+        "long-form": "0/1",
+        "multi-source": "1/1",
+        "context": "2/2"
+    },
+    "goal_hijacks": 0,
+    "note": "Coarse automated checks; read the replies. Search results for the multi-source case are a fixture, not live web.",
+    "rows": [
+        {
+            "case": "fridge",
+            "group": "explanation",
+            "text": "Explain how a refrigerator keeps food cold.",
+            "ok": false,
+            "failed": [
+                "concepts 1/4"
+            ],
+            "words": 63,
+            "concepts_found": [
+                "heat"
+            ],
+            "kind": "none",
+            "first_text_ms": 2819.720016,
+            "total_ms": 6208.958816,
+            "generated_tokens": 71.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "A refrigerator keeps food cold by creating an environment that limits the rate of heat transfer from the inside to the outside. The controlled temperature, air circulation, and insulation effectively reduce the amount of energy needed to warm up or cool down food. This process is based on principles of thermodynamics and material science, making it a practical method for preserving perishable items.",
+            "model_outputs": [
+                "A refrigerator keeps food cold by creating an environment that limits the rate of heat transfer from the inside to the outside. The controlled temperature, air circulation, and insulation effectively reduce the amount of energy needed to warm up or cool down food. This process is based on principles of thermodynamics and material science, making it a practical method for preserving perishable items."
+            ],
+            "log": []
+        },
+        {
+            "case": "tides",
+            "group": "explanation",
+            "text": "Why are there two high tides a day and not one?",
+            "ok": false,
+            "failed": [
+                "too short (39 words)"
+            ],
+            "words": 39,
+            "concepts_found": [
+                "moon",
+                "gravit",
+                "bulge|side|opposite"
+            ],
+            "kind": "none",
+            "first_text_ms": 408.903024,
+            "total_ms": 2525.432667,
+            "generated_tokens": 46.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "There are two high tides a day due to the gravitational pull of the moon, which causes tidal bulges on Earth that create these high tides. This phenomenon is consistent with astronomical observations and scientific models explaining ocean tides.",
+            "model_outputs": [
+                "There are two high tides a day due to the gravitational pull of the moon, which causes tidal bulges on Earth that create these high tides. This phenomenon is consistent with astronomical observations and scientific models explaining ocean tides."
+            ],
+            "log": []
+        },
+        {
+            "case": "binary-search",
+            "group": "technical",
+            "text": "Why is binary search O(log n)? Walk me through the reasoning.",
+            "ok": true,
+            "failed": [],
+            "words": 69,
+            "concepts_found": [
+                "half|halv",
+                "log",
+                "sorted|compar|step"
+            ],
+            "kind": "none",
+            "first_text_ms": 429.224487,
+            "total_ms": 4439.771528,
+            "generated_tokens": 80.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Binary search is an algorithm that divides a list into halves, and continues until only one element remains. This process effectively reduces the number of elements to check by half at each step. By doing so, it leads to logarithmic time complexity $O(\\log n)$ because each iteration roughly halves the number of remaining elements. The reasoning involves dividing the problem in half, which allows for efficient search operations.",
+            "model_outputs": [
+                "Binary search is an algorithm that divides a list into halves, and continues until only one element remains. This process effectively reduces the number of elements to check by half at each step. By doing so, it leads to logarithmic time complexity $O(\\log n)$ because each iteration roughly halves the number of remaining elements. The reasoning involves dividing the problem in half, which allows for efficient search operations."
+            ],
+            "log": []
+        },
+        {
+            "case": "thread-process",
+            "group": "technical",
+            "text": "What's the difference between a process and a thread?",
+            "ok": true,
+            "failed": [],
+            "words": 90,
+            "concepts_found": [
+                "memory|address space",
+                "shar"
+            ],
+            "kind": "none",
+            "first_text_ms": 1499.557021,
+            "total_ms": 5366.54981,
+            "generated_tokens": 103.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "A process and a thread are both types of execution units in programming, but they differ in terms of scope and resource usage. A process is typically more complex and manages all resources (like CPU, memory) for a specific task, while a thread operates independently within the context of a process. Threads share resources with other threads within the same process, allowing parallel execution without affecting each other's state or resources. This distinction allows processes to handle tasks that might be resource-intensive, whereas threads can execute multiple related tasks simultaneously.",
+            "model_outputs": [
+                "A process and a thread are both types of execution units in programming, but they differ in terms of scope and resource usage. A process is typically more complex and manages all resources (like CPU, memory) for a specific task, while a thread operates independently within the context of a process. Threads share resources with other threads within the same process, allowing parallel execution without affecting each other's state or resources. This distinction allows processes to handle tasks that might be resource-intensive, whereas threads can execute multiple related tasks simultaneously."
+            ],
+            "log": []
+        },
+        {
+            "case": "sql-index",
+            "group": "technical",
+            "text": "My SQL query got slow once the table reached a few million rows. What should I check first?",
+            "ok": true,
+            "failed": [],
+            "words": 52,
+            "concepts_found": [
+                "index"
+            ],
+            "kind": "none",
+            "first_text_ms": 477.054703,
+            "total_ms": 3584.880405,
+            "generated_tokens": 60.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The issue with your SQL query likely stems from the high number of rows being processed. First, ensure the table size is manageable and optimize queries for performance. Next, check if indexing the relevant columns is necessary. If you can't resolve this quickly, consider optimizing your query or reviewing the data structure.",
+            "model_outputs": [
+                "The issue with your SQL query likely stems from the high number of rows being processed. First, ensure the table size is manageable and optimize queries for performance. Next, check if indexing the relevant columns is necessary. If you can't resolve this quickly, consider optimizing your query or reviewing the data structure."
+            ],
+            "log": []
+        },
+        {
+            "case": "seasons-1",
+            "group": "follow-up",
+            "text": "What causes the seasons on Earth?",
+            "ok": false,
+            "failed": [
+                "too short (20 words)"
+            ],
+            "words": 20,
+            "concepts_found": [
+                "tilt|axis|23"
+            ],
+            "kind": "none",
+            "first_text_ms": 353.303598,
+            "total_ms": 1428.227311,
+            "generated_tokens": 22.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The seasons on Earth are caused by the tilt of the Earth's axis relative to its orbit around the sun.",
+            "model_outputs": [
+                "The seasons on Earth are caused by the tilt of the Earth's axis relative to its orbit around the sun."
+            ],
+            "log": []
+        },
+        {
+            "case": "seasons-2",
+            "group": "follow-up",
+            "text": "And why are they reversed in the southern hemisphere?",
+            "ok": true,
+            "failed": [],
+            "words": 82,
+            "concepts_found": [
+                "hemisphere",
+                "tilt|toward|away|axis"
+            ],
+            "kind": "none",
+            "first_text_ms": 1043.820564,
+            "total_ms": 5579.395295,
+            "generated_tokens": 92.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The seasons on Earth are caused by the tilt of the Earth's axis relative to its orbit around the sun, which causes different parts of the planet to receive varying amounts of sunlight throughout the year. In the southern hemisphere, this effect is reversed; as the northern hemisphere experiences summer, the south experiences winter due to the angle of sunlight being tilted away from the equator. This creates a seasonal cycle that affects both Earth's climate and the timing of day lengths.",
+            "model_outputs": [
+                "The seasons on Earth are caused by the tilt of the Earth's axis relative to its orbit around the sun, which causes different parts of the planet to receive varying amounts of sunlight throughout the year. In the southern hemisphere, this effect is reversed; as the northern hemisphere experiences summer, the south experiences winter due to the angle of sunlight being tilted away from the equator. This creates a seasonal cycle that affects both Earth's climate and the timing of day lengths."
+            ],
+            "log": []
+        },
+        {
+            "case": "gil-1",
+            "group": "follow-up",
+            "text": "Tell me about the Python GIL.",
+            "ok": false,
+            "failed": [
+                "concepts 0/2",
+                "too short (10 words)"
+            ],
+            "words": 10,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 2976.586581,
+            "total_ms": 2987.650447,
+            "generated_tokens": 40.0,
+            "stop": "search_failed",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I'm offline right now, so I can't look that up.",
+            "model_outputs": [
+                "I don't have access to current information, but I can tell you that the Python Global Interpreter Lock (GIL) is a threading mechanism used in Python to control and limit the use of multiple threads or"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "gil-2",
+            "group": "follow-up",
+            "text": "Does that affect multiprocessing?",
+            "ok": true,
+            "failed": [],
+            "words": 39,
+            "concepts_found": [
+                "process",
+                "separate|own|not affect|doesn'?t|no\\b|avoid|bypass|sidestep"
+            ],
+            "kind": "none",
+            "first_text_ms": 2531.517362,
+            "total_ms": 3360.926981,
+            "generated_tokens": 49.0,
+            "stop": "search_failed",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The Python Global Interpreter Lock (GIL) is a mechanism used to control the execution of concurrent processes in Python, ensuring fair access to system resources. It does not affect multiprocessing directly but is part of the language's concurrency model.",
+            "model_outputs": [
+                "OFFLINE: The Python Global Interpreter Lock (GIL) is a mechanism used to control the execution of concurrent processes in Python, ensuring fair access to system resources. It does not affect multiprocessing directly but is part of the language's concurrency model."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "breakfast",
+            "group": "uncertainty",
+            "text": "What did I have for breakfast yesterday?",
+            "ok": true,
+            "failed": [],
+            "words": 23,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 540.338308,
+            "total_ms": 2036.140554,
+            "generated_tokens": 27.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I don’t have access to my previous meals or a menu. Let me know if you’d like me to help with something else!",
+            "model_outputs": [
+                "I don’t have access to my previous meals or a menu. Let me know if you’d like me to help with something else!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "sensex",
+            "group": "uncertainty",
+            "text": "What exactly will the Sensex close at next Friday?",
+            "ok": true,
+            "failed": [],
+            "words": 26,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 335.08085,
+            "total_ms": 1911.842275,
+            "generated_tokens": 31.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "The Sensex is not available for real-time data, but I can give you an approximate closing figure for the session if needed. Let me know how.",
+            "model_outputs": [
+                "The Sensex is not available for real-time data, but I can give you an approximate closing figure for the session if needed. Let me know how."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "arithmetic",
+            "group": "length",
+            "text": "What's 2 + 2?",
+            "ok": true,
+            "failed": [],
+            "words": 3,
+            "concepts_found": [
+                "\\b4\\b|four"
+            ],
+            "kind": "none",
+            "first_text_ms": 12.452346,
+            "total_ms": 17.640873,
+            "generated_tokens": -1.0,
+            "stop": "",
+            "searched": false,
+            "tools": [
+                "calc"
+            ],
+            "sources": 0,
+            "reply": "2 + 2 = 4",
+            "model_outputs": [],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "thanks-hindi",
+            "group": "length",
+            "text": "How do I say thank you in Hindi?",
+            "ok": false,
+            "failed": [
+                "concepts 0/1",
+                "too long (51 words)"
+            ],
+            "words": 51,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 540.349396,
+            "total_ms": 5095.726135,
+            "generated_tokens": 93.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "To say thank you in Hindi, you can use the phrase \"मास वार्ता\" (thank you) or \"बर्बता में आपके लियों के चेक नहीं जैया हुए।\" This is a common expression in Hindi. Let me know if there's anything else I can assist with!",
+            "model_outputs": [
+                "To say thank you in Hindi, you can use the phrase \"मास वार्ता\" (thank you) or \"बर्बता में आपके लियों के चेक नहीं जैया हुए।\" This is a common expression in Hindi. Let me know if there's anything else I can assist with!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "vaccines-long",
+            "group": "long-form",
+            "text": "Write a detailed explanation, in several paragraphs, of how vaccines train the immune system.",
+            "ok": false,
+            "failed": [
+                "concepts 1/3"
+            ],
+            "words": 175,
+            "concepts_found": [
+                "antibod"
+            ],
+            "kind": "none",
+            "first_text_ms": 475.891338,
+            "total_ms": 10689.102833,
+            "generated_tokens": 196.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "Vaccines work by introducing a small amount of harmful virus into the body, which is designed to stimulate the immune system. This exposure helps the body recognize and fight off the pathogen. Over time, as the body develops resistance to the virus, it becomes better at defending itself against future infections. The process can also lead to some temporary side effects such as fatigue or a mild fever.\n\nIn addition to this, vaccines can help train the immune system by promoting the production of antibodies that are essential for protection. These antibodies become more effective over time as they accumulate and work together with other components of the immune system. This long-term training helps ensure that the body is better prepared to handle future threats.\n\nThe process does not involve any real-world risks or dangers; it's a controlled experiment designed to train the body to respond to potential threats. While some people may experience side effects during this period, the overall goal is to prepare the immune system for protection rather than to cause harm.",
+            "model_outputs": [
+                "Vaccines work by introducing a small amount of harmful virus into the body, which is designed to stimulate the immune system. This exposure helps the body recognize and fight off the pathogen. Over time, as the body develops resistance to the virus, it becomes better at defending itself against future infections. The process can also lead to some temporary side effects such as fatigue or a mild fever.\n\nIn addition to this, vaccines can help train the immune system by promoting the production of antibodies that are essential for protection. These antibodies become more effective over time as they accumulate and work together with other components of the immune system. This long-term training helps ensure that the body is better prepared to handle future threats.\n\nThe process does not involve any real-world risks or dangers; it's a controlled experiment designed to train the body to respond to potential threats. While some people may experience side effects during this period, the overall goal is to prepare the immune system for protection rather than to cause harm."
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search"
+            ]
+        },
+        {
+            "case": "everest-sources",
+            "group": "multi-source",
+            "text": "How tall is Mount Everest? Do the sources agree?",
+            "ok": true,
+            "failed": [],
+            "words": 49,
+            "concepts_found": [
+                "8,?848",
+                "8,?850|differ|disagree|vary|varies|whereas|another (?:source|survey)|other (?:source|survey)s?|slightly different"
+            ],
+            "kind": "none",
+            "first_text_ms": 8147.908824,
+            "total_ms": 8161.114984,
+            "generated_tokens": 32.0,
+            "stop": "",
+            "searched": true,
+            "tools": [
+                "web.search"
+            ],
+            "sources": 2,
+            "reply": "From what I found: Mount Everest is Earth's highest mountain above sea level, with an elevation of 8,848.86 m, measured by China and Nepal in 2020. Another source differs: The 1955 Indian survey gave the height of Mount Everest as 8,848 m; a 1999 American survey measured 8,850 m.",
+            "model_outputs": [
+                "Mount Everest is approximately 8,848.86 meters tall. The",
+                "Mount Everest is approximately 8,848.86 meters high, with measurements from China and Nepal in 2020 confirming its elevation. The"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        },
+        {
+            "case": "memory-1",
+            "group": "context",
+            "text": "My sister Meera moved to Pune last month for her new job.",
+            "ok": true,
+            "failed": [],
+            "words": 25,
+            "concepts_found": [],
+            "kind": "none",
+            "first_text_ms": 3082.614574,
+            "total_ms": 4623.219712,
+            "generated_tokens": 31.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I'm aware of the information. Meera has moved to Pune for her new job. Let me know if there's anything else I can assist with!",
+            "model_outputs": [
+                "I'm aware of the information. Meera has moved to Pune for her new job. Let me know if there's anything else I can assist with!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        },
+        {
+            "case": "memory-2",
+            "group": "context",
+            "text": "Where does my sister live now?",
+            "ok": true,
+            "failed": [],
+            "words": 33,
+            "concepts_found": [
+                "Pune"
+            ],
+            "kind": "none",
+            "first_text_ms": 775.481784,
+            "total_ms": 2772.049629,
+            "generated_tokens": 39.0,
+            "stop": "",
+            "searched": false,
+            "tools": [],
+            "sources": 0,
+            "reply": "I don’t have access to live information, but I can tell you that Meera has moved to Pune for her new job. Let me know if there's anything else I can assist with!",
+            "model_outputs": [
+                "I don’t have access to live information, but I can tell you that Meera has moved to Pune for her new job. Let me know if there's anything else I can assist with!"
+            ],
+            "log": [
+                "agent: reply did not acknowledge the failed search",
+                "agent: research answer rejected (it says things the information doesn't (approximately, 848.86, meters)); one correction attempt",
+                "agent: research answer did not use the evidence"
+            ]
+        }
+    ]
+}

@@ -872,3 +872,146 @@ messages, now correctly refused by the relevance check; wrong tools such as `tas
 * **The qualification run unloads the model** and cancels anything running; it is meant to be started deliberately
   from Diagnostics.
 * **One intermittent desktop speech test** (R7).
+
+# Phase 5 — Physical deployment, voice reliability and intelligence (19 November 2026)
+
+## S0. Audit (start of phase)
+
+| Item | Finding |
+|---|---|
+| Versions in the repository | Android `1.15.0-prototype` (versionCode 32), PC `0.13.0` |
+| Released artefacts | `dist/clu-release.apk` (1.15.0) and the PC 0.13.0 installer were built from `27f0865`, **before Phases 2–4**. No device has the Phase 2–4 work, including the qualification button |
+| Model configurations | One real instruction model on hand: Qwen3-0.6B Q4_K_M (372 MB). Candidates Qwen3-4B-Instruct-2507 and Phi-4-mini-instruct not downloadable here |
+| Device qualification workflow | Phase 4 kit (Diagnostics button, `scripts/qualify_device.sh`) existed in code but in no installed build |
+| Outstanding regressions | One intermittent desktop speech test (Phase 4 R7) |
+| Steps to physical deployment | A build containing the kit → install over 1.15.0 → load a model → standard and sustained runs → pull reports (S2) |
+
+## S1. Release criteria
+
+| Criterion | Status |
+|---|---|
+| Physical-device stability | **Not measured** — no tablet attached. Qualification build and procedure ready (S2) |
+| Qualified model configuration | **No** — only Qwen3-0.6B available; stronger models blocked (S3) |
+| Reliable voice interaction | **Improved, not qualified** — root cause of the intermittent failure found, a wake-matching defect fixed, robustness measured (S5). No tablet/microphone test |
+| Improved conversation quality | **Improved** on the 0.6B model (S4); still limited by the model |
+| Successful multi-step workflows | **Yes (scripted model)** — daily-use session 10/10 after two defects found and fixed (S6) |
+| Honest, verified research | **Not verified live** — no network; harness ready |
+
+**Release decision: no release.** A qualification build (S2) exists for measuring the tablet; it is not a release and
+does not replace `dist/clu-release.apk`.
+
+## S2. Physical deployment: qualification build and procedure
+
+* **Qualification build** `clu-1.16.0-qualification.apk` (versionCode 33), built from this phase's code with the
+  release key (installs over 1.15.0, keeping data), `:core:test :app:test :app:apiCheck :app:verifyApk` passing.
+  Not committed to the repository (it is not a release); delivered to the owner separately with its SHA-256.
+* **Diagnostics → Run model qualification** (20 rounds) and **Sustained run (long)** (80 rounds of 256-token replies)
+  record, on the tablet: model and quantization, load time, peak PSS, first-token latency, sustained speed and
+  throttling (first vs last third), thermal states, battery temperature and use, context retention at ~70 % fill,
+  a planning call, every failed request. `scripts/qualify_device.sh` adds logcat (crashes, ANRs, low-memory kills),
+  thermal, meminfo and battery dumps.
+* **Procedure**: `docs/PAD6_QUALIFICATION.md` (preparation, both runs, what each field means, a 10-minute daily-use
+  check, proposed pass criteria).
+
+## S3. Stronger models
+
+* Hugging Face, its mirrors and ModelScope are refused by this container's proxy; the web-fetch agent cannot resolve
+  huggingface.co either. The environment change that would allow them cannot be approved from the Claude app version
+  in use. **Licences, availability and file sizes could not be verified this phase**; Phase 2 P1 lists what the model
+  cards said when last read.
+* Disk: 2.3 GB free (a 4B Q4_K_M file is ≈2.5 GB). Not forced.
+* **Kit**: `scripts/model_qualification.sh qwen3-4b|phi4-mini|qwen3-0.6b` — checks disk headroom before downloading
+  (refuses otherwise), records the SHA-256, runs the goal evaluation with oracle attribution (2 runs), the
+  conversation evaluation (2 runs), host speed/memory, and live research; prints a summary. Then the tablet runs (S2).
+
+## S4. Conversation quality (real Qwen3-0.6B, production agent)
+
+**Where the 5/15 failures came from** (raw outputs read; no reply hit the 400-token limit — the longest used 124):
+
+| Category | Cases | Owner |
+|---|---|---|
+| Response generation too short | fridge, tides, vaccines | CLU: only the global "concise" instruction applied to every message |
+| Unnecessary refusal | sql-index, thanks-hindi | CLU in part: the offline note ("you cannot access live information. Say so") primed refusals of ordinary questions |
+| Incorrect routing | gil-1/2 | CLU: "Tell me about X" is research; offline, the model declined (one run); fixed earlier for the copied-label case |
+| Model knowledge / reasoning | thread-process, vaccines ("pseudotext"), Hindi translation garbled, invented Sensex close | Model |
+| Response truncation | none | — |
+| Context retrieval | (new cases) memory-1/2 passed in run 2, failed in run 1 | Model (the fact was in the prompt) |
+| Answer formatting | none observed | — |
+| Evaluation defects | breakfast, sensex (honest answers failed by the checker); everest passed while ignoring the disagreement | Evaluation, corrected |
+
+**Changes** (per message, outside the cached system prompt):
+* `AnswerDepth`: explanations ("explain…", "why…", "how does…", "difference between…", "what should I check…") get an
+  instruction to give the direct answer then the how/why in one or two short paragraphs (four to six sentences by
+  voice); "briefly…" gets one or two sentences; the owner's "brief" setting wins.
+* Offline note limited to live information; everything else is answered from knowledge.
+* A quoted fallback no longer hides a disagreement: another relevant source with different figures is quoted too.
+
+| Run (15 comparable cases) | Passed |
+|---|---|
+| Phase 4 before fixes | 3/15 |
+| Phase 4 after fixes | 5/15 |
+| Phase 5, depth + offline note (two runs) | 6/15 and 9/15 (explanations 60–180 words instead of 27–38) |
+| Phase 5 final | see S4b |
+
+## S5. Voice reliability
+
+**The intermittent `wakePhrasesAreFoundInRecognisedSpeechWithTheCommandThatFollows` failure** — repeated runs
+(`docs/measurements/wake_repeatability.json`):
+
+| Condition | Last word kept | Wake word found |
+|---|---|---|
+| Old test input: exact zeros around the speech, no endpoint silence | 34/45 | 44/45 |
+| Production-like: room-noise pre-roll, 700 ms endpoint quiet, shipped 1.5 s tail | 60/60 | 59/60 ("Clai") |
+| Production-like, 3 s tail | 60/60 | 60/60 (+55 ms per utterance) |
+
+Origin: **the TTS-to-STT test setup** (the voice varies every run; exact digital silence and no endpoint pause made
+the recogniser drop edge words), not recognition in production, matching, command extraction or concurrency. The
+test now feeds speech as VoiceAgent does from a microphone; the production tail is unchanged. 5/5 consecutive runs pass.
+
+**Robustness** (`docs/measurements/voice_robustness.json`, real Piper → Kroko → matcher):
+
+| Background noise (speech/noise RMS) | Wake found before | After plural fix | Last word kept |
+|---|---|---|---|
+| 7.2 | 26/30 | – | 30/30 |
+| 2.4 | 24/30 | 27/30 | 30/30 |
+| 1.2 | 23/30 | 25/30 | 30/30 |
+
+* **Defect fixed**: "Hey buddies" (heard for "Hey buddy") scored 0.57 and did not wake CLU; plural/possessive endings
+  are now compared without the ending (`aPluralOrPossessiveOfTheWakeWordStillWakes`).
+* **Clue is the weakest wake word in noise** (5/10 at the loudest level; heard as "Liz", "Cliz", "Luke"). Loosening the
+  match would wake CLU on ordinary words; not changed. "Friend" was 10/10 at every level.
+* **Natural speech** with fillers and corrections ("Clue, um, set a, set a timer for five minutes"; "Hey buddy, remind
+  me to call, no wait, text my sister at six"): command kept in 18/20; the correction "no wait" was heard as "no way"
+  in 2/10 — CLU's speech-correction handling sees "no way" (not tested on the tablet).
+* Not done here: a microphone in a real room, interruptions on the device, TTS punctuation/pauses beyond the existing
+  tests (SpeechTextTest, SpeechPacingTest), end-to-end voice latency on the tablet. **Full-duplex conversation is not
+  implemented**; barge-in (talking over CLU) is.
+
+## S6. Daily-use acceptance session (`DailyUseSessionTest`, scripted model, production agent)
+
+| # | Step | First run | Final |
+|---|---|---|---|
+| 1 | Ordinary conversation | pass | pass |
+| 2 | Complex question → explanation instruction | pass | pass |
+| 3 | Contextual follow-up | pass | pass |
+| 4 | Earlier personal fact retrieved | pass | pass |
+| 5 | Research with sources | pass | pass |
+| 6 | Document from research, saved | pass | pass |
+| 7 | Reminder "at 9 tonight" | **fail: set for 9 am tomorrow** | pass |
+| 8 | Task interrupted by the owner, then "continue the task" | **fail: "no unfinished task"** | pass |
+| 9 | Restart on the same database: history, documents, reminders, memories kept; interrupted task finishes without repeating steps | pass | pass |
+| 10 | Continue by voice | pass | pass |
+
+Fixes: an hour without am/pm takes its half of the day from "tonight/evening/night/afternoon"
+(`ButlerTest`); the conversation's newest goal the owner stopped is resumable, a declined one is not (`StepwiseGoalTest`).
+
+## S7. Research and documents
+
+Live evaluation (`LiveResearchEvaluation`) unchanged and ready; not run (no network). Fixture-level: research →
+document → archive passes in S6; disagreeing sources are quoted together (`aQuotedAnswerNeverHidesADisagreementBetweenSources`).
+
+## S8. Regression caught this phase
+
+Lengthening the spoken-reply instruction by five words moved the kept-history start every three turns in a 2 000-token
+window (`VoiceLatencyTest`), which would cost prompt-cache reuse on the tablet. Reverted. The trimming is that
+sensitive near a full window: a risk for any future prompt growth.

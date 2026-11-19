@@ -16,8 +16,8 @@ fun interface ReminderScheduler { fun reschedule() }
 
 class TaskAddTool(private val butler: Butler) : Tool {
     override val name = "task.add"
-    override val description = "Add to a list (tasks, shopping, …)."
-    override val argsExample = """{"title":"milk","list":"shopping"}"""
+    override val description = "Add an item to a list (shopping, to-do); no alert."
+    override val argsExample = """{"title":"the item","list":"which list"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val title = args.str("title") ?: return ToolResult.fail("What should I add?")
@@ -62,8 +62,8 @@ class TaskDoneTool(private val butler: Butler, private val scheduler: () -> Remi
 
 class ReminderSetTool(private val butler: Butler, private val zone: () -> ZoneId, private val scheduler: () -> ReminderScheduler?) : Tool {
     override val name = "reminder.set"
-    override val description = "Set a reminder."
-    override val argsExample = """{"what":"call Ravi","when":"tomorrow 9 am"}"""
+    override val description = "Alert the owner at a time (remind me, don't let me forget)."
+    override val argsExample = """{"what":"what to do","when":"day and time"}"""
     override val sensitivity = Sensitivity.ROUTINE
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val what = args.str("what") ?: return ToolResult.fail("What should I remind you about?")

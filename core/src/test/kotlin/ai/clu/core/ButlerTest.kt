@@ -50,6 +50,13 @@ class ButlerTest {
         assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("next Thursday", now, zone)!!.at))
         assertEquals(LocalDateTime.of(2026, 11, 11, 9, 0), at(Butler.parseWhen("on Wednesday", now, zone)!!.at))
         assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("tomorrow", now, zone)!!.at))
+        // Offsets from another moment, so a plan can copy the owner's words instead of doing date arithmetic.
+        assertEquals(LocalDateTime.of(2026, 11, 17, 9, 0), at(Butler.parseWhen("3 days before 20 November", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 14, 0), at(Butler.parseWhen("an hour before tomorrow at 3 pm", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("the day before 2026-11-06", now, zone)!!.at))
+        assertEquals(LocalDateTime.of(2026, 11, 5, 9, 0), at(Butler.parseWhen("two days before Saturday", now, zone)!!.at))
+        assertNull(Butler.parseWhen("3 days before 5 November", now, zone), "before now: refused")
+        assertEquals(LocalDateTime.of(2026, 11, 29, 19, 0), at(Butler.parseWhen("the night before 30 November", now, zone)!!.at))
     }
 
     @Test fun dateArithmeticIsExact() = runBlocking {

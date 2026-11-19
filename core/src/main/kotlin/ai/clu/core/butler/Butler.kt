@@ -190,7 +190,7 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
             return when (n) { "", "task", "tasks", "to-do", "todo", "to do", "to-dos", "todos" -> TASKS; "shopping", "grocery", "groceries" -> SHOPPING; else -> n.take(40) }
         }
 
-        private val WHEN_WORDS = Regex("^(?:in|at|on|by|for|tomorrow|today|tonight|every|each|day|days|daily|morning|evening|night|afternoon|noon|midnight|the|next|this|half|an|a|" +
+        private val WHEN_WORDS = Regex("^(?:in|at|on|by|for|tomorrow|today|tonight|every|each|day|days|daily|morning|evening|night|afternoon|noon|midnight|the|next|this|half|an|a|before|after|week|weeks|" +
             "hour|hours|hr|hrs|minute|minutes|min|mins|second|seconds|sec|secs|am|pm|a\\.m\\.|p\\.m\\.|o'clock|" +
             "monday|tuesday|wednesday|thursday|friday|saturday|sunday|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|\\d{1,2}(?:[:.]\\d{2})?(?:am|pm)?|\\d+(?:h|m|s)?|" +
             "of|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?|\\d{1,2}(?:st|nd|rd|th)|\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}/\\d{1,2}/\\d{4})$")
@@ -212,6 +212,10 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
             }
             return null
         }
+
+        private val NUMBER_WORDS = mapOf("a" to 1L, "an" to 1L, "one" to 1L, "two" to 2L, "three" to 3L, "four" to 4L, "five" to 5L, "six" to 6L,
+            "seven" to 7L, "eight" to 8L, "nine" to 9L, "ten" to 10L)
+        private val OFFSET = Regex("^(?:the )?((?:\\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) )?(minute|hour|day|week)s? (before|after) (.+)$")
 
         private val MONTHS = listOf("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
         private const val MON = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?"
@@ -242,6 +246,22 @@ class Butler(private val store: CluStore, private val zone: () -> ZoneId = { Zon
         fun parseWhen(phrase: String, now: Long, zone: ZoneId): When? {
             val s0 = phrase.lowercase().trim().replace(Regex("\\s+"), " ")
             Regex("^in (.+)$").find(s0)?.let { m -> ClockTimeParser.parseDurationSec(m.groupValues[1])?.let { return When(now + it * 1000L) } }
+            // An offset from another moment: "3 days before 20 October", "an hour before tomorrow at 3 pm", "the day before Friday".
+            // "the night before 30 October": the evening of the day before.
+            Regex("^(?:the )?(?:night|evening) before (.+)$").find(s0)?.let { m ->
+                val anchor = parseWhen(m.groupValues[1], now, zone) ?: return null
+                val day = Instant.ofEpochMilli(anchor.at).atZone(zone).toLocalDate().minusDays(1)
+                val at = LocalDateTime.of(day, LocalTime.of(19, 0)).atZone(zone).toInstant().toEpochMilli()
+                return if (at > now) When(at) else null
+            }
+            OFFSET.find(s0)?.let { m ->
+                val n = m.groupValues[1].trim().let { w -> w.toLongOrNull() ?: NUMBER_WORDS[w] ?: 1L }
+                val unitMs = when (m.groupValues[2]) { "minute" -> 60_000L; "hour" -> 3_600_000L; "day" -> 86_400_000L; else -> 7 * 86_400_000L }
+                val sign = if (m.groupValues[3] == "before") -1 else 1
+                val anchor = parseWhen(m.groupValues[4], now, zone) ?: return null
+                val at = anchor.at + sign * n * unitMs
+                return if (at > now) When(at) else null
+            }
             val base = Instant.ofEpochMilli(now).atZone(zone).toLocalDateTime()
             // An explicit date ("on 5 November", "2026-11-05") is taken out first, so its day number is never read as a clock time.
             val explicit = parseDate(s0, base.toLocalDate())

@@ -167,7 +167,7 @@ class PromptBuilder(private val settings: SettingsStore, private val prefs: Pref
             appendLine("Tools: if you need one, reply with ONLY a tool call in this exact form and nothing else:")
             appendLine("<tool>{\"name\": \"TOOL_NAME\", \"args\": {...}}</tool>")
             appendLine("You will then receive the result. Available tools:")
-            ctx.tools.forEach { appendLine("- ${it.name}: ${it.description} Args: ${it.argsExample}") }
+            ctx.tools.forEach { appendLine("- ${it.name} ${it.argsExample}: ${it.description}") }
         }
     }
 

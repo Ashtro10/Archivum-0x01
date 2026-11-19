@@ -245,13 +245,14 @@ class ModelRegistry(private val store: CluStore) {
         val catalog = listOf(
             CatalogModel("Qwen2.5 3B Instruct (Q4_K_M) – recommended default",
                 "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf", 2_100_000_000L,
-                "~3B parameters, ChatML template. Strong instruction following for its size; the default suggestion for the PC and the phone."),
+                "~3B parameters, ChatML template. Strong instruction following for its size; the default suggestion for the PC and the phone. " +
+                    "Licence: Qwen Research License (not Apache-2.0; read it before relying on it)."),
             CatalogModel("Llama 3.2 3B Instruct (Q4_K_M)",
                 "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf", 2_020_000_000L,
-                "~3B parameters, Llama 3 chat template."),
+                "~3B parameters, Llama 3 chat template. Licence: Llama 3.2 Community License."),
             CatalogModel("Qwen2.5 1.5B Instruct (Q4_K_M) – fast fallback",
                 "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf", 1_120_000_000L,
-                "Lower latency and RAM; noticeably weaker reasoning."),
+                "Lower latency and RAM; noticeably weaker reasoning. Licence: Apache-2.0."),
         )
     }
 }

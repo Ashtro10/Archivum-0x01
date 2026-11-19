@@ -461,6 +461,12 @@ object Settings {
         "With \"model\", a grammar-constrained planning step decides whether a message asks for anything to be done and carries out multi-step goals; " +
             "thinking aloud never triggers an action. Used only when the model supports grammars; otherwise CLU uses fixed phrases.",
         "CluAgent/GoalEngine", "Model-planned goals vs. phrase routing", "GoalSettingsTest#understanding", advanced = true)
+    val PLANNER = choice("agent.planner", "How CLU plans tasks", TOOLS, "stepwise",
+        listOf("stepwise" to "Step by step: kind, missing facts and one tool, then details once the facts are found (best for small models)",
+            "plan" to "Whole plan at once (multi-tool plans; needs a strong model)"),
+        "Stepwise asks the model small constrained questions and looks missing facts up itself (memory, then the web); " +
+            "a whole plan lets a capable model chain several tools in one go.",
+        "CluAgent/GoalEngine", "Stepwise vs. whole-plan planning", "GoalSettingsTest#planner", advanced = true)
 
     // ---------------------------------------------------------------- Assistant tasks (M7: supervised agents)
     val AGENTS_ENABLED = bool("agents.enabled", "Assistant tasks", TOOLS, true,

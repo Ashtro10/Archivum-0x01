@@ -1,0 +1,1307 @@
+{
+    "model": "Qwen3-0.6B-Q4_K_M.gguf",
+    "planner": "stepwise",
+    "loaded": "{context=4096 tokens, threads=4 (prompt) / 2 (generation while speaking), batch=256, max reply=400 tokens, model=qwen3 0.6B Q4_K - Medium, 372 MB}",
+    "load_ms": 781.0,
+    "runs": 2,
+    "cases": 44,
+    "task_success": 26,
+    "kind_correct": 38,
+    "no_valid_plan": 0,
+    "unwanted_changes": 0,
+    "original_14_success": 8,
+    "by_group": {
+        "lookup+act": "0/4",
+        "act": "6/8",
+        "no-action": "12/12",
+        "research": "2/4",
+        "acceptance": "0/4",
+        "paraphrase": "4/6",
+        "indirect": "0/2",
+        "context": "2/2",
+        "multi-tool": "0/2"
+    },
+    "plan_ms_median": 4533.0,
+    "plan_ms_p95": 5314.0,
+    "total_ms_median": 6516.0,
+    "total_ms_p95": 8171.0,
+    "rows": [
+        {
+            "run": 1,
+            "case": "diwali",
+            "group": "lookup+act",
+            "text": "Diwali's coming up, look up the date and remind me to buy diyas three days before it",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "lookup(date of Diwali) > reminder.set",
+            "tools_run": [
+                "memory.search",
+                "web.search",
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "Diwali's coming up",
+                    "when": "3 days before 20 October 2025"
+                }
+            ],
+            "searches": [
+                "date of Diwali"
+            ],
+            "added": [
+                "Diwali's coming up @ 2025-10-17T09:00"
+            ],
+            "refused": [],
+            "model_calls": 4,
+            "plan_ms": 8744.0,
+            "total_ms": 12960.0,
+            "reply": "Date of Diwali: 20 October 2025. I'll remind you to Diwali's coming up Friday 17 October at 9:00 AM."
+        },
+        {
+            "run": 1,
+            "case": "diwali-clean",
+            "group": "lookup+act",
+            "text": "Can you check when Diwali falls this year and set a reminder two days before to clean the house?",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "FAILED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set",
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "set reminder",
+                    "when": "two days before"
+                }
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 4,
+            "plan_ms": 5230.0,
+            "total_ms": 8936.0,
+            "reply": "I couldn't finish that: I couldn't understand when: \"two days before\". Try \"at 6 pm\", \"in 20 minutes\" or \"tomorrow at 9\". Nothing was changed."
+        },
+        {
+            "run": 1,
+            "case": "rahul",
+            "group": "act",
+            "text": "I have a meeting with Rahul tomorrow at 3 pm, remind me an hour before it",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "meeting with Rahul",
+                    "when": "3 pm"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "meeting with Rahul @ 2025-10-09T15:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4611.0,
+            "total_ms": 6622.0,
+            "reply": "I'll remind you to meeting with Rahul today at 3:00 PM."
+        },
+        {
+            "run": 1,
+            "case": "assignment",
+            "group": "act",
+            "text": "My assignment is due on 25 October. Remind me two days before so I can finish it",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "so I can finish my assignment",
+                    "when": "two days before 25 October"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "so I can finish my assignment @ 2025-10-23T09:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4864.0,
+            "total_ms": 6968.0,
+            "reply": "I'll remind you to so I can finish my assignment Thursday 23 October at 9:00 AM."
+        },
+        {
+            "run": 1,
+            "case": "call-mom",
+            "group": "act",
+            "text": "Remind me to call mom at 7 pm today",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "call mom",
+                    "when": "7 pm"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "call mom @ 2025-10-09T19:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4535.0,
+            "total_ms": 6294.0,
+            "reply": "I'll remind you to call mom today at 7:00 PM."
+        },
+        {
+            "run": 1,
+            "case": "shopping",
+            "group": "act",
+            "text": "Add milk and eggs to my shopping list",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "task.add",
+            "tools_run": [
+                "task.add"
+            ],
+            "args": [
+                {
+                    "title": "milk",
+                    "list": "shopping"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "milk @ null"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 5123.0,
+            "total_ms": 6329.0,
+            "reply": "Added milk to your shopping list."
+        },
+        {
+            "run": 1,
+            "case": "musing-dp",
+            "group": "no-action",
+            "text": "I've been thinking about whether dynamic programming is overkill for this scheduling problem",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3499.0,
+            "total_ms": 6895.0,
+            "reply": "I think dynamic programming is definitely overkill for this scheduling problem. It's more suitable for problems with overlapping tasks or specific constraints like resource allocation, not just general scheduling. Let me know if you'd like to explore other approaches!"
+        },
+        {
+            "run": 1,
+            "case": "musing-reminders",
+            "group": "no-action",
+            "text": "Maybe I should start using reminders more often, I keep forgetting things",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 4051.0,
+            "total_ms": 7317.0,
+            "reply": "I understand you're trying to improve your reminders. Maybe setting up a daily routine could help, like checking your phone or calendar at regular intervals. Let me know if there's anything specific you'd like to include in your schedule!"
+        },
+        {
+            "run": 1,
+            "case": "musing-diwali",
+            "group": "no-action",
+            "text": "I was wondering if I'll have time to visit my parents for Diwali this year",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3711.0,
+            "total_ms": 5473.0,
+            "reply": "I'm not sure if you have time for that. Let me check in a moment."
+        },
+        {
+            "run": 1,
+            "case": "question-capital",
+            "group": "no-action",
+            "text": "What is the capital of Australia?",
+            "expected_kind": "QUESTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 2,
+            "plan_ms": 5166.0,
+            "total_ms": 6232.0,
+            "reply": "The capital of Australia is Canberra."
+        },
+        {
+            "run": 1,
+            "case": "question-diwali",
+            "group": "research",
+            "text": "When is Diwali this year?",
+            "expected_kind": "QUESTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [
+                "web.search",
+                "web.search"
+            ],
+            "args": [],
+            "searches": [
+                "Diwali this year",
+                "Diwali"
+            ],
+            "added": [],
+            "refused": [],
+            "model_calls": 2,
+            "plan_ms": 5433.0,
+            "total_ms": 7439.0,
+            "reply": "I don't know the answer. The web search didn't find anything reliable about Diwali this year."
+        },
+        {
+            "run": 1,
+            "case": "chat",
+            "group": "no-action",
+            "text": "Good morning! How's it going?",
+            "expected_kind": "CHAT",
+            "kind": "QUESTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [
+                "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+            ],
+            "model_calls": 2,
+            "plan_ms": 4588.0,
+            "total_ms": 6516.0,
+            "reply": "Good morning! How's it going? I'm here to help. Let me know if there's anything you need!"
+        },
+        {
+            "run": 1,
+            "case": "t1-busy-thursday",
+            "group": "acceptance",
+            "text": "I'm going to be busy next Thursday. Make sure I don't forget my assignment submission.",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "sure",
+                    "when": "10:00"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "sure @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 3955.0,
+            "total_ms": 5935.0,
+            "reply": "I'll remind you to sure tomorrow at 10:00 AM."
+        },
+        {
+            "run": 1,
+            "case": "t5-exam",
+            "group": "acceptance",
+            "text": "Find out when my next examination is and make sure I have enough time to prepare.",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "FAILED",
+            "steps": "lookup(date of the next examination) > calendar.read",
+            "tools_run": [
+                "memory.search",
+                "calendar.read",
+                "calendar.read"
+            ],
+            "args": [
+                {
+                    "range": "time"
+                }
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 4,
+            "plan_ms": 3823.0,
+            "total_ms": 7926.0,
+            "reply": "I couldn't finish that: This device has no calendar I can read. Nothing was changed."
+        },
+        {
+            "run": 1,
+            "case": "para-vitamins",
+            "group": "paraphrase",
+            "text": "Can you nudge me to take my vitamins at 9 tonight?",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "FAILED",
+            "steps": "lookup(date of the next vitamin registration) > reminder.set",
+            "tools_run": [
+                "memory.search",
+                "web.search"
+            ],
+            "args": [
+                {}
+            ],
+            "searches": [
+                "date of the next vitamin registration"
+            ],
+            "added": [],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4533.0,
+            "total_ms": 5274.0,
+            "reply": "I couldn't finish that: I couldn't find date of the next vitamin registration. Nothing was changed."
+        },
+        {
+            "run": 1,
+            "case": "para-bill",
+            "group": "paraphrase",
+            "text": "Don't let me forget the electricity bill on Monday",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "electricity bill",
+                    "when": "Monday"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "electricity bill @ 2025-10-13T09:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4639.0,
+            "total_ms": 6374.0,
+            "reply": "I'll remind you to electricity bill Monday 13 October at 9:00 AM."
+        },
+        {
+            "run": 1,
+            "case": "para-groceries",
+            "group": "paraphrase",
+            "text": "we're out of coffee, stick it on the shopping list",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "task.add",
+            "tools_run": [
+                "task.add"
+            ],
+            "args": [
+                {
+                    "title": "coffee",
+                    "list": "shopping"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "coffee @ null"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 3911.0,
+            "total_ms": 5050.0,
+            "reply": "Added coffee to your shopping list."
+        },
+        {
+            "run": 1,
+            "case": "indirect-birthday",
+            "group": "indirect",
+            "text": "My sister's birthday is on 2 November and I always forget to call her",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 2,
+            "plan_ms": 5263.0,
+            "total_ms": 7179.0,
+            "reply": "I'm sorry, but I don't know when your sister's birthday is. Could you share the date?"
+        },
+        {
+            "run": 1,
+            "case": "context-dentist",
+            "group": "context",
+            "text": "Remind me the day before.",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "My dentist appointment is on 30 October at 11 am",
+                    "when": "day before 30 October at 11 am"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "My dentist appointment is on 30 October at 11 am @ 2025-10-29T11:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 5121.0,
+            "total_ms": 7872.0,
+            "reply": "I'll remind you to My dentist appointment is on 30 October at 11 am Wednesday 29 October at 11:00 AM."
+        },
+        {
+            "run": 1,
+            "case": "research-worldcup",
+            "group": "research",
+            "text": "Who won the last men's cricket world cup, and who did they beat?",
+            "expected_kind": "QUESTION",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [
+                "web.search"
+            ],
+            "args": [],
+            "searches": [
+                "won the last men's cricket world cup, and who did they beat"
+            ],
+            "added": [],
+            "refused": [
+                "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+            ],
+            "model_calls": 2,
+            "plan_ms": 4370.0,
+            "total_ms": 6961.0,
+            "reply": "Australia won the 2023 ICC Men's Cricket World Cup, beating India by six wickets in Ahmedabad on November 19, 2023."
+        },
+        {
+            "run": 1,
+            "case": "multi-tool",
+            "group": "multi-tool",
+            "text": "Add eggs to the shopping list and remind me to buy them tomorrow at 6 pm",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "task.add",
+            "tools_run": [
+                "task.add"
+            ],
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "Add eggs to the shopping list and remind me to buy them"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 3932.0,
+            "total_ms": 5796.0,
+            "reply": "Added shopping to your add eggs to the shopping list and remind list."
+        },
+        {
+            "run": 1,
+            "case": "musing-gym",
+            "group": "no-action",
+            "text": "I wonder if joining a gym near the office would actually make me go more often",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3646.0,
+            "total_ms": 6383.0,
+            "reply": "I don't know if joining a gym near the office would make you go more often — it depends on your schedule and fitness goals. Let me know if there's anything else I can help with!"
+        },
+        {
+            "run": 2,
+            "case": "diwali",
+            "group": "lookup+act",
+            "text": "Diwali's coming up, look up the date and remind me to buy diyas three days before it",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "lookup(date of Diwali) > reminder.set",
+            "tools_run": [
+                "memory.search",
+                "web.search",
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "Diwali's coming up",
+                    "when": "3 days before 20 October 2025"
+                }
+            ],
+            "searches": [
+                "date of Diwali"
+            ],
+            "added": [
+                "Diwali's coming up @ 2025-10-17T09:00"
+            ],
+            "refused": [],
+            "model_calls": 4,
+            "plan_ms": 4511.0,
+            "total_ms": 8189.0,
+            "reply": "Date of Diwali: 20 October 2025. I'll remind you to Diwali's coming up Friday 17 October at 9:00 AM."
+        },
+        {
+            "run": 2,
+            "case": "diwali-clean",
+            "group": "lookup+act",
+            "text": "Can you check when Diwali falls this year and set a reminder two days before to clean the house?",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "lookup(date of Diwali this year) > reminder.set",
+            "tools_run": [
+                "memory.search",
+                "web.search",
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "set",
+                    "when": "two days before 20 October 2025"
+                }
+            ],
+            "searches": [
+                "date of Diwali this year"
+            ],
+            "added": [
+                "set @ 2025-10-18T09:00"
+            ],
+            "refused": [],
+            "model_calls": 4,
+            "plan_ms": 4954.0,
+            "total_ms": 8052.0,
+            "reply": "Date of Diwali this year: 20 October 2025. I'll remind you to set Saturday 18 October at 9:00 AM."
+        },
+        {
+            "run": 2,
+            "case": "rahul",
+            "group": "act",
+            "text": "I have a meeting with Rahul tomorrow at 3 pm, remind me an hour before it",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "meeting with Rahul",
+                    "when": "3 pm"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "meeting with Rahul @ 2025-10-09T15:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4457.0,
+            "total_ms": 6333.0,
+            "reply": "I'll remind you to meeting with Rahul today at 3:00 PM."
+        },
+        {
+            "run": 2,
+            "case": "assignment",
+            "group": "act",
+            "text": "My assignment is due on 25 October. Remind me two days before so I can finish it",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "so I can finish my assignment",
+                    "when": "two days before 25 October"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "so I can finish my assignment @ 2025-10-23T09:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4718.0,
+            "total_ms": 6842.0,
+            "reply": "I'll remind you to so I can finish my assignment Thursday 23 October at 9:00 AM."
+        },
+        {
+            "run": 2,
+            "case": "call-mom",
+            "group": "act",
+            "text": "Remind me to call mom at 7 pm today",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "call mom",
+                    "when": "7 pm"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "call mom @ 2025-10-09T19:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4815.0,
+            "total_ms": 6722.0,
+            "reply": "I'll remind you to call mom today at 7:00 PM."
+        },
+        {
+            "run": 2,
+            "case": "shopping",
+            "group": "act",
+            "text": "Add milk and eggs to my shopping list",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "task.add",
+            "tools_run": [
+                "task.add"
+            ],
+            "args": [
+                {
+                    "title": "milk",
+                    "list": "shopping"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "milk @ null"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 5016.0,
+            "total_ms": 6179.0,
+            "reply": "Added milk to your shopping list."
+        },
+        {
+            "run": 2,
+            "case": "musing-dp",
+            "group": "no-action",
+            "text": "I've been thinking about whether dynamic programming is overkill for this scheduling problem",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3398.0,
+            "total_ms": 5626.0,
+            "reply": "I think dynamic programming can be a good approach here, but I'm not sure if it's necessary. Let me know your thoughts!"
+        },
+        {
+            "run": 2,
+            "case": "musing-reminders",
+            "group": "no-action",
+            "text": "Maybe I should start using reminders more often, I keep forgetting things",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3995.0,
+            "total_ms": 6471.0,
+            "reply": "I understand. Using reminders can help keep things on track, especially when you're not in a great mood or distracted. Let me know if there's something specific you'd like to remember!"
+        },
+        {
+            "run": 2,
+            "case": "musing-diwali",
+            "group": "no-action",
+            "text": "I was wondering if I'll have time to visit my parents for Diwali this year",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3794.0,
+            "total_ms": 6044.0,
+            "reply": "I don't know how to check if you have time, but I can help with that. What would be a good way to do that?"
+        },
+        {
+            "run": 2,
+            "case": "question-capital",
+            "group": "no-action",
+            "text": "What is the capital of Australia?",
+            "expected_kind": "QUESTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 2,
+            "plan_ms": 5610.0,
+            "total_ms": 6696.0,
+            "reply": "The capital of Australia is Canberra."
+        },
+        {
+            "run": 2,
+            "case": "question-diwali",
+            "group": "research",
+            "text": "When is Diwali this year?",
+            "expected_kind": "QUESTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [
+                "web.search",
+                "web.search"
+            ],
+            "args": [],
+            "searches": [
+                "Diwali this year",
+                "Diwali"
+            ],
+            "added": [],
+            "refused": [],
+            "model_calls": 2,
+            "plan_ms": 5314.0,
+            "total_ms": 7067.0,
+            "reply": "I looked that up but couldn't find anything reliable. Could you say or spell the name again?"
+        },
+        {
+            "run": 2,
+            "case": "chat",
+            "group": "no-action",
+            "text": "Good morning! How's it going?",
+            "expected_kind": "CHAT",
+            "kind": "INSTRUCTION",
+            "kind_ok": false,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 4528.0,
+            "total_ms": 5890.0,
+            "reply": "Good morning! I'm here to help. How's it going?"
+        },
+        {
+            "run": 2,
+            "case": "t1-busy-thursday",
+            "group": "acceptance",
+            "text": "I'm going to be busy next Thursday. Make sure I don't forget my assignment submission.",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "sure",
+                    "when": "10:00"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "sure @ 2025-10-10T10:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 3894.0,
+            "total_ms": 5903.0,
+            "reply": "I'll remind you to sure tomorrow at 10:00 AM."
+        },
+        {
+            "run": 2,
+            "case": "t5-exam",
+            "group": "acceptance",
+            "text": "Find out when my next examination is and make sure I have enough time to prepare.",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "FAILED",
+            "steps": "lookup(date of the next examination) > calendar.read",
+            "tools_run": [
+                "memory.search",
+                "calendar.read",
+                "calendar.read"
+            ],
+            "args": [
+                {
+                    "range": "time"
+                }
+            ],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 4,
+            "plan_ms": 3910.0,
+            "total_ms": 8171.0,
+            "reply": "I couldn't finish that: This device has no calendar I can read. Nothing was changed."
+        },
+        {
+            "run": 2,
+            "case": "para-vitamins",
+            "group": "paraphrase",
+            "text": "Can you nudge me to take my vitamins at 9 tonight?",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "FAILED",
+            "steps": "lookup(date of the next vitamin registration) > reminder.set",
+            "tools_run": [
+                "memory.search",
+                "web.search"
+            ],
+            "args": [
+                {}
+            ],
+            "searches": [
+                "date of the next vitamin registration"
+            ],
+            "added": [],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4820.0,
+            "total_ms": 5531.0,
+            "reply": "I couldn't finish that: I couldn't find date of the next vitamin registration. Nothing was changed."
+        },
+        {
+            "run": 2,
+            "case": "para-bill",
+            "group": "paraphrase",
+            "text": "Don't let me forget the electricity bill on Monday",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "electricity bill",
+                    "when": "Monday"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "electricity bill @ 2025-10-13T09:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4895.0,
+            "total_ms": 6586.0,
+            "reply": "I'll remind you to electricity bill Monday 13 October at 9:00 AM."
+        },
+        {
+            "run": 2,
+            "case": "para-groceries",
+            "group": "paraphrase",
+            "text": "we're out of coffee, stick it on the shopping list",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "task.add",
+            "tools_run": [
+                "task.add"
+            ],
+            "args": [
+                {
+                    "title": "coffee",
+                    "list": "shopping"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "coffee @ null"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 3943.0,
+            "total_ms": 5073.0,
+            "reply": "Added coffee to your shopping list."
+        },
+        {
+            "run": 2,
+            "case": "indirect-birthday",
+            "group": "indirect",
+            "text": "My sister's birthday is on 2 November and I always forget to call her",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 2,
+            "plan_ms": 5245.0,
+            "total_ms": 7148.0,
+            "reply": "I should call her on her birthday. She's always forgetful, so I'll check her schedule for the date."
+        },
+        {
+            "run": 2,
+            "case": "context-dentist",
+            "group": "context",
+            "text": "Remind me the day before.",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "reminder.set",
+            "tools_run": [
+                "reminder.set"
+            ],
+            "args": [
+                {
+                    "what": "My dentist appointment is on 30 October at 11 am",
+                    "when": "day before 30 October at 11 am"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "My dentist appointment is on 30 October at 11 am @ 2025-10-29T11:00"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 5096.0,
+            "total_ms": 7758.0,
+            "reply": "I'll remind you to My dentist appointment is on 30 October at 11 am Wednesday 29 October at 11:00 AM."
+        },
+        {
+            "run": 2,
+            "case": "research-worldcup",
+            "group": "research",
+            "text": "Who won the last men's cricket world cup, and who did they beat?",
+            "expected_kind": "QUESTION",
+            "kind": "QUESTION",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [
+                "web.search"
+            ],
+            "args": [],
+            "searches": [
+                "won the last men's cricket world cup, and who did they beat"
+            ],
+            "added": [],
+            "refused": [
+                "intent check: the message does not ask to Alert the owner at a time (remind me, don't let me forget)"
+            ],
+            "model_calls": 2,
+            "plan_ms": 4483.0,
+            "total_ms": 6886.0,
+            "reply": "Australia won the 2023 ICC Men's Cricket World Cup, beating India by six wickets at Ahmedabad on November 19, 2023."
+        },
+        {
+            "run": 2,
+            "case": "multi-tool",
+            "group": "multi-tool",
+            "text": "Add eggs to the shopping list and remind me to buy them tomorrow at 6 pm",
+            "expected_kind": "INSTRUCTION",
+            "kind": "INSTRUCTION",
+            "kind_ok": true,
+            "effect_ok": false,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "COMPLETED",
+            "steps": "task.add",
+            "tools_run": [
+                "task.add"
+            ],
+            "args": [
+                {
+                    "title": "shopping",
+                    "list": "Add eggs to the shopping list and remind me to buy them"
+                }
+            ],
+            "searches": [],
+            "added": [
+                "shopping @ null"
+            ],
+            "refused": [],
+            "model_calls": 3,
+            "plan_ms": 4153.0,
+            "total_ms": 6202.0,
+            "reply": "Added shopping to your add eggs to the shopping list and remind list."
+        },
+        {
+            "run": 2,
+            "case": "musing-gym",
+            "group": "no-action",
+            "text": "I wonder if joining a gym near the office would actually make me go more often",
+            "expected_kind": "THINKING_ALOUD",
+            "kind": "THINKING_ALOUD",
+            "kind_ok": true,
+            "effect_ok": true,
+            "planned": true,
+            "unwanted_change": false,
+            "goal_state": "-",
+            "steps": "-",
+            "tools_run": [],
+            "args": [],
+            "searches": [],
+            "added": [],
+            "refused": [],
+            "model_calls": 1,
+            "plan_ms": 3669.0,
+            "total_ms": 5980.0,
+            "reply": "I don't know, but maybe it could help. Let's see... [tool]date.calc {\"date\":\"8 Nov\",\"days\":-3}[/tool]."
+        }
+    ]
+}

@@ -66,9 +66,15 @@ data class GoalStep(
     val error: String = "",
     val attempts: Int = 0,
     val readOnly: Boolean = true,
+    /** A fact to find (the owner's memory first, then the web) and the value found. */
+    val lookup: String? = null,
+    /** The tool's arguments are filled by the model when the step runs, from the owner's words and the facts found before it. */
+    val fill: Boolean = false,
 )
 
-data class Understanding(val kind: MessageKind, val goal: String, val steps: List<GoalStep>, val modelCalls: Int, val ms: Long) {
+data class Understanding(val kind: MessageKind, val goal: String, val steps: List<GoalStep>, val modelCalls: Int, val ms: Long,
+                         /** For a question: what to research (the agent's research path answers it, with sources). */
+                         val research: String? = null) {
     val acts get() = steps.any { !it.readOnly }
     /** The goal engine carries it out (several steps, or an action); a single lookup or plain conversation goes the usual way. */
     val takesOver get() = steps.isNotEmpty() && (acts || steps.size >= 2)
@@ -89,7 +95,7 @@ sealed class GoalOutcome {
     /** Lookups only: the agent phrases the answer from these results, grounded like any tool answer. */
     data class Compose(val result: ToolResult, val tools: List<String>) : GoalOutcome()
     /** A step needs the owner's yes before it runs. */
-    data class Confirm(val tool: String, val args: JsonObject, val result: ToolResult) : GoalOutcome()
+    data class Confirm(val tool: String, val args: JsonObject, val result: ToolResult, val goalId: String? = null, val step: Int = -1) : GoalOutcome()
 }
 
 /** Durable goal state (the "goals" table). Every transition is written before the next thing happens. */
@@ -145,13 +151,14 @@ class GoalStore(private val db: SqlDriver, private val now: () -> Long) {
             put("id", s.id); s.tool?.let { put("tool", it) }; put("args", s.args); s.extract?.let { put("extract", it) }; s.from?.let { put("from", it) }
             put("status", s.status.name); put("value", s.value); put("result", s.result.take(3000)); s.spoken?.let { put("spoken", it) }
             put("verified", s.verified); put("error", s.error); put("attempts", s.attempts); put("readOnly", s.readOnly)
+            s.lookup?.let { put("lookup", it) }; if (s.fill) put("fill", true)
         } }).toString()
 
         fun decode(text: String): List<GoalStep> = runCatching { CluJson.parseToJsonElement(text).jsonArray.map { e -> val o = e.jsonObject
             fun s(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull
             GoalStep(s("id") ?: "", s("tool"), (o["args"] as? JsonObject) ?: JsonObject(emptyMap()), s("extract"), s("from"),
                 runCatching { GoalStepStatus.valueOf(s("status") ?: "") }.getOrDefault(GoalStepStatus.PENDING), s("value") ?: "", s("result") ?: "", s("spoken"),
-                s("verified") == "true", s("error") ?: "", s("attempts")?.toIntOrNull() ?: 0, s("readOnly") != "false")
+                s("verified") == "true", s("error") ?: "", s("attempts")?.toIntOrNull() ?: 0, s("readOnly") != "false", s("lookup"), s("fill") == "true")
         } }.getOrDefault(emptyList())
     }
 }
@@ -200,6 +207,121 @@ class GoalEngine(
             }
         }
         return null
+    }
+
+    /**
+     * Stepwise understanding (the default for small models): instead of writing a whole plan, the model answers three
+     * small, grammar-constrained questions in one turn: what kind of message this is, which facts it would need that
+     * the owner didn't give, and which one tool does what was asked. The engine turns that into steps: each missing fact
+     * is looked up (the owner's memory first, then the web) and the tool's arguments are filled when its turn comes,
+     * with the facts in hand. Measured: a 0.6B model classified most messages correctly but wrote few valid whole plans.
+     */
+    suspend fun understandStepwise(engine: LlmEngine, text: String, available: List<Tool>, today: String, signal: CancelSignal,
+                                   frame: (String) -> List<ChatMessage> = { turn -> listOf(ChatMessage("system", standalone(available)), ChatMessage("user", turn)) }): Understanding? {
+        last = null; lastRefusals = emptyList()
+        if (!engine.supportsGrammar || available.isEmpty()) return null
+        val t0 = System.nanoTime()
+        val byName = available.associateBy { it.name }
+        val r = runCatching { withContext(Dispatchers.IO) {
+            engine.generate(frame(stepwiseBlock() + "\n$PLAN Today: $today.\nMessage: ${text.take(800)}"),
+                GenParams(maxTokens = 160, temperature = 0.1f, topK = 20, repeatPenalty = 1.0f, grammar = stepwiseGrammar(available.map { it.name })), signal) {}
+        } }.onFailure { diag?.w("goal", "understanding call failed: ${it.message?.lineSequence()?.firstOrNull()}") }.getOrNull() ?: return null
+        if (r.stats.stopReason == "cancelled") return null
+        var u = try { parseStepwise(r.text, byName, text) } catch (e: PlanError) {
+            lastRefusals = listOf("${e.message} <- ${r.text.take(300)}"); return null }
+        var calls = 1
+        val actions = available.filter { !isReadOnly(it) }
+        // An instruction with no tool: one focused question, the actions only (small models choose better from fewer).
+        if (u.kind == MessageKind.INSTRUCTION && u.steps.isEmpty() && actions.isNotEmpty()) {
+            calls++
+            choose(engine, text, actions, signal, frame)?.let { t -> u = parseStepwise(stepwiseJson(u, t.name, lookupsOf(r.text)), byName, text) }
+        }
+        // Before anything is changed: does the message really ask for this? A separate yes/no is the most reliable judgement
+        // a small model makes; a "no" turns the plan into lookups only (or nothing).
+        u.steps.lastOrNull()?.takeIf { !it.readOnly && it.tool != null }?.let { act ->
+            calls++
+            if (asks(engine, text, tools.describe(act.tool!!), signal, frame) == false) {
+                lastRefusals = lastRefusals + "intent check: the message does not ask to ${tools.describe(act.tool)}"
+                u = u.copy(kind = MessageKind.QUESTION, steps = emptyList(), research = null)
+            }
+        }
+        return u.copy(modelCalls = calls, ms = (System.nanoTime() - t0) / 1_000_000).also { last = it }
+    }
+
+    private fun lookupsOf(answer: String): List<String> = runCatching { CluJson.parseToJsonElement(answer).jsonObject["lookup"]?.jsonArray
+        ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } }.getOrNull().orEmpty()
+
+    private fun stepwiseJson(u: Understanding, tool: String, lookups: List<String>) = buildJsonObject {
+        put("kind", u.kind.name.lowercase()); put("goal", u.goal); put("lookup", JsonArray(lookups.map { JsonPrimitive(it) })); put("tool", tool) }.toString()
+
+    /** Which one action does the owner's message ask for (or none)? A grammar admits only real action names. */
+    private suspend fun choose(engine: LlmEngine, text: String, actions: List<Tool>, signal: CancelSignal, frame: (String) -> List<ChatMessage>): Tool? {
+        val ask = "[Choose] Which one of these does the owner's message ask you to do?\n" + actions.joinToString("\n") { "${it.name}: ${it.description.take(100)}" } +
+            "\nnone: none of them\nThe owner said: \"${text.take(600)}\"\nAnswer with the name only."
+        val g = "root ::= " + (actions.map { it.name } + "none").joinToString(" | ") { "\"$it\"" }
+        val r = runCatching { withContext(Dispatchers.IO) { engine.generate(frame(ask), GenParams(maxTokens = 12, temperature = 0f, topK = 1, repeatPenalty = 1.0f, grammar = g), signal) {} } }.getOrNull()
+        return r?.text?.trim()?.let { n -> actions.firstOrNull { it.name == n } }
+    }
+
+    /** Does the owner's message ask CLU to do [what]? yes / no / null (no answer). */
+    private suspend fun asks(engine: LlmEngine, text: String, what: String, signal: CancelSignal, frame: (String) -> List<ChatMessage>): Boolean? {
+        val ask = "[Check] The owner said: \"${text.take(600)}\"\nDoes this message ask you to ${what.lowercase().trimEnd('.')}? " +
+            "Answer yes only if they want it done; musing, greetings and questions are no."
+        val r = runCatching { withContext(Dispatchers.IO) { engine.generate(frame(ask), GenParams(maxTokens = 3, temperature = 0f, topK = 1, repeatPenalty = 1.0f,
+            grammar = "root ::= \"yes\" | \"no\""), signal) {} } }.getOrNull() ?: return null
+        return when (r.text.trim()) { "yes" -> true; "no" -> false; else -> null }
+    }
+
+    fun stepwiseBlock(): String = buildString {
+        appendLine("Do not answer the message below. Describe it as JSON {\"kind\",\"goal\",\"lookup\",\"tool\"}.")
+        appendLine("kind: \"instruction\" = the owner asks you to do something (remind, add, set, send, open...), even indirectly (\"make sure I don't forget\"); " +
+            "\"question\" = they want to know something; \"thinking_aloud\" = they muse, wonder or reflect and want no action; \"chat\" = greetings, feelings, small talk.")
+        appendLine("goal: a few words. lookup: facts the task needs that the message does not state and you cannot be sure of: dates of events, the owner's own " +
+            "schedule or records, current information. Each a short phrase like \"date of the next Chennai marathon\". [] when nothing is missing.")
+        appendLine("tool: the one tool (from your tool list) that does what the owner asked, or \"none\" for chat, thinking aloud and questions.")
+        appendLine("Examples:")
+        appendLine("$PLAN Message: I keep thinking about whether I should learn Rust this year")
+        appendLine("{\"kind\":\"thinking_aloud\",\"goal\":\"weighing learning Rust\",\"lookup\":[],\"tool\":\"none\"}")
+        appendLine("$PLAN Message: find out when the next Chennai marathon is and remind me to register three days before it")
+        appendLine("{\"kind\":\"instruction\",\"goal\":\"marathon registration reminder\",\"lookup\":[\"date of the next Chennai marathon\"],\"tool\":\"reminder.set\"}")
+        appendLine("$PLAN Message: put oat milk on the shopping list")
+        appendLine("{\"kind\":\"instruction\",\"goal\":\"shopping item\",\"lookup\":[],\"tool\":\"task.add\"}")
+        appendLine("$PLAN Message: who won the last cricket world cup?")
+        appendLine("{\"kind\":\"question\",\"goal\":\"latest cricket world cup winner\",\"lookup\":[\"winner of the most recent cricket world cup\"],\"tool\":\"none\"}")
+    }
+
+    fun stepwiseGrammar(toolNames: List<String>): String {
+        val names = (listOf("none") + toolNames).joinToString(" | ") { "\"\\\"$it\\\"\"" }
+        return """
+root ::= "{" ws "\"kind\":" ws kind "," ws "\"goal\":" ws short "," ws "\"lookup\":" ws "[" ws ( short ( "," ws short )? )? ws "]" "," ws "\"tool\":" ws toolname ws "}"
+kind ::= "\"chat\"" | "\"question\"" | "\"instruction\"" | "\"thinking_aloud\""
+toolname ::= $names
+short ::= "\"" [^"\\\x00-\x1f]{1,60} "\""
+ws ::= [ \n]{0,3}
+""".trimIndent()
+    }
+
+    /** Turns a stepwise answer into steps: lookups, then the tool with its arguments filled when it runs. */
+    fun parseStepwise(answer: String, byName: Map<String, Tool>, ownerText: String): Understanding {
+        val o = runCatching { CluJson.parseToJsonElement(answer.trim()).jsonObject }.getOrNull() ?: throw PlanError("it was not one JSON object.")
+        var kind = when ((o["kind"] as? JsonPrimitive)?.contentOrNull) {
+            "instruction" -> MessageKind.INSTRUCTION; "question" -> MessageKind.QUESTION; "thinking_aloud" -> MessageKind.THINKING_ALOUD; "chat" -> MessageKind.CHAT
+            else -> throw PlanError("kind must be chat, question, instruction or thinking_aloud.")
+        }
+        if (kind == MessageKind.INSTRUCTION && musing(ownerText)) kind = MessageKind.THINKING_ALOUD
+        val goal = (o["goal"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty().take(200)
+        // A fact to look up must be about something in the owner's message (an example copied from the instructions is not).
+        val lookups = (o["lookup"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { l -> l.length >= 3 } }.distinct()
+            .filter { l -> ungrounded(JsonObject(mapOf("what" to JsonPrimitive(l))), ownerText) == null }.take(2)
+        var tool = (o["tool"] as? JsonPrimitive)?.contentOrNull?.takeIf { it != "none" }?.let { byName[it] ?: throw PlanError("there is no tool $it.") }
+        // Only an instruction may change anything.
+        if (tool != null && !isReadOnly(tool) && kind != MessageKind.INSTRUCTION) tool = null
+        if (kind == MessageKind.CHAT || kind == MessageKind.THINKING_ALOUD) return Understanding(kind, goal, emptyList(), 0, 0)
+        // A question without a tool: the agent's research path answers it (search, relevance checks, sources).
+        if (tool == null) return Understanding(kind, goal, emptyList(), 0, 0, research = lookups.firstOrNull())
+        val steps = lookups.mapIndexed { i, l -> GoalStep("s${i + 1}", lookup = l.take(80)) } +
+            GoalStep("s${lookups.size + 1}", tool = tool.name, fill = true, readOnly = isReadOnly(tool))
+        return Understanding(kind, goal, steps, 0, 0)
     }
 
     /** A system prompt of its own, for callers without the chat prompt (the chat agent passes its own cached prefix instead). */
@@ -352,7 +474,39 @@ ws ::= [ \n]{0,3}
             step = step.copy(status = GoalStepStatus.STARTED, attempts = step.attempts + 1)
             g = store.save(g.withStep(i, step).copy(state = if (step.tool != null) GoalState.WAITING_FOR_TOOL else GoalState.RUNNING))
             progress(g)
-            val done: GoalStep = if (step.extract != null) {
+            val done: GoalStep = if (step.lookup != null) {
+                if (g.modelCalls + 2 > budget.maxModelCalls) return fail(g, "it needed more model calls than allowed (${budget.maxModelCalls})")
+                if (engine == null) return fail(g, "no model is available to read the results")
+                val (found, calls) = lookupStep(engine, step, ctx, signal, frame, emit)
+                g = store.save(g.copy(modelCalls = g.modelCalls + calls))
+                found
+            } else if (step.fill && step.tool != null) {
+                if (engine == null) return fail(g, "no model is available to fill in ${step.tool}")
+                // Fill the arguments from the owner's words and the facts found, check them, then run; one repair if the
+                // arguments are refused or the tool can't use them (nothing happened, so trying again is safe).
+                var feedback = ""
+                var outcome: GoalStep? = null
+                for (attempt in 0..1) {
+                    if (g.modelCalls >= budget.maxModelCalls) return fail(g, "it needed more model calls than allowed (${budget.maxModelCalls})")
+                    g = store.save(g.copy(modelCalls = g.modelCalls + 1))
+                    val args = fillArgs(engine, step.tool, g.objective, g.steps, signal, frame, feedback)
+                        ?.let { anchored(it, g.objective, g.steps.filter { s -> s.lookup != null && s.status == GoalStepStatus.DONE }.map { s -> s.value }) }
+                        ?: return fail(g, "I couldn't work out the details for ${tools.describe(step.tool).lowercase()}")
+                    val known = g.steps.filter { it.lookup != null && it.status == GoalStepStatus.DONE }.joinToString(" ") { it.value } + " " + calendar()
+                    val bad = if (step.readOnly) null else ungrounded(args, g.objective + " " + known)
+                    if (bad != null) { feedback = "${bad.first} \"${bad.second}\" is not something the owner said or a fact found. Use the owner's words."; lastRefusals = lastRefusals + feedback; continue }
+                    // Checkpoint the filled arguments before running, so a resume never fills them differently.
+                    g = store.save(g.withStep(i, step.copy(args = args, fill = false)))
+                    val r = runTool(step.copy(args = args, fill = false), args, ctx, emit)
+                    outcome = r
+                    if (r.status == GoalStepStatus.FAILED && r.error != CONFIRM && attempt == 0 && !signal.isCancelled) {
+                        feedback = "${step.tool} refused those details: ${r.error}. Fill them again."
+                        g = store.save(g.withStep(i, step.copy(status = GoalStepStatus.STARTED)).copy(retries = g.retries + 1)); continue
+                    }
+                    break
+                }
+                outcome ?: return fail(g, "the details for ${tools.describe(step.tool).lowercase()} didn't come from what you said (${feedback.substringBefore(" is not")})")
+            } else if (step.extract != null) {
                 if (g.modelCalls >= budget.maxModelCalls) return fail(g, "it needed more model calls than allowed (${budget.maxModelCalls})")
                 if (engine == null) return fail(g, "no model is available to read the results")
                 g = store.save(g.copy(modelCalls = g.modelCalls + 1))
@@ -372,8 +526,12 @@ ws ::= [ \n]{0,3}
             g = store.save(g.withStep(i, done).copy(state = GoalState.RUNNING))
             progress(g)
             if (done.status == GoalStepStatus.FAILED) {
-                if (done.error == CONFIRM) return GoalOutcome.Confirm(done.tool!!, fill(done.args, g.steps), ToolResult(false, false, done.result, needsConfirmation = true, spoken = done.spoken))
-                    .also { store.save(g.copy(state = GoalState.WAITING_FOR_EXTERNAL_RESULT, verification = "waiting for the owner's confirmation")) }
+                if (done.error == CONFIRM) {
+                    // Nothing ran yet: the step waits (not STARTED, so a restart asks again instead of calling it uncertain).
+                    store.save(g.withStep(i, done.copy(status = GoalStepStatus.PENDING, error = "")).copy(state = GoalState.WAITING_FOR_EXTERNAL_RESULT,
+                        verification = "waiting for the owner's confirmation"))
+                    return GoalOutcome.Confirm(done.tool!!, fill(done.args, g.steps), ToolResult(false, false, done.result, needsConfirmation = true, spoken = done.spoken), g.id, i)
+                }
                 return fail(g, done.error.ifBlank { "step ${i + 1} failed" })
             }
         }
@@ -385,12 +543,33 @@ ws ::= [ \n]{0,3}
         val used = g.steps.mapNotNull { it.tool }.distinct()
         if (actions.isEmpty()) {
             // Lookups only: the agent answers from the gathered results (grounded like any tool answer).
-            val summary = g.steps.joinToString("\n") { s -> if (s.extract != null) "${s.extract}: ${s.value}" else "[${s.tool}] ${s.result.take(1500)}" }
+            val summary = g.steps.joinToString("\n") { s -> if (s.extract != null || s.lookup != null) "${s.extract ?: s.lookup}: ${s.value}" else "[${s.tool}] ${s.result.take(1500)}" }
             store.save(g.copy(state = GoalState.COMPLETED, finalText = "(answered from results)"))
             return GoalOutcome.Compose(ToolResult.ok(summary, spoken = null), used)
         }
         val text = finalText(g)
         return end(store.save(g.copy(state = GoalState.COMPLETED, finalText = text)), text, used)
+    }
+
+    /**
+     * The owner answered a confirmation for step [index] of goal [goalId] and the agent ran it ([r]) or not ([r] null =
+     * declined). The step's outcome is recorded; on success the rest of the goal continues from there, completed
+     * steps untouched; when declined, the goal ends and says what was (and wasn't) done.
+     */
+    suspend fun confirmed(goalId: String, index: Int, r: ToolResult?, engine: LlmEngine?, ctx: ToolContext, signal: CancelSignal,
+                          progress: (Goal) -> Unit = {}, emit: (AgentEvent) -> Unit = {}, frame: ((String) -> List<ChatMessage>)? = null): GoalOutcome? {
+        val g = store.get(goalId)?.takeIf { it.state == GoalState.WAITING_FOR_EXTERNAL_RESULT && index in it.steps.indices } ?: return null
+        val step = g.steps[index]
+        if (r == null) {
+            val text = "Okay, I won't ${tools.describe(step.tool ?: "").lowercase().trimEnd('.')}. " + doneSoFar(g).let { if (it.startsWith("Nothing")) "Nothing else was done." else it }
+            store.save(g.copy(state = GoalState.CANCELLED, error = "declined by the owner", finalText = text))
+            return GoalOutcome.Answer(text, emptyList())
+        }
+        val done = if (r.success) step.copy(status = GoalStepStatus.DONE, value = valueOf(r), result = r.summary, spoken = r.spoken, verified = r.verified, attempts = step.attempts + 1)
+            else step.copy(status = GoalStepStatus.FAILED, error = (r.error ?: r.summary).trim().trimEnd('.'), attempts = step.attempts + 1)
+        val g2 = store.save(g.withStep(index, done).copy(state = GoalState.RUNNING))
+        if (done.status == GoalStepStatus.FAILED) return fail(g2, done.error.ifBlank { "step ${index + 1} failed" })
+        return run(g2, engine, ctx, signal, progress, emit, frame)
     }
 
     private fun end(g: Goal, text: String, used: List<String>): GoalOutcome = GoalOutcome.Answer(text, used)
@@ -412,8 +591,8 @@ ws ::= [ \n]{0,3}
 
     /** The final answer for a goal with actions: what was found and what was done, from the steps' own results. */
     private fun finalText(g: Goal): String = buildString {
-        val facts = g.steps.filter { it.extract != null && it.status == GoalStepStatus.DONE }
-        for (f in facts) { append(cap(f.extract!!.substringBefore(" as ").trim())); append(": "); append(f.value); append(". ") }
+        val facts = g.steps.filter { (it.extract != null || it.lookup != null) && it.status == GoalStepStatus.DONE }
+        for (f in facts) { append(cap((f.extract ?: f.lookup)!!.substringBefore(" as ").trim())); append(": "); append(f.value); append(". ") }
         for (s in g.steps.filter { !it.readOnly && it.status == GoalStepStatus.DONE }) { append((s.spoken ?: s.result).trim().let { if (it.endsWith(".") || it.endsWith("!")) it else "$it." }); append(" ") }
         if (g.verification.startsWith("not verified")) append("(I couldn't confirm that took effect; please check.)")
     }.trim()
@@ -453,6 +632,114 @@ ws ::= [ \n]{0,3}
         return step.copy(status = GoalStepStatus.DONE, value = v, result = v, verified = true)
     }
 
+    /**
+     * "two days before" / "an hour before it": a time relative to a moment the owner or a lookup already named. The
+     * moment is put in (a fact found, else the one date or time in the owner's words), so the reminder can be computed;
+     * with no single such moment the value is left as it is and the tool asks.
+     */
+    fun anchored(args: JsonObject, ownerText: String, facts: List<String>): JsonObject = JsonObject(args.mapValues { (k, v) ->
+        val p = v as? JsonPrimitive
+        if (p == null || !p.isString || k.lowercase() !in TIME_KEYS) return@mapValues v
+        val m = DANGLING.find(p.content.trim()) ?: return@mapValues v
+        val anchor = facts.firstOrNull { f -> ai.clu.core.butler.Butler.parseDate(f, java.time.LocalDate.now()) != null }
+            ?: MOMENT.findAll(ownerText).map { it.value.trim() }.distinct().singleOrNull() ?: return@mapValues v
+        JsonPrimitive(p.content.trim().substring(0, m.range.first).trimEnd() + " before " + anchor)
+    })
+
+    /** Today and tomorrow, from CLU's clock (dates the model may use without having been told them). */
+    fun calendar(): String {
+        val d = java.time.Instant.ofEpochMilli(now()).atZone(java.time.ZoneId.systemDefault())
+        val f = java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", java.util.Locale.ENGLISH)
+        return "Today is ${d.format(f)}, ${"%02d:%02d".format(d.hour, d.minute)}; tomorrow is ${d.plusDays(1).format(f)}."
+    }
+
+    /**
+     * Finds one fact: the owner's own records first (memory), then the web. Each source's result is read by one
+     * grammar-limited extraction; the value can only fill a field of the plan, never change it. Returns the step and
+     * the model calls used.
+     */
+    private suspend fun lookupStep(engine: LlmEngine, step: GoalStep, ctx: ToolContext, signal: CancelSignal,
+                                   frame: ((String) -> List<ChatMessage>)?, emit: (AgentEvent) -> Unit): Pair<GoalStep, Int> {
+        val fact = step.lookup!!
+        var calls = 0
+        val tried = mutableListOf<String>()
+        for (source in listOf("memory.search", "web.search")) {
+            if (!tools.has(source) || !tools.isEnabled(source)) continue
+            val args = buildJsonObject { put("query", fact) }
+            emit(AgentEvent.ToolStarted(source, args))
+            val r = withTimeoutOrNull(budget.stepTimeoutMs) { tools.execute(source, args, ctx) } ?: ToolResult.fail("$source timed out")
+            emit(AgentEvent.ToolFinished(source, r))
+            if (!r.success || r.summary.isBlank()) { tried += "$source: ${(r.error ?: "nothing").take(80)}"; continue }
+            if ((r.data as? JsonObject)?.get("count")?.jsonPrimitive?.intOrNull == 0) { tried += "$source: nothing"; continue } // nothing to read
+            calls++
+            val got = extractStep(engine, GoalStep(step.id, extract = fact, from = "src"), listOf(GoalStep("src", result = r.summary)), signal, frame)
+            if (got.status == GoalStepStatus.DONE)
+                return step.copy(status = GoalStepStatus.DONE, value = got.value, result = "${got.value} (from ${if (source == "web.search") "the web" else "your memory"})", verified = true) to calls
+            tried += "$source: not in the results"
+        }
+        return step.copy(status = GoalStepStatus.FAILED, error = "I couldn't find $fact" + (if (tried.isEmpty()) " (no way to look it up here)" else "")) to calls
+    }
+
+    /** Fills a tool's arguments: exactly its keys, constrained by a grammar, from the owner's words and the facts found. */
+    private suspend fun fillArgs(engine: LlmEngine, toolName: String, ownerText: String, steps: List<GoalStep>, signal: CancelSignal,
+                                 frame: ((String) -> List<ChatMessage>)?, feedback: String): JsonObject? {
+        val tool = tools.tool(toolName) ?: return null
+        val example = runCatching { CluJson.parseToJsonElement(tool.argsExample).jsonObject }.getOrNull() ?: return null
+        val facts = steps.filter { it.lookup != null && it.status == GoalStepStatus.DONE }
+        // No example values: a small model copies them ("call Ravi") instead of the owner's words (measured). Field
+        // names only, and the owner's words last, nearest to the answer.
+        val ask = buildString {
+            appendLine("[Fill] " + calendar())
+            if (facts.isNotEmpty()) appendLine("Facts found: " + facts.joinToString("; ") { "${it.lookup} = ${it.value}" })
+            appendLine("Fill in ${example.keys.joinToString(" and ")} for $toolName (${tool.description.trimEnd('.')}), using the owner's own words.")
+            if (example.keys.any { it.lowercase() in TIME_KEYS })
+                appendLine("Write the time as a person would say it: a day or a date, \"at\" a clock time, or \"N days before\" / \"N hours before\" a date or time. " +
+                    "Include the clock time if the owner gave one.")
+            if (feedback.isNotBlank()) appendLine(feedback)
+            append("The owner said: \"${ownerText.take(600)}\"")
+        }
+        val grammar = fillGrammar(example, ownerText, facts.map { it.value }, calendar())
+        val msgs = frame?.invoke(ask) ?: listOf(ChatMessage("user", ask))
+        val r = runCatching { withContext(Dispatchers.IO) {
+            engine.generate(msgs, GenParams(maxTokens = 120, temperature = 0.1f, topK = 20, repeatPenalty = 1.0f, grammar = grammar), signal) {}
+        } }.getOrNull() ?: return null
+        return runCatching { CluJson.parseToJsonElement(r.text.trim()).jsonObject }.getOrNull()
+    }
+
+    /**
+     * The grammar for a tool's arguments: exactly its keys; text values made only of the owner's words (and the facts
+     * found), so an example or a made-up name can't be copied in; times additionally from a small vocabulary of time
+     * words and numbers (month names only when the owner or a fact used them, so a date can't be invented).
+     */
+    fun fillGrammar(example: JsonObject, ownerText: String, facts: List<String>, calendar: String): String {
+        fun words(t: String) = Regex("[\\p{L}\\p{N}][\\p{L}\\p{N}'-]*").findAll(t).map { it.value.take(40) }.toList()
+        val said = (words(ownerText) + facts.flatMap { words(it) }).flatMap { listOf(it, it.lowercase()) }.distinct().take(300)
+        val months = listOf("january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december")
+        val heard = (ownerText + " " + facts.joinToString(" ") + " " + calendar).lowercase()
+        val timeWords = listOf("today", "tomorrow", "tonight", "morning", "evening", "afternoon", "night", "noon", "midnight", "at", "in", "on", "before", "after",
+            "the", "a", "an", "day", "days", "hour", "hours", "minute", "minutes", "week", "weeks", "am", "pm", "next", "this", "every",
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday") + months.filter { it in heard }
+        fun lit(w: String) = "\"" + w.replace("\\", "").replace("\"", "") + "\""
+        return buildString {
+            append("root ::= \"{\" ")
+            example.entries.forEachIndexed { i, (k, v) ->
+                if (i > 0) append(" \",\" ")
+                append("\"\\\"$k\\\":\" ")
+                val p = v as? JsonPrimitive
+                append(when { p != null && !p.isString && p.booleanOrNull != null -> "bool"; p != null && !p.isString -> "num"
+                    k.lowercase() in TIME_KEYS -> "timeval"; else -> "textval" })
+            }
+            append(" \"}\"\n")
+            append("textval ::= \"\\\"\" tw ( \" \" tw ){0,11} \"\\\"\"\n")
+            append("timeval ::= \"\\\"\" tt ( \" \" tt ){0,9} \"\\\"\"\n")
+            append("tt ::= tw | timeword | [0-9]{1,4} | [0-9]{1,2} \":\" [0-9]{2} | [0-9]{4} \"-\" [0-9]{2} \"-\" [0-9]{2}\n")
+            append("tw ::= ${if (said.isEmpty()) "\"it\"" else said.joinToString(" | ") { lit(it) }}\n")
+            append("timeword ::= ${timeWords.joinToString(" | ") { lit(it) }}\n")
+            append("num ::= \"-\"? [0-9]{1,6}\n")
+            append("bool ::= \"true\" | \"false\"\n")
+        }
+    }
+
     private fun Goal.withStep(i: Int, s: GoalStep) = copy(steps = steps.toMutableList().also { it[i] = s })
 
     companion object {
@@ -477,6 +764,10 @@ ws ::= [ \n]{0,3}
         private val STOP = setOf("the", "and", "for", "with", "that", "this", "you", "your", "from", "about", "have", "will")
 
         /** The first text argument with no word in common with the owner's message (a reference or a bare number is fine), or null. */
+        private val DANGLING = Regex("(?i)\\s*before(?:\\s+(?:it|that|then|this|the event|the day))?$")
+        /** A date or a day-and-time in the owner's words ("25 October", "tomorrow at 3 pm", "on 30 October at 11 am"). */
+        private val MOMENT = Regex("(?i)\\b\\d{1,2}(?:st|nd|rd|th)?(?: of)? (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?: \\d{4})?(?: at \\d{1,2}(?:[:.]\\d{2})? ?(?:am|pm))?|" +
+            "\\b(?:today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?: at \\d{1,2}(?:[:.]\\d{2})? ?(?:am|pm)?)?")
         private val TIME_KEYS = setOf("when", "time", "at", "date", "start", "end", "due")
         private val DATE_LIKE = Regex("(?i)\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b|\\b\\d{1,2}/\\d{1,2}/\\d{4}\\b|\\b\\d{1,2}(?:st|nd|rd|th)?(?: of)? (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\b|" +
             "\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \\d{1,2}\\b")

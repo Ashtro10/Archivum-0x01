@@ -167,8 +167,8 @@ class MemorySearchTool(private val memories: MemoryRepository) : Tool {
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
         val q = args.str("query") ?: return ToolResult.fail("No query given.")
         val found = memories.rank(q, ctx.persona.readableScopes, limit = 6)
-        if (found.isEmpty()) return ToolResult.ok("No memories found about \"$q\".", spoken = null)
-        return ToolResult.ok(found.joinToString("\n") { PromptMemoryFormat.line(it.memory) }, spoken = null)
+        if (found.isEmpty()) return ToolResult.ok("No memories found about \"$q\".", spoken = null, data = buildJsonObject { put("count", 0) })
+        return ToolResult.ok(found.joinToString("\n") { PromptMemoryFormat.line(it.memory) }, spoken = null, data = buildJsonObject { put("count", found.size) })
     }
 }
 

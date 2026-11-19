@@ -125,6 +125,8 @@ interface InferenceRouter {
  */
 private const val TASK_TOOL = "task.plan"
 private const val GOAL_TOOL = "goal"
+/** How many times a reply cut off by the token limit is continued (see generateComplete). */
+private const val MAX_CONTINUATIONS = 2
 private const val TASK_RESUME_MS = 2 * 3_600_000L
 /** When the history overflows the context window, it is cut to this share of the room it has (see fitToContext). */
 private const val HISTORY_TRIM_TARGET = 0.6
@@ -272,7 +274,8 @@ class CluAgent(
      * asked in the conversation itself, so it works by voice and by text on every device; it expires after a few
      * minutes or when the owner talks about something else, and only the owner can confirm it.
      */
-    private data class PendingConfirm(val tool: String, val args: JsonObject, val at: Long)
+    /** [goalId]/[step]: the confirmation belongs to a goal, which continues once it is answered. */
+    private data class PendingConfirm(val tool: String, val args: JsonObject, val at: Long, val goalId: String? = null, val step: Int = -1)
     private val confirmations = java.util.concurrent.ConcurrentHashMap<String, PendingConfirm>()
     /** How long a "Shall I go ahead?" stays open. */
     private val CONFIRM_TTL_MS = 3 * 60_000L
@@ -284,15 +287,38 @@ class CluAgent(
     private suspend fun runGoal(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit,
                                 goal: Goal, engine: LlmEngine?, frame: ((String) -> List<ChatMessage>)?) {
         val g = goals ?: return
-        val out = g.run(goal, engine, ctx, turn.signal, progress = { st -> emit(AgentEvent.TaskProgress(st.steps.map { s ->
-            PlanStep(s.extract?.let { "Find ${it.substringBefore(" as ")}" } ?: tools.describe(s.tool ?: ""), when (s.status) {
-                GoalStepStatus.DONE -> StepStatus.DONE; GoalStepStatus.FAILED -> StepStatus.FAILED; GoalStepStatus.STARTED -> StepStatus.RUNNING
-                GoalStepStatus.SKIPPED -> StepStatus.SKIPPED; GoalStepStatus.PENDING -> StepStatus.PENDING }, (s.spoken ?: s.value).take(120)) })) }, emit = emit, frame = frame)
+        goalOutcome(req, turn, persona, ctx, baseMeta, emit, g.run(goal, engine, ctx, turn.signal, progress = goalProgress(emit), emit = emit, frame = frame))
+    }
+
+    private fun goalProgress(emit: (AgentEvent) -> Unit): (Goal) -> Unit = { st -> emit(AgentEvent.TaskProgress(st.steps.map { s ->
+        PlanStep((s.extract ?: s.lookup)?.let { "Find ${it.substringBefore(" as ")}" } ?: tools.describe(s.tool ?: ""), when (s.status) {
+            GoalStepStatus.DONE -> StepStatus.DONE; GoalStepStatus.FAILED -> StepStatus.FAILED; GoalStepStatus.STARTED -> StepStatus.RUNNING
+            GoalStepStatus.SKIPPED -> StepStatus.SKIPPED; GoalStepStatus.PENDING -> StepStatus.PENDING }, (s.spoken ?: s.value).take(120)) })) }
+
+    private suspend fun goalOutcome(req: TurnRequest, turn: Turn, persona: ActivePersona, ctx: ToolContext, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit, out: GoalOutcome) {
         when (out) {
             is GoalOutcome.Answer -> finish(req, turn, out.text, baseMeta.copy(source = "tool", tools = out.tools), emit)
             is GoalOutcome.Compose -> generateReply(req, turn, persona, ctx, baseMeta.copy(tools = out.tools), emit, preToolResult = GOAL_TOOL to out.result)
-            is GoalOutcome.Confirm -> askToConfirm(req, turn, out.tool, out.args, out.result, baseMeta, emit)
+            is GoalOutcome.Confirm -> askToConfirm(req, turn, out.tool, out.args, out.result, baseMeta, emit, out.goalId, out.step)
         }
+    }
+
+    private suspend fun continueGoal(req: TurnRequest, ctx: ToolContext, goalId: String, step: Int, r: ToolResult?, emit: (AgentEvent) -> Unit): GoalOutcome? {
+        val g = goals ?: return null
+        val engine = runCatching { inference.select() }.getOrNull()
+        val frame = engine?.let { planFrame(req, personas.active(), it) }
+        return g.confirmed(goalId, step, r, engine, ctx, CancelSignal(), goalProgress(emit), emit, frame)
+    }
+
+    /**
+     * The goal's objective: the owner's message, after their last two messages of the last half hour when there are
+     * any ("My dentist appointment is on 30 October." … "Remind me the day before."). Only the owner's own words: what a
+     * goal's details may come from.
+     */
+    private fun ownerWords(req: TurnRequest, text: String): String {
+        val earlier = conversations.messages(req.conversationId).filter { it.role == Role.USER && now() - it.createdAt < 30 * 60_000L }
+            .dropLast(1).takeLast(2).map { it.content.trim() }.filter { it.isNotEmpty() && it != text }
+        return if (earlier.isEmpty()) text else (earlier + text).joinToString("\n")
     }
 
     /** Whether CLU plans with this engine: grammar support and the setting on. */
@@ -313,8 +339,9 @@ class CluAgent(
         return { turn -> fitToContext(engine, system, history, listOf(ChatMessage("user", turn)), 320, req.conversationId) }
     }
 
-    private fun askToConfirm(req: TurnRequest, turn: Turn, tool: String, args: JsonObject, r: ToolResult, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit) {
-        confirmations[req.conversationId] = PendingConfirm(tool, args, now())
+    private fun askToConfirm(req: TurnRequest, turn: Turn, tool: String, args: JsonObject, r: ToolResult, baseMeta: MessageMeta, emit: (AgentEvent) -> Unit,
+                             goalId: String? = null, step: Int = -1) {
+        confirmations[req.conversationId] = PendingConfirm(tool, args, now(), goalId, step)
         val q = r.spoken?.takeIf { it.endsWith("?") } ?: "Please confirm: ${tools.describe(tool)}${argsPreview(args)}. Shall I go ahead?"
         finish(req, turn, q, baseMeta.copy(source = "tool", tools = listOf(tool)), emit)
     }
@@ -332,9 +359,16 @@ class CluAgent(
                 emit(AgentEvent.ToolStarted(p.tool, p.args))
                 val r = tools.execute(p.tool, p.args, ctx, confirmed = true)
                 emit(AgentEvent.ToolFinished(p.tool, r))
-                finish(req, turn, r.spoken ?: r.summary, baseMeta.copy(source = "tool", tools = listOf(p.tool)), emit); true
+                // Part of a goal: record the step and carry on with the rest (completed steps are never repeated).
+                val cont = p.goalId?.let { id -> continueGoal(req, ctx, id, p.step, r, emit) }
+                if (cont != null) goalOutcome(req, turn, personas.active(), ctx, baseMeta, emit, cont)
+                else finish(req, turn, r.spoken ?: r.summary, baseMeta.copy(source = "tool", tools = listOf(p.tool)), emit); true
             }
-            noRe.matches(t) -> { finish(req, turn, "Okay, I won't.", baseMeta.copy(source = "template"), emit); true }
+            noRe.matches(t) -> {
+                val cont = p.goalId?.let { id -> continueGoal(req, ctx, id, p.step, null, emit) }
+                if (cont != null) goalOutcome(req, turn, personas.active(), ctx, baseMeta, emit, cont)
+                else finish(req, turn, "Okay, I won't.", baseMeta.copy(source = "template"), emit); true
+            }
             else -> false
         }
     }
@@ -581,11 +615,20 @@ class CluAgent(
                     val zone = java.time.ZoneId.systemDefault()
                     val today = java.time.Instant.ofEpochMilli(now()).atZone(zone)
                         .format(java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy, HH:mm", java.util.Locale.ENGLISH))
-                    understood = goals.understand(engine, text, toolsFor(persona, text), today, turn.signal, frame)
+                    understood = if (settings.string(Settings.PLANNER) == "plan") goals.understand(engine, text, toolsFor(persona, text), today, turn.signal, frame)
+                        else goals.understandStepwise(engine, text, toolsFor(persona, text), today, turn.signal, frame)
                     understood?.let { u ->
                         trace.record(turn.trace, TurnEvent.LLM_CALL, "step=understand kind=${u.kind.name.lowercase()} steps=${u.steps.size} calls=${u.modelCalls} ms=${u.ms}")
                         diag?.i("goal", "understood as ${u.kind} with ${u.steps.size} step(s) in ${u.ms} ms")
-                        if (u.takesOver) { runGoal(req, turn, persona, ctx, baseMeta, emit, goals.start(req.conversationId, text, u), engine, frame); return }
+                        if (u.takesOver) { runGoal(req, turn, persona, ctx, baseMeta, emit, goals.start(req.conversationId, ownerWords(req, text), u), engine, frame); return }
+                        // A question the model knows it can't answer from what it was told: researched (search, relevance
+                        // checks, sources) instead of answered from the model's memory.
+                        u.research?.let { q ->
+                            if (tools.has("web.search") && tools.isEnabled("web.search") && tools.networkCategory("web.search")?.let { network.check(it) } == null) {
+                                diag?.i("goal", "question needs research: $q")
+                                research(req, turn, persona, ctx, baseMeta, emit, q, ResearchPolicy.keySubject(q) ?: ResearchPolicy.decide(q, now()).subject); return
+                            }
+                        }
                     }
                 }
             }
@@ -1119,7 +1162,7 @@ class CluAgent(
             val t0 = now()
             if (step == 0) trace.record(turn.trace, TurnEvent.GENERATION_STARTED, "messages=${msgs.size}")
             val result = try {
-                timedGenerate(turn, engine, msgs, params, stop = unusable) { delta ->
+                generateComplete(turn, engine, msgs, params, stop = unusable, allow = !req.viaVoice) { delta ->
                     if (!firstTokenRecorded) { firstTokenRecorded = true; trace.record(turn.trace, TurnEvent.FIRST_TOKEN) }
                     buf.append(delta)
                     val s = buf.toString()
@@ -1427,6 +1470,34 @@ class CluAgent(
      * first token or the next token takes too long, and cancels it when this coroutine is cancelled (the blocking native
      * call cannot see coroutine cancellation by itself; before this, a cancelled turn kept the model busy to max tokens).
      */
+    /**
+     * A reply cut off by the token limit (stop reason "max_tokens") is continued, up to [MAX_CONTINUATIONS] times and
+     * only while it fits the context window, so a long answer ends where the model ends it, not mid-sentence where the
+     * budget ran out (measured: 400-token answers to open questions stopped mid-sentence). Spoken replies stay short.
+     */
+    private suspend fun generateComplete(turn: Turn, engine: LlmEngine, msgs: List<ChatMessage>, params: GenParams, stop: CancelSignal?,
+                                         allow: Boolean, onText: (String) -> Unit): GenResult {
+        var r = timedGenerate(turn, engine, msgs, params, stop, onText)
+        var text = r.text; var tokens = r.stats.generatedTokens; var n = 0
+        while (allow && r.stats.stopReason == "max_tokens" && n < MAX_CONTINUATIONS && stop?.isCancelled != true && !turn.signal.isCancelled &&
+            !text.contains("<tool>") && text.isNotBlank()) {
+            val more = msgs + ChatMessage("assistant", text) + ChatMessage("user", "Continue exactly where you stopped, mid-sentence if needed. Do not repeat anything or start over.")
+            val ctxSize = engine.contextSize()
+            if (ctxSize > 0 && engine.countTokens(more) + params.maxTokens + 32 > ctxSize) break
+            n++
+            var first = true
+            val r2 = timedGenerate(turn, engine, more, params, stop) { d ->
+                // A new sentence after a finished one needs a space; a cut word continues as it is.
+                if (first && d.isNotEmpty()) { first = false; if (text.last() in ".!?:" && d.first().isLetterOrDigit()) { onText(" "); text += " " } }
+                onText(d)
+            }
+            text += r2.text; tokens += r2.stats.generatedTokens
+            r = r2.copy(text = text, stats = r2.stats.copy(generatedTokens = tokens))
+        }
+        if (n > 0) diag?.i("agent", "reply continued $n time(s) after reaching the token limit")
+        return r
+    }
+
     private suspend fun timedGenerate(turn: Turn, engine: LlmEngine, msgs: List<ChatMessage>, params: GenParams,
                                       stop: CancelSignal? = null, onText: (String) -> Unit): GenResult =
         coroutineScope {

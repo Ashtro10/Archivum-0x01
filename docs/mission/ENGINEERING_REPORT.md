@@ -300,3 +300,198 @@ and a passed date produced a misleading error. Those defects were found by this 
 5. Full-duplex voice (it is turn-based with barge-in).
 6. Live multi-source research evaluation (blocked here by network policy).
 7. Device validation on the Pad 6 and the Neo 9 Pro: nothing in this report ran on them.
+
+---
+
+# Phase 2 — Intelligence and execution quality (20 November 2026)
+
+## P0. What this phase could and could not measure
+
+| Asked for | Done here? | Why |
+|---|---|---|
+| Download and compare stronger models (Qwen2.5-3B, Qwen3-4B, Gemma 3 4B, …) | **No** | This container's network policy blocks Hugging Face (`CONNECT tunnel failed, 403`). Allowing it needs an environment change; the approval prompt couldn't be shown in the app version used |
+| Controlled comparison on the 32 GB laptop | **No** | No computer is attached to this session (no shared folders) |
+| Load time, RAM, first token, tok/s, thermal, battery on the Xiaomi Pad 6 | **No** | No device is reachable from here |
+| Live research (search, open pages, cite) | **No live test** | Search providers are blocked by the same policy; the evaluation uses a topic fixture |
+| Everything else | Yes | Measured with the only real instruction model available: **Qwen3-0.6B Q4_K_M**, on the 4-vCPU build host |
+
+Following the release rule of this phase, **no release was made**: a stronger model has not been shown to improve
+CLU, and the 0.6B results below are not a basis for one. The code is on the branch; the published 1.15.0 APK and
+0.13.0 installer are unchanged.
+
+## P1. Candidate models (from their published model cards; not verified in this session)
+
+| Model | Licence | Context | Tool use | Android fit (Pad 6, 8 GB) |
+|---|---|---|---|---|
+| Qwen3-0.6B (measured here) | Apache-2.0 | 32k | Template supports tools | Fits easily (372 MB); too weak, see P3 |
+| **Qwen2.5-3B-Instruct** (the documented default) | **Qwen Research License, not Apache-2.0** (the one Qwen2.5 size besides 72B under it) | 32k | Template supports tools | ~2.1 GB Q4_K_M; fits |
+| Qwen3-4B / Qwen3-4B-Instruct-2507 | Apache-2.0 | 32k native (longer with YaRN; 256k for 2507) | Yes (native tool template); 2507 has no thinking mode, which suits CLU | ~2.5 GB Q4_K_M; fits with a 4k context |
+| Gemma 3 4B (instruction-tuned) | Gemma Terms of Use (custom, with a prohibited-use policy) | 128k | No dedicated tool tokens (prompted) | ~2.5 GB Q4_K_M; fits |
+| Phi-4-mini-instruct (3.8B) | MIT | 128k | Function calling supported | ~2.4 GB Q4_K_M; fits |
+| Llama 3.2 3B Instruct | Llama 3.2 Community License | 128k | Yes | ~2.0 GB; fits |
+
+**Recommendation to evaluate first:**
+* **Qwen3-4B-Instruct-2507**: permissive licence, no thinking overhead, strong tool use for its size.
+* **Phi-4-mini-instruct**: MIT licence.
+
+The current recommended default carries a restrictive licence. The Android catalog now says so (the PC wizard
+already did). Whichever model is chosen, the decision must follow the measurements in P6, not this table.
+
+## P2. Why plans failed (diagnosis from the stored refusals of every planning call)
+
+| Suspected cause | Finding |
+|---|---|
+| Model capability | **Main cause.** The 0.6B model classifies most messages correctly (38/44 kinds in the final run), but it cannot reliably compose a multi-step JSON plan. It copies example values, and it rarely decides on its own to look something up |
+| Prompt construction | **Contributing.** Every concrete example anywhere in the prompt was copied: the planner's examples ("Chennai marathon"), the tool list's argument examples ("call Ravi", "milk", "tomorrow 9 am"), and a time hint ("12 March"). Grounding refused each copy, so nothing wrong was done, but the task failed |
+| Tool descriptions | **Contributing.** "Set a reminder." vs "Add to a list" gave no distinguishing cue; the model used the list for reminders |
+| Context truncation | Not a cause: the planning turn reuses the cached prefix and fits easily in 4k |
+| Schema complexity | **Contributing.** One whole plan with references (`{{s2}}`) and extraction steps was too much for this model |
+| Planning architecture / validation | Validation worked as designed: 0 unwanted changes in every run. Its strictness turned the model's copies into honest failures, never into wrong actions |
+
+## P3. What changed (no phrase is hard-coded; every change applies to any model)
+
+1. **Stepwise planning (new default `agent.planner = stepwise`).** One constrained call answers only:
+   * the kind of message;
+   * the facts it needs that the owner didn't give;
+   * the single tool that does what was asked.
+
+   The engine then looks each fact up itself (the owner's memory first, then the web), using a grammar-limited
+   extraction. Only after that does the model fill the tool's arguments, with the facts in hand. The whole-plan
+   planner stays available (`plan`) for stronger models and multi-tool requests.
+2. **Vocabulary-constrained arguments.** The fill grammar admits only:
+   * the owner's own words and the facts found;
+   * for times, also time words and numbers;
+   * month names only if someone actually said them.
+
+   Copying an example or inventing a name or date becomes impossible rather than merely refused.
+3. **A yes/no intent check before any action** ("Does this message ask you to …?"). It stopped a greeting from being
+   turned into a reminder (measured).
+4. **A focused tool choice** when the model says "instruction" but names no tool (only the action tools are offered).
+5. **Anchoring.** "two days before" / "an hour before it" gets the moment that was named (a fact found, or the single
+   date or time in the owner's words). The reminder parser now understands:
+   * "N days/hours before X";
+   * "the day before X";
+   * "the night before X".
+6. **Context.** A goal's objective includes the owner's previous two messages from the last 30 minutes. "Remind me the
+   day before" after "My dentist appointment is on 30 October at 11 am" now works (2/2).
+7. **Grounding of lookups.** A fact to look up must be about something in the message (copied examples are dropped).
+8. **Tool descriptions and argument examples.**
+   * Clearer descriptions: "Alert the owner at a time (remind me, don't let me forget)" and "Add an item to a list
+     (shopping, to-do); no alert".
+   * Argument examples now describe the fields instead of carrying copyable values.
+   * Tool lines are more compact (`- name {args}: description`), so the system prompt did not grow (the 2,000-token
+     window test still passes unchanged).
+9. **Questions the model can't answer are researched.** When the model names a missing fact and no tool, the agent's
+   research path runs (search, relevance checks, sources) instead of answering from the model's memory.
+10. **Task continuation (requirement 4).**
+    * When a goal step needs the owner's yes, the goal waits (WAITING_FOR_EXTERNAL_RESULT). On "yes" the step runs once
+      and the **rest of the goal continues automatically**; completed steps are never repeated.
+    * On "no", the goal is cancelled and says what was and wasn't done.
+    * After a restart, a step that was waiting is asked again, never run blindly.
+11. **Response quality (requirement 7).**
+    * A reply that hits the token limit (`max_tokens`, default 400) is now **continued** (up to twice, within the
+      context window). Before, long answers stopped mid-sentence: the stop reason was never checked.
+    * Spoken replies stay short.
+    * Malformed tool calls (`[tool]…[/tool`) the model sometimes writes into chat are removed from the answer.
+
+## P4. Real-model results (Qwen3-0.6B Q4_K_M, build host, 4 threads, 4k context)
+
+The production path is the same as in Phase 1. Reminders, lists and tool calls are checked in the stores, never in the
+reply. There are 22 cases: the original 14 plus 8 new ones (paraphrases, an indirect instruction, a context-dependent
+instruction, multi-source research, a multi-tool request and one more musing). The Phase 2 criteria are stricter than
+Phase 1's: questions must give the right answer, and research questions must actually search.
+
+| | Phase 1 (whole plan) | Phase 2 whole plan (`plan`) | **Phase 2 stepwise (default), 2 runs** |
+|---|---|---|---|
+| Tasks right | 9/14 (Phase 1 criteria) | 9/22 | **26/44 (59 %)**, the same 13/22 in both runs |
+| Original 14, Phase 1 criteria | 9/14 | — | 10/14 |
+| Unwanted changes | 0 | 0 | **0** |
+| No valid plan | 3/14 | 6/22 | **0/44** |
+| Correct kind | 9/14 | 14/22 | 38/44 |
+| Understanding, median / p95 | 4.7 s / 9.3 s | 4.5 s / 5.8 s | 4.5 s / 5.3 s |
+| Whole turn, median / p95 | 7.4 s / 20.0 s | 7.8 s / 15.3 s | 6.5 s / 8.2 s |
+
+By group (stepwise, 2 runs):
+
+| Group | Right |
+|---|---|
+| no-action (musing, chat) | 12/12 |
+| simple actions | 6/8 |
+| paraphrases | 4/6 |
+| context-dependent | 2/2 |
+| research | 2/4 |
+| look-up-then-act | 0/4 |
+| acceptance tests 1 and 5 | 0/4 |
+| indirect | 0/2 |
+| multi-tool | 0/2 |
+
+**Individual failures (stepwise, final runs):**
+* **Diwali** (both runs): the lookup worked (web, then extraction "20 October 2025") and the reminder was set for the
+  correct day, 17 October. But the model filled *what* with "Diwali's coming up", so the reminder text is wrong.
+* **Diwali, clean the house**: run 1 wrote "two days before" with nothing to anchor it (the lookup was skipped).
+  Run 2 set the right date (18 October) with the text "set".
+* **Rahul**: "3 pm" today instead of "an hour before tomorrow at 3 pm". The model dropped both the day and the offset.
+* **Test 1, busy Thursday**: reminder set, but with *what* = "sure" at 10:00 tomorrow (wrong text; the date is
+  acceptable).
+* **Test 5, exam**: the model chose the calendar tool. There is no calendar on the build host, so it failed honestly.
+* **Vitamins tonight**: the planner invented a lookup ("date of the next vitamin registration"). Lookup grounding let it
+  through because it shares the word "vitamin" with the message. The lookup found nothing, so the goal failed honestly
+  and nothing was set.
+* **Sister's birthday** (indirect): no tool chosen; the model replied conversationally.
+* **Multi-tool** (eggs + reminder): stepwise handles one action per message, and the model filled the list entry
+  badly.
+* **When is Diwali?**: classified as an instruction with no lookup, so the model said it didn't know. The world-cup
+  question was researched correctly.
+
+**Reading.**
+* The architecture changes removed every invalid plan and every copied value, and kept unwanted actions at zero.
+* Context, paraphrase and simple actions improved clearly.
+* What remains is the 0.6B model choosing poor words and the wrong tool.
+* This is model capability, and no further prompt tuning against this one model was done: each further change only
+  moved which cases failed (observed in three intermediate runs, also kept in the logs).
+* The decisive next measurement is the same evaluation with a 3–4B model.
+
+Raw data:
+* `docs/measurements/goal_eval2_qwen3_0.6b_stepwise.json` (2 runs)
+* `docs/measurements/goal_eval2_qwen3_0.6b_plan.json`
+* Phase 1: `goal_eval_qwen3_0.6b.json`
+
+## P5. Acceptance tests and recovery (automated, scripted model)
+
+Pipeline tests with a scripted planner, so the engine is tested independently of model quality:
+
+* **StepwiseGoalTest (15 tests):**
+  * Diwali (memory, web, action);
+  * Test 1;
+  * Test 5 from memory, with no web search;
+  * an invented detail sent back and refilled;
+  * details the tool can't use, refilled;
+  * questions researched;
+  * thinking aloud never acts;
+  * a misread greeting stopped by the intent check;
+  * focused tool choice;
+  * owner-words-only grammar;
+  * anchoring;
+  * **continuation after "yes" and cancellation after "no"**;
+  * malformed tool calls removed;
+  * **a reply cut at the token limit continued to its end**.
+* **GoalEngineTest (15 tests, whole-plan mode):** restart and resume from the checkpoint; an action caught by a
+  restart is not repeated; budgets and stagnation; tool failure with one retry; injection.
+* Model timeout and context exhaustion: LlmReliabilityTest, VoiceLatencyTest, InferenceServiceTest (unchanged, pass).
+
+**Full suites after this phase:** core 758 tests, 0 failures, 17 opt-in skipped; app 99, 0 failures; desktop 144, 0 failures,
+8 opt-in skipped. ICU regex check: 690 patterns, 0 rejected. The settings register was regenerated with `agent.planner`.
+
+## P6. How to finish the model decision (needs your hardware or network)
+
+1. **On the laptop** (or here once Hugging Face is allowed), for each candidate GGUF:
+   ```
+   ./gradlew :core:test --tests ai.clu.core.GoalEvaluation -Dclu.goalModel=<file.gguf> -Dclu.goalRuns=2 \
+       -Dclu.goalOut=docs/measurements/goal_eval_<model>.json
+   ./gradlew :core:test --tests ai.clu.core.LlmLatencyBenchmark -Dclu.llmBenchModel=<file.gguf>
+   ```
+   Compare task success, unwanted changes (must stay 0), planning p95 and load time.
+2. **On the Pad 6**, with the chosen model: the app's diagnostics already record model load, time to first token,
+   tok/s and per-turn timings (Settings → Diagnostics). Add a 30-minute conversation for thermal throttling and
+   battery drain.
+3. **Release** only if the chosen model clearly beats Qwen3-0.6B on this evaluation, with zero unwanted changes.

@@ -2,7 +2,7 @@
 
 Generated from the settings registry (`core/.../config/Settings.kt`) and the JUnit results of the verifying tests. Version 1.15.0-prototype.
 
-* Settings: **305** · verifying test passed: **305** · other: **0**
+* Settings: **306** · verifying test passed: **306** · other: **0**
 * Storage: every value is persisted in the SQLite table `settings` (key, JSON value, scope, HLC, origin). `SHARED` settings
   synchronise between paired devices; `DEVICE` settings stay on the device. Snapshots live in `settings_snapshots` (rollback / known-good).
 * Persistence across restart and rejection of invalid values are verified for every setting by `RegistryTest`.
@@ -162,6 +162,7 @@ Generated from the settings registry (`core/.../config/Settings.kt`) and the JUn
 | `tools.historyDays` | Keep tool history (days) | `30` | integer 1–365 | SHARED | ToolExecutor | Older tool runs are purged | Applies immediately | `ToolSettingsTest#historyRetention` | passed | – |
 | `tools.maxSteps` | Max steps per task | `4` | integer 1–8 | SHARED | CluAgent | Agent loop stops after this many tool steps | Applies immediately | `ToolSettingsTest#maxSteps` | passed | – |
 | `agent.understanding` | How CLU understands requests | `"model"` | `model`, `rules` | SHARED | CluAgent/GoalEngine | Model-planned goals vs. phrase routing | Applies immediately | `GoalSettingsTest#understanding` | passed | – |
+| `agent.planner` | How CLU plans tasks | `"stepwise"` | `stepwise`, `plan` | SHARED | CluAgent/GoalEngine | Stepwise vs. whole-plan planning | Applies immediately | `GoalSettingsTest#planner` | passed | – |
 | `agents.enabled` | Assistant tasks | `true` | true / false | DEVICE | AgentService | When off, no task can be created or started | Applies immediately | `AgentSettingsTest#enabled` | passed | – |
 | `agents.reviewPlan` | Review the plan before a task starts | `true` | true / false | DEVICE | AgentService | A planned task waits in 'Ready to start' instead of running at once | Applies immediately | `AgentSettingsTest#reviewPlan` | passed | – |
 | `agents.maxSteps` | Most steps in a task | `8` | integer 2–20 | DEVICE | AgentService | Longer plans are rejected and re-planned once | Applies immediately | `AgentSettingsTest#maxSteps` | passed | – |

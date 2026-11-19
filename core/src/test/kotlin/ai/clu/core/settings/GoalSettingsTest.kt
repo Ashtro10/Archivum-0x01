@@ -24,4 +24,19 @@ class GoalSettingsTest {
         runBlocking { core.agent.respond(TurnRequest(conv, "and how are you now", Actor.ownerInApp())).toList() }
         assertTrue(m.params.drop(n).none { it.grammar != null }, "no planning call with rules")
     }
+
+    /** agent.planner: "stepwise" asks for kind, missing facts and one tool; "plan" asks for a whole plan. */
+    @Test fun planner() {
+        val core = newCore(); val conv = core.conversations.create().id
+        assertEquals("stepwise", core.settings.string(Settings.PLANNER))
+        val m = ScriptedEngine(grammar = true).reply("""{"kind":"chat","goal":"hi","lookup":[],"tool":"none"}""", "Hello.")
+        core.useEngine(m)
+        runBlocking { core.agent.respond(TurnRequest(conv, "good evening", Actor.ownerInApp())).toList() }
+        assertTrue("\\\"lookup\\\":" in m.params.first().grammar!!, "stepwise grammar")
+        core.settings.set(Settings.PLANNER, "plan")
+        val n = ScriptedEngine(grammar = true).reply("""{"kind":"chat","goal":"hi","steps":[]}""", "Hello.")
+        core.useEngine(n)
+        runBlocking { core.agent.respond(TurnRequest(conv, "good evening again", Actor.ownerInApp())).toList() }
+        assertTrue("extractstep" in n.params.first().grammar!!, "whole-plan grammar")
+    }
 }

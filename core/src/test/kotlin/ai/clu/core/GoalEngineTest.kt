@@ -39,7 +39,8 @@ class GoalEngineTest {
             return if (searchFails) ToolResult.fail("the search service could not be reached") else ToolResult.ok(page, spoken = null, usedNetwork = true) }
     }
 
-    init { core.toolRegistry.register(FixtureSearch()) }
+    // These tests exercise the whole-plan planner; StepwiseGoalTest covers the stepwise one (the default).
+    init { core.toolRegistry.register(FixtureSearch()); core.settings.set(ai.clu.core.config.Settings.PLANNER, "plan") }
 
     private fun model(vararg replies: String) = ScriptedEngine(grammar = true).reply(*replies).also { core.useEngine(it) }
     private fun say(text: String) = runBlocking { core.agent.respond(TurnRequest(conv, text, owner)).toList() }

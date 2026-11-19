@@ -446,7 +446,9 @@ object AnswerStyle {
 
     private val INTERNAL = listOf(Regex("(?s)\\[Context].*?(\\[/Context]|$)"), Regex("\\[(?:Tool result|Information found|Web search results|Task)[^\\]]*]"), Regex("\\[/(?:Context|Task|Tool result|Information found)]"), // a lone closing marker the model echoed
         Regex("(?i)\\b(?:SEARCHED|OFFLINE):\\s*"), Regex("(?:BEGIN|END) WEB RESULTS"), Regex("(?im)^\\s*\\[(?:Question|Answer)[^\\]]*]\\s*(?:Answer:\\s*)?"),
-        Regex("(?<!\\S)\\[[A-Z][a-z]{2,15}](?![(\\[])\\s*")) // a made-up section heading ("[Response]", "[Citations]"), not a link
+        Regex("(?<!\\S)\\[[A-Z][a-z]{2,15}](?![(\\[])\\s*"), // a made-up section heading ("[Response]", "[Citations]"), not a link
+        // A tool call the model wrote in the wrong syntax ("[tool]date.calc {…}[/tool"): never part of an answer (measured with a 0.6B model).
+        Regex("(?is)\\[/?tool\\b.*?(?:\\[/tool]?|$)"), Regex("(?is)</?tool>.*?(?:</tool>|$)"))
 
     /** The reply without the app's internal block markers ("[Tool result: …]", "[Context]…") a model may echo. */
     fun withoutInternalMarkup(text: String): String = INTERNAL.fold(text) { t, re -> re.replace(t, "") }.trim()
